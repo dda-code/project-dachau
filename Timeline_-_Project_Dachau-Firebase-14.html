@@ -3815,7 +3815,7 @@
   --font:'Segoe UI',system-ui,sans-serif;
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;margin:0;padding:0;}#app-root{display:contents;}
-#topbar{display:flex;align-items:center;justify-content:flex-start;padding:0 14px;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#topbar{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;padding:6px 14px;height:auto;min-height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:6px;row-gap:5px;width:100%;box-sizing:border-box;overflow:visible;}
 #topbar h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap}
 .badge{background:var(--accent);color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--font)}
@@ -3832,7 +3832,7 @@ body.link-mode .bar{cursor:crosshair !important}
 .bar.link-cand{outline:2px dashed #4f6ef7;outline-offset:1px}
 #link-hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1a1d2e;color:#e8eaf6;font-size:12px;padding:8px 18px;border-radius:20px;z-index:500;box-shadow:0 4px 16px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
 #link-hint.show{opacity:1}
-.btn-group{display:flex;gap:6px;flex-shrink:0;align-items:center}
+.btn-group{display:flex;gap:5px;row-gap:4px;flex-shrink:0;align-items:center;flex-wrap:wrap;}
 .sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
 #zoom-bar{display:flex;align-items:center;gap:7px;flex-shrink:0}
 .zbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;transition:all .15s;flex-shrink:0;font-family:var(--font);line-height:1}
@@ -4065,29 +4065,11 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   #zoom-slider::-webkit-slider-thumb { width: 22px; height: 22px; }
 }
 
-/* ── Tablets & große Phones im Querformat (≤ 1024px) ── */
+/* ── Tablets ≤ 1024px ── */
 @media (max-width: 1024px) {
   :root { --left-w: 200px; }
-
-  #topbar {
-    flex-wrap: wrap;
-    height: auto;
-    padding: 6px 10px;
-    gap: 6px;
-    row-gap: 6px;
-  }
-  #topbar h1 {
-    font-size: 13px;
-    flex-shrink: 1;
-    min-width: 0;
-  }
+  #topbar h1 { font-size: 13px; flex-shrink: 1; min-width: 0; }
   .badge { display: none; }
-  #zoom-bar { order: 3; }
-  .btn-group {
-    order: 4;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
   #zoom-slider { width: 70px; }
 }
 
@@ -4108,25 +4090,13 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
     overflow: hidden;
   }
 
-  /* Topbar kompakt, horizontal scrollbar als Fallback */
+  /* Topbar wraps auf kleinen Screens */
   #topbar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    height: auto;
-    min-height: 50px;
-    padding: 6px 8px;
-    gap: 5px;
-    align-items: center;
+    padding: 5px 8px;
+    gap: 4px;
+    row-gap: 4px;
   }
-  #topbar::-webkit-scrollbar { display: none; }
-
-  #topbar h1 {
-    font-size: 12px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
+  #topbar h1 { font-size: 12px; flex-shrink: 0; }
   .badge { display: none; }
 
   #zoom-bar { flex-shrink: 0; gap: 4px; }
@@ -4262,34 +4232,23 @@ html {
   /* wird per JS dynamisch gesetzt */
   zoom: 1;
 }
-/* Verhindere dass der Topbar-Inhalt überläuft ohne Scroll */
-#topbar {
-  min-width: max-content;
-}
+/* Topbar wraps automatisch – kein min-width nötig */
 
-/* ── iPad / großes Tablet: Topbar einzeilig scrollbar ── */
+/* ── iPad / großes Tablet: Topbar wraps, Touch-Größen ── */
 @media (max-width: 1366px) and (pointer: coarse) {
   #topbar {
-    flex-wrap: nowrap !important;
+    flex-wrap: wrap !important;
     height: auto !important;
     min-height: 50px !important;
     padding: 6px 10px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
+    overflow: visible !important;
+    gap: 5px !important;
+    row-gap: 5px !important;
   }
-  #topbar h1 { flex-shrink: 0; }
-  #topbar .btn-group { flex-shrink: 0; flex-wrap: nowrap; gap: 5px; }
-  #topbar #zoom-bar  { flex-shrink: 0; }
-  #topbar .sep       { flex-shrink: 0; }
-  .badge             { display: none; }
-  /* Alle Buttons etwas größer für Touch */
-  #topbar .btn { 
-    padding: 7px 11px; 
-    font-size: 12px;
-    min-height: 36px;
-  }
-  #topbar .zbtn { width: 32px; height: 32px; }
+  #topbar .btn-group { flex-wrap: wrap !important; }
+  .badge { display: none; }
+  #topbar .btn { padding: 6px 10px !important; font-size: 12px !important; min-height: 34px !important; }
+  #topbar .zbtn { width: 32px !important; height: 32px !important; }
 }
 
 /* ── 45°-Beschriftungen im Aufgaben-Header ── */
