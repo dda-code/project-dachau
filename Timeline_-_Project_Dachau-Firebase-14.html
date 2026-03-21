@@ -3815,8 +3815,8 @@
   --font:'Segoe UI',system-ui,sans-serif;
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;margin:0;padding:0;}#app-root{display:contents;}
-#topbar{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;padding:6px 14px;height:auto;min-height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:6px;row-gap:5px;width:100%;box-sizing:border-box;overflow:visible;}
-#topbar h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap}
+#topbar{display:flex;flex-direction:column;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;width:100%;box-sizing:border-box;overflow:visible;padding:0;}#topbar-row1{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;gap:10px;width:100%;box-sizing:border-box;min-height:40px;flex-wrap:wrap;}#topbar-row1 h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap;flex-shrink:1;min-width:0;}#topbar-row2{display:flex;align-items:center;flex-wrap:wrap;padding:4px 14px 6px;gap:5px;row-gap:4px;width:100%;box-sizing:border-box;border-top:1px solid var(--border);}
+/* #topbar h1 — jetzt in #topbar-row1 h1 */
 .badge{background:var(--accent);color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--font)}
 .btn:hover{background:var(--surface2);border-color:var(--accent)}
@@ -3832,7 +3832,7 @@ body.link-mode .bar{cursor:crosshair !important}
 .bar.link-cand{outline:2px dashed #4f6ef7;outline-offset:1px}
 #link-hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1a1d2e;color:#e8eaf6;font-size:12px;padding:8px 18px;border-radius:20px;z-index:500;box-shadow:0 4px 16px rgba(0,0,0,.25);pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
 #link-hint.show{opacity:1}
-.btn-group{display:flex;gap:5px;row-gap:4px;flex-shrink:0;align-items:center;flex-wrap:wrap;}
+.btn-group{display:flex;gap:5px;row-gap:4px;flex-shrink:0;align-items:center;flex-wrap:wrap;width:100%;}
 .sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
 #zoom-bar{display:flex;align-items:center;gap:7px;flex-shrink:0}
 .zbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;transition:all .15s;flex-shrink:0;font-family:var(--font);line-height:1}
@@ -4068,7 +4068,6 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
 /* ── Tablets ≤ 1024px ── */
 @media (max-width: 1024px) {
   :root { --left-w: 200px; }
-  #topbar h1 { font-size: 13px; flex-shrink: 1; min-width: 0; }
   .badge { display: none; }
   #zoom-slider { width: 70px; }
 }
@@ -4090,13 +4089,10 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
     overflow: hidden;
   }
 
-  /* Topbar wraps auf kleinen Screens */
-  #topbar {
-    padding: 5px 8px;
-    gap: 4px;
-    row-gap: 4px;
-  }
-  #topbar h1 { font-size: 12px; flex-shrink: 0; }
+  /* Topbar auf kleinen Screens */
+  #topbar-row1 { padding: 4px 8px; }
+  #topbar-row2 { padding: 3px 8px 5px; gap: 4px; }
+  #topbar-row1 h1 { font-size: 12px; }
   .badge { display: none; }
 
   #zoom-bar { flex-shrink: 0; gap: 4px; }
@@ -4234,21 +4230,11 @@ html {
 }
 /* Topbar wraps automatisch – kein min-width nötig */
 
-/* ── iPad / großes Tablet: Topbar wraps, Touch-Größen ── */
-@media (max-width: 1366px) and (pointer: coarse) {
-  #topbar {
-    flex-wrap: wrap !important;
-    height: auto !important;
-    min-height: 50px !important;
-    padding: 6px 10px !important;
-    overflow: visible !important;
-    gap: 5px !important;
-    row-gap: 5px !important;
-  }
-  #topbar .btn-group { flex-wrap: wrap !important; }
+/* ── iPad / Touch-Geräte ── */
+@media (pointer: coarse) {
   .badge { display: none; }
-  #topbar .btn { padding: 6px 10px !important; font-size: 12px !important; min-height: 34px !important; }
-  #topbar .zbtn { width: 32px !important; height: 32px !important; }
+  #topbar-row2 .btn { padding: 6px 10px; min-height: 34px; }
+  #topbar .zbtn { width: 32px; height: 32px; }
 }
 
 /* ── 45°-Beschriftungen im Aufgaben-Header ── */
@@ -4324,18 +4310,21 @@ html {
 </div>
 
 <div id="topbar">
-  <h1>
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="14" x2="21" y2="14"></line><line x1="8" y1="4" x2="8" y2="22"></line></svg><font _mstmutation="1">
-    Projekt Dachau
-    </font><span class="badge" id="badge">8 Aufgaben · 4 Unteraufgaben · 🏖 7 Urlaube · 📅 1 Meeting</span>
-  </h1>
-  <div id="zoom-bar">
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-    <button class="zbtn" onclick="adjZ(-1)">−</button>
-    <input type="range" id="zoom-slider" min="1" max="7" step="1" value="5" oninput="setZ(+this.value)">
-    <button class="zbtn" onclick="adjZ(+1)">+</button>
-    <span id="zoom-label">Tag</span>
+  <div id="topbar-row1">
+    <h1>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="14" x2="21" y2="14"></line><line x1="8" y1="4" x2="8" y2="22"></line></svg><font _mstmutation="1">
+      Projekt Dachau
+      </font><span class="badge" id="badge">8 Aufgaben · 4 Unteraufgaben · 🏖 7 Urlaube · 📅 1 Meeting</span>
+    </h1>
+    <div id="zoom-bar">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <button class="zbtn" onclick="adjZ(-1)">−</button>
+      <input type="range" id="zoom-slider" min="1" max="7" step="1" value="5" oninput="setZ(+this.value)">
+      <button class="zbtn" onclick="adjZ(+1)">+</button>
+      <span id="zoom-label">Tag</span>
+    </div>
   </div>
+  <div id="topbar-row2">
   <div class="btn-group">
     <button class="btn" onclick="scrollMonths(-1)" title="Einen Monat zurück">◀ Monat</button>
     <button class="btn" onclick="scrollToToday()" title="Zum heutigen Datum springen">Heute</button>
@@ -4346,20 +4335,9 @@ html {
     <button class="btn" onclick="openAddMeeting()" style="background:#ede9fe;border-color:#8b5cf6;color:#4c1d95">📅 + Meeting</button>
     <div class="sep"></div>
     <button class="btn" id="btn-toggle-all" onclick="toggleAllVisibility()" title="Alle Aufgaben ein- oder ausblenden">👁 Filter</button>
+
     <div class="sep"></div>
-    <button class="btn" id="btn-link" onclick="toggleLinkMode()" title="Aufgaben verknüpfen: Erst auf Vorgänger klicken, dann auf Nachfolger">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><font _mstmutation="1">
-      Verknüpfen
-    </font></button>
-    <div class="sep"></div>
-    <button class="btn" onclick="exportCSV()">CSV</button>
-    <button class="btn" onclick="resetData()" title="Alle Daten zurücksetzen">↺ Reset</button>
     <button class="btn" onclick="window.print()">Drucken</button>
-    <button class="btn" id="btn-save-main" onclick="saveStateLocal()" title="Lokales HTML-Backup herunterladen">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-      Backup
-    </button>
-    <button id="btn-disconnect" class="btn" onclick="disconnectFile()" title="Verknüpfung aufheben" style="display: inline-flex; font-size: 11px; padding: 4px 8px; color: var(--text3);">✕</button>
     <span id="save-file-info" style="display: inline; font-size: 10px; color: var(--accent); font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; background: rgba(79, 110, 247, 0.1); border-radius: 4px;">Timeline_-_Project_Dachau.html</span>
     <span id="save-ind" style="font-size:11px;color:var(--text3);white-space:nowrap;display:flex;align-items:center;gap:4px">
       <span id="save-dot" style="width: 6px; height: 6px; border-radius: 50%; background: rgb(34, 197, 94); display: inline-block;"></span>
@@ -4371,6 +4349,7 @@ html {
     <span id="role-badge" class="admin">Admin</span>
     <button class="btn" id="btn-pw" onclick="openPW()" title="Passwörter ändern" style="">👥 Benutzer</button>
     <button class="btn" onclick="doLogout()" title="Abmelden" style="font-size:11px">Abmelden</button>
+  </div>
   </div>
 </div>
 <div id="wrap">
