@@ -3815,7 +3815,7 @@
   --font:'Segoe UI',system-ui,sans-serif;
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
-#topbar{display:flex;align-items:center;justify-content:space-between;padding:0 14px;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px}
+#topbar{display:flex;align-items:center;justify-content:flex-start;padding:0 14px;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 #topbar h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap}
 .badge{background:var(--accent);color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
 .btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--font)}
@@ -3994,6 +3994,7 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .ibox{background:rgba(79,110,247,.1);border:1px solid rgba(79,110,247,.3);border-radius:var(--radius);padding:8px 10px;font-size:12px;color:var(--text2);display:flex;gap:7px}
 .wbox{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);padding:8px 10px;font-size:12px;color:#fca5a5;display:flex;gap:7px}
 ::-webkit-scrollbar{width:5px;height:5px}
+#topbar::-webkit-scrollbar{display:none}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#c8cce0;border-radius:3px}
 @media print{#topbar .btn-group,#zoom-bar,#mbg{display:none!important}body{background:#fff;color:#111;height:auto;overflow:visible}#wrap{overflow:visible}#right,#tlist{overflow:visible}}
@@ -4250,6 +4251,31 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
     --we:#1f223a;
     --logo-filter: invert(1) brightness(2);
   }
+}
+
+/* ── iPad / großes Tablet: Topbar einzeilig scrollbar ── */
+@media (max-width: 1366px) and (pointer: coarse) {
+  #topbar {
+    flex-wrap: nowrap !important;
+    height: auto !important;
+    min-height: 50px !important;
+    padding: 6px 10px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  #topbar h1 { flex-shrink: 0; }
+  #topbar .btn-group { flex-shrink: 0; flex-wrap: nowrap; gap: 5px; }
+  #topbar #zoom-bar  { flex-shrink: 0; }
+  #topbar .sep       { flex-shrink: 0; }
+  .badge             { display: none; }
+  /* Alle Buttons etwas größer für Touch */
+  #topbar .btn { 
+    padding: 7px 11px; 
+    font-size: 12px;
+    min-height: 36px;
+  }
+  #topbar .zbtn { width: 32px; height: 32px; }
 }
 
 /* ── 45°-Beschriftungen im Aufgaben-Header ── */
