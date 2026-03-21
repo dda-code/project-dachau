@@ -3814,7 +3814,7 @@
   --row-h:44px;--left-w:240px;--hdr:42px;--sub:24px;--day:22px;--radius:6px;
   --font:'Segoe UI',system-ui,sans-serif;
 }
-body{font-family:var(--font);background:var(--bg);color:var(--text);margin:0;padding:0;overflow:hidden;width:100vw;height:100vh;}#app-root{display:flex;flex-direction:column;background:var(--bg);color:var(--text);transform-origin:top left;position:absolute;top:0;left:0;overflow:hidden;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;margin:0;padding:0;}#app-root{display:contents;}
 #topbar{display:flex;align-items:center;justify-content:flex-start;padding:0 14px;height:50px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 #topbar h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap}
 .badge{background:var(--accent);color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
@@ -4253,6 +4253,19 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   }
 }
 
+
+/* ════════════════════════════════════════════════════════
+   RESPONSIVE ZOOM — skaliert die gesamte App automatisch
+   Basis-Design: 1400px Breite
+   ════════════════════════════════════════════════════════ */
+html {
+  /* wird per JS dynamisch gesetzt */
+  zoom: 1;
+}
+/* Verhindere dass der Topbar-Inhalt überläuft ohne Scroll */
+#topbar {
+  min-width: max-content;
+}
 
 /* ── iPad / großes Tablet: Topbar einzeilig scrollbar ── */
 @media (max-width: 1366px) and (pointer: coarse) {
@@ -6822,61 +6835,46 @@ if(_loaded)markSaved(); else markUnsaved();
     </div>
   </div>
 </div>
+
 <script>
-// ════════════════════════════════════════════════════════════════════════════
-// VOLLSTÄNDIGE VIEWPORT-SKALIERUNG
-// Skaliert die gesamte App auf jede Bildschirmgröße/Auflösung
-// Design-Basisbreite: 1400px, Basishöhe: 900px
-// ════════════════════════════════════════════════════════════════════════════
-(function(){
+/* ════════════════════════════════════════════════════════════════════════════
+   AUTO-ZOOM: Skaliert die gesamte Seite proportional auf jeden Viewport.
+   Nutzt CSS zoom (iOS Safari-kompatibel, kein transform-Bug mit fixed-Elementen).
+   Design-Basisbreite: 1400px
+   ════════════════════════════════════════════════════════════════════════════ */
+(function () {
   var DESIGN_W = 1400;
-  var DESIGN_H = 900;
 
-  function applyScale(){
-    var root = document.getElementById('app-root');
-    if(!root) return;
+  function applyZoom() {
+    var vw = window.innerWidth
+          || document.documentElement.clientWidth
+          || screen.width;
 
-    var vw = window.innerWidth  || document.documentElement.clientWidth;
-    var vh = window.innerHeight || document.documentElement.clientHeight;
+    var zoom = vw / DESIGN_W;
 
-    // Skalierung so berechnen dass ALLES in den Viewport passt
-    var scaleX = vw / DESIGN_W;
-    var scaleY = vh / DESIGN_H;
-    var scale  = Math.min(scaleX, scaleY);
+    // Nie über 1 (kein Upscaling auf Riesenmonitoren)
+    if (zoom > 1) zoom = 1;
 
-    // Nie größer als 1 (kein Upscaling auf Riesenmonitoren) – optional entfernen
-    // scale = Math.min(scale, 1);
+    // CSS zoom auf das HTML-Element anwenden — skaliert ALLES inkl. fixed/absolute
+    document.documentElement.style.zoom = zoom;
 
-    root.style.width  = DESIGN_W + 'px';
-    root.style.height = DESIGN_H + 'px';
-    root.style.transform = 'scale(' + scale + ')';
-
-    // Zentrieren wenn nötig
-    var scaledW = DESIGN_W * scale;
-    var scaledH = DESIGN_H * scale;
-    root.style.left = Math.max(0, (vw - scaledW) / 2) + 'px';
-    root.style.top  = '0px';
-
-    // Body-Hintergrund auch
-    document.body.style.background = getComputedStyle(root).getPropertyValue('--bg') || '#f5f6fa';
+    // body height anpassen damit kein Weißraum entsteht
+    document.body.style.height = (100 / zoom) + 'vh';
   }
 
-  // Sofort ausführen
-  applyScale();
+  // Sofort beim Laden
+  applyZoom();
 
-  // Bei Laden
-  window.addEventListener('load', applyScale);
+  // Bei Fenstergrößenänderung
+  window.addEventListener('resize', applyZoom);
 
-  // Bei Resize und Orientierungswechsel
-  window.addEventListener('resize', applyScale);
-  window.addEventListener('orientationchange', function(){
-    setTimeout(applyScale, 150);
+  // Bei Orientierungswechsel (iPad/iPhone)
+  window.addEventListener('orientationchange', function () {
+    setTimeout(applyZoom, 200);
   });
 
-  // Auch nach DOMContentLoaded
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', applyScale);
-  }
+  // Nach vollständigem Laden (falls Scrollbreite sich ändert)
+  window.addEventListener('load', applyZoom);
 })();
 </script>
 </div></body></html>
