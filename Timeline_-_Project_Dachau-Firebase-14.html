@@ -4746,7 +4746,6 @@ function visibleRows(){
   function addChildren(parentId,depth){
     tasks.forEach(function(t){
       if(t.parentId!==parentId)return;
-      if(t.hidden)return;
       rows.push({task:t,depth:depth});
       if(!collapsed[t.id])addChildren(t.id,depth+1);
     });
