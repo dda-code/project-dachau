@@ -404,7 +404,7 @@ body.link-mode .bar{cursor:crosshair !important}
 #col-resize:hover,#col-resize.dragging{background:var(--accent)}
 #col-resize::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:1px;height:32px;background:inherit;border-radius:1px}
 #ltop{border-bottom:1px solid var(--border);display:flex;align-items:flex-end;padding:0 12px 7px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;flex-shrink:0;position:relative;overflow:visible}
-#tlist{flex:1;overflow-y:hidden;overflow-x:hidden}
+#tlist{flex:1;overflow-y:auto;overflow-x:hidden}
 .tleft.urlaub-row{background:rgba(251,191,36,.07)}
 .tleft.urlaub-row:hover{background:rgba(251,191,36,.15)}
 .tleft.urlaub-group-row{background:rgba(251,191,36,.12);font-weight:700;border-top:2px solid rgba(245,158,11,.35)}
@@ -2207,16 +2207,34 @@ document.getElementById('right').addEventListener('wheel',function(e){
   this.scrollLeft+=e.deltaY*2;
 },{passive:false});
 
-// ── SCROLL SYNC ──────────────────────────────────────────
-document.getElementById('right').addEventListener('scroll',function(){document.getElementById('tlist').scrollTop=this.scrollTop;});
+// ── SCROLL SYNC (bidirectional, guard against loops) ─────
+(function(){
+  var right=document.getElementById('right');
+  var tlist=document.getElementById('tlist');
+  var _syncing=false;
+  right.addEventListener('scroll',function(){
+    if(_syncing)return;
+    _syncing=true;
+    tlist.scrollTop=right.scrollTop;
+    _syncing=false;
+  });
+  tlist.addEventListener('scroll',function(){
+    if(_syncing)return;
+    _syncing=true;
+    right.scrollTop=tlist.scrollTop;
+    _syncing=false;
+  });
+})();
 
-// Mausrad über linker Spalte → an #right weiterleiten
+// Mausrad über linker Spalte → #tlist direkt scrollen + #right synchronisieren
 (function(){
   var right=document.getElementById('right');
   var left=document.getElementById('left');
+  var tlist=document.getElementById('tlist');
   left.addEventListener('wheel',function(e){
     e.preventDefault();
-    right.scrollTop+=e.deltaY;
+    tlist.scrollTop+=e.deltaY;
+    right.scrollTop=tlist.scrollTop;
     right.scrollLeft+=e.deltaX;
   },{passive:false});
   var touchStartY=0;
@@ -2224,7 +2242,8 @@ document.getElementById('right').addEventListener('scroll',function(){document.g
   left.addEventListener('touchmove',function(e){
     var dy=touchStartY-e.touches[0].clientY;
     touchStartY=e.touches[0].clientY;
-    right.scrollTop+=dy;
+    tlist.scrollTop+=dy;
+    right.scrollTop=tlist.scrollTop;
     e.preventDefault();
   },{passive:false});
 })();
@@ -3009,6 +3028,7 @@ function doLogin(){
     applyRole();
     document.getElementById('login-overlay').style.display='none';
     document.getElementById('wrap').style.visibility='visible';
+    setTimeout(scrollToToday,80);
     document.getElementById('login-pw').value='';
     document.getElementById('login-name').value='';
   } else {
