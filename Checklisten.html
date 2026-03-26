@@ -513,6 +513,20 @@ select.status-select.erledigt {
   to { opacity: 1; transform: translateY(0); }
 }
 .checklist-wrapper { animation: fadeIn .3s ease; }
+/* ── Column Resize ── */
+.cl-table { table-layout: fixed; }
+.cl-table thead th { position: sticky; top: 0; z-index: 2; overflow: hidden; }
+.col-resizer {
+  position: absolute; right: -3px; top: 0; bottom: 0; width: 7px;
+  cursor: col-resize; z-index: 5; user-select: none;
+}
+.col-resizer::after {
+  content: ''; position: absolute; right: 3px; top: 25%; bottom: 25%; width: 1px;
+  background: transparent; transition: background .15s;
+}
+.col-resizer:hover::after, .col-resizer.active::after { background: var(--accent); width: 2px; right: 2px; top: 10%; bottom: 10%; }
+@media print { .col-resizer { display: none !important; } }
+
 /* ── Drag & Drop ── */
 .drag-handle{cursor:grab;color:var(--text3);font-size:16px;user-select:none;text-align:center;padding:0 2px;transition:color .15s;border-right-color:transparent !important}
 .drag-handle:hover{color:var(--accent)}
@@ -799,8 +813,8 @@ function renderChecklist() {
     const topicCls = isOverdue ? ' overdue' : '';
     const endterminCls = (r.endtermin && r.endtermin < today && statusCls !== 'erledigt') ? ' overdue-date' : '';
     const fertigCls = (r.fertigstellung && r.fertigstellung < today && statusCls !== 'erledigt') ? ' overdue-date' : '';
-    rowsHTML += `<tr draggable="true" data-idx="${i}" ondragstart="onDragStart(event,${i})" ondragend="onDragEnd(event)" ondragover="onDragOver(event,${i})" ondragleave="onDragLeave(event)" ondrop="onDrop(event,${i})">
-      <td class="center drag-handle" title="Verschieben">☰</td>
+    rowsHTML += `<tr draggable="false" data-idx="${i}" ondragstart="onDragStart(event,${i})" ondragend="onDragEnd(event)" ondragover="onDragOver(event,${i})" ondragleave="onDragLeave(event)" ondrop="onDrop(event,${i})">
+      <td class="center drag-handle" title="Verschieben" onmousedown="this.closest('tr').draggable=true" onmouseup="this.closest('tr').draggable=false">☰</td>
       <td class="center"><span class="row-num">${i+1}</span></td>
       <td><input type="text" value="${esc(r.prio||'')}" onchange="updateRow(${i},'prio',this.value)" placeholder="–"></td>
       <td><input type="date" value="${esc(r.datum||'')}" onchange="updateRow(${i},'datum',this.value)"></td>
@@ -955,9 +969,6 @@ function esc(s) {
 let _dragIdx = null;
 
 function onDragStart(e, idx) {
-  // Only allow drag from the handle cell
-  const handle = e.target.closest('.drag-handle');
-  if (!handle) { e.preventDefault(); return; }
   _dragIdx = idx;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', idx);
@@ -969,6 +980,8 @@ function onDragStart(e, idx) {
 
 function onDragEnd(e) {
   _dragIdx = null;
+  const row = e.target.closest('tr');
+  if (row) row.draggable = false;
   document.querySelectorAll('.cl-table tr').forEach(r => {
     r.classList.remove('dragging', 'drag-over-above', 'drag-over-below');
   });
@@ -1107,6 +1120,59 @@ window.addEventListener('storage', function(e) {
   if (e.key === 'technology_task_names') loadTaskNames();
 });
 
+// ── Column Resize ──
+function initColumnResizers() {
+  const table = document.querySelector('.cl-table');
+  if (!table) return;
+  const ths = table.querySelectorAll('thead th');
+  // Remove old resizers
+  table.querySelectorAll('.col-resizer').forEach(r => r.remove());
+
+  ths.forEach((th, idx) => {
+    // Skip last column (delete button) and drag-handle column
+    if (idx === ths.length - 1) return;
+    if (th.classList.contains('drag-col')) return;
+
+    const resizer = document.createElement('div');
+    resizer.className = 'col-resizer';
+    th.style.position = 'sticky'; // keep sticky but also act as offset parent
+    th.appendChild(resizer);
+
+    let startX, startW;
+
+    function onMouseDown(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      startX = e.clientX;
+      startW = th.offsetWidth;
+      resizer.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    function onMouseMove(e) {
+      const diff = e.clientX - startX;
+      const newW = Math.max(40, startW + diff);
+      th.style.width = newW + 'px';
+      th.style.minWidth = newW + 'px';
+    }
+
+    function onMouseUp() {
+      resizer.classList.remove('active');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      // Trigger textarea auto-resize after column change
+      requestAnimationFrame(autoResizeAll);
+    }
+
+    resizer.addEventListener('mousedown', onMouseDown);
+  });
+}
+
 // ── Auto-resize textareas to show all content ──
 function autoResizeTextarea(el) {
   el.style.height = 'auto';
@@ -1121,7 +1187,10 @@ function autoResizeAll() {
 const _origRender = renderChecklist;
 renderChecklist = function() {
   _origRender();
-  requestAnimationFrame(autoResizeAll);
+  requestAnimationFrame(() => {
+    autoResizeAll();
+    initColumnResizers();
+  });
 };
 
 // Also resize on any textarea input
@@ -1131,8 +1200,11 @@ document.addEventListener('input', function(e) {
   }
 });
 
-// Initial auto-resize
-requestAnimationFrame(autoResizeAll);
+// Initial auto-resize + column resizers
+requestAnimationFrame(() => {
+  autoResizeAll();
+  initColumnResizers();
+});
 
 // ── Ctrl+Enter → insert today's date (DD-MM-YYYY) ──
 document.addEventListener('keydown', function(e) {
