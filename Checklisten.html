@@ -1120,13 +1120,45 @@ window.addEventListener('storage', function(e) {
   if (e.key === 'technology_task_names') loadTaskNames();
 });
 
-// ── Column Resize ──
+// ── Column Resize (mit Speicherung) ──
+const COL_WIDTHS_KEY = 'checklist_col_widths';
+
+function saveColumnWidths() {
+  const table = document.querySelector('.cl-table');
+  if (!table) return;
+  const ths = table.querySelectorAll('thead th');
+  const widths = {};
+  ths.forEach((th, idx) => {
+    if (th.style.width) widths[idx] = parseInt(th.style.width, 10);
+  });
+  try { localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(widths)); } catch(e) {}
+}
+
+function loadColumnWidths() {
+  try {
+    const raw = localStorage.getItem(COL_WIDTHS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
 function initColumnResizers() {
   const table = document.querySelector('.cl-table');
   if (!table) return;
   const ths = table.querySelectorAll('thead th');
   // Remove old resizers
   table.querySelectorAll('.col-resizer').forEach(r => r.remove());
+
+  // Gespeicherte Spaltenbreiten wiederherstellen
+  const saved = loadColumnWidths();
+  if (saved) {
+    ths.forEach((th, idx) => {
+      if (saved[idx]) {
+        th.style.width = saved[idx] + 'px';
+        th.style.minWidth = saved[idx] + 'px';
+      }
+    });
+  }
 
   ths.forEach((th, idx) => {
     // Skip last column (delete button) and drag-handle column
@@ -1165,6 +1197,8 @@ function initColumnResizers() {
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      // Spaltenbreiten speichern
+      saveColumnWidths();
       // Trigger textarea auto-resize after column change
       requestAnimationFrame(autoResizeAll);
     }
