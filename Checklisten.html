@@ -599,6 +599,7 @@ tr.drag-over-below{box-shadow:inset 0 -3px 0 0 var(--accent)}
     <div class="legend-item"><div class="legend-dot offen"></div><span><b>offen</b> = noch nicht erledigt bzw. ohne Fertigstellungstermin</span></div>
     <div class="legend-item"><div class="legend-dot terminiert"></div><span><b>terminiert</b> = Fertigstellungstermin festgelegt</span></div>
     <div class="legend-item"><div class="legend-dot erledigt"></div><span><b>erledigt</b> = abgeschlossen</span></div>
+    <div class="legend-item" style="margin-left:auto;color:var(--text3)"><span>⌨ <b>Strg+Enter</b> = heutiges Datum einfügen</span></div>
   </div>
 
   <!-- Active Checklist Area -->
@@ -1132,6 +1133,32 @@ document.addEventListener('input', function(e) {
 
 // Initial auto-resize
 requestAnimationFrame(autoResizeAll);
+
+// ── Ctrl+Enter → insert today's date (DD-MM-YYYY) ──
+document.addEventListener('keydown', function(e) {
+  if (!e.ctrlKey || e.key !== 'Enter') return;
+  const el = e.target;
+  if (!el.closest('.cl-table')) return;
+  const tag = el.tagName;
+  if (tag !== 'TEXTAREA' && !(tag === 'INPUT' && el.type === 'text')) return;
+
+  e.preventDefault();
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yyyy = now.getFullYear();
+  const stamp = dd + '-' + mm + '-' + yyyy;
+
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const val = el.value;
+  el.value = val.substring(0, start) + stamp + val.substring(end);
+  el.selectionStart = el.selectionEnd = start + stamp.length;
+
+  // Trigger change so the data saves
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  if (tag === 'TEXTAREA') autoResizeTextarea(el);
+});
 </script>
 </body>
 </html>
