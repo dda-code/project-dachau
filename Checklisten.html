@@ -236,6 +236,7 @@ body {
   letter-spacing: 0.4px;
   color: var(--text2);
   border-bottom: 2px solid var(--border);
+  border-right: 1px solid var(--border);
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
@@ -243,6 +244,8 @@ body {
   top: 0;
   z-index: 2;
 }
+.cl-table thead th:last-child { border-right: none; }
+.cl-table thead th.drag-col { border-right: none; }
 
 .cl-table thead th.center { text-align: center; }
 
@@ -256,6 +259,7 @@ body {
 .cl-table tbody td {
   padding: 10px 10px;
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--surface2);
   vertical-align: top;
   color: var(--text);
   white-space: normal;
@@ -265,6 +269,11 @@ body {
   text-overflow: clip;
   line-height: 1.45;
 }
+.cl-table tbody td:last-child { border-right: none; }
+
+/* ── Overdue highlighting ── */
+.overdue input, .overdue textarea { color: var(--red) !important; font-weight: 600; }
+td.overdue-date input[type="date"] { color: var(--red) !important; font-weight: 700; }
 
 .cl-table tbody td.center { text-align: center; }
 
@@ -504,6 +513,15 @@ select.status-select.erledigt {
   to { opacity: 1; transform: translateY(0); }
 }
 .checklist-wrapper { animation: fadeIn .3s ease; }
+/* ── Drag & Drop ── */
+.drag-handle{cursor:grab;color:var(--text3);font-size:16px;user-select:none;text-align:center;padding:0 2px;transition:color .15s;border-right-color:transparent !important}
+.drag-handle:hover{color:var(--accent)}
+.drag-handle:active{cursor:grabbing}
+tr.dragging{opacity:.35;background:var(--surface2) !important}
+tr.drag-over-above{box-shadow:inset 0 3px 0 0 var(--accent)}
+tr.drag-over-below{box-shadow:inset 0 -3px 0 0 var(--accent)}
+@media print{.drag-handle{display:none !important} th.drag-col{display:none !important}}
+
 /* ── Auth Gate ── */
 #auth-lock{position:fixed;inset:0;background:linear-gradient(135deg,#1a1d2e 0%,#2d3150 100%);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
 #auth-lock-box{background:#fff;border-radius:16px;padding:40px 44px;width:380px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.5);text-align:center}
@@ -774,13 +792,19 @@ function renderChecklist() {
   let rowsHTML = '';
   cl.rows.forEach((r, i) => {
     const statusCls = r.status || 'offen';
-    rowsHTML += `<tr>
+    // Check overdue: endtermin or fertigstellung in the past and status != erledigt
+    const today = new Date().toISOString().split('T')[0];
+    const isOverdue = statusCls !== 'erledigt' && r.endtermin && r.endtermin < today;
+    const topicCls = isOverdue ? ' overdue' : '';
+    const endterminCls = (r.endtermin && r.endtermin < today && statusCls !== 'erledigt') ? ' overdue-date' : '';
+    const fertigCls = (r.fertigstellung && r.fertigstellung < today && statusCls !== 'erledigt') ? ' overdue-date' : '';
+    rowsHTML += `<tr draggable="true" data-idx="${i}" ondragstart="onDragStart(event,${i})" ondragend="onDragEnd(event)" ondragover="onDragOver(event,${i})" ondragleave="onDragLeave(event)" ondrop="onDrop(event,${i})">
+      <td class="center drag-handle" title="Verschieben">☰</td>
       <td class="center"><span class="row-num">${i+1}</span></td>
       <td><input type="text" value="${esc(r.prio||'')}" onchange="updateRow(${i},'prio',this.value)" placeholder="–"></td>
       <td><input type="date" value="${esc(r.datum||'')}" onchange="updateRow(${i},'datum',this.value)"></td>
-      <td><textarea onchange="updateRow(${i},'topic',this.value)" placeholder="Thema…">${esc(r.topic||'')}</textarea></td>
+      <td class="${topicCls}"><textarea onchange="updateRow(${i},'topic',this.value)" placeholder="Thema…">${esc(r.topic||'')}</textarea></td>
       <td><textarea onchange="updateRow(${i},'beschreibung',this.value)" placeholder="Beschreibung…">${esc(r.beschreibung||'')}</textarea></td>
-      <td><textarea onchange="updateRow(${i},'massnahme',this.value)" placeholder="Maßnahme…">${esc(r.massnahme||'')}</textarea></td>
       <td class="center">
         <select class="status-select ${statusCls}" onchange="updateRow(${i},'status',this.value);this.className='status-select '+this.value">
           <option value="offen" ${statusCls==='offen'?'selected':''}>offen</option>
@@ -790,8 +814,8 @@ function renderChecklist() {
       </td>
       <td><input type="text" value="${esc(r.verantw_intern||'')}" onchange="updateRow(${i},'verantw_intern',this.value)" placeholder="–"></td>
       <td><input type="text" value="${esc(r.verantw_extern||'')}" onchange="updateRow(${i},'verantw_extern',this.value)" placeholder="–"></td>
-      <td><input type="date" value="${esc(r.endtermin||'')}" onchange="updateRow(${i},'endtermin',this.value)"></td>
-      <td><input type="date" value="${esc(r.fertigstellung||'')}" onchange="updateRow(${i},'fertigstellung',this.value)"></td>
+      <td class="${endterminCls}"><input type="date" value="${esc(r.endtermin||'')}" onchange="updateRow(${i},'endtermin',this.value)"></td>
+      <td class="${fertigCls}"><input type="date" value="${esc(r.fertigstellung||'')}" onchange="updateRow(${i},'fertigstellung',this.value)"></td>
       <td class="center"><button class="delete-row-btn" onclick="deleteRow(${i})" title="Zeile löschen">🗑</button></td>
     </tr>`;
   });
@@ -815,12 +839,12 @@ function renderChecklist() {
       <table class="cl-table">
         <thead>
           <tr>
+            <th class="center drag-col" style="min-width:30px;width:30px"></th>
             <th class="center" style="min-width:50px">Pos.</th>
             <th style="min-width:65px">Prio</th>
             <th style="min-width:130px">Datum erstellt</th>
             <th style="min-width:170px">Topic</th>
             <th style="min-width:260px">Beschreibung</th>
-            <th style="min-width:200px">Maßnahme</th>
             <th class="center" style="min-width:120px">Status</th>
             <th style="min-width:140px">Verantw. intern</th>
             <th style="min-width:140px">Verantw. extern</th>
@@ -845,7 +869,6 @@ function addRow() {
     datum: today,
     topic: '',
     beschreibung: '',
-    massnahme: '',
     status: 'offen',
     verantw_intern: '',
     verantw_extern: '',
@@ -926,6 +949,152 @@ function esc(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── Drag & Drop ──
+let _dragIdx = null;
+
+function onDragStart(e, idx) {
+  // Only allow drag from the handle cell
+  const handle = e.target.closest('.drag-handle');
+  if (!handle) { e.preventDefault(); return; }
+  _dragIdx = idx;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', idx);
+  requestAnimationFrame(() => {
+    const row = e.target.closest('tr');
+    if (row) row.classList.add('dragging');
+  });
+}
+
+function onDragEnd(e) {
+  _dragIdx = null;
+  document.querySelectorAll('.cl-table tr').forEach(r => {
+    r.classList.remove('dragging', 'drag-over-above', 'drag-over-below');
+  });
+}
+
+function onDragOver(e, idx) {
+  if (_dragIdx === null || _dragIdx === idx) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.target.closest('tr');
+  if (!row) return;
+  document.querySelectorAll('.cl-table tr').forEach(r => {
+    if (r !== row) r.classList.remove('drag-over-above', 'drag-over-below');
+  });
+  const rect = row.getBoundingClientRect();
+  const mid = rect.top + rect.height / 2;
+  if (e.clientY < mid) {
+    row.classList.add('drag-over-above');
+    row.classList.remove('drag-over-below');
+  } else {
+    row.classList.add('drag-over-below');
+    row.classList.remove('drag-over-above');
+  }
+}
+
+function onDragLeave(e) {
+  const row = e.target.closest('tr');
+  if (row) {
+    const related = e.relatedTarget;
+    if (!related || !row.contains(related)) {
+      row.classList.remove('drag-over-above', 'drag-over-below');
+    }
+  }
+}
+
+function onDrop(e, targetIdx) {
+  e.preventDefault();
+  if (_dragIdx === null || !activeId) return;
+  const fromIdx = _dragIdx;
+  _dragIdx = null;
+  if (fromIdx === targetIdx) return;
+
+  const rows = checklists[activeId].rows;
+  if (fromIdx < 0 || fromIdx >= rows.length) return;
+
+  const row = e.target.closest('tr');
+  let insertIdx = targetIdx;
+  if (row) {
+    const rect = row.getBoundingClientRect();
+    if (e.clientY >= rect.top + rect.height / 2) {
+      insertIdx = targetIdx + (fromIdx < targetIdx ? 0 : 1);
+    } else {
+      insertIdx = targetIdx - (fromIdx < targetIdx ? 1 : 0);
+    }
+  }
+
+  const [item] = rows.splice(fromIdx, 1);
+  rows.splice(insertIdx, 0, item);
+  save();
+  renderChecklist();
+}
+
+// ── Touch Drag (mobile) ──
+let _touchDragIdx = null;
+let _touchClone = null;
+let _touchStartY = 0;
+
+document.addEventListener('touchstart', function(e) {
+  const handle = e.target.closest('.drag-handle');
+  if (!handle) return;
+  const tr = handle.closest('tr');
+  if (!tr || !tr.dataset.idx) return;
+  e.preventDefault();
+  _touchDragIdx = parseInt(tr.dataset.idx);
+  _touchStartY = e.touches[0].clientY;
+  tr.classList.add('dragging');
+}, { passive: false });
+
+document.addEventListener('touchmove', function(e) {
+  if (_touchDragIdx === null) return;
+  e.preventDefault();
+  const y = e.touches[0].clientY;
+  // Highlight the row under the finger
+  document.querySelectorAll('.cl-table tbody tr').forEach(r => {
+    r.classList.remove('drag-over-above', 'drag-over-below');
+    const rect = r.getBoundingClientRect();
+    const idx = parseInt(r.dataset.idx);
+    if (isNaN(idx) || idx === _touchDragIdx) return;
+    if (y >= rect.top && y <= rect.bottom) {
+      const mid = rect.top + rect.height / 2;
+      r.classList.add(y < mid ? 'drag-over-above' : 'drag-over-below');
+    }
+  });
+}, { passive: false });
+
+document.addEventListener('touchend', function(e) {
+  if (_touchDragIdx === null) return;
+  const y = e.changedTouches[0].clientY;
+  let targetIdx = null;
+  let above = true;
+  document.querySelectorAll('.cl-table tbody tr').forEach(r => {
+    const rect = r.getBoundingClientRect();
+    const idx = parseInt(r.dataset.idx);
+    if (isNaN(idx)) return;
+    if (y >= rect.top && y <= rect.bottom) {
+      targetIdx = idx;
+      above = y < rect.top + rect.height / 2;
+    }
+  });
+
+  if (targetIdx !== null && targetIdx !== _touchDragIdx && activeId) {
+    const rows = checklists[activeId].rows;
+    const fromIdx = _touchDragIdx;
+    let insertIdx = above
+      ? targetIdx - (fromIdx < targetIdx ? 1 : 0)
+      : targetIdx + (fromIdx < targetIdx ? 0 : 1);
+    const [item] = rows.splice(fromIdx, 1);
+    rows.splice(insertIdx, 0, item);
+    save();
+  }
+
+  _touchDragIdx = null;
+  document.querySelectorAll('.cl-table tr').forEach(r => {
+    r.classList.remove('dragging', 'drag-over-above', 'drag-over-below');
+  });
+  renderChecklist();
+});
 
 // ── Init ──
 loadTaskNames();
