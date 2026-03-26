@@ -2,7 +2,61 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
+<script>
+/* Firebase WebChannel-Warnungen unterdrücken – muss VOR Firebase-Init laufen */
+(function(){
+  var _warn = console.warn;
+  console.warn = function(){
+    var msg = (arguments[0] !== undefined) ? String(arguments[0]) : '';
+    if(msg.indexOf('WebChannelConnection') !== -1) return;
+    if(msg.indexOf('transport errored') !== -1) return;
+    _warn.apply(console, arguments);
+  };
+  var _error = console.error;
+  console.error = function(){
+    var msg = (arguments[0] !== undefined) ? String(arguments[0]) : '';
+    if(msg.indexOf('WebChannelConnection') !== -1) return;
+    if(msg.indexOf('Could not reach Cloud Firestore') !== -1) return;
+    if(msg.indexOf('client is offline') !== -1) return;
+    _error.apply(console, arguments);
+  };
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.firestore();
+  db.settings({
+    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: false,
+    useFetchStreams: false,
+    merge: true
+  });
+  firebase.firestore.setLogLevel('silent');
+  var CL_DOC = db.collection('checklisten').doc('state');
+  var CL_LOCK_DOC = db.collection('checklisten').doc('lock');
+  var CL_SESSIONS_COL = db.collection('checklisten-sessions');
+
+  // Weitere WebChannel-Warnungen unterdrücken
+  (function(){
+    var _warn = console.warn;
+    console.warn = function(){
+      var msg = arguments[0] ? String(arguments[0]) : '';
+      if(msg.indexOf('@firebase/firestore') !== -1 && msg.indexOf('WebChannelConnection') !== -1) return;
+      _warn.apply(console, arguments);
+    };
+  })();
+</script>
 <title>Checklisten – Projekt Punkteliste</title>
 <style>
 :root {
@@ -538,6 +592,18 @@ tr.drag-over-below{box-shadow:inset 0 -3px 0 0 var(--accent)}
 
 /* ── Auth Gate ── */
 #auth-lock{position:fixed;inset:0;background:linear-gradient(135deg,#1a1d2e 0%,#2d3150 100%);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
+
+/* ── Firebase Lock / Read-Only ── */
+body.firebase-readonly .btn.primary{opacity:.4;pointer-events:none}
+body.firebase-readonly input,body.firebase-readonly textarea,body.firebase-readonly select{pointer-events:none;opacity:.7}
+body.firebase-readonly .chip-delete{display:none}
+body.firebase-readonly .drag-handle{display:none}
+#lock-banner{position:fixed;top:0;left:0;right:0;z-index:7000;background:#ef4444;color:#fff;font-size:13px;font-weight:600;text-align:center;padding:8px 16px;display:none;align-items:center;justify-content:center;gap:12px;font-family:var(--font)}
+#online-users{display:flex;align-items:center;gap:4px;flex-shrink:0}
+#online-label{font-size:11px;color:var(--text3);margin-right:2px}
+.online-avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;cursor:default;flex-shrink:0}
+#save-ind{font-size:11px;color:var(--text3);white-space:nowrap;display:flex;align-items:center;gap:4px}
+@media(max-width:700px){#lock-banner{font-size:11px;padding:6px 10px}}
 #auth-lock-box{background:#fff;border-radius:16px;padding:40px 44px;width:380px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.5);text-align:center}
 #auth-lock-box h2{font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px}
 #auth-lock-box p{font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.5}
@@ -573,7 +639,18 @@ tr.drag-over-below{box-shadow:inset 0 -3px 0 0 var(--accent)}
     <button class="btn primary" onclick="exportJSON()">💾 Exportieren</button>
     <button class="btn" onclick="importJSON()">📂 Importieren</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+    <span id="save-ind" style="font-size:11px;color:var(--text3);white-space:nowrap;display:flex;align-items:center;gap:4px">
+      <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:#60a5fa;display:inline-block"></span>
+      <span id="save-txt">⟳ Verbinde…</span>
+    </span>
+    <div id="online-users"></div>
   </div>
+</div>
+
+<!-- Lock Banner -->
+<div id="lock-banner" style="display:none;align-items:center;justify-content:center;">
+  <span id="lock-msg">🔒 Wird gerade bearbeitet — Nur-Lese-Modus</span>
+  <button onclick="requestEditAccess()" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.5);color:#fff;padding:3px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--font)">Edit anyway</button>
 </div>
 
 <!-- ── Main Content ── -->
@@ -668,12 +745,27 @@ function applyAuthState() {
       if (h) h.appendChild(badge);
     }
     badge.textContent = '👤 ' + session.user + ' (' + session.role + ')';
+    // Firebase nach Auth starten
+    if(typeof clFirebaseStart === 'function') clFirebaseStart();
   } else {
     if (lock) lock.style.display = 'flex';
     if (header) header.style.display = 'none';
     if (main) main.style.display = 'none';
     if (legend) legend.style.display = 'none';
     if (area) area.style.display = 'none';
+    // Firebase aufräumen bei Logout
+    if(_clFirebaseStarted){
+      _clFirebaseStarted = false;
+      _clIsEditor = false;
+      releaseLock();
+      clUnregisterPresence();
+      if(window._clUnsubDoc){ window._clUnsubDoc(); window._clUnsubDoc=null; }
+      if(window._clUnsubLock){ window._clUnsubLock(); window._clUnsubLock=null; }
+      if(_clUnsubSessions){ _clUnsubSessions(); _clUnsubSessions=null; }
+      var el=document.getElementById('online-users'); if(el) el.innerHTML='';
+      document.body.classList.remove('firebase-readonly');
+      document.getElementById('lock-banner').style.display='none';
+    }
   }
 }
 
@@ -693,7 +785,7 @@ let checklists = {};
 let activeId = null;
 let counter = 0;
 
-// Load from localStorage
+// Load from localStorage (Fallback)
 try {
   const saved = localStorage.getItem('projekt_checklisten');
   if (saved) {
@@ -703,10 +795,217 @@ try {
   }
 } catch(e) {}
 
+// ── Firebase session + lock ──────────────────────────────────────────────────
+var _clSessionId = Date.now().toString(36)+Math.random().toString(36).slice(2);
+var _clIsEditor  = false;
+var _clSaveTimer = null;
+var _clRemoteUpdate = false;
+
 function save() {
+  // Always save to localStorage as fallback
   try {
     localStorage.setItem('projekt_checklisten', JSON.stringify({ checklists, counter }));
   } catch(e) {}
+  // Save to Firestore (debounced)
+  if(_clRemoteUpdate) return;
+  if(_clSaveTimer) clearTimeout(_clSaveTimer);
+  _clSaveTimer = setTimeout(function(){ saveToFirebase(); }, 400);
+}
+
+function saveToFirebase(){
+  if(!_clIsEditor) return;
+  markSaving();
+  var state = {
+    checklists: checklists,
+    counter: counter,
+    savedAt: new Date().toISOString()
+  };
+  CL_DOC.set(state)
+    .then(function(){ markCloud(); })
+    .catch(function(e){ console.error('CL Save error:',e); markSaveError(); });
+}
+
+function acquireLock(){
+  var session = checkAuth();
+  var who = session ? session.user : 'Unbekannt';
+  return CL_LOCK_DOC.set({sessionId:_clSessionId, lockedAt:new Date().toISOString(), lockedBy:who})
+    .then(function(){
+      _clIsEditor=true;
+      document.body.classList.remove('firebase-readonly');
+      document.getElementById('lock-banner').style.display='none';
+    });
+}
+
+function releaseLock(){
+  CL_LOCK_DOC.get().then(function(doc){
+    if(doc.exists && doc.data().sessionId===_clSessionId) CL_LOCK_DOC.delete();
+  }).catch(function(){});
+}
+
+function requestEditAccess(){
+  acquireLock().catch(function(e){ console.error('Lock error:',e); });
+}
+
+function setStatus(color,text){
+  var dot=document.getElementById('save-dot'), txt=document.getElementById('save-txt');
+  if(dot){ dot.style.background=color; txt.textContent=text; }
+}
+function markSaving(){ setStatus('#a78bfa','↑ Speichert…'); }
+function markSaveError(){ setStatus('#ef4444','⚠ Fehler'); }
+function markCloud(){ setStatus('#22c55e','☁ Gespeichert'); }
+function markReadOnly(){ setStatus('#f59e0b','👁 Nur-Lese'); }
+function markConnecting(){ setStatus('#60a5fa','⟳ Verbinde…'); }
+
+window.addEventListener('beforeunload', function(){ releaseLock(); clUnregisterPresence(); });
+
+// ── ONLINE PRESENCE ─────────────────────────────────────────────────────────
+var _clPresenceTimer = null;
+var _clUnsubSessions = null;
+
+function clRegisterPresence(){
+  var session = checkAuth();
+  if(!session || !CL_SESSIONS_COL) return;
+  var data = {
+    sessionId: _clSessionId,
+    user: session.user,
+    role: session.role,
+    lastSeen: new Date().toISOString()
+  };
+  CL_SESSIONS_COL.doc(_clSessionId).set(data).catch(function(){});
+  if(_clPresenceTimer) clearInterval(_clPresenceTimer);
+  _clPresenceTimer = setInterval(function(){
+    var s = checkAuth();
+    if(!s) return;
+    CL_SESSIONS_COL.doc(_clSessionId).update({lastSeen: new Date().toISOString()}).catch(function(){});
+  }, 20000);
+}
+
+function clUnregisterPresence(){
+  if(_clPresenceTimer){ clearInterval(_clPresenceTimer); _clPresenceTimer=null; }
+  CL_SESSIONS_COL.doc(_clSessionId).delete().catch(function(){});
+}
+
+function clListenPresence(){
+  if(_clUnsubSessions){ _clUnsubSessions(); _clUnsubSessions=null; }
+  _clUnsubSessions = CL_SESSIONS_COL.onSnapshot(function(snap){
+    var now = Date.now();
+    var active = [];
+    snap.forEach(function(doc){
+      var d = doc.data();
+      var lastSeen = d.lastSeen ? new Date(d.lastSeen).getTime() : 0;
+      if(now - lastSeen < 60000) active.push(d);
+    });
+    clRenderOnlineUsers(active);
+  }, function(){});
+}
+
+var CL_AVATAR_COLORS = ['#4f6ef7','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899'];
+function clStrColor(str){
+  var h=0; for(var i=0;i<str.length;i++) h=(h*31+str.charCodeAt(i))>>>0;
+  return CL_AVATAR_COLORS[h % CL_AVATAR_COLORS.length];
+}
+
+function clRenderOnlineUsers(sessions){
+  var el = document.getElementById('online-users');
+  if(!el) return;
+  var total = sessions.length;
+  el.innerHTML = '';
+  if(total <= 1) return;
+  var lbl = document.createElement('span');
+  lbl.id = 'online-label';
+  lbl.textContent = 'Online:';
+  el.appendChild(lbl);
+  var self = sessions.find(function(s){ return s.sessionId === _clSessionId; });
+  if(self){
+    var av = document.createElement('span');
+    av.className = 'online-avatar';
+    av.style.background = clStrColor(self.user);
+    av.textContent = self.user.charAt(0).toUpperCase();
+    av.title = self.user + ' (du)' + (self.role==='admin'?' · Admin':' · User');
+    av.style.border = '2px solid #4f6ef7';
+    el.appendChild(av);
+  }
+  var others = sessions.filter(function(s){ return s.sessionId !== _clSessionId; });
+  others.forEach(function(s){
+    var av = document.createElement('span');
+    av.className = 'online-avatar';
+    av.style.background = clStrColor(s.user);
+    av.textContent = s.user.charAt(0).toUpperCase();
+    av.title = s.user + (s.role==='admin'?' · Admin':' · User') + ' · aktiv';
+    el.appendChild(av);
+  });
+}
+
+// ── Firebase starten (nach Auth) ────────────────────────────────────────────
+var _clFirebaseStarted = false;
+function clFirebaseStart(){
+  if(_clFirebaseStarted) return;
+  _clFirebaseStarted = true;
+  markConnecting();
+
+  var session = checkAuth();
+  var currentRole = session ? session.role : 'user';
+
+  CL_DOC.get().then(function(doc){
+    if(doc.exists){
+      var d = doc.data();
+      if(d.checklists){
+        _clRemoteUpdate = true;
+        checklists = d.checklists;
+        counter = d.counter || 0;
+        renderSaved();
+        renderChecklist();
+        setTimeout(function(){ _clRemoteUpdate=false; }, 500);
+      }
+    }
+    // Lock: Admin übernimmt immer, User bekommt Nur-Lese
+    if(currentRole === 'admin'){
+      acquireLock().then(function(){ markCloud(); }).catch(function(e){
+        console.error('Lock error:',e); markCloud();
+      });
+    } else {
+      markReadOnly();
+    }
+    clRegisterPresence();
+    clListenPresence();
+  }).catch(function(e){
+    console.error('CL Firebase load error:', e);
+    markSaveError();
+  });
+
+  // Echtzeit-Listener: alte zuerst abmelden
+  if(window._clUnsubDoc){ window._clUnsubDoc(); window._clUnsubDoc=null; }
+  if(window._clUnsubLock){ window._clUnsubLock(); window._clUnsubLock=null; }
+
+  // Echtzeit-Listener für Daten
+  window._clUnsubDoc = CL_DOC.onSnapshot(function(doc){
+    if(!doc.exists || doc.metadata.hasPendingWrites) return;
+    var d = doc.data();
+    if(!d || !d.checklists) return;
+    _clRemoteUpdate = true;
+    checklists = d.checklists;
+    counter = d.counter || 0;
+    renderSaved();
+    renderChecklist();
+    setStatus('#22c55e','☁ Aktualisiert');
+    setTimeout(function(){ _clRemoteUpdate=false; markCloud(); }, 800);
+  }, function(err){ console.warn('CL Snapshot error:',err); });
+
+  // Lock-Listener
+  window._clUnsubLock = CL_LOCK_DOC.onSnapshot(function(doc){
+    if(!doc.exists){
+      document.getElementById('lock-banner').style.display='none';
+      document.body.classList.remove('firebase-readonly');
+      if(currentRole==='admin' && !_clIsEditor) acquireLock().catch(function(){});
+    } else if(doc.data().sessionId !== _clSessionId){
+      _clIsEditor = false;
+      document.body.classList.add('firebase-readonly');
+      var who = doc.data().lockedBy || 'einem anderen Nutzer';
+      document.getElementById('lock-msg').textContent = '🔒 Wird gerade bearbeitet von '+who+' — Nur-Lese-Modus';
+      document.getElementById('lock-banner').style.display = 'flex';
+      markReadOnly();
+    }
+  });
 }
 
 function loadTaskNames() {
