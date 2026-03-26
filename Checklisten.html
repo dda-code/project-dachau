@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checklisten – Projekt Punkteliste</title>
+<style>
+:root {
+  --bg:#f5f6fa;--bg2:#ffffff;--surface:#f0f1f5;--surface2:#e4e6ef;
+  --border:#dde0ea;--text:#1a1d2e;--text2:#5a607a;--text3:#9ba3c0;
+  --accent:#4f6ef7;--accent2:#3a58e0;--red:#ef4444;--we:#f0f1f8;
+  --radius:6px;
+  --font:'Segoe UI',system-ui,sans-serif;
+  --green:#22c55e;--yellow:#f59e0b;--orange:#f97316;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.page-header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.page-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.page-header .subtitle {
+  font-size: 13px;
+  color: var(--text3);
+  font-weight: 400;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  font-family: var(--font);
+  font-weight: 500;
+}
+.btn:hover { background: var(--surface2); border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent2); }
+.btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
+.btn.danger:hover { background: #dc2626; }
+.btn.success { background: var(--green); border-color: var(--green); color: #fff; }
+.btn.success:hover { background: #16a34a; }
+
+/* ── Main Layout ── */
+.main-container {
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Task Selector ── */
+.selector-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.selector-section h2 {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-selector-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field label {
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.field select, .field input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color .15s;
+  min-width: 220px;
+}
+
+.field select:focus, .field input:focus { border-color: var(--accent); }
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 12px 18px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.offen { background: var(--red); }
+.legend-dot.terminiert { background: var(--yellow); }
+.legend-dot.erledigt { background: var(--green); }
+
+/* ── Checklist Table ── */
+.checklist-wrapper {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: visible;
+  margin-bottom: 24px;
+}
+
+.checklist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f1f5 100%);
+}
+
+.checklist-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.checklist-title-input {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font);
+  padding: 2px 4px;
+  outline: none;
+  min-width: 220px;
+}
+
+.cl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: auto;
+}
+
+.cl-table thead th {
+  background: var(--surface);
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text2);
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.cl-table thead th.center { text-align: center; }
+
+.cl-table tbody tr {
+  transition: background .1s;
+}
+.cl-table tbody tr:hover {
+  background: #f8f9ff;
+}
+
+.cl-table tbody td {
+  padding: 10px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text);
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.45;
+}
+
+.cl-table tbody td.center { text-align: center; }
+
+.cl-table tbody td input[type="text"],
+.cl-table tbody td input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, background .15s;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.cl-table tbody td input[type="date"] {
+  min-width: 130px;
+}
+
+.cl-table tbody td textarea {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, background .15s;
+  resize: vertical;
+  min-height: 44px;
+  overflow: visible;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: pre-wrap;
+  field-sizing: content;        /* modern browsers: auto-grow */
+}
+
+.cl-table tbody td select {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+
+.cl-table tbody td input:hover,
+.cl-table tbody td textarea:hover,
+.cl-table tbody td select:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.cl-table tbody td input:focus,
+.cl-table tbody td textarea:focus,
+.cl-table tbody td select:focus {
+  border-color: var(--accent);
+  background: var(--bg2);
+  box-shadow: 0 0 0 2px rgba(79,110,247,0.12);
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge.offen { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.status-badge.terminiert { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.status-badge.erledigt { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+
+select.status-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 28px 6px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 110px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235a607a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+select.status-select.offen {
+  background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca;
+}
+select.status-select.terminiert {
+  background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+}
+select.status-select.erledigt {
+  background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
+}
+
+/* Priority Badges */
+.prio-high { color: var(--red); font-weight: 700; }
+.prio-medium { color: var(--orange); font-weight: 600; }
+.prio-low { color: var(--green); font-weight: 600; }
+
+/* Row Number */
+.row-num {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+/* Delete Row */
+.delete-row-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 16px;
+  transition: all .15s;
+}
+.delete-row-btn:hover {
+  background: #fef2f2;
+  color: var(--red);
+}
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text3);
+}
+.empty-state svg { margin-bottom: 16px; opacity: 0.4; }
+.empty-state p { font-size: 16px; margin-bottom: 10px; }
+.empty-state small { font-size: 14px; }
+
+/* ── No-print ── */
+@media print {
+  .page-header, .selector-section, .header-actions, .delete-row-btn { display: none !important; }
+  .cl-table tbody td input, .cl-table tbody td textarea, .cl-table tbody td select {
+    border: none !important;
+    padding: 2px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    word-break: normal !important;
+    height: auto !important;
+  }
+  .cl-table tbody td textarea { min-height: unset !important; }
+  .main-container { padding: 0; }
+  .checklist-wrapper { border: 1px solid #ccc; border-radius: 0; overflow: visible !important; }
+  .cl-table { font-size: 11px; }
+  .cl-table thead th { font-size: 9px; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .main-container { padding: 12px; }
+  .page-header { padding: 10px 14px; }
+  .selector-section { padding: 14px; }
+  .task-selector-row { flex-direction: column; }
+  .field select, .field input { min-width: 100%; }
+  .cl-table thead th, .cl-table tbody td { padding: 8px 8px; }
+  .checklist-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+}
+
+/* ── Saved Checklists List ── */
+.saved-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.saved-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: var(--font);
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.saved-chip:hover { border-color: var(--accent); background: #f0f2ff; }
+.saved-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.saved-chip .chip-delete {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.1);
+  font-size: 12px;
+  line-height: 1;
+  transition: background .15s;
+}
+
+.saved-chip:hover .chip-delete { background: rgba(0,0,0,0.15); }
+.saved-chip.active .chip-delete { background: rgba(255,255,255,0.3); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.checklist-wrapper { animation: fadeIn .3s ease; }
+/* ── Auth Gate ── */
+#auth-lock{position:fixed;inset:0;background:linear-gradient(135deg,#1a1d2e 0%,#2d3150 100%);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
+#auth-lock-box{background:#fff;border-radius:16px;padding:40px 44px;width:380px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.5);text-align:center}
+#auth-lock-box h2{font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px}
+#auth-lock-box p{font-size:13px;color:var(--text2);margin-bottom:24px;line-height:1.5}
+#auth-lock-box .lock-icon{font-size:48px;margin-bottom:16px}
+#auth-lock-box .btn-back{display:inline-block;padding:11px 28px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);text-decoration:none;transition:background .15s}
+#auth-lock-box .btn-back:hover{background:var(--accent2)}
+#auth-user-badge{display:inline-block;margin-top:16px;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;background:#ecfdf5;color:#065f46}
+</style>
+</head>
+<body>
+
+<!-- Auth Gate Overlay -->
+<div id="auth-lock" style="display:flex">
+  <div id="auth-lock-box">
+    <div class="lock-icon">🔒</div>
+    <h2>Zugriff gesperrt</h2>
+    <p>Bitte melden Sie sich zuerst auf der<br><strong>Technology Gantt-Chart</strong> Seite an,<br>um die Checklisten nutzen zu können.</p>
+    <a class="btn-back" href="Technology.html">Zur Anmeldung →</a>
+  </div>
+</div>
+
+<!-- ── Page Header ── -->
+<div class="page-header" style="display:none">
+  <h1>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+    </svg>
+    Checklisten
+    <span class="subtitle">– Projekt Punkteliste</span>
+  </h1>
+  <div class="header-actions">
+    <button class="btn" onclick="printChecklist()">🖨️ Drucken</button>
+    <button class="btn primary" onclick="exportJSON()">💾 Exportieren</button>
+    <button class="btn" onclick="importJSON()">📂 Importieren</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+  </div>
+</div>
+
+<!-- ── Main Content ── -->
+<div class="main-container" style="display:none">
+
+  <!-- Task Selector -->
+  <div class="selector-section">
+    <h2>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Checkliste erstellen oder laden
+    </h2>
+    <div class="task-selector-row">
+      <div class="field">
+        <label>Aufgabe aus Technology wählen</label>
+        <div style="display:flex;gap:8px;">
+          <select id="task-dropdown" onchange="applyTaskSelection()" style="min-width:260px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font:inherit;font-size:13px;background:var(--bg2);color:var(--text);">
+            <option value="">— Aufgabe auswählen —</option>
+          </select>
+          <button class="btn" onclick="loadTaskNames()" title="Aufgabenliste aktualisieren" style="padding:7px 12px;">🔄</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Oder freier Name</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="new-cl-name" placeholder="Name der Checkliste…" style="min-width:260px;">
+          <button class="btn primary" onclick="createChecklist()">+ Erstellen</button>
+        </div>
+      </div>
+    </div>
+    <div class="saved-list" id="saved-list">
+      <!-- saved checklists chips -->
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot offen"></div><span><b>offen</b> = noch nicht erledigt bzw. ohne Fertigstellungstermin</span></div>
+    <div class="legend-item"><div class="legend-dot terminiert"></div><span><b>terminiert</b> = Fertigstellungstermin festgelegt</span></div>
+    <div class="legend-item"><div class="legend-dot erledigt"></div><span><b>erledigt</b> = abgeschlossen</span></div>
+  </div>
+
+  <!-- Active Checklist Area -->
+  <div id="checklist-area">
+    <div class="empty-state" id="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+      <p>Keine Checkliste ausgewählt</p>
+      <small>Erstellen Sie oben eine neue Checkliste oder wählen Sie eine gespeicherte aus.</small>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Auth Gate ──
+const AUTH_SESSION_KEY = 'technology_auth_session';
+const AUTH_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function checkAuth() {
+  try {
+    const raw = localStorage.getItem(AUTH_SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (!session || !session.user || !session.ts) return null;
+    if (Date.now() - session.ts > AUTH_MAX_AGE_MS) return null;
+    return session;
+  } catch(e) { return null; }
+}
+
+function applyAuthState() {
+  const session = checkAuth();
+  const lock = document.getElementById('auth-lock');
+  const header = document.querySelector('.page-header');
+  const main = document.querySelector('.main-container');
+  const legend = document.querySelector('.legend');
+  const area = document.getElementById('checklist-area');
+  
+  if (session) {
+    if (lock) lock.style.display = 'none';
+    if (header) header.style.display = '';
+    if (main) main.style.display = '';
+    if (legend) legend.style.display = '';
+    if (area) area.style.display = '';
+    // Show user badge
+    let badge = document.getElementById('auth-user-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.id = 'auth-user-badge';
+      const h = document.querySelector('.page-header h1');
+      if (h) h.appendChild(badge);
+    }
+    badge.textContent = '👤 ' + session.user + ' (' + session.role + ')';
+  } else {
+    if (lock) lock.style.display = 'flex';
+    if (header) header.style.display = 'none';
+    if (main) main.style.display = 'none';
+    if (legend) legend.style.display = 'none';
+    if (area) area.style.display = 'none';
+  }
+}
+
+// Initial check
+document.addEventListener('DOMContentLoaded', applyAuthState);
+
+// React to login/logout in other tabs
+window.addEventListener('storage', function(e) {
+  if (e.key === AUTH_SESSION_KEY) applyAuthState();
+});
+
+// Periodic check (same-tab logout or session expiry)
+setInterval(applyAuthState, 5000);
+
+// ── State ──
+let checklists = {};
+let activeId = null;
+let counter = 0;
+
+// Load from localStorage
+try {
+  const saved = localStorage.getItem('projekt_checklisten');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    checklists = parsed.checklists || {};
+    counter = parsed.counter || 0;
+  }
+} catch(e) {}
+
+function save() {
+  try {
+    localStorage.setItem('projekt_checklisten', JSON.stringify({ checklists, counter }));
+  } catch(e) {}
+}
+
+function loadTaskNames() {
+  const sel = document.getElementById('task-dropdown');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Aufgabe auswählen —</option>';
+  try {
+    const raw = localStorage.getItem('technology_task_names');
+    if (raw) {
+      const names = JSON.parse(raw);
+      names.forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        sel.appendChild(opt);
+      });
+      if (prev) sel.value = prev;
+    }
+  } catch(e) {}
+}
+
+function applyTaskSelection() {
+  const sel = document.getElementById('task-dropdown');
+  const nameEl = document.getElementById('new-cl-name');
+  if (sel.value) {
+    nameEl.value = sel.value;
+  }
+}
+
+function createChecklist() {
+  const nameEl = document.getElementById('new-cl-name');
+  const sel = document.getElementById('task-dropdown');
+  let name = nameEl.value.trim();
+  if (!name && sel.value) name = sel.value;
+  if (!name) { nameEl.focus(); return; }
+  
+  const id = 'cl_' + (++counter);
+  checklists[id] = {
+    id,
+    name,
+    created: new Date().toISOString(),
+    rows: []
+  };
+  nameEl.value = '';
+  sel.value = '';
+  save();
+  setActive(id);
+  renderSaved();
+}
+
+function setActive(id) {
+  activeId = id;
+  renderSaved();
+  renderChecklist();
+}
+
+function deleteChecklist(id, evt) {
+  evt.stopPropagation();
+  if (!confirm('Checkliste "' + checklists[id].name + '" wirklich löschen?')) return;
+  delete checklists[id];
+  if (activeId === id) { activeId = null; }
+  save();
+  renderSaved();
+  renderChecklist();
+}
+
+function renderSaved() {
+  const el = document.getElementById('saved-list');
+  const ids = Object.keys(checklists);
+  if (ids.length === 0) { el.innerHTML = '<span style="font-size:13px;color:var(--text3)">Noch keine Checklisten gespeichert.</span>'; return; }
+  el.innerHTML = ids.map(id => {
+    const cl = checklists[id];
+    const active = id === activeId;
+    return `<div class="saved-chip ${active ? 'active' : ''}" onclick="setActive('${id}')">
+      📋 ${esc(cl.name)} <span style="opacity:0.6">(${cl.rows.length})</span>
+      <span class="chip-delete" onclick="deleteChecklist('${id}', event)">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function renderChecklist() {
+  const area = document.getElementById('checklist-area');
+  const empty = document.getElementById('empty-state');
+  
+  if (!activeId || !checklists[activeId]) {
+    area.innerHTML = `<div class="empty-state" id="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+      </svg>
+      <p>Keine Checkliste ausgewählt</p>
+      <small>Erstellen Sie oben eine neue Checkliste oder wählen Sie eine gespeicherte aus.</small>
+    </div>`;
+    return;
+  }
+
+  const cl = checklists[activeId];
+  
+  let rowsHTML = '';
+  cl.rows.forEach((r, i) => {
+    const statusCls = r.status || 'offen';
+    rowsHTML += `<tr>
+      <td class="center"><span class="row-num">${i+1}</span></td>
+      <td><input type="text" value="${esc(r.prio||'')}" onchange="updateRow(${i},'prio',this.value)" placeholder="–"></td>
+      <td><input type="date" value="${esc(r.datum||'')}" onchange="updateRow(${i},'datum',this.value)"></td>
+      <td><textarea onchange="updateRow(${i},'topic',this.value)" placeholder="Thema…">${esc(r.topic||'')}</textarea></td>
+      <td><textarea onchange="updateRow(${i},'beschreibung',this.value)" placeholder="Beschreibung…">${esc(r.beschreibung||'')}</textarea></td>
+      <td><textarea onchange="updateRow(${i},'massnahme',this.value)" placeholder="Maßnahme…">${esc(r.massnahme||'')}</textarea></td>
+      <td class="center">
+        <select class="status-select ${statusCls}" onchange="updateRow(${i},'status',this.value);this.className='status-select '+this.value">
+          <option value="offen" ${statusCls==='offen'?'selected':''}>offen</option>
+          <option value="terminiert" ${statusCls==='terminiert'?'selected':''}>terminiert</option>
+          <option value="erledigt" ${statusCls==='erledigt'?'selected':''}>erledigt</option>
+        </select>
+      </td>
+      <td><input type="text" value="${esc(r.verantw_intern||'')}" onchange="updateRow(${i},'verantw_intern',this.value)" placeholder="–"></td>
+      <td><input type="text" value="${esc(r.verantw_extern||'')}" onchange="updateRow(${i},'verantw_extern',this.value)" placeholder="–"></td>
+      <td><input type="date" value="${esc(r.endtermin||'')}" onchange="updateRow(${i},'endtermin',this.value)"></td>
+      <td><input type="date" value="${esc(r.fertigstellung||'')}" onchange="updateRow(${i},'fertigstellung',this.value)"></td>
+      <td class="center"><button class="delete-row-btn" onclick="deleteRow(${i})" title="Zeile löschen">🗑</button></td>
+    </tr>`;
+  });
+
+  // Stats
+  const total = cl.rows.length;
+  const done = cl.rows.filter(r => r.status === 'erledigt').length;
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+
+  area.innerHTML = `<div class="checklist-wrapper">
+    <div class="checklist-header">
+      <h3>
+        📋 <input class="checklist-title-input" value="${esc(cl.name)}" onchange="renameChecklist(this.value)">
+        <span style="font-size:13px;font-weight:400;color:var(--text3);margin-left:8px">${total} Punkte · ${done} erledigt (${pct}%)</span>
+      </h3>
+      <div style="display:flex;gap:8px;">
+        <button class="btn success" onclick="addRow()">+ Punkt hinzufügen</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;overflow-y:visible;">
+      <table class="cl-table">
+        <thead>
+          <tr>
+            <th class="center" style="min-width:50px">Pos.</th>
+            <th style="min-width:65px">Prio</th>
+            <th style="min-width:130px">Datum erstellt</th>
+            <th style="min-width:170px">Topic</th>
+            <th style="min-width:260px">Beschreibung</th>
+            <th style="min-width:200px">Maßnahme</th>
+            <th class="center" style="min-width:120px">Status</th>
+            <th style="min-width:140px">Verantw. intern</th>
+            <th style="min-width:140px">Verantw. extern</th>
+            <th style="min-width:130px">Endtermin (Ziel)</th>
+            <th style="min-width:140px">Fertigstellung am</th>
+            <th class="center" style="min-width:44px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHTML || '<tr><td colspan="12" style="text-align:center;padding:30px;color:var(--text3);font-size:14px">Noch keine Einträge – klicken Sie oben auf „+ Punkt hinzufügen"</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function addRow() {
+  if (!activeId) return;
+  const today = new Date().toISOString().split('T')[0];
+  checklists[activeId].rows.push({
+    prio: '',
+    datum: today,
+    topic: '',
+    beschreibung: '',
+    massnahme: '',
+    status: 'offen',
+    verantw_intern: '',
+    verantw_extern: '',
+    endtermin: '',
+    fertigstellung: ''
+  });
+  save();
+  renderChecklist();
+  renderSaved();
+}
+
+function updateRow(idx, field, value) {
+  if (!activeId) return;
+  checklists[activeId].rows[idx][field] = value;
+  save();
+  // Don't re-render full table on every keystroke, just save
+  renderSaved(); // update count in chip
+}
+
+function deleteRow(idx) {
+  if (!activeId) return;
+  checklists[activeId].rows.splice(idx, 1);
+  save();
+  renderChecklist();
+  renderSaved();
+}
+
+function renameChecklist(name) {
+  if (!activeId || !name.trim()) return;
+  checklists[activeId].name = name.trim();
+  save();
+  renderSaved();
+}
+
+function printChecklist() {
+  window.print();
+}
+
+function exportJSON() {
+  const data = JSON.stringify(checklists, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'checklisten_export.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON() {
+  document.getElementById('import-file').click();
+}
+
+function handleImport(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      // Merge imported checklists
+      for (const [id, cl] of Object.entries(imported)) {
+        checklists[id] = cl;
+      }
+      save();
+      renderSaved();
+      renderChecklist();
+      alert('Import erfolgreich!');
+    } catch(err) {
+      alert('Fehler beim Import: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──
+loadTaskNames();
+renderSaved();
+renderChecklist();
+
+// Auto-update dropdown when Technology.html writes new task names
+window.addEventListener('storage', function(e) {
+  if (e.key === 'technology_task_names') loadTaskNames();
+});
+
+// ── Auto-resize textareas to show all content ──
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 2 + 'px';
+}
+
+function autoResizeAll() {
+  document.querySelectorAll('.cl-table textarea').forEach(autoResizeTextarea);
+}
+
+// Re-run after every render
+const _origRender = renderChecklist;
+renderChecklist = function() {
+  _origRender();
+  requestAnimationFrame(autoResizeAll);
+};
+
+// Also resize on any textarea input
+document.addEventListener('input', function(e) {
+  if (e.target.tagName === 'TEXTAREA' && e.target.closest('.cl-table')) {
+    autoResizeTextarea(e.target);
+  }
+});
+
+// Initial auto-resize
+requestAnimationFrame(autoResizeAll);
+</script>
+</body>
+</html>
