@@ -2,27 +2,29 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
-/* Firebase WebChannel-Warnungen unterdrücken – muss VOR Firebase-Init laufen */
+/* Firebase WebChannel-Warnungen unterdrücken – einmalig, VOR Firebase-Init */
 (function(){
-  var _warn = console.warn;
+  var _warn = console.warn, _error = console.error;
+  var warnFilter = ['WebChannelConnection','transport errored','@firebase/firestore'];
+  var errorFilter = ['WebChannelConnection','Could not reach Cloud Firestore','client is offline'];
   console.warn = function(){
-    var msg = (arguments[0] !== undefined) ? String(arguments[0]) : '';
-    if(msg.indexOf('WebChannelConnection') !== -1) return;
-    if(msg.indexOf('transport errored') !== -1) return;
+    if(arguments[0] !== undefined){
+      var m = String(arguments[0]);
+      for(var i=0;i<warnFilter.length;i++) if(m.indexOf(warnFilter[i])!==-1) return;
+    }
     _warn.apply(console, arguments);
   };
-  var _error = console.error;
   console.error = function(){
-    var msg = (arguments[0] !== undefined) ? String(arguments[0]) : '';
-    if(msg.indexOf('WebChannelConnection') !== -1) return;
-    if(msg.indexOf('Could not reach Cloud Firestore') !== -1) return;
-    if(msg.indexOf('client is offline') !== -1) return;
+    if(arguments[0] !== undefined){
+      var m = String(arguments[0]);
+      for(var i=0;i<errorFilter.length;i++) if(m.indexOf(errorFilter[i])!==-1) return;
+    }
     _error.apply(console, arguments);
   };
 })();
 </script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
@@ -39,30 +41,19 @@
   db.settings({
     experimentalForceLongPolling: true,
     experimentalAutoDetectLongPolling: false,
-    useFetchStreams: false,
     merge: true
   });
   firebase.firestore.setLogLevel('silent');
   var CL_DOC = db.collection('checklisten').doc('state');
   var CL_LOCK_DOC = db.collection('checklisten').doc('lock');
   var CL_SESSIONS_COL = db.collection('checklisten-sessions');
-
-  // Weitere WebChannel-Warnungen unterdrücken
-  (function(){
-    var _warn = console.warn;
-    console.warn = function(){
-      var msg = arguments[0] ? String(arguments[0]) : '';
-      if(msg.indexOf('@firebase/firestore') !== -1 && msg.indexOf('WebChannelConnection') !== -1) return;
-      _warn.apply(console, arguments);
-    };
-  })();
 </script>
 <title>Checklisten – Projekt Punkteliste</title>
 <style>
 :root {
   --bg:#f5f6fa;--bg2:#ffffff;--surface:#f0f1f5;--surface2:#e4e6ef;
   --border:#dde0ea;--text:#1a1d2e;--text2:#5a607a;--text3:#9ba3c0;
-  --accent:#4f6ef7;--accent2:#3a58e0;--red:#ef4444;--we:#f0f1f8;
+  --accent:#4f6ef7;--accent2:#3a58e0;--red:#ef4444;
   --radius:6px;
   --font:'Segoe UI',system-ui,sans-serif;
   --green:#22c55e;--yellow:#f59e0b;--orange:#f97316;
@@ -99,7 +90,6 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--text);
 }
 
 .page-header .subtitle {
@@ -127,7 +117,7 @@ body {
   color: var(--text);
   font-size: 13px;
   cursor: pointer;
-  transition: all .15s;
+  transition: background .15s, border-color .15s, color .15s;
   white-space: nowrap;
   font-family: var(--font);
   font-weight: 500;
@@ -142,7 +132,6 @@ body {
 
 /* ── Main Layout ── */
 .main-container {
-  margin: 0 auto;
   padding: 24px;
 }
 
@@ -201,7 +190,7 @@ body {
   min-width: 220px;
 }
 
-.field select:focus, .field input:focus { border-color: var(--accent); }
+.field select:focus, .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,110,247,0.12); }
 
 /* ── Legend ── */
 .legend {
@@ -242,6 +231,8 @@ body {
   margin-bottom: 24px;
 }
 
+select.status-select { padding: 5px 22px 5px 8px; font-size: 12px; }
+
 .checklist-header {
   display: flex;
   align-items: center;
@@ -258,6 +249,8 @@ body {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .checklist-title-input {
@@ -271,32 +264,31 @@ body {
   padding: 2px 4px;
   outline: none;
   min-width: 220px;
+  flex: 1;
 }
 
 .cl-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 .cl-table thead th {
   background: var(--surface);
-  padding: 11px 14px;
+  padding: 11px 8px;
   text-align: left;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   color: var(--text2);
   border-bottom: 2px solid var(--border);
   border-right: 1px solid var(--border);
-  white-space: nowrap;
-  overflow: visible;
-  text-overflow: clip;
   position: sticky;
   top: 0;
   z-index: 2;
+  line-height: 1.3;
 }
 .cl-table thead th:last-child { border-right: none; }
 .cl-table thead th.drag-col { border-right: none; }
@@ -311,16 +303,11 @@ body {
 }
 
 .cl-table tbody td {
-  padding: 10px 10px;
+  padding: 8px 6px;
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--surface2);
   vertical-align: top;
-  color: var(--text);
-  white-space: normal;
-  word-break: normal;
   overflow-wrap: break-word;
-  overflow: visible;
-  text-overflow: clip;
   line-height: 1.45;
 }
 .cl-table tbody td:last-child { border-right: none; }
@@ -331,59 +318,32 @@ td.overdue-date input[type="date"] { color: var(--red) !important; font-weight: 
 
 .cl-table tbody td.center { text-align: center; }
 
+/* Gemeinsame Styles für alle Formular-Elemente in der Tabelle */
 .cl-table tbody td input[type="text"],
-.cl-table tbody td input[type="date"] {
-  width: 100%;
-  min-width: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 5px 7px;
-  font-size: 13px;
-  font-family: var(--font);
-  color: var(--text);
-  outline: none;
-  transition: border-color .15s, background .15s;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-}
-
-.cl-table tbody td input[type="date"] {
-  min-width: 130px;
-}
-
-.cl-table tbody td textarea {
-  width: 100%;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 5px 7px;
-  font-size: 13px;
-  font-family: var(--font);
-  color: var(--text);
-  outline: none;
-  transition: border-color .15s, background .15s;
-  resize: vertical;
-  min-height: 44px;
-  overflow: visible;
-  overflow-wrap: break-word;
-  word-break: normal;
-  white-space: pre-wrap;
-  field-sizing: content;        /* modern browsers: auto-grow */
-}
-
+.cl-table tbody td input[type="date"],
+.cl-table tbody td textarea,
 .cl-table tbody td select {
   width: 100%;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
-  padding: 5px 7px;
+  padding: 5px 4px;
   font-size: 13px;
   font-family: var(--font);
   color: var(--text);
   outline: none;
   transition: border-color .15s, background .15s;
+}
+
+.cl-table tbody td input[type="text"] { min-width: 0; }
+.cl-table tbody td input[type="date"] { min-width: 120px; padding: 4px 2px; font-size: 12px; }
+
+.cl-table tbody td textarea {
+  resize: vertical;
+  min-height: 44px;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  field-sizing: content;
 }
 
 .cl-table tbody td input:hover,
@@ -401,34 +361,16 @@ td.overdue-date input[type="date"] { color: var(--red) !important; font-weight: 
   box-shadow: 0 0 0 2px rgba(79,110,247,0.12);
 }
 
-/* Status Badges */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.status-badge.offen { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.status-badge.terminiert { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-.status-badge.erledigt { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-
+/* Status Select */
 select.status-select {
   appearance: none;
-  -webkit-appearance: none;
   padding: 6px 28px 6px 12px;
   border-radius: 20px;
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
-  overflow: visible;
-  text-overflow: clip;
-  min-width: 110px;
+  min-width: 100px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235a607a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
@@ -443,11 +385,6 @@ select.status-select.terminiert {
 select.status-select.erledigt {
   background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
 }
-
-/* Priority Badges */
-.prio-high { color: var(--red); font-weight: 700; }
-.prio-medium { color: var(--orange); font-weight: 600; }
-.prio-low { color: var(--green); font-weight: 600; }
 
 /* Row Number */
 .row-num {
@@ -469,7 +406,7 @@ select.status-select.erledigt {
   color: var(--text3);
   cursor: pointer;
   font-size: 16px;
-  transition: all .15s;
+  transition: background .15s, color .15s;
 }
 .delete-row-btn:hover {
   background: #fef2f2;
@@ -488,20 +425,18 @@ select.status-select.erledigt {
 
 /* ── No-print ── */
 @media print {
-  .page-header, .selector-section, .header-actions, .delete-row-btn { display: none !important; }
+  .page-header, .selector-section, .header-actions, .delete-row-btn, .col-resizer, .drag-handle, th.drag-col { display: none !important; }
   .cl-table tbody td input, .cl-table tbody td textarea, .cl-table tbody td select {
     border: none !important;
     padding: 2px !important;
     background: transparent !important;
     box-shadow: none !important;
-    overflow: visible !important;
     white-space: pre-wrap !important;
-    word-break: normal !important;
     height: auto !important;
   }
   .cl-table tbody td textarea { min-height: unset !important; }
   .main-container { padding: 0; }
-  .checklist-wrapper { border: 1px solid #ccc; border-radius: 0; overflow: visible !important; }
+  .checklist-wrapper { border: 1px solid #ccc; border-radius: 0; }
   .cl-table { font-size: 11px; }
   .cl-table thead th { font-size: 9px; }
 }
@@ -513,7 +448,7 @@ select.status-select.erledigt {
   .selector-section { padding: 14px; }
   .task-selector-row { flex-direction: column; }
   .field select, .field input { min-width: 100%; }
-  .cl-table thead th, .cl-table tbody td { padding: 8px 8px; }
+  .cl-table thead th, .cl-table tbody td { padding: 8px; }
   .checklist-header { flex-direction: column; gap: 10px; align-items: flex-start; }
 }
 
@@ -535,11 +470,8 @@ select.status-select.erledigt {
   border-radius: 20px;
   font-size: 13px;
   cursor: pointer;
-  transition: all .15s;
-  font-family: var(--font);
+  transition: background .15s, border-color .15s, color .15s;
   white-space: nowrap;
-  overflow: visible;
-  text-overflow: clip;
 }
 
 .saved-chip:hover { border-color: var(--accent); background: #f0f2ff; }
@@ -568,8 +500,6 @@ select.status-select.erledigt {
 }
 .checklist-wrapper { animation: fadeIn .3s ease; }
 /* ── Column Resize ── */
-.cl-table { table-layout: fixed; }
-.cl-table thead th { position: sticky; top: 0; z-index: 2; overflow: hidden; }
 .col-resizer {
   position: absolute; right: -3px; top: 0; bottom: 0; width: 7px;
   cursor: col-resize; z-index: 5; user-select: none;
@@ -579,8 +509,6 @@ select.status-select.erledigt {
   background: transparent; transition: background .15s;
 }
 .col-resizer:hover::after, .col-resizer.active::after { background: var(--accent); width: 2px; right: 2px; top: 10%; bottom: 10%; }
-@media print { .col-resizer { display: none !important; } }
-
 /* ── Drag & Drop ── */
 .drag-handle{cursor:grab;color:var(--text3);font-size:16px;user-select:none;text-align:center;padding:0 2px;transition:color .15s;border-right-color:transparent !important}
 .drag-handle:hover{color:var(--accent)}
@@ -588,7 +516,6 @@ select.status-select.erledigt {
 tr.dragging{opacity:.35;background:var(--surface2) !important}
 tr.drag-over-above{box-shadow:inset 0 3px 0 0 var(--accent)}
 tr.drag-over-below{box-shadow:inset 0 -3px 0 0 var(--accent)}
-@media print{.drag-handle{display:none !important} th.drag-col{display:none !important}}
 
 /* ── Auth Gate ── */
 #auth-lock{position:fixed;inset:0;background:linear-gradient(135deg,#1a1d2e 0%,#2d3150 100%);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
@@ -628,9 +555,7 @@ body.firebase-readonly .drag-handle{display:none}
 <!-- ── Page Header ── -->
 <div class="page-header" style="display:none">
   <h1>
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-    </svg>
+    <img src="data:image/gif;base64,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6B1YM3HGZCYux9cm5D2zmMGkJjRlAanDXTN11uQmJtGjzbd9s5s9IScw4ZGps52znNFkJzb7d6+XvTN4v6BnxsJZq4Hds3nZ5GcC0mksff2zn6gg6ALoh61mHVi0egZlKEJJQTRHPfR8mqCoGTJBtTldlHz04ejBhvIwK320fiElKUgvyDYhndR/h2DpCVwqx2K9VIEppKm/bMpI/tx0gzLkKU7dUE0C/TSEeyGqtozKOy8dRNWGjGFqtCxTUXk9tYiZoSplvIi/bl11jU7iqiECOcOafZWsZaXk2MyaVrUKsnFrdetb41g6uM6VrmLUX13xmteuUlCvNX316xdd8lfBDjauhyTsYRHbR+gklrGN3Ws2HBtZyV7SgJO17GVZSRXMbpazxExqZ0EbWtGOKJa0pTXtaVGbWtWulrWtde1rYRtb2c6WtrW17W1xm1vd7pa3vfXtb4EnG1zhDpe4xTXucZGbXOUul7nNde5zoRtd6U6XutW17nWxm13tbpe7I9317nfBG17xjpe85TXvedGbXvWul73tde974Rtf+c6XvvW1Ie998Ztf/e6Xv/31738BHGABD5jABTbwgRGcYAUvmMENdiDwgyEcYQlPmMIVtvCFMZxhDW+Ywx328IdBHGIRj5jEJSA28YlRnGIVr5jFLXbxi2EcYxnPmMY1tvGNcZxjHe+Yxxw99vGPgRxkIQ+ZyEU28pGRnGQlL5nJTXbyk6EcHGUpT5nKVbbylbGcZS1vmctd9vKXwRxmMY+ZzGUbNvOZ0ZxmNa+ZzW1285vhHGc5z5nOdbbznfGcG2c975nPffbznwEdaEEPmtCFNvShEZ1oRS+a0RqNdvSjIR1pSU+a0pW29KUxnWlNb5rTnfb0pxhBHWpRj5rUpTb1qVGdalWvmtWtdvWrYR0Ya1nPmta1tvWtcZ1rXe+a17329a+BHWxhFw+b2MU29rGRnWxlL5vZzXb2s6EdbWlPGJva1bb2tbGdbW1vm9vd9va3wR1ucY+b3BblNve50Z1uda+b3e1297vhHW95z5veFvW2973xnW9975vf/fb3vwEecIEPnOAUBTf4wRGecIUvnOENd/jDIR5xiU8VnOIVt/jFMZ5xjW+c4x33+MdBHnKRFI+c5CU3+clRnnKVr5zlLXf5y2EeFXOZz5zmNbf5zXGec53vnOc99/nPgRMedKEPnehFN/rRkZ50pS+d6U13FPrToR51qU+d6lW3+tWxnnWtb53rE133+tfBHnaxj53sZTf72dGedrUSr53tbXf72+Eed7nPne51t/vdE/Ged73vne999/vfAR94wQ+e8IUSN/zhEZ94xS+e8Y13/OMhH3nJEk+e8pW3/OUxn3nNb57znff85xJBH3rRj570pTf96VGfetWvnvUQrXf962Efe9nPnva1t/3tcRKfe93vnve99/3vgR984Q+f+MUQN/7xkZ985S+f+c13/vOhHxF96U+f+tW3/vWxn33tb5/73RD3/vfBH37xj5/85Tf/+dGfEX71r5/97Xf/++Eff/nPn/71Brf//X1fAAA7" alt="XO Logo" style="height:22px;width:auto;vertical-align:middle">
     Checklisten
     <span class="subtitle">– Projekt Punkteliste</span>
   </h1>
@@ -639,7 +564,7 @@ body.firebase-readonly .drag-handle{display:none}
     <button class="btn primary" onclick="exportJSON()">💾 Exportieren</button>
     <button class="btn" onclick="importJSON()">📂 Importieren</button>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
-    <span id="save-ind" style="font-size:11px;color:var(--text3);white-space:nowrap;display:flex;align-items:center;gap:4px">
+    <span id="save-ind">
       <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:#60a5fa;display:inline-block"></span>
       <span id="save-txt">⟳ Verbinde…</span>
     </span>
@@ -648,7 +573,7 @@ body.firebase-readonly .drag-handle{display:none}
 </div>
 
 <!-- Lock Banner -->
-<div id="lock-banner" style="display:none;align-items:center;justify-content:center;">
+<div id="lock-banner">
   <span id="lock-msg">🔒 Wird gerade bearbeitet — Nur-Lese-Modus</span>
   <button onclick="requestEditAccess()" style="background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.5);color:#fff;padding:3px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-family:var(--font)">Edit anyway</button>
 </div>
@@ -666,7 +591,7 @@ body.firebase-readonly .drag-handle{display:none}
       <div class="field">
         <label>Aufgabe aus Technology wählen</label>
         <div style="display:flex;gap:8px;">
-          <select id="task-dropdown" onchange="applyTaskSelection()" style="min-width:260px;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font:inherit;font-size:13px;background:var(--bg2);color:var(--text);">
+          <select id="task-dropdown" onchange="applyTaskSelection()" style="min-width:260px;">
             <option value="">— Aufgabe auswählen —</option>
           </select>
           <button class="btn" onclick="loadTaskNames()" title="Aufgabenliste aktualisieren" style="padding:7px 12px;">🔄</button>
@@ -690,26 +615,18 @@ body.firebase-readonly .drag-handle{display:none}
     <div class="legend-item"><div class="legend-dot offen"></div><span><b>offen</b> = noch nicht erledigt bzw. ohne Fertigstellungstermin</span></div>
     <div class="legend-item"><div class="legend-dot terminiert"></div><span><b>terminiert</b> = Fertigstellungstermin festgelegt</span></div>
     <div class="legend-item"><div class="legend-dot erledigt"></div><span><b>erledigt</b> = abgeschlossen</span></div>
-    <div class="legend-item" style="margin-left:auto;color:var(--text3)"><span>⌨ <b>Strg+Enter</b> = heutiges Datum einfügen</span></div>
+    <div class="legend-item" style="margin-left:auto;color:var(--text3)"><span>⌨ <b>Strg+:</b> = heutiges Datum einfügen</span></div>
   </div>
 
-  <!-- Active Checklist Area -->
-  <div id="checklist-area">
-    <div class="empty-state" id="empty-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-      </svg>
-      <p>Keine Checkliste ausgewählt</p>
-      <small>Erstellen Sie oben eine neue Checkliste oder wählen Sie eine gespeicherte aus.</small>
-    </div>
-  </div>
+  <!-- Active Checklist Area – wird von renderChecklist() befüllt -->
+  <div id="checklist-area"></div>
 
 </div>
 
 <script>
 // ── Auth Gate ──
 const AUTH_SESSION_KEY = 'technology_auth_session';
-const AUTH_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const AUTH_MAX_AGE_MS = 86400000; // 24h in ms
 
 function checkAuth() {
   try {
@@ -722,37 +639,52 @@ function checkAuth() {
   } catch(e) { return null; }
 }
 
+// DOM-Referenzen einmal cachen (nach DOMContentLoaded)
+var _authEls = null;
+function getAuthEls() {
+  if (!_authEls) {
+    _authEls = {
+      lock: document.getElementById('auth-lock'),
+      header: document.querySelector('.page-header'),
+      main: document.querySelector('.main-container'),
+      legend: document.querySelector('.legend'),
+      area: document.getElementById('checklist-area'),
+      lockBanner: document.getElementById('lock-banner'),
+      onlineUsers: document.getElementById('online-users')
+    };
+  }
+  return _authEls;
+}
+
 function applyAuthState() {
   const session = checkAuth();
-  const lock = document.getElementById('auth-lock');
-  const header = document.querySelector('.page-header');
-  const main = document.querySelector('.main-container');
-  const legend = document.querySelector('.legend');
-  const area = document.getElementById('checklist-area');
-  
+  const els = getAuthEls();
+
   if (session) {
-    if (lock) lock.style.display = 'none';
-    if (header) header.style.display = '';
-    if (main) main.style.display = '';
-    if (legend) legend.style.display = '';
-    if (area) area.style.display = '';
+    if (els.lock) els.lock.style.display = 'none';
+    if (els.header) els.header.style.display = '';
+    if (els.main) els.main.style.display = '';
+    if (els.legend) els.legend.style.display = '';
+    if (els.area) els.area.style.display = '';
     // Show user badge
     let badge = document.getElementById('auth-user-badge');
     if (!badge) {
       badge = document.createElement('span');
       badge.id = 'auth-user-badge';
-      const h = document.querySelector('.page-header h1');
-      if (h) h.appendChild(badge);
+      if (els.header) {
+        const h = els.header.querySelector('h1');
+        if (h) h.appendChild(badge);
+      }
     }
-    badge.textContent = '👤 ' + session.user + ' (' + session.role + ')';
+    badge.textContent = '\u{1F464} ' + session.user + ' (' + session.role + ')';
     // Firebase nach Auth starten
     if(typeof clFirebaseStart === 'function') clFirebaseStart();
   } else {
-    if (lock) lock.style.display = 'flex';
-    if (header) header.style.display = 'none';
-    if (main) main.style.display = 'none';
-    if (legend) legend.style.display = 'none';
-    if (area) area.style.display = 'none';
+    if (els.lock) els.lock.style.display = 'flex';
+    if (els.header) els.header.style.display = 'none';
+    if (els.main) els.main.style.display = 'none';
+    if (els.legend) els.legend.style.display = 'none';
+    if (els.area) els.area.style.display = 'none';
     // Firebase aufräumen bei Logout
     if(_clFirebaseStarted){
       _clFirebaseStarted = false;
@@ -762,20 +694,15 @@ function applyAuthState() {
       if(window._clUnsubDoc){ window._clUnsubDoc(); window._clUnsubDoc=null; }
       if(window._clUnsubLock){ window._clUnsubLock(); window._clUnsubLock=null; }
       if(_clUnsubSessions){ _clUnsubSessions(); _clUnsubSessions=null; }
-      var el=document.getElementById('online-users'); if(el) el.innerHTML='';
+      if(els.onlineUsers) els.onlineUsers.innerHTML='';
       document.body.classList.remove('firebase-readonly');
-      document.getElementById('lock-banner').style.display='none';
+      if(els.lockBanner) els.lockBanner.style.display='none';
     }
   }
 }
 
 // Initial check
 document.addEventListener('DOMContentLoaded', applyAuthState);
-
-// React to login/logout in other tabs
-window.addEventListener('storage', function(e) {
-  if (e.key === AUTH_SESSION_KEY) applyAuthState();
-});
 
 // Periodic check (same-tab logout or session expiry)
 setInterval(applyAuthState, 5000);
@@ -809,7 +736,7 @@ function save() {
   // Save to Firestore (debounced)
   if(_clRemoteUpdate) return;
   if(_clSaveTimer) clearTimeout(_clSaveTimer);
-  _clSaveTimer = setTimeout(function(){ saveToFirebase(); }, 400);
+  _clSaveTimer = setTimeout(saveToFirebase, 400);
 }
 
 function saveToFirebase(){
@@ -832,7 +759,8 @@ function acquireLock(){
     .then(function(){
       _clIsEditor=true;
       document.body.classList.remove('firebase-readonly');
-      document.getElementById('lock-banner').style.display='none';
+      var els = getAuthEls();
+      if(els.lockBanner) els.lockBanner.style.display='none';
     });
 }
 
@@ -846,9 +774,10 @@ function requestEditAccess(){
   acquireLock().catch(function(e){ console.error('Lock error:',e); });
 }
 
+var _saveDot=null, _saveTxt=null;
 function setStatus(color,text){
-  var dot=document.getElementById('save-dot'), txt=document.getElementById('save-txt');
-  if(dot){ dot.style.background=color; txt.textContent=text; }
+  if(!_saveDot) { _saveDot=document.getElementById('save-dot'); _saveTxt=document.getElementById('save-txt'); }
+  if(_saveDot){ _saveDot.style.background=color; _saveTxt.textContent=text; }
 }
 function markSaving(){ setStatus('#a78bfa','↑ Speichert…'); }
 function markSaveError(){ setStatus('#ef4444','⚠ Fehler'); }
@@ -906,34 +835,34 @@ function clStrColor(str){
 }
 
 function clRenderOnlineUsers(sessions){
-  var el = document.getElementById('online-users');
+  var el = getAuthEls().onlineUsers;
   if(!el) return;
-  var total = sessions.length;
   el.innerHTML = '';
-  if(total <= 1) return;
+  if(sessions.length <= 1) return;
+  var frag = document.createDocumentFragment();
   var lbl = document.createElement('span');
   lbl.id = 'online-label';
   lbl.textContent = 'Online:';
-  el.appendChild(lbl);
-  var self = sessions.find(function(s){ return s.sessionId === _clSessionId; });
-  if(self){
-    var av = document.createElement('span');
-    av.className = 'online-avatar';
-    av.style.background = clStrColor(self.user);
-    av.textContent = self.user.charAt(0).toUpperCase();
-    av.title = self.user + ' (du)' + (self.role==='admin'?' · Admin':' · User');
-    av.style.border = '2px solid #4f6ef7';
-    el.appendChild(av);
-  }
-  var others = sessions.filter(function(s){ return s.sessionId !== _clSessionId; });
-  others.forEach(function(s){
+  frag.appendChild(lbl);
+  // Einzelne Schleife statt find() + filter()
+  for(var i=0; i<sessions.length; i++){
+    var s = sessions[i];
+    var isSelf = s.sessionId === _clSessionId;
     var av = document.createElement('span');
     av.className = 'online-avatar';
     av.style.background = clStrColor(s.user);
     av.textContent = s.user.charAt(0).toUpperCase();
-    av.title = s.user + (s.role==='admin'?' · Admin':' · User') + ' · aktiv';
-    el.appendChild(av);
-  });
+    if(isSelf){
+      av.title = s.user + ' (du)' + (s.role==='admin'?' \u00b7 Admin':' \u00b7 User');
+      av.style.border = '2px solid #4f6ef7';
+      // Self-Avatar an den Anfang (nach Label)
+      frag.insertBefore(av, lbl.nextSibling);
+    } else {
+      av.title = s.user + (s.role==='admin'?' \u00b7 Admin':' \u00b7 User') + ' \u00b7 aktiv';
+      frag.appendChild(av);
+    }
+  }
+  el.appendChild(frag);
 }
 
 // ── Firebase starten (nach Auth) ────────────────────────────────────────────
@@ -992,68 +921,83 @@ function clFirebaseStart(){
   }, function(err){ console.warn('CL Snapshot error:',err); });
 
   // Lock-Listener
+  var _lockMsg = document.getElementById('lock-msg');
   window._clUnsubLock = CL_LOCK_DOC.onSnapshot(function(doc){
+    var els = getAuthEls();
     if(!doc.exists){
-      document.getElementById('lock-banner').style.display='none';
+      if(els.lockBanner) els.lockBanner.style.display='none';
       document.body.classList.remove('firebase-readonly');
       if(currentRole==='admin' && !_clIsEditor) acquireLock().catch(function(){});
-    } else if(doc.data().sessionId !== _clSessionId){
-      _clIsEditor = false;
-      document.body.classList.add('firebase-readonly');
-      var who = doc.data().lockedBy || 'einem anderen Nutzer';
-      document.getElementById('lock-msg').textContent = '🔒 Wird gerade bearbeitet von '+who+' — Nur-Lese-Modus';
-      document.getElementById('lock-banner').style.display = 'flex';
-      markReadOnly();
+    } else {
+      var d = doc.data();
+      if(d.sessionId !== _clSessionId){
+        _clIsEditor = false;
+        document.body.classList.add('firebase-readonly');
+        var who = d.lockedBy || 'einem anderen Nutzer';
+        if(_lockMsg) _lockMsg.textContent = '\uD83D\uDD12 Wird gerade bearbeitet von '+who+' \u2014 Nur-Lese-Modus';
+        if(els.lockBanner) els.lockBanner.style.display = 'flex';
+        markReadOnly();
+      }
     }
   });
 }
 
+// Gecachte Formular-Referenzen
+var _taskDropdown = null, _newClName = null, _savedListEl = null, _checklistArea = null;
+function getFormEls() {
+  if(!_taskDropdown) {
+    _taskDropdown = document.getElementById('task-dropdown');
+    _newClName = document.getElementById('new-cl-name');
+    _savedListEl = document.getElementById('saved-list');
+    _checklistArea = document.getElementById('checklist-area');
+  }
+}
+
 function loadTaskNames() {
-  const sel = document.getElementById('task-dropdown');
-  const prev = sel.value;
-  sel.innerHTML = '<option value="">— Aufgabe auswählen —</option>';
+  getFormEls();
+  var prev = _taskDropdown.value;
+  _taskDropdown.innerHTML = '<option value="">\u2014 Aufgabe ausw\u00e4hlen \u2014</option>';
   try {
-    const raw = localStorage.getItem('technology_task_names');
+    var raw = localStorage.getItem('technology_task_names');
     if (raw) {
-      const names = JSON.parse(raw);
-      names.forEach(n => {
-        const opt = document.createElement('option');
+      var names = JSON.parse(raw);
+      var frag = document.createDocumentFragment();
+      names.forEach(function(n) {
+        var opt = document.createElement('option');
         opt.value = n;
         opt.textContent = n;
-        sel.appendChild(opt);
+        frag.appendChild(opt);
       });
-      if (prev) sel.value = prev;
+      _taskDropdown.appendChild(frag);
+      if (prev) _taskDropdown.value = prev;
     }
   } catch(e) {}
 }
 
 function applyTaskSelection() {
-  const sel = document.getElementById('task-dropdown');
-  const nameEl = document.getElementById('new-cl-name');
-  if (sel.value) {
-    nameEl.value = sel.value;
+  getFormEls();
+  if (_taskDropdown.value) {
+    _newClName.value = _taskDropdown.value;
   }
 }
 
 function createChecklist() {
-  const nameEl = document.getElementById('new-cl-name');
-  const sel = document.getElementById('task-dropdown');
-  let name = nameEl.value.trim();
-  if (!name && sel.value) name = sel.value;
-  if (!name) { nameEl.focus(); return; }
-  
-  const id = 'cl_' + (++counter);
+  getFormEls();
+  var name = _newClName.value.trim();
+  if (!name && _taskDropdown.value) name = _taskDropdown.value;
+  if (!name) { _newClName.focus(); return; }
+
+  var id = 'cl_' + (++counter);
   checklists[id] = {
-    id,
-    name,
+    id: id,
+    name: name,
     created: new Date().toISOString(),
     rows: []
   };
-  nameEl.value = '';
-  sel.value = '';
+  _newClName.value = '';
+  _taskDropdown.value = '';
   save();
   setActive(id);
-  renderSaved();
 }
 
 function setActive(id) {
@@ -1073,73 +1017,60 @@ function deleteChecklist(id, evt) {
 }
 
 function renderSaved() {
-  const el = document.getElementById('saved-list');
-  const ids = Object.keys(checklists);
-  if (ids.length === 0) { el.innerHTML = '<span style="font-size:13px;color:var(--text3)">Noch keine Checklisten gespeichert.</span>'; return; }
-  el.innerHTML = ids.map(id => {
-    const cl = checklists[id];
-    const active = id === activeId;
-    return `<div class="saved-chip ${active ? 'active' : ''}" onclick="setActive('${id}')">
-      📋 ${esc(cl.name)} <span style="opacity:0.6">(${cl.rows.length})</span>
-      <span class="chip-delete" onclick="deleteChecklist('${id}', event)">✕</span>
-    </div>`;
+  getFormEls();
+  var ids = Object.keys(checklists);
+  if (ids.length === 0) { _savedListEl.innerHTML = '<span style="font-size:13px;color:var(--text3)">Noch keine Checklisten gespeichert.</span>'; return; }
+  _savedListEl.innerHTML = ids.map(function(id) {
+    var cl = checklists[id];
+    return '<div class="saved-chip ' + (id === activeId ? 'active' : '') + '" onclick="setActive(\'' + id + '\')">\ud83d\udccb ' + esc(cl.name) + ' <span style="opacity:0.6">(' + cl.rows.length + ')</span><span class="chip-delete" onclick="deleteChecklist(\'' + id + '\', event)">\u2715</span></div>';
   }).join('');
 }
 
 function renderChecklist() {
-  const area = document.getElementById('checklist-area');
-  const empty = document.getElementById('empty-state');
-  
+  getFormEls();
+
   if (!activeId || !checklists[activeId]) {
-    area.innerHTML = `<div class="empty-state" id="empty-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-      </svg>
-      <p>Keine Checkliste ausgewählt</p>
-      <small>Erstellen Sie oben eine neue Checkliste oder wählen Sie eine gespeicherte aus.</small>
-    </div>`;
+    _checklistArea.innerHTML = '<div class="empty-state"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg><p>Keine Checkliste ausgew\u00e4hlt</p><small>Erstellen Sie oben eine neue Checkliste oder w\u00e4hlen Sie eine gespeicherte aus.</small></div>';
     return;
   }
 
-  const cl = checklists[activeId];
-  
-  let rowsHTML = '';
-  cl.rows.forEach((r, i) => {
-    const statusCls = r.status || 'offen';
-    // Check overdue: endtermin or fertigstellung in the past and status != erledigt
-    const today = new Date().toISOString().split('T')[0];
-    const isOverdue = statusCls !== 'erledigt' && r.endtermin && r.endtermin < today;
-    const topicCls = isOverdue ? ' overdue' : '';
-    const endterminCls = (r.endtermin && r.endtermin < today && statusCls !== 'erledigt') ? ' overdue-date' : '';
-    const fertigCls = (r.fertigstellung && r.fertigstellung < today && statusCls !== 'erledigt') ? ' overdue-date' : '';
-    rowsHTML += `<tr draggable="false" data-idx="${i}" ondragstart="onDragStart(event,${i})" ondragend="onDragEnd(event)" ondragover="onDragOver(event,${i})" ondragleave="onDragLeave(event)" ondrop="onDrop(event,${i})">
-      <td class="center drag-handle" title="Verschieben" onmousedown="this.closest('tr').draggable=true" onmouseup="this.closest('tr').draggable=false">☰</td>
-      <td class="center"><span class="row-num">${i+1}</span></td>
-      <td><input type="text" value="${esc(r.prio||'')}" onchange="updateRow(${i},'prio',this.value)" placeholder="–"></td>
-      <td><input type="date" value="${esc(r.datum||'')}" onchange="updateRow(${i},'datum',this.value)"></td>
-      <td class="${topicCls}"><textarea onchange="updateRow(${i},'topic',this.value)" placeholder="Thema…">${esc(r.topic||'')}</textarea></td>
-      <td><textarea onchange="updateRow(${i},'beschreibung',this.value)" placeholder="Beschreibung…">${esc(r.beschreibung||'')}</textarea></td>
-      <td class="center">
-        <select class="status-select ${statusCls}" onchange="updateRow(${i},'status',this.value);this.className='status-select '+this.value">
-          <option value="offen" ${statusCls==='offen'?'selected':''}>offen</option>
-          <option value="terminiert" ${statusCls==='terminiert'?'selected':''}>terminiert</option>
-          <option value="erledigt" ${statusCls==='erledigt'?'selected':''}>erledigt</option>
-        </select>
-      </td>
-      <td><input type="text" value="${esc(r.verantw_intern||'')}" onchange="updateRow(${i},'verantw_intern',this.value)" placeholder="–"></td>
-      <td><input type="text" value="${esc(r.verantw_extern||'')}" onchange="updateRow(${i},'verantw_extern',this.value)" placeholder="–"></td>
-      <td class="${endterminCls}"><input type="date" value="${esc(r.endtermin||'')}" onchange="updateRow(${i},'endtermin',this.value)"></td>
-      <td class="${fertigCls}"><input type="date" value="${esc(r.fertigstellung||'')}" onchange="updateRow(${i},'fertigstellung',this.value)"></td>
-      <td class="center"><button class="delete-row-btn" onclick="deleteRow(${i})" title="Zeile löschen">🗑</button></td>
-    </tr>`;
-  });
+  var cl = checklists[activeId];
+  var today = new Date().toISOString().split('T')[0]; // 1× statt pro Zeile
+  var rowsHTML = '';
+  var done = 0;
 
-  // Stats
-  const total = cl.rows.length;
-  const done = cl.rows.filter(r => r.status === 'erledigt').length;
-  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  for (var i = 0; i < cl.rows.length; i++) {
+    var r = cl.rows[i];
+    var statusCls = r.status || 'offen';
+    if (statusCls === 'erledigt') done++;
+    var notDone = statusCls !== 'erledigt';
+    var topicCls = (notDone && r.endtermin && r.endtermin < today) ? ' overdue' : '';
+    var endterminCls = (notDone && r.endtermin && r.endtermin < today) ? ' overdue-date' : '';
+    var fertigCls = (notDone && r.fertigstellung && r.fertigstellung < today) ? ' overdue-date' : '';
+    rowsHTML += '<tr draggable="false" data-idx="'+i+'" ondragstart="onDragStart(event,'+i+')" ondragend="onDragEnd(event)" ondragover="onDragOver(event,'+i+')" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'+i+')">'
+      +'<td class="center drag-handle" title="Verschieben" onmousedown="this.closest(\'tr\').draggable=true" onmouseup="this.closest(\'tr\').draggable=false">\u2630</td>'
+      +'<td class="center"><span class="row-num">'+(i+1)+'</span></td>'
+      +'<td><input type="text" value="'+esc(r.prio||'')+'" onchange="updateRow('+i+',\'prio\',this.value)" placeholder="\u2013"></td>'
+      +'<td><input type="date" value="'+esc(r.datum||'')+'" onchange="updateRow('+i+',\'datum\',this.value)"></td>'
+      +'<td class="'+topicCls+'"><textarea onchange="updateRow('+i+',\'topic\',this.value)" placeholder="Thema\u2026">'+esc(r.topic||'')+'</textarea></td>'
+      +'<td><textarea onchange="updateRow('+i+',\'beschreibung\',this.value)" placeholder="Beschreibung\u2026">'+esc(r.beschreibung||'')+'</textarea></td>'
+      +'<td class="center"><select class="status-select '+statusCls+'" onchange="updateRow('+i+',\'status\',this.value);this.className=\'status-select \'+this.value">'
+      +'<option value="offen"'+(statusCls==='offen'?' selected':'')+'>offen</option>'
+      +'<option value="terminiert"'+(statusCls==='terminiert'?' selected':'')+'>terminiert</option>'
+      +'<option value="erledigt"'+(statusCls==='erledigt'?' selected':'')+'>erledigt</option>'
+      +'</select></td>'
+      +'<td><input type="text" value="'+esc(r.verantw_intern||'')+'" onchange="updateRow('+i+',\'verantw_intern\',this.value)" placeholder="\u2013"></td>'
+      +'<td><input type="text" value="'+esc(r.verantw_extern||'')+'" onchange="updateRow('+i+',\'verantw_extern\',this.value)" placeholder="\u2013"></td>'
+      +'<td class="'+endterminCls+'"><input type="date" value="'+esc(r.endtermin||'')+'" onchange="updateRow('+i+',\'endtermin\',this.value)"></td>'
+      +'<td class="'+fertigCls+'"><input type="date" value="'+esc(r.fertigstellung||'')+'" onchange="updateRow('+i+',\'fertigstellung\',this.value)"></td>'
+      +'<td class="center"><button class="delete-row-btn" onclick="deleteRow('+i+')" title="Zeile l\u00f6schen">\uD83D\uDDD1</button></td>'
+      +'</tr>';
+  }
 
-  area.innerHTML = `<div class="checklist-wrapper">
+  var total = cl.rows.length;
+  var pct = total > 0 ? Math.round(done / total * 100) : 0;
+
+  _checklistArea.innerHTML = `<div class="checklist-wrapper">
     <div class="checklist-header">
       <h3>
         📋 <input class="checklist-title-input" value="${esc(cl.name)}" onchange="renameChecklist(this.value)">
@@ -1153,18 +1084,18 @@ function renderChecklist() {
       <table class="cl-table">
         <thead>
           <tr>
-            <th class="center drag-col" style="min-width:30px;width:30px"></th>
-            <th class="center" style="min-width:50px">Pos.</th>
-            <th style="min-width:65px">Prio</th>
-            <th style="min-width:130px">Datum erstellt</th>
-            <th style="min-width:170px">Topic</th>
-            <th style="min-width:260px">Beschreibung</th>
-            <th class="center" style="min-width:120px">Status</th>
-            <th style="min-width:140px">Verantw. intern</th>
-            <th style="min-width:140px">Verantw. extern</th>
-            <th style="min-width:130px">Endtermin (Ziel)</th>
-            <th style="min-width:140px">Fertigstellung am</th>
-            <th class="center" style="min-width:44px"></th>
+            <th class="center drag-col" style="width:30px;min-width:30px"></th>
+            <th class="center" style="width:42px;min-width:42px">Pos.</th>
+            <th style="width:52px;min-width:52px">Prio</th>
+            <th style="width:140px;min-width:140px">Datum erstellt</th>
+            <th>Topic</th>
+            <th>Beschreibung</th>
+            <th class="center" style="width:110px;min-width:110px">Status</th>
+            <th style="width:115px;min-width:115px">Verantw. intern</th>
+            <th style="width:115px;min-width:115px">Verantw. extern</th>
+            <th style="width:140px;min-width:140px">Endtermin (Ziel)</th>
+            <th style="width:145px;min-width:145px">Fertigstellung am</th>
+            <th class="center" style="width:36px;min-width:36px"></th>
           </tr>
         </thead>
         <tbody>
@@ -1211,8 +1142,9 @@ function deleteRow(idx) {
 }
 
 function renameChecklist(name) {
-  if (!activeId || !name.trim()) return;
-  checklists[activeId].name = name.trim();
+  var trimmed = name.trim();
+  if (!activeId || !trimmed) return;
+  checklists[activeId].name = trimmed;
   save();
   renderSaved();
 }
@@ -1222,14 +1154,14 @@ function printChecklist() {
 }
 
 function exportJSON() {
-  const data = JSON.stringify(checklists, null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  var data = JSON.stringify(checklists, null, 2);
+  var blob = new Blob([data], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
   a.href = url;
   a.download = 'checklisten_export.json';
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
 
 function importJSON() {
@@ -1259,29 +1191,34 @@ function handleImport(evt) {
   evt.target.value = '';
 }
 
+var _escMap = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'};
+var _escRe = /[&<>"]/g;
 function esc(s) {
   if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(_escRe, function(c){ return _escMap[c]; });
 }
 
 // ── Drag & Drop ──
-let _dragIdx = null;
+var _dragIdx = null;
+var _dragHighlightRow = null; // Vorherige highlight-Row merken
 
 function onDragStart(e, idx) {
   _dragIdx = idx;
+  _dragHighlightRow = null;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', idx);
-  requestAnimationFrame(() => {
-    const row = e.target.closest('tr');
+  requestAnimationFrame(function() {
+    var row = e.target.closest('tr');
     if (row) row.classList.add('dragging');
   });
 }
 
 function onDragEnd(e) {
   _dragIdx = null;
-  const row = e.target.closest('tr');
+  _dragHighlightRow = null;
+  var row = e.target.closest('tr');
   if (row) row.draggable = false;
-  document.querySelectorAll('.cl-table tr').forEach(r => {
+  document.querySelectorAll('.cl-table tr').forEach(function(r) {
     r.classList.remove('dragging', 'drag-over-above', 'drag-over-below');
   });
 }
@@ -1290,14 +1227,15 @@ function onDragOver(e, idx) {
   if (_dragIdx === null || _dragIdx === idx) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  const row = e.target.closest('tr');
+  var row = e.target.closest('tr');
   if (!row) return;
-  document.querySelectorAll('.cl-table tr').forEach(r => {
-    if (r !== row) r.classList.remove('drag-over-above', 'drag-over-below');
-  });
-  const rect = row.getBoundingClientRect();
-  const mid = rect.top + rect.height / 2;
-  if (e.clientY < mid) {
+  // Nur vorherige Row resetten statt alle iterieren
+  if (_dragHighlightRow && _dragHighlightRow !== row) {
+    _dragHighlightRow.classList.remove('drag-over-above', 'drag-over-below');
+  }
+  _dragHighlightRow = row;
+  var rect = row.getBoundingClientRect();
+  if (e.clientY < rect.top + rect.height / 2) {
     row.classList.add('drag-over-above');
     row.classList.remove('drag-over-below');
   } else {
@@ -1344,66 +1282,68 @@ function onDrop(e, targetIdx) {
 }
 
 // ── Touch Drag (mobile) ──
-let _touchDragIdx = null;
-let _touchClone = null;
-let _touchStartY = 0;
+var _touchDragIdx = null;
+var _touchHighlightRow = null;
 
 document.addEventListener('touchstart', function(e) {
-  const handle = e.target.closest('.drag-handle');
+  var handle = e.target.closest('.drag-handle');
   if (!handle) return;
-  const tr = handle.closest('tr');
+  var tr = handle.closest('tr');
   if (!tr || !tr.dataset.idx) return;
   e.preventDefault();
-  _touchDragIdx = parseInt(tr.dataset.idx);
-  _touchStartY = e.touches[0].clientY;
+  _touchDragIdx = parseInt(tr.dataset.idx, 10);
+  _touchHighlightRow = null;
   tr.classList.add('dragging');
 }, { passive: false });
 
 document.addEventListener('touchmove', function(e) {
   if (_touchDragIdx === null) return;
   e.preventDefault();
-  const y = e.touches[0].clientY;
-  // Highlight the row under the finger
-  document.querySelectorAll('.cl-table tbody tr').forEach(r => {
-    r.classList.remove('drag-over-above', 'drag-over-below');
-    const rect = r.getBoundingClientRect();
-    const idx = parseInt(r.dataset.idx);
-    if (isNaN(idx) || idx === _touchDragIdx) return;
-    if (y >= rect.top && y <= rect.bottom) {
-      const mid = rect.top + rect.height / 2;
-      r.classList.add(y < mid ? 'drag-over-above' : 'drag-over-below');
-    }
-  });
+  var y = e.touches[0].clientY;
+  // Vorherige Highlight-Row resetten
+  if (_touchHighlightRow) {
+    _touchHighlightRow.classList.remove('drag-over-above', 'drag-over-below');
+    _touchHighlightRow = null;
+  }
+  // Row unter Finger finden via elementFromPoint
+  var el = document.elementFromPoint(e.touches[0].clientX, y);
+  var row = el ? el.closest('.cl-table tbody tr') : null;
+  if (!row || !row.dataset.idx) return;
+  var idx = parseInt(row.dataset.idx, 10);
+  if (idx === _touchDragIdx) return;
+  _touchHighlightRow = row;
+  var rect = row.getBoundingClientRect();
+  row.classList.add(y < rect.top + rect.height / 2 ? 'drag-over-above' : 'drag-over-below');
 }, { passive: false });
 
 document.addEventListener('touchend', function(e) {
   if (_touchDragIdx === null) return;
-  const y = e.changedTouches[0].clientY;
-  let targetIdx = null;
-  let above = true;
-  document.querySelectorAll('.cl-table tbody tr').forEach(r => {
-    const rect = r.getBoundingClientRect();
-    const idx = parseInt(r.dataset.idx);
-    if (isNaN(idx)) return;
-    if (y >= rect.top && y <= rect.bottom) {
-      targetIdx = idx;
-      above = y < rect.top + rect.height / 2;
-    }
-  });
+  var y = e.changedTouches[0].clientY;
+  var targetIdx = null;
+  var above = true;
+  // Row unter Finger finden via elementFromPoint
+  var el = document.elementFromPoint(e.changedTouches[0].clientX, y);
+  var row = el ? el.closest('.cl-table tbody tr') : null;
+  if (row && row.dataset.idx) {
+    targetIdx = parseInt(row.dataset.idx, 10);
+    var rect = row.getBoundingClientRect();
+    above = y < rect.top + rect.height / 2;
+  }
 
   if (targetIdx !== null && targetIdx !== _touchDragIdx && activeId) {
-    const rows = checklists[activeId].rows;
-    const fromIdx = _touchDragIdx;
-    let insertIdx = above
+    var rows = checklists[activeId].rows;
+    var fromIdx = _touchDragIdx;
+    var insertIdx = above
       ? targetIdx - (fromIdx < targetIdx ? 1 : 0)
       : targetIdx + (fromIdx < targetIdx ? 0 : 1);
-    const [item] = rows.splice(fromIdx, 1);
+    var item = rows.splice(fromIdx, 1)[0];
     rows.splice(insertIdx, 0, item);
     save();
   }
 
   _touchDragIdx = null;
-  document.querySelectorAll('.cl-table tr').forEach(r => {
+  _touchHighlightRow = null;
+  document.querySelectorAll('.cl-table tr.dragging,.cl-table tr.drag-over-above,.cl-table tr.drag-over-below').forEach(function(r) {
     r.classList.remove('dragging', 'drag-over-above', 'drag-over-below');
   });
   renderChecklist();
@@ -1415,12 +1355,14 @@ renderSaved();
 renderChecklist();
 
 // Auto-update dropdown when Technology.html writes new task names
+// (Auth storage listener ist bereits in applyAuthState registriert – hier konsolidiert)
 window.addEventListener('storage', function(e) {
   if (e.key === 'technology_task_names') loadTaskNames();
+  else if (e.key === AUTH_SESSION_KEY) applyAuthState();
 });
 
 // ── Column Resize (mit Speicherung) ──
-const COL_WIDTHS_KEY = 'checklist_col_widths';
+const COL_WIDTHS_KEY = 'checklist_col_widths_v3';
 
 function saveColumnWidths() {
   const table = document.querySelector('.cl-table');
@@ -1466,7 +1408,6 @@ function initColumnResizers() {
 
     const resizer = document.createElement('div');
     resizer.className = 'col-resizer';
-    th.style.position = 'sticky'; // keep sticky but also act as offset parent
     th.appendChild(resizer);
 
     let startX, startW;
@@ -1539,20 +1480,23 @@ requestAnimationFrame(() => {
   initColumnResizers();
 });
 
-// ── Ctrl+Enter → insert today's date (DD-MM-YYYY) ──
+// ── Ctrl+: → insert today's date (DD.MM.YYYY) ──
 document.addEventListener('keydown', function(e) {
-  if (!e.ctrlKey || e.key !== 'Enter') return;
-  const el = e.target;
+  if (!e.ctrlKey) return;
+  // German keyboard: colon = Shift+Period key
+  var isColon = e.key === ':' || e.code === 'Period' || e.keyCode === 190;
+  if (!isColon) return;
+  var el = e.target;
   if (!el.closest('.cl-table')) return;
-  const tag = el.tagName;
+  var tag = el.tagName;
   if (tag !== 'TEXTAREA' && !(tag === 'INPUT' && el.type === 'text')) return;
-
   e.preventDefault();
+  e.stopPropagation();
   const now = new Date();
   const dd = String(now.getDate()).padStart(2, '0');
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const yyyy = now.getFullYear();
-  const stamp = dd + '-' + mm + '-' + yyyy;
+  const stamp = dd + '.' + mm + '.' + yyyy + ': ';
 
   const start = el.selectionStart;
   const end = el.selectionEnd;
