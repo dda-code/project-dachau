@@ -938,7 +938,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   <div id="tt-warn" style="display:none"></div>
 </div>
 <script>
-var PS=new Date('2026-01-01'),PE=new Date('2028-12-31');
+var PS=new Date(2026,0,1),PE=new Date(2028,11,31);
 var COLS=['#4f6ef7','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316','#ec4899','#6366f1','#14b8a6'];
 var MN=['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 var MF=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
@@ -957,7 +957,7 @@ function easterDate(y){
   return new Date(y,mo-1,dy);
 }
 function addDays(d,n){var r=new Date(d);r.setDate(r.getDate()+n);return r;}
-function fmtD(d){return d.toISOString().slice(0,10);}
+function fmtD(d){var mm=d.getMonth()+1,dd=d.getDate();return d.getFullYear()+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd;}
 
 function buildHolidays(){
   var h={};
@@ -966,40 +966,25 @@ function buildHolidays(){
   }
   [2026,2027,2028].forEach(function(y){
     var e=easterDate(y);
-    // BY/DE Fixed
-    addH(y+'-01-01','New Year');
+    // BY/DE Feste Feiertage
+    addH(y+'-01-01','Neujahr');
     addH(y+'-01-06','Heilige Drei Könige');
-    addH(y+'-05-01','Labour Day');
-    addH(y+'-08-15','Assumption Day');
-    addH(y+'-10-03','German Unity Day');
-    addH(y+'-11-01','All Saints Day');
-    addH(y+'-12-25','Christmas Day');
-    addH(y+'-12-26','2nd Christmas Day');
-    // BY/DE Easter-based
-    addH(fmtD(addDays(e,-2)),'Good Friday');
-    addH(fmtD(e),'Easter Sunday');
-    addH(fmtD(addDays(e,1)),'Easter Monday');
+    addH(y+'-05-01','Tag der Arbeit');
+    addH(y+'-08-15','Mariä Himmelfahrt');
+    addH(y+'-10-03','Tag der Deutschen Einheit');
+    addH(y+'-11-01','Allerheiligen');
+    addH(y+'-12-25','1. Weihnachtstag');
+    addH(y+'-12-26','2. Weihnachtstag');
+    // BY/DE Bewegliche Feiertage (Ostern-basiert)
+    addH(fmtD(addDays(e,-2)),'Karfreitag');
+    addH(fmtD(e),'Ostersonntag');
+    addH(fmtD(addDays(e,1)),'Ostermontag');
     addH(fmtD(addDays(e,39)),'Christi Himmelfahrt');
-    addH(fmtD(addDays(e,49)),'Whit Sunday');
-    addH(fmtD(addDays(e,50)),'Whit Monday');
-    addH(fmtD(addDays(e,60)),'Corpus Christi');
-    // CZ Fixed
-    addH(y+'-01-01','CZ: Nový rok');
-    addH(y+'-05-01','CZ: Svátek práce');
-    addH(y+'-05-08','CZ: Den vítězství');
-    addH(y+'-07-05','CZ: Den Cyrila a Metoděje');
-    addH(y+'-07-06','CZ: Den Jana Husa');
-    addH(y+'-09-28','CZ: Den české státnosti');
-    addH(y+'-10-28','CZ: Den vzniku Československa');
-    addH(y+'-11-17','CZ: Den svobody a demokracie');
-    addH(y+'-12-24','CZ: Štědrý den');
-    addH(y+'-12-25','CZ: 1. svátek vánoční');
-    addH(y+'-12-26','CZ: 2. svátek vánoční');
-    // CZ Easter-based
-    addH(fmtD(addDays(e,-2)),'CZ: Velký pátek');
-    addH(fmtD(addDays(e,1)),'CZ: Velikonoční pondělí');
+    addH(fmtD(addDays(e,49)),'Pfingstsonntag');
+    addH(fmtD(addDays(e,50)),'Pfingstmontag');
+    addH(fmtD(addDays(e,60)),'Fronleichnam');
     // Bremen (HB) – nur Bremen-spezifische Feiertage
-    addH(y+'-10-31','BRE: Reformation Day');
+    addH(y+'-10-31','BRE: Reformationstag');
   });
   return h;
 }
