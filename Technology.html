@@ -87,7 +87,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 #topbar{display:flex;flex-direction:column;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;width:100%;box-sizing:border-box;overflow:visible;padding:0;}#topbar-row1{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;gap:10px;width:100%;box-sizing:border-box;min-height:40px;flex-wrap:wrap;}#topbar-row1 h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap;flex-shrink:1;min-width:0;}#topbar-row2{display:flex;align-items:center;flex-wrap:wrap;padding:4px 14px 6px;gap:5px;row-gap:4px;width:100%;box-sizing:border-box;border-top:1px solid var(--border);}
 /* #topbar h1 — jetzt in #topbar-row1 h1 */
 .badge{background:var(--accent);color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
-.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--font)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;transition:background .15s,border-color .15s,color .15s;white-space:nowrap;font-family:var(--font)}
 .btn:hover{background:var(--surface2);border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.primary:hover{background:var(--accent2)}
@@ -104,7 +104,7 @@ body.link-mode .bar{cursor:crosshair !important}
 .btn-group{display:flex;gap:5px;row-gap:4px;flex-shrink:0;align-items:center;flex-wrap:wrap;width:100%;}
 .sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
 #zoom-bar{display:flex;align-items:center;gap:7px;flex-shrink:0}
-.zbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;transition:all .15s;flex-shrink:0;font-family:var(--font);line-height:1}
+.zbtn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;transition:background .15s,border-color .15s;flex-shrink:0;font-family:var(--font);line-height:1}
 .zbtn:hover{background:var(--surface2);border-color:var(--accent)}
 #zoom-slider{-webkit-appearance:none;appearance:none;width:100px;height:4px;border-radius:2px;background:var(--surface2);outline:none;cursor:pointer}
 #zoom-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg2)}
@@ -116,7 +116,7 @@ body.link-mode .bar{cursor:crosshair !important}
 #col-resize:hover,#col-resize.dragging{background:var(--accent)}
 #col-resize::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:1px;height:32px;background:inherit;border-radius:1px}
 #ltop{border-bottom:1px solid var(--border);display:flex;align-items:flex-end;padding:0 12px 7px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;flex-shrink:0;position:relative;overflow:visible}
-#tlist{flex:1;overflow-y:auto;overflow-x:hidden}
+#tlist{flex:1;overflow-y:auto;overflow-x:hidden;contain:content}
 .tleft.urlaub-row{background:rgba(251,191,36,.07)}
 .tleft.urlaub-row:hover{background:rgba(251,191,36,.15)}
 .tleft.urlaub-group-row{background:rgba(251,191,36,.12);font-weight:700;border-top:2px solid rgba(245,158,11,.35)}
@@ -134,7 +134,7 @@ body.link-mode .bar{cursor:crosshair !important}
 .urlaub-icon{font-size:13px;flex-shrink:0}
 .bar.urlaub-bar{background:repeating-linear-gradient(45deg,#f59e0b,#f59e0b 8px,#fcd34d 8px,#fcd34d 16px)!important;cursor:grab}
 .urlaub-lbl{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#78350f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 16px);pointer-events:none}
-.tleft{height:var(--row-h);display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--border);gap:7px;cursor:pointer;transition:background .12s;position:relative}
+.tleft{height:var(--row-h);display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--border);gap:7px;cursor:pointer;position:relative}
 .tleft:hover{background:var(--surface)}
 .eye-btn{font-size:12px;cursor:pointer;opacity:.35;flex-shrink:0;line-height:1;transition:opacity .15s;user-select:none;padding:2px 3px;border-radius:3px;margin-left:auto}
 .tleft:hover .eye-btn{opacity:.75}
@@ -163,9 +163,9 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .tname{font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tpct{font-size:10px;color:var(--text2);background:var(--surface);border-radius:8px;padding:1px 5px;flex-shrink:0}
-#right{flex:1;overflow:auto;position:relative;background:var(--bg);cursor:grab}
+#right{flex:1;overflow:auto;position:relative;background:var(--bg);cursor:grab;contain:layout style}
 #right.panning{cursor:grabbing;user-select:none}
-#ti{position:relative}
+#ti{position:relative;contain:layout style}
 #mhdr{height:var(--hdr);display:flex;align-items:stretch;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:10;white-space:nowrap}
 #shdr{height:var(--sub);display:flex;align-items:stretch;border-bottom:1px solid var(--border);position:sticky;top:var(--hdr);background:var(--bg2);z-index:10;white-space:nowrap}
 #dhdr{display:flex;align-items:stretch;border-bottom:2px solid var(--border);position:sticky;background:var(--bg2);z-index:10;white-space:nowrap;overflow:hidden;transition:height .15s}
@@ -181,7 +181,8 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .dcell.tod{background:rgba(239,68,68,.08)}
 .dcell.tod .dn,.dcell.tod .dd{color:#dc2626}
 #gb{position:relative}
-.grow{height:var(--row-h);display:flex;align-items:center;border-bottom:1px solid var(--border);position:relative}
+#grid-lines{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;pointer-events:none;contain:strict}
+.grow{height:var(--row-h);border-bottom:1px solid var(--border);position:relative}
 .grow.blk{background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(239,68,68,.06) 8px,rgba(239,68,68,.06) 16px)}
 .vl{position:absolute;top:0;bottom:0;width:1px;background:var(--border);z-index:1}
 .vls{position:absolute;top:0;bottom:0;width:1px;background:#dde0ea;z-index:1}
@@ -189,19 +190,19 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .vwe{position:absolute;top:0;bottom:0;background:rgba(220,222,240,.5);z-index:1}
 .tday{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;opacity:.75}
 .tdlbl{position:absolute;font-size:9px;color:var(--red);font-weight:700;white-space:nowrap;transform:translateX(-50%);z-index:6;top:2px}
-.bwrap{position:absolute;top:7px;height:30px;z-index:2}
-.bar{width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:grab;transition:filter .15s}
-.bar:hover{filter:brightness(1.15)}
-.bar.dragging-bar{cursor:grabbing;filter:brightness(1.2);box-shadow:0 6px 20px rgba(0,0,0,.35);}
+.bwrap{position:absolute;top:7px;height:30px;z-index:2;contain:layout style}
+.bar{width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:grab;will-change:transform}
+.bar:hover{filter:brightness(1.15);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.bar.dragging-bar{cursor:grabbing;filter:brightness(1.2);box-shadow:0 4px 16px rgba(0,0,0,.3);}
 .bar.blkd{opacity:.4;cursor:not-allowed}
-.bfill{position:absolute;left:0;top:0;height:100%;border-radius:5px 0 0 5px;background:rgba(255,255,255,.28);transition:width .3s}
+.bfill{position:absolute;left:0;top:0;height:100%;border-radius:5px 0 0 5px;background:rgba(255,255,255,.28)}
 /* ── Milestone Marker ─────────────────────────────────────────────────────── */
 .milestone-marker{position:absolute;top:-6px;transform:translateX(-50%);z-index:20;pointer-events:all;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:0}
-.milestone-flag{font-size:16px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.milestone-flag{font-size:16px;line-height:1}
 .milestone-line{width:2px;background:#ef4444;position:absolute;top:22px;border-radius:1px}
 .milestone-marker:hover .milestone-flag{transform:scale(1.2)}
 .dl-overdue .milestone-flag{animation:dl-pulse 1.2s ease-in-out infinite}
-@keyframes dl-pulse{0%,100%{filter:drop-shadow(0 0 3px #ef4444)}50%{filter:drop-shadow(0 0 8px #ef4444) brightness(1.3)}}
+@keyframes dl-pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
 .blbl{position:absolute;left:7px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 52px);pointer-events:none}
 .blbl-over{display:none;position:absolute;bottom:calc(100% + 3px);left:0;white-space:nowrap;font-size:10px;font-weight:600;color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;pointer-events:none;z-index:50;box-shadow:0 1px 6px rgba(0,0,0,.15)}
@@ -220,7 +221,7 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .tt-lbl{color:#9ba3c0}
 .tt-val{color:#1a1d2e;font-weight:500}
 #tt-pbar{height:4px;border-radius:2px;background:#e4e6ef;margin-top:8px;overflow:hidden}
-#tt-pfill{height:100%;border-radius:2px;transition:width .3s}
+#tt-pfill{height:100%;border-radius:2px}
 #tt-warn{margin-top:7px;font-size:10px;color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:4px;padding:4px 7px}
 #dsv{position:absolute;top:0;left:0;pointer-events:none;z-index:4}
 .hcol{position:absolute;top:0;background:rgba(80,85,105,.13);border-left:1.5px solid rgba(80,85,105,.35);border-right:1.5px solid rgba(80,85,105,.18);z-index:3;pointer-events:none;display:flex;align-items:flex-start;justify-content:center;overflow:hidden}
@@ -1003,13 +1004,23 @@ function rebuildTaskMap(){
 // Returns ordered flat list of visible rows, depth-first, respecting collapse
 function visibleRows(){
   var rows=[];
+  // Build parent→children index once (O(n) statt O(n²))
+  var childrenOf={};
+  tasks.forEach(function(t){
+    if(t.parentId){
+      if(!childrenOf[t.parentId])childrenOf[t.parentId]=[];
+      childrenOf[t.parentId].push(t);
+    }
+  });
   function addChildren(parentId,depth){
-    tasks.forEach(function(t){
-      if(t.parentId!==parentId)return;
-      if(t.hidden)return;
+    var ch=childrenOf[parentId];
+    if(!ch)return;
+    for(var i=0;i<ch.length;i++){
+      var t=ch[i];
+      if(t.hidden)continue;
       rows.push({task:t,depth:depth});
       if(!collapsed[t.id])addChildren(t.id,depth+1);
-    });
+    }
   }
   // root tasks (no parent) — non-vacation first
   tasks.forEach(function(t){
@@ -1067,15 +1078,14 @@ function mk(tag,cls){var e=document.createElement(tag);if(cls)e.className=cls;re
 // ISO 8601 week number (weeks start Monday, week 1 = week with first Thursday)
 function kw(d){
   var dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
-  var day=dt.getUTCDay()||7; // Mon=1..Sun=7
-  dt.setUTCDate(dt.getUTCDate()+4-day); // nearest Thursday
+  var day=dt.getUTCDay()||7;
+  dt.setUTCDate(dt.getUTCDate()+4-day);
   var y1=new Date(Date.UTC(dt.getUTCFullYear(),0,1));
   return Math.ceil(((dt-y1)/86400000+1)/7);
 }
-// Day-offsets from PS for every Monday covering [PS, PE]
 function mondayOffsets(){
-  var dow=PS.getDay(); // 0=Sun..6=Sat
-  var back=(dow===0)?6:dow-1; // days back to Monday
+  var dow=PS.getDay();
+  var back=(dow===0)?6:dow-1;
   var offs=[],off=-back,total=td();
   while(off<=total){offs.push(off);off+=7;}
   return offs;
@@ -1108,12 +1118,48 @@ function isBlocked(t){
   return null;
 }
 
-function buildAll(){rebuildTaskMap();var vrows=visibleRows();buildHeader();buildGrid(vrows);}
+// ═══ RENDER CACHE — recomputed once per buildAll ═══
+var _rc={ppd:0,td:0,mode:'',segs:null,mos:null,psTime:0,holidayOffsets:null};
+function updateRenderCache(){
+  _rc.ppd=ZL[zi][0];_rc.td=Math.round((PE-PS)/86400000)+1;
+  _rc.mode=ZL[zi][2];_rc.segs=null;_rc.mos=null;_rc.psTime=PS.getTime();
+  _rc.holidayOffsets=null;_rc._dOffCache={};
+}
+function cachedSegs(){
+  if(_rc.segs)return _rc.segs;
+  var r=[],d=new Date(PS);
+  while(d<=PE){var y=d.getFullYear(),m=d.getMonth();var last=new Date(y,m+1,0);
+    var days=Math.round((Math.min(last,PE)-d)/86400000)+1;
+    r.push({y:y,m:m,days:days,startOff:Math.round((d-PS)/86400000)});d=new Date(y,m+1,1);}
+  _rc.segs=r;return r;
+}
+function cachedMondayOffsets(){
+  if(_rc.mos)return _rc.mos;
+  var dow=PS.getDay(),back=(dow===0)?6:dow-1;
+  var offs=[],off=-back,total=_rc.td;
+  while(off<=total){offs.push(off);off+=7;}
+  _rc.mos=offs;return offs;
+}
+function fastDOff(ds){
+  var c=_rc._dOffCache[ds];if(c!==undefined)return c;
+  c=Math.round((new Date(ds+'T00:00:00').getTime()-_rc.psTime)/86400000);
+  _rc._dOffCache[ds]=c;return c;
+}
+var _childProgressCache={};
+function cachedChildAvgProgress(id){
+  if(_childProgressCache[id]!==undefined)return _childProgressCache[id];
+  var ch=tasks.filter(function(t){return t.parentId===id;});
+  if(!ch.length){_childProgressCache[id]=null;return null;}
+  var v=Math.round(ch.reduce(function(a,t){return a+(t.progress||0);},0)/ch.length);
+  _childProgressCache[id]=v;return v;
+}
+
+function buildAll(){rebuildTaskMap();updateRenderCache();_childProgressCache={};var vrows=visibleRows();buildHeader();buildGrid(vrows);}
 
 function buildHeader(){
   var mh=document.getElementById('mhdr'),sh=document.getElementById('shdr'),dh=document.getElementById('dhdr');
   mh.innerHTML='';sh.innerHTML='';dh.innerHTML='';
-  var m=zmode(),ss=segs(),_ppd=ppd(),_td=td();
+  var m=_rc.mode,ss=cachedSegs(),_ppd=_rc.ppd,_td=_rc.td;
   var showDay=(m==='day');
   // CSS-Variablen zur Laufzeit lesen – passt sich automatisch an alle responsive Breakpoints an
   var cs=getComputedStyle(document.documentElement);
@@ -1158,7 +1204,7 @@ function buildHeader(){
       mc.innerHTML='<span class="ml">'+MN[s.m]+'</span><span class="my">'+s.y+'</span>';mh.appendChild(mc);
     });
     // KW bands aligned to real Mondays
-    var mos=mondayOffsets();
+    var mos=cachedMondayOffsets();
     mos.forEach(function(off,idx){
       var start=Math.max(off,0);
       var end=Math.min(idx+1<mos.length?mos[idx+1]:_td,_td);
@@ -1175,7 +1221,7 @@ function buildHeader(){
       mc.innerHTML='<span class="ml">'+lbl+'</span><span class="my">'+s.y+'</span>';mh.appendChild(mc);
     });
     // KW sub-bands aligned to real Mondays
-    var mos2=mondayOffsets(),now=new Date();
+    var mos2=cachedMondayOffsets(),now=new Date();
     mos2.forEach(function(off,idx){
       var start=Math.max(off,0);
       var end=Math.min(idx+1<mos2.length?mos2[idx+1]:_td,_td);
@@ -1184,15 +1230,25 @@ function buildHeader(){
       var d=new Date(PS);d.setDate(d.getDate()+Math.max(off,0));
       c.textContent='KW'+kw(d);sh.appendChild(c);
     });
-    // Day row
+    // Day row — DocumentFragment batch insert
     var cur=new Date(PS);
+    var dhFrag=document.createDocumentFragment();
+    // Pre-compute today offset for fast comparison
+    var todayOff=-1;
+    if(now>=PS&&now<=PE)todayOff=Math.round((now-PS)/86400000);
+    // Build holiday offset set for O(1) lookup
+    var holSet={};
+    var holKeys=Object.keys(HOLIDAYS);
+    for(var hhi=0;hhi<holKeys.length;hhi++){
+      var hoff=fastDOff(holKeys[hhi]);
+      if(hoff>=0&&hoff<_td)holSet[hoff]=true;
+    }
     for(var di=0;di<_td;di++){
       var dow=cur.getDay(),isWe=(dow===0||dow===6);
-      var isTod=(cur.toDateString()===now.toDateString());
-      var isHol=!!HOLIDAYS[fmtD(cur)];
+      var isTod=(di===todayOff);
+      var isHol=!!holSet[di];
       var dc=mk('div','dcell'+(isWe?' we':'')+(isTod?' tod':'')+(isHol?' hday':''));
       dc.style.width=_ppd+'px';
-      // Decide label based on ppd
       var dayAbbr=DN[dow];
       if(_ppd>=30){
         dc.innerHTML='<span class="dn">'+dayAbbr+'</span><span class="dd">'+cur.getDate()+'</span>';
@@ -1201,160 +1257,168 @@ function buildHeader(){
       } else {
         dc.innerHTML='<span class="dn" style="font-size:6px">'+dayAbbr+'</span><span class="dd" style="font-size:8px">'+cur.getDate()+'</span>';
       }
-      dh.appendChild(dc);
+      dhFrag.appendChild(dc);
       cur.setDate(cur.getDate()+1);
     }
+    dh.appendChild(dhFrag);
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// buildGrid — OPTIMIZED: single grid-lines overlay, DocumentFragment batching,
+// cached computations, today computed once outside loops
+// ═══════════════════════════════════════════════════════════════════════════════
 function buildGrid(vrows){
-  if(!vrows){rebuildTaskMap();vrows=visibleRows();}
+  if(!vrows){rebuildTaskMap();updateRenderCache();vrows=visibleRows();}
   var gb=document.getElementById('gb'),sv=document.getElementById('dsv');
-  Array.from(gb.children).forEach(function(c){if(c.id!=='dsv')c.remove();});
-  var _ppd=ppd(),_td=td(),_m=zmode();
+  // Remove old children except SVG overlay and grid-lines container
+  var ch=gb.children,i=ch.length;
+  while(i--){var c=ch[i];if(c.id!=='dsv'&&c.id!=='grid-lines')gb.removeChild(c);}
+  var _ppd=_rc.ppd,_td=_rc.td,_m=_rc.mode;
   var w=Math.ceil(_td*_ppd);
   gb.style.width=w+'px';document.getElementById('ti').style.width=w+'px';
-  sv.setAttribute('width',w+'px');sv.setAttribute('height',Math.max(vrows.length*44,200)+'px');
-  var ss=segs(),showDay=(_m==='day');
-  var _mos=(_m==='week')?mondayOffsets():null;
-  vrows.forEach(function(row,i){
-    var t=row.task;
-    var gridrow=mk('div','grow');gridrow.style.width=w+'px';
-    var x=0;
-    ss.forEach(function(s,si){
-      if(si>0){var vl=mk('div','vl');vl.style.left=x+'px';gridrow.appendChild(vl);}
-      if(_m==='week'){
-        _mos.forEach(function(off){
-          if(off>0&&off<_td){var vls=mk('div','vls');vls.style.left=(off*_ppd)+'px';gridrow.appendChild(vls);}
-        });
+  var rowCount=vrows.length;
+  var gridH=Math.max(rowCount,1)*44;
+  sv.setAttribute('width',w);sv.setAttribute('height',Math.max(gridH,200));
+
+  var ss=cachedSegs(),showDay=(_m==='day');
+  var _mos=(_m==='week')?cachedMondayOffsets():null;
+
+  // ═══ Single grid-lines overlay instead of per-row vertical lines ═══
+  var gl=document.getElementById('grid-lines');
+  if(!gl){gl=mk('div');gl.id='grid-lines';gb.insertBefore(gl,sv);}
+  gl.innerHTML='';gl.style.width=w+'px';gl.style.height=gridH+'px';
+  var glFrag=document.createDocumentFragment();
+  var x=0;
+  ss.forEach(function(s,si){
+    if(si>0){var vl=mk('div','vl');vl.style.left=x+'px';glFrag.appendChild(vl);}
+    if(_m==='week'&&_mos){
+      for(var mi=0;mi<_mos.length;mi++){
+        var off=_mos[mi];
+        if(off>0&&off<_td){var vls=mk('div','vls');vls.style.left=(off*_ppd)+'px';glFrag.appendChild(vls);}
       }
-      if(showDay){
-        for(var d2=0;d2<s.days;d2++){
-          var cur2=new Date(s.y,s.m,d2+1),dow2=cur2.getDay(),isWe2=(dow2===0||dow2===6);
-          if(isWe2){var vwe=mk('div','vwe');vwe.style.left=(x+d2*_ppd)+'px';vwe.style.width=_ppd+'px';gridrow.appendChild(vwe);}
-          else if(d2>0){var vlw=mk('div','vlw');vlw.style.left=(x+d2*_ppd)+'px';gridrow.appendChild(vlw);}
-        }
+    }
+    if(showDay){
+      var startDow=new Date(s.y,s.m,1).getDay();
+      for(var d2=0;d2<s.days;d2++){
+        var dow2=(startDow+d2)%7,isWe2=(dow2===0||dow2===6);
+        if(isWe2){var vwe=mk('div','vwe');vwe.style.left=(x+d2*_ppd)+'px';vwe.style.width=_ppd+'px';glFrag.appendChild(vwe);}
+        else if(d2>0){var vlw=mk('div','vlw');vlw.style.left=(x+d2*_ppd)+'px';glFrag.appendChild(vlw);}
       }
-      x+=s.days*_ppd;
-    });
-    gb.insertBefore(gridrow,sv);
+    }
+    x+=s.days*_ppd;
   });
+  gl.appendChild(glFrag);
+
+  // ═══ Row backgrounds (simple divs, no child elements) ═══
+  var rowFrag=document.createDocumentFragment();
+  for(var ri=0;ri<rowCount;ri++){
+    var gridrow=mk('div','grow');gridrow.style.width=w+'px';
+    rowFrag.appendChild(gridrow);
+  }
+  gb.insertBefore(rowFrag,sv);
+
+  // Today line
   var now=new Date();
   if(now>=PS&&now<=PE){
-    var off=dOff(d2s(now));
-    var tl=mk('div','tday');tl.style.left=(off*_ppd)+'px';tl.style.height=(Math.max(vrows.length,1)*44)+'px';
-    var lb=mk('div','tdlbl');lb.style.left=((off*_ppd)+3)+'px';lb.textContent='Heute';
+    var todOff=fastDOff(d2s(now));
+    var tl=mk('div','tday');tl.style.left=(todOff*_ppd)+'px';tl.style.height=gridH+'px';
+    var lb=mk('div','tdlbl');lb.style.left=((todOff*_ppd)+3)+'px';lb.textContent='Today';
     gb.insertBefore(lb,sv);gb.insertBefore(tl,sv);
   }
-  // Holiday columns – nur in Wochen- und Tagesansicht
-  var gridH=Math.max(vrows.length,1)*44;
+
+  // Holiday columns — use pre-computed offsets
   if(_m==='week'||_m==='day'){
-    for(var hi=0;hi<_td;hi++){
-      var hd=new Date(PS);hd.setDate(hd.getDate()+hi);
-      var hkey=fmtD(hd);
-      if(HOLIDAYS[hkey]){
-        var hcol=mk('div','hcol');
-        hcol.style.left=(hi*_ppd)+'px';
-        hcol.style.width=Math.max(_ppd,2)+'px';
-        hcol.style.height=gridH+'px';
-        var hlbl=mk('span','hcol-lbl');hlbl.textContent=HOLIDAYS[hkey];
-        hcol.appendChild(hlbl);
-        gb.insertBefore(hcol,sv);
+    if(!_rc.holidayOffsets){
+      _rc.holidayOffsets=[];
+      var hKeys=Object.keys(HOLIDAYS);
+      for(var hki=0;hki<hKeys.length;hki++){
+        var hk=hKeys[hki];
+        var hOff=fastDOff(hk);
+        if(hOff>=0&&hOff<_td)_rc.holidayOffsets.push({off:hOff,name:HOLIDAYS[hk]});
       }
     }
+    var hFrag=document.createDocumentFragment();
+    for(var hoi=0;hoi<_rc.holidayOffsets.length;hoi++){
+      var ho=_rc.holidayOffsets[hoi];
+      var hcol=mk('div','hcol');
+      hcol.style.left=(ho.off*_ppd)+'px';
+      hcol.style.width=Math.max(_ppd,2)+'px';
+      hcol.style.height=gridH+'px';
+      var hlbl=mk('span','hcol-lbl');hlbl.textContent=ho.name;
+      hcol.appendChild(hlbl);
+      hFrag.appendChild(hcol);
+    }
+    gb.insertBefore(hFrag,sv);
   }
+
+  // ═══ Bars — all built into a single fragment, one DOM insert ═══
+  var barFrag=document.createDocumentFragment();
+  var todayDate=new Date();todayDate.setHours(0,0,0,0);
+  var todayTime=todayDate.getTime();
+  var todayStr=d2s(new Date());
+
   vrows.forEach(function(row,i){
     var t=row.task,depth=row.depth;
-    var so=dOff(t.start),eo=dOff(t.end);
+    var so=fastDOff(t.start),eo=fastDOff(t.end);
     var barH=Math.max(30-depth*5,12);
     var barTop=Math.round((44-barH)/2);
-    var bw=Math.max((eo-so+1)*_ppd,8);
-    var wr=mk('div','bwrap');
-    wr.dataset.id=t.id;
-    wr.style.left=(so*_ppd)+'px';
-    wr.style.top=(i*44+barTop)+'px';
-    wr.style.width=bw+'px';
-    wr.style.height=barH+'px';
 
     // ── Meeting/Vacation group (no bar) ─────────────────
-    if(t.type==='urlaub-group'||t.type==='meeting-group'){
-      return;
-    }
+    if(t.type==='urlaub-group'||t.type==='meeting-group') return;
+
     // ── Meeting bar ───────────────────────────────────────
     if(t.type==='meeting'){
       var mPeriods=t.urlaubPeriods&&t.urlaubPeriods.length?t.urlaubPeriods:[{start:t.start,end:t.end}];
       mPeriods.forEach(function(p){
-        var mso=dOff(p.start),meo=dOff(p.end);
+        var mso=fastDOff(p.start),meo=fastDOff(p.end);
         var mbw=Math.max((meo-mso+1)*_ppd,8);
         var mwr=mk('div','bwrap');
         mwr.dataset.id=t.id;
-        mwr.style.left=(mso*_ppd)+'px';
-        mwr.style.top=(i*44+barTop)+'px';
-        mwr.style.width=mbw+'px';
-        mwr.style.height=barH+'px';
-        mwr.innerHTML='<div class="bar meeting-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.2)">'          +'<span class="meeting-lbl">📅 '+t.name+'</span>'          +'</div>'          +'<span class="blbl-over">📅 '+t.name+'</span>';
+        mwr.style.cssText='left:'+(mso*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+mbw+'px;height:'+barH+'px';
+        mwr.innerHTML='<div class="bar meeting-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden"><span class="meeting-lbl">📅 '+t.name+'</span></div><span class="blbl-over">📅 '+t.name+'</span>';
         mwr.querySelector('.bar').addEventListener('click',function(e){
           if(linkMode)return;if(currentRole==='admin')openEditMeeting(t.id);
         });
         mwr.querySelector('.bar').addEventListener('mouseenter',function(e){showTT(t,e,true);});
         mwr.querySelector('.bar').addEventListener('mouseleave',hideTT);
-        gb.insertBefore(mwr,sv);
+        barFrag.appendChild(mwr);
       });
       return;
     }
     // ── Vacation bar ──────────────────────────
     if(t.type==='urlaub'){
-      var uperiods=t.urlaubPeriods&&t.urlaubPeriods.length
-        ?t.urlaubPeriods:[{start:t.start,end:t.end}];
+      var uperiods=t.urlaubPeriods&&t.urlaubPeriods.length?t.urlaubPeriods:[{start:t.start,end:t.end}];
       uperiods.forEach(function(p){
-        var uso=dOff(p.start),ueo=dOff(p.end);
+        var uso=fastDOff(p.start),ueo=fastDOff(p.end);
         var ubw=Math.max((ueo-uso+1)*_ppd,8);
         var uwr=mk('div','bwrap');
         uwr.dataset.id=t.id;
-        uwr.style.left=(uso*_ppd)+'px';
-        uwr.style.top=(i*44+barTop)+'px';
-        uwr.style.width=ubw+'px';
-        uwr.style.height=barH+'px';
-        uwr.innerHTML='<div class="bar urlaub-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.2)">'
-          +'<span class="urlaub-lbl">🏖 '+t.name+'</span>'
-          +'</div>'
-          +'<span class="blbl-over">🏖 '+t.name+'</span>';
+        uwr.style.cssText='left:'+(uso*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+ubw+'px;height:'+barH+'px';
+        uwr.innerHTML='<div class="bar urlaub-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden"><span class="urlaub-lbl">🏖 '+t.name+'</span></div><span class="blbl-over">🏖 '+t.name+'</span>';
         var uBarEl=uwr.querySelector('.bar');
-        uBarEl.addEventListener('click',function(e){
-          if(linkMode)return;openEditUrlaub(t.id);
-        });
-        uBarEl.addEventListener('mouseenter',function(e){
-          // Tooltip only show when label is truncated OR always for vacation
-          var lbl=uwr.querySelector('.urlaub-lbl');
-          var clipped=!lbl||lbl.scrollWidth>lbl.offsetWidth;
-          showTT(t,e,true); // true = vacation mode
-        });
+        uBarEl.addEventListener('click',function(e){if(linkMode)return;openEditUrlaub(t.id);});
+        uBarEl.addEventListener('mouseenter',function(e){showTT(t,e,true);});
         uBarEl.addEventListener('mouseleave',hideTT);
-        gb.insertBefore(uwr,sv);
+        barFrag.appendChild(uwr);
       });
       return;
     }
 
-    var blk=isBlocked(t);
     var pct=t.progress||0;
-    // Overdue: end date in the past and not done
-    var today=new Date();today.setHours(0,0,0,0);
-    var endDate=new Date(t.end);endDate.setHours(0,0,0,0);
-    var isOverdue=!t.done && endDate<today;
+    var endTime=new Date(t.end+'T00:00:00').getTime();
+    var isOverdue=!t.done && endTime<todayTime;
     var isDone=!!t.done;
     var barStyle=isOverdue?'background:#ef4444':'background:'+t.color;
     var barClass='bar'+(isOverdue?' overdue-bar':'')+(isDone?' done-bar':'');
-    var inner='<div class="'+barClass+'" style="'+barStyle+'">'
-      +'<span class="blbl">'+t.name+'</span>';
-    
-    inner+='<span class="bpct">'+pct+'%</span><div class="rhl"></div><div class="rhr"></div>';
-    inner+='</div>';
-    inner+='<span class="blbl-over">'+t.name+'</span>';
-    wr.innerHTML=inner;
+    var bw=Math.max((eo-so+1)*_ppd,8);
+    var wr=mk('div','bwrap');
+    wr.dataset.id=t.id;
+    wr.style.cssText='left:'+(so*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+bw+'px;height:'+barH+'px';
+    wr.innerHTML='<div class="'+barClass+'" style="'+barStyle+'"><span class="blbl">'+t.name+'</span><span class="bpct">'+pct+'%</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+t.name+'</span>';
     var barEl=wr.querySelector('.bar');
     barEl.addEventListener('mouseenter',function(e){if(!linkMode&&!dragBar.active)showTT(t,e);});
     barEl.addEventListener('mouseleave',hideTT);
-    // Drag-start on bar (not on resize handles)
     barEl.addEventListener('mousedown',function(e){
       if(linkMode)return;
       if(e.target.classList.contains('rhl')||e.target.classList.contains('rhr'))return;
@@ -1364,119 +1428,107 @@ function buildGrid(vrows){
     });
     barEl.addEventListener('click',function(e){
       if(linkMode){handleLinkClick(t.id);return;}
-      if(dragBar.moved)return; // suppress click after drag
+      if(dragBar.moved)return;
       openEdit(t.id);
     });
     wr.querySelector('.rhl').addEventListener('mousedown',function(e){if(linkMode)return;e.stopPropagation();sR(e,t.id,'l');});
     wr.querySelector('.rhr').addEventListener('mousedown',function(e){if(linkMode)return;e.stopPropagation();sR(e,t.id,'r');});
-    gb.insertBefore(wr,sv);
+    barFrag.appendChild(wr);
 
-    // ── Milestone Marker ───────────────────────────────────────────────────
+    // ── Milestone Marker ──────────────────────────────────
     if(t.milestone){
-      var dlOff=dOff(t.milestone);
-      if(dlOff>=0&&dlOff<=_td){
-        var today=d2s(new Date());
-        var isOverdue=(t.milestone<today);
-        var dm=mk('div','milestone-marker'+(isOverdue?' dl-overdue':''));
-        dm.style.left=(dlOff*_ppd)+'px';
-        dm.style.top=(i*44)+'px';
-        dm.style.height='44px';
-        dm.title='⚑ Milestone: '+fmtDate(t.milestone)+(isOverdue?' (ÜBERFÄLLIG)':'');
+      var dlO=fastDOff(t.milestone);
+      if(dlO>=0&&dlO<=_td){
+        var msOverdue=(t.milestone<todayStr);
+        var dm=mk('div','milestone-marker'+(msOverdue?' dl-overdue':''));
+        dm.style.cssText='left:'+(dlO*_ppd)+'px;top:'+(i*44)+'px;height:44px';
+        dm.title='⚑ Milestone: '+fmtDate(t.milestone)+(msOverdue?' (ÜBERFÄLLIG)':'');
         dm.dataset.id=t.id;
-        // Flag emoji
         var flag=mk('span','milestone-flag');
-        flag.textContent=isOverdue?'🚩':'⚑';
+        flag.textContent=msOverdue?'🚩':'⚑';
         flag.style.cssText='font-size:15px;line-height:1;position:absolute;top:2px;transform:translateX(-50%)';
-        // Vertical line
         var line=mk('div','milestone-line');
-        line.style.cssText='position:absolute;left:0;top:18px;bottom:0;width:2px;background:'+(isOverdue?'#ef4444':'#f59e0b')+';border-radius:1px;transform:translateX(-50%)';
-        dm.appendChild(line);
-        dm.appendChild(flag);
-        dm.addEventListener('click',function(e){
-          e.stopPropagation();
-          if(currentRole==='admin') openEdit(t.id);
-        });
-        gb.insertBefore(dm,sv);
+        line.style.cssText='position:absolute;left:0;top:18px;bottom:0;width:2px;background:'+(msOverdue?'#ef4444':'#f59e0b')+';border-radius:1px;transform:translateX(-50%)';
+        dm.appendChild(line);dm.appendChild(flag);
+        dm.addEventListener('click',function(e){e.stopPropagation();if(currentRole==='admin') openEdit(t.id);});
+        barFrag.appendChild(dm);
       }
     }
 
-    // Extra period bars (no drag/resize – click opens edit)
+    // Extra period bars
     (t.extraPeriods||[]).forEach(function(p){
       if(!p.start||!p.end)return;
-      var so2=dOff(p.start),eo2=dOff(p.end);
+      var so2=fastDOff(p.start),eo2=fastDOff(p.end);
       var bw2=Math.max((eo2-so2+1)*_ppd,8);
       var wr2=mk('div','bwrap extra-bar');
       wr2.dataset.id=t.id;
-      wr2.style.left=(so2*_ppd)+'px';
-      wr2.style.top=(i*44+barTop)+'px';
-      wr2.style.width=bw2+'px';
-      wr2.style.height=barH+'px';
-      wr2.innerHTML='<div class="bar" style="background:'+t.color+';background:repeating-linear-gradient(45deg,'+t.color+','+t.color+' 6px,rgba(255,255,255,.15) 6px,rgba(255,255,255,.15) 12px)">'
-        +'<div class="bfill" style="width:0%"></div>'
-        +'<span class="blbl">'+t.name+'</span>'
-        +'</div>'
-        +'<span class="blbl-over">'+t.name+'</span>';
+      wr2.style.cssText='left:'+(so2*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+bw2+'px;height:'+barH+'px';
+      wr2.innerHTML='<div class="bar" style="background:'+t.color+';background:repeating-linear-gradient(45deg,'+t.color+','+t.color+' 6px,rgba(255,255,255,.15) 6px,rgba(255,255,255,.15) 12px)"><div class="bfill" style="width:0%"></div><span class="blbl">'+t.name+'</span></div><span class="blbl-over">'+t.name+'</span>';
       wr2.querySelector('.bar').addEventListener('click',function(e){
         if(linkMode){handleLinkClick(t.id);return;}
         openEdit(t.id);
       });
-      gb.insertBefore(wr2,sv);
+      barFrag.appendChild(wr2);
     });
   });
+  gb.insertBefore(barFrag,sv);
   drawDeps(vrows,_ppd);buildLeft(vrows);updBadge();
-  requestAnimationFrame(function(){
-    document.querySelectorAll('.bwrap').forEach(function(wr){
+  // Overflow check — deferred with double-rAF to avoid layout thrashing
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    var wraps=gb.querySelectorAll('.bwrap');
+    for(var i=0,len=wraps.length;i<len;i++){
+      var wr=wraps[i];
       var lbl=wr.querySelector('.blbl')||wr.querySelector('.urlaub-lbl')||wr.querySelector('.meeting-lbl');
-      if(lbl && lbl.scrollWidth > lbl.offsetWidth+2){
-        wr.classList.add('has-overflow');
-      } else {
-        wr.classList.remove('has-overflow');
-      }
-    });
-  });
+      if(lbl&&lbl.scrollWidth>lbl.offsetWidth+2) wr.classList.add('has-overflow');
+      else wr.classList.remove('has-overflow');
+    }
+  });});
 }
 
+// ═══ drawDeps — optimized with DocumentFragment ═══
 function drawDeps(vrows,_ppd){
   if(!vrows){rebuildTaskMap();vrows=visibleRows();}
-  if(!_ppd)_ppd=ppd();
+  if(!_ppd)_ppd=_rc.ppd;
   var sv=document.getElementById('dsv');
   sv.innerHTML='<defs>'
     +'<marker id="da" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>'
     +'<marker id="da-blk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>'
     +'</defs>';
-  vrows.forEach(function(row,ti){
-    var t=row.task;
-    (t.deps||[]).forEach(function(did){
-      var di=-1;for(var j=0;j<vrows.length;j++){if(vrows[j].task.id===did){di=j;break;}}
-      if(di<0)return;
-      var dep=vrows[di].task;
+  // Build index for fast row lookup
+  var rowIdx={};for(var j=0;j<vrows.length;j++)rowIdx[vrows[j].task.id]=j;
+  var frag=document.createDocumentFragment();
+  for(var ti=0;ti<vrows.length;ti++){
+    var t=vrows[ti].task;
+    var deps=t.deps;if(!deps||!deps.length)continue;
+    for(var di2=0;di2<deps.length;di2++){
+      var didx=rowIdx[deps[di2]];
+      if(didx===undefined)continue;
+      var dep=vrows[didx].task;
       var blocked=isBlocked(t);
       var col=blocked?'#ef4444':'#8892c8';
-      var x1=(dOff(dep.end)+1)*_ppd,y1=di*44+22;
-      var x2=dOff(t.start)*_ppd,y2=ti*44+22;
-      // Route: right from src end → elbow → left to tgt start
+      var x1=(fastDOff(dep.end)+1)*_ppd,y1=didx*44+22;
+      var x2=fastDOff(t.start)*_ppd,y2=ti*44+22;
       var midX=x1+Math.max((x2-x1)/2,20);
       var d;
       if(x2>x1+4){
         d='M'+x1+','+y1+' C'+midX+','+y1+' '+midX+','+y2+' '+x2+','+y2;
       } else {
-        // Wrap-around elbow when target is to the left
         var elbX=Math.max(x1,x2)+30;
         d='M'+x1+','+y1+' L'+elbX+','+y1+' L'+elbX+','+y2+' L'+x2+','+y2;
       }
       var p=document.createElementNS('http://www.w3.org/2000/svg','path');
-      p.setAttribute('d',d);
-      p.setAttribute('fill','none');
-      p.setAttribute('stroke',col);
+      p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',col);
       p.setAttribute('stroke-width','1.8');
       p.setAttribute('stroke-dasharray',blocked?'5 3':'none');
       p.setAttribute('marker-end',blocked?'url(#da-blk)':'url(#da)');
       p.setAttribute('opacity','0.75');
-      sv.appendChild(p);
-    });
-  });
+      frag.appendChild(p);
+    }
+  }
+  sv.appendChild(frag);
 }
 
+var _lastDragOverRow=null;
 function attachDragHandlers(rowEl,taskId){
   rowEl.draggable=true;rowEl.dataset.taskId=taskId;
   rowEl.addEventListener('dragstart',function(e){
@@ -1487,17 +1539,22 @@ function attachDragHandlers(rowEl,taskId){
   });
   rowEl.addEventListener('dragend',function(){
     rowEl.classList.remove('dragging-row');
-    document.querySelectorAll('.tleft').forEach(function(r){r.classList.remove('drag-over-top','drag-over-bottom');});
+    if(_lastDragOverRow){_lastDragOverRow.classList.remove('drag-over-top','drag-over-bottom');_lastDragOverRow=null;}
   });
   rowEl.addEventListener('dragover',function(e){
     e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='move';
-    document.querySelectorAll('.tleft').forEach(function(r){r.classList.remove('drag-over-top','drag-over-bottom');});
+    if(_lastDragOverRow&&_lastDragOverRow!==rowEl){_lastDragOverRow.classList.remove('drag-over-top','drag-over-bottom');}
+    _lastDragOverRow=rowEl;
     var rect=rowEl.getBoundingClientRect(),mid=rect.top+rect.height/2;
-    rowEl.classList.add(e.clientY<mid?'drag-over-top':'drag-over-bottom');
+    var cls=e.clientY<mid?'drag-over-top':'drag-over-bottom';
+    var otherCls=cls==='drag-over-top'?'drag-over-bottom':'drag-over-top';
+    rowEl.classList.remove(otherCls);
+    rowEl.classList.add(cls);
   });
   rowEl.addEventListener('dragleave',function(){rowEl.classList.remove('drag-over-top','drag-over-bottom');});
   rowEl.addEventListener('drop',function(e){
     e.preventDefault();e.stopPropagation();
+    if(_lastDragOverRow){_lastDragOverRow.classList.remove('drag-over-top','drag-over-bottom');_lastDragOverRow=null;}
     var srcId=parseInt(e.dataTransfer.getData('text/plain'));
     if(srcId===taskId)return;
     var rect=rowEl.getBoundingClientRect();
@@ -1508,6 +1565,7 @@ function attachDragHandlers(rowEl,taskId){
 function buildLeft(vrows){
   if(!vrows){rebuildTaskMap();vrows=visibleRows();}
   var tl=document.getElementById('tlist');tl.innerHTML='';
+  var frag=document.createDocumentFragment();
   vrows.forEach(function(row){
     var t=row.task,depth=row.depth;
     var isVacation=(t.type==='urlaub');
@@ -1532,7 +1590,7 @@ function buildLeft(vrows){
       var mCntBadge=mk('span','tpct');mCntBadge.textContent=mCount+' Eintr.';
       mCntBadge.style.cssText='font-size:10px;color:#4c1d95;background:#ede9fe;border-radius:8px;padding:1px 6px;flex-shrink:0';
       mGrpRow.appendChild(mCntBadge);
-      tl.appendChild(mGrpRow);
+      frag.appendChild(mGrpRow);
       return;
     }
     // ── Vacation group header ──────────────────────────────
@@ -1555,7 +1613,7 @@ function buildLeft(vrows){
       var cntBadge=mk('span','tpct');cntBadge.textContent=urlaubCount+' Pers.';
       cntBadge.style.cssText='font-size:10px;color:#b45309;background:#fef3c7;border-radius:8px;padding:1px 6px;flex-shrink:0';
       grpRow.appendChild(cntBadge);
-      tl.appendChild(grpRow);
+      frag.appendChild(grpRow);
       return;
     }
 
@@ -1580,7 +1638,7 @@ function buildLeft(vrows){
       eyeM.addEventListener('click',function(e){e.stopPropagation();toggleHide(t.id);});
       row2.appendChild(eyeM);
       if(t.hidden)row2.classList.add('row-hidden');
-      tl.appendChild(row2);
+      frag.appendChild(row2);
       return;
     }
     if(isVacation){
@@ -1605,13 +1663,13 @@ function buildLeft(vrows){
       eyeU.addEventListener('click',function(e){e.stopPropagation();toggleHide(t.id);});
       row2.appendChild(eyeU);
       if(t.hidden)row2.classList.add('row-hidden');
-      tl.appendChild(row2);
+      frag.appendChild(row2);
       return;
     }
 
     var blk=isBlocked(t);
     var isParent=hasChildren(t.id);
-    var pct=isParent?(childAvgProgress(t.id)||t.progress||0):(t.progress||0);
+    var pct=isParent?(cachedChildAvgProgress(t.id)||t.progress||0):(t.progress||0);
     var row2=mk('div','tleft'+(depth>0?' sub':'')+(isParent?' parent-row':''));
     row2.style.paddingLeft=(10+depth*14)+'px';
 
@@ -1672,7 +1730,7 @@ function buildLeft(vrows){
     eye.addEventListener('click',function(e){e.stopPropagation();toggleHide(t.id);});
     row2.appendChild(eye);
     if(t.hidden)row2.classList.add('row-hidden');
-    tl.appendChild(row2);
+    frag.appendChild(row2);
   });
   // Hidden tasks section
   var hiddenList=tasks.filter(function(t){return t.hidden;});
@@ -1681,7 +1739,7 @@ function buildLeft(vrows){
     hdr.style.cssText='padding:6px 10px 4px;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;border-top:1px solid var(--border);margin-top:2px;display:flex;align-items:center;justify-content:space-between';
     hdr.innerHTML='<span>Hidden ('+hiddenList.length+')</span>'
       +'<button onclick="showAllTasks()" style="font-size:10px;padding:1px 7px;border-radius:4px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-family:var(--font);color:var(--text2)">Show all</button>';
-    tl.appendChild(hdr);
+    frag.appendChild(hdr);
     hiddenList.forEach(function(t){
       var hr=mk('div','tleft row-hidden');
       hr.style.cssText='padding-left:10px;opacity:.6';
@@ -1690,9 +1748,10 @@ function buildLeft(vrows){
       var eye2=mk('span','eye-btn is-hidden');eye2.textContent='🙈';eye2.title='Show';eye2.style.cssText='opacity:1;margin-left:auto';
       eye2.addEventListener('click',function(e){e.stopPropagation();toggleHide(t.id);});
       hr.appendChild(eye2);
-      tl.appendChild(hr);
+      frag.appendChild(hr);
     });
   }
+  tl.appendChild(frag);
 }
 function toggleHide(id){
   var t=taskMap.get(id);
@@ -1751,7 +1810,7 @@ function updBadge(){
   if(hid) txt+=' · 🙈 '+hid+' ausgeblendet';
   b.textContent=txt;
 }
-var rz=null;
+var rz=null;var _rzRAF=0;
 function sR(e,id,side){
   e.preventDefault();e.stopPropagation();
   var t=taskMap.get(id);
@@ -1759,17 +1818,20 @@ function sR(e,id,side){
   document.addEventListener('mousemove',onR);document.addEventListener('mouseup',offR);
 }
 function onR(e){
-  if(!rz)return;
-  var t=taskMap.get(rz.id);
-  var dx=Math.round((e.clientX-rz.sx)/ppd());
-  if(rz.side==='r'){var nd=new Date(rz.oe);nd.setDate(nd.getDate()+dx);if(nd>s2d(t.start))t.end=d2s(nd);}
-  else{var nd2=new Date(rz.os);nd2.setDate(nd2.getDate()+dx);if(nd2<s2d(t.end))t.start=d2s(nd2);}
-  buildGrid();
+  if(!rz)return;var _e=e;
+  if(_rzRAF)return;
+  _rzRAF=requestAnimationFrame(function(){_rzRAF=0;if(!rz)return;
+    var t=taskMap.get(rz.id);
+    var dx=Math.round((_e.clientX-rz.sx)/ppd());
+    if(rz.side==='r'){var nd=new Date(rz.oe);nd.setDate(nd.getDate()+dx);if(nd>s2d(t.start))t.end=d2s(nd);}
+    else{var nd2=new Date(rz.os);nd2.setDate(nd2.getDate()+dx);if(nd2<s2d(t.end))t.start=d2s(nd2);}
+    buildGrid();
+  });
 }
 function offR(){
   if(!rz)return;
   var t=taskMap.get(rz.id);
-  rz=null;
+  rz=null;_rzRAF=0;
   document.removeEventListener('mousemove',onR);
   document.removeEventListener('mouseup',offR);
   triggerSave();
@@ -1778,40 +1840,37 @@ function offR(){
 
 // ── BAR DRAG (verschieben) ────────────────────────────────
 var dragBar={active:false,moved:false,id:null,startX:0,origStart:null,origEnd:null,barEl:null};
+var _dragRAF=0;
 
 function startBarDrag(e,id){
   var t=taskMap.get(id);
   if(!t)return;
-  dragBar.active=true;
-  dragBar.moved=false;
-  dragBar.id=id;
-  dragBar.startX=e.clientX;
-  dragBar.origStart=t.start;
-  dragBar.origEnd=t.end;
-  dragBar.barEl=e.currentTarget;
-  dragBar.barEl.classList.add('dragging-bar');
-  document.body.style.userSelect='none';
-  document.body.style.cursor='grabbing';
+  dragBar.active=true;dragBar.moved=false;dragBar.id=id;
+  dragBar.startX=e.clientX;dragBar.origStart=t.start;dragBar.origEnd=t.end;
+  dragBar.barEl=e.currentTarget;dragBar.barEl.classList.add('dragging-bar');
+  document.body.style.userSelect='none';document.body.style.cursor='grabbing';
 }
 
 document.addEventListener('mousemove',function(e){
   if(!dragBar.active)return;
-  var dx=Math.round((e.clientX-dragBar.startX)/ppd());
-  if(Math.abs(dx)>0)dragBar.moved=true;
-  var t=taskMap.get(dragBar.id);
-  if(!t)return;
-  var dur=Math.round((s2d(dragBar.origEnd)-s2d(dragBar.origStart))/86400000);
-  var newStart=new Date(dragBar.origStart+'T00:00:00');
-  newStart.setDate(newStart.getDate()+dx);
-  var newEnd=new Date(newStart);
-  newEnd.setDate(newEnd.getDate()+dur);
-  t.start=d2s(newStart);
-  t.end=d2s(newEnd);
-  buildGrid();
+  if(_dragRAF)return;var _e=e;
+  _dragRAF=requestAnimationFrame(function(){_dragRAF=0;
+    if(!dragBar.active)return;
+    var dx=Math.round((_e.clientX-dragBar.startX)/ppd());
+    if(Math.abs(dx)>0)dragBar.moved=true;
+    var t=taskMap.get(dragBar.id);if(!t)return;
+    var dur=Math.round((s2d(dragBar.origEnd)-s2d(dragBar.origStart))/86400000);
+    var newStart=new Date(dragBar.origStart+'T00:00:00');
+    newStart.setDate(newStart.getDate()+dx);
+    var newEnd=new Date(newStart);newEnd.setDate(newEnd.getDate()+dur);
+    t.start=d2s(newStart);t.end=d2s(newEnd);
+    buildGrid();
+  });
 });
 
 document.addEventListener('mouseup',function(e){
   if(!dragBar.active)return;
+  if(_dragRAF){cancelAnimationFrame(_dragRAF);_dragRAF=0;}
   if(dragBar.barEl)dragBar.barEl.classList.remove('dragging-bar');
   document.body.style.userSelect='';
   document.body.style.cursor='';
@@ -1894,7 +1953,8 @@ document.getElementById('right').addEventListener('wheel',function(e){
 })();
 
 // Bei Fenstergrößenänderung Header-Höhen neu berechnen
-window.addEventListener('resize',function(){buildAll();});
+var _resizeTimer=0;
+window.addEventListener('resize',function(){clearTimeout(_resizeTimer);_resizeTimer=setTimeout(function(){buildAll();},150);});
 
 // ── PAN (drag timeline left/right) ───────────────────────
 (function(){
@@ -1979,9 +2039,11 @@ function setLinkHint(html){
 }
 
 function clearLinkHighlights(){
-  document.querySelectorAll('.bar.link-source,.bar.link-cand').forEach(function(b){
-    b.classList.remove('link-source','link-cand');
-  });
+  var gb=document.getElementById('gb');if(!gb)return;
+  var bars=gb.getElementsByClassName('link-source');
+  while(bars.length)bars[0].classList.remove('link-source');
+  bars=gb.getElementsByClassName('link-cand');
+  while(bars.length)bars[0].classList.remove('link-cand');
 }
 
 function handleLinkClick(taskId){
@@ -2599,7 +2661,12 @@ function hideTT(){
     var tt=document.getElementById('tt');if(tt)tt.classList.remove('show');
   },80);
 }
-document.addEventListener('mousemove',function(e){if(ttEl&&ttEl.classList.contains('show'))posTT(e);});
+var _ttRAF=0;
+document.addEventListener('mousemove',function(e){
+  if(!ttEl||!ttEl.classList.contains('show'))return;
+  if(_ttRAF)return;var _e=e;
+  _ttRAF=requestAnimationFrame(function(){_ttRAF=0;posTT(_e);});
+});
 // Init – restore embedded state if present
 // ── BENUTZERVERWALTUNG ───────────────────────────────────────────────────────
 // AUTH bleibt für Rückwärtskompatibilität mit gespeichertem State
@@ -3073,36 +3140,21 @@ if(_loaded)markSaved(); else markUnsaved();
    ════════════════════════════════════════════════════════════════════════════ */
 (function () {
   var DESIGN_W = 1400;
-
+  var _zoomRAF = 0;
   function applyZoom() {
-    var vw = window.innerWidth
-          || document.documentElement.clientWidth
-          || screen.width;
-
+    var vw = window.innerWidth || document.documentElement.clientWidth || screen.width;
     var zoom = vw / DESIGN_W;
-
-    // Nie über 1 (kein Upscaling auf Riesenmonitoren)
     if (zoom > 1) zoom = 1;
-
-    // CSS zoom auf das HTML-Element anwenden — skaliert ALLES inkl. fixed/absolute
     document.documentElement.style.zoom = zoom;
-
-    // body height anpassen damit kein Weißraum entsteht
     document.body.style.height = (100 / zoom) + 'vh';
   }
-
-  // Sofort beim Laden
+  function scheduleZoom() {
+    if (_zoomRAF) return;
+    _zoomRAF = requestAnimationFrame(function(){ _zoomRAF = 0; applyZoom(); });
+  }
   applyZoom();
-
-  // Bei Fenstergrößenänderung
-  window.addEventListener('resize', applyZoom);
-
-  // Bei Orientierungswechsel (iPad/iPhone)
-  window.addEventListener('orientationchange', function () {
-    setTimeout(applyZoom, 200);
-  });
-
-  // Nach vollständigem Laden (falls Scrollbreite sich ändert)
+  window.addEventListener('resize', scheduleZoom);
+  window.addEventListener('orientationchange', function () { setTimeout(scheduleZoom, 200); });
   window.addEventListener('load', applyZoom);
 })();
 </script>
