@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lager-Scanner</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4361ee">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; min-height: 100dvh; }
+
+/* Login */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; background: linear-gradient(135deg, #4361ee 0%, #7c3aed 100%); }
+.login-card { background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); width: 100%; max-width: 380px; margin: 20px; }
+.login-card h1 { text-align: center; font-size: 1.5rem; margin-bottom: 2px; }
+.login-card .subtitle { text-align: center; color: #94a3b8; margin-bottom: 24px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+.form-group input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; }
+.form-group input:focus { outline: none; border-color: #4361ee; box-shadow: 0 0 0 3px rgba(67,97,238,0.1); }
+.btn { padding: 12px 22px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; transition: transform 0.15s, box-shadow 0.15s; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: #4361ee; color: white; }
+.btn-success { background: #10b981; color: white; }
+.btn-secondary { background: #e2e8f0; color: #475569; }
+.error-msg { color: #ef4444; font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
+
+/* App */
+.app-page { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.app-header { background: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+.app-header h1 { font-size: 1.1rem; }
+.app-header .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #64748b; }
+.logout-btn { background: none; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; color: #475569; }
+
+.scan-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 20px; }
+.scan-icon { font-size: 4rem; opacity: 0.3; }
+.scan-instruction { text-align: center; color: #64748b; font-size: 0.95rem; max-width: 300px; }
+.capture-btn { padding: 18px 40px; font-size: 1.15rem; border-radius: 50px; box-shadow: 0 4px 16px rgba(67,97,238,0.3); }
+.capture-btn:active { box-shadow: 0 2px 8px rgba(67,97,238,0.2); }
+
+/* Preview & Status */
+.preview-section { display: none; width: 100%; max-width: 400px; }
+.preview-img { width: 100%; border-radius: 12px; border: 2px solid #e2e8f0; margin-bottom: 14px; }
+.status-card { background: white; border-radius: 12px; padding: 18px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.status-icon { font-size: 2.5rem; margin-bottom: 8px; }
+.status-text { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+.status-sub { color: #94a3b8; font-size: 0.85rem; }
+.status-success .status-icon { color: #10b981; }
+.status-success .status-text { color: #10b981; }
+.status-uploading .status-icon { color: #4361ee; }
+.status-uploading .status-text { color: #4361ee; }
+.status-error .status-icon { color: #ef4444; }
+.status-error .status-text { color: #ef4444; }
+
+/* History */
+.history-section { padding: 0 24px 24px; }
+.history-title { font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.history-item { background: white; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.history-time { color: #94a3b8; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView" class="login-page">
+    <div class="login-card">
+        <h1>Lager-Scanner</h1>
+        <p class="subtitle">Palettenlabel scannen</p>
+        <form id="loginForm">
+            <div class="form-group"><label for="username">Benutzername</label><input type="text" id="username" required placeholder="Benutzername" autocapitalize="off" autocomplete="username"></div>
+            <div class="form-group"><label for="password">Passwort</label><input type="password" id="password" required placeholder="Passwort" autocomplete="current-password"></div>
+            <button type="submit" class="btn btn-primary">Anmelden</button>
+            <p class="error-msg" id="loginError"></p>
+        </form>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="appView" class="app-page">
+    <header class="app-header">
+        <h1>Lager-Scanner</h1>
+        <div class="user-info">
+            <span id="userDisplay"></span>
+            <button class="logout-btn" onclick="logout()">Abmelden</button>
+        </div>
+    </header>
+
+    <div class="scan-area">
+        <div class="scan-icon">&#128247;</div>
+        <p class="scan-instruction">Fotografiere das Palettenlabel. Das Foto wird automatisch an die Lagerverwaltung übertragen.</p>
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+        <button class="btn btn-primary capture-btn" id="captureBtn">&#128247; Foto aufnehmen</button>
+
+        <div class="preview-section" id="previewSection">
+            <img id="previewImg" class="preview-img" alt="Vorschau">
+            <div class="status-card" id="statusCard">
+                <div class="status-icon" id="statusIcon"></div>
+                <div class="status-text" id="statusText"></div>
+                <div class="status-sub" id="statusSub"></div>
+            </div>
+            <button class="btn btn-success" id="newScanBtn" style="margin-top:14px;display:none" onclick="resetScan()">Neues Foto aufnehmen</button>
+        </div>
+    </div>
+
+    <div class="history-section" id="historySection" style="display:none">
+        <div class="history-title">Letzte Scans</div>
+        <div id="historyList"></div>
+    </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+const EMAIL_DOMAIN = '@lager.local';
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const $=id=>document.getElementById(id);
+const _errorMap={'auth/invalid-email':'Ungültiger Benutzername','auth/user-not-found':'Benutzer nicht gefunden','auth/wrong-password':'Falsches Passwort','auth/invalid-credential':'Falscher Benutzername oder Passwort','auth/too-many-requests':'Zu viele Versuche. Bitte warten.'};
+
+// Auth
+auth.onAuthStateChanged(user=>{
+    if(user){
+        $('loginView').style.display='none';
+        $('appView').style.display='flex';
+        $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
+    }else{
+        $('appView').style.display='none';
+        $('loginView').style.display='flex';
+    }
+});
+
+$('loginForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const u=$('username').value.trim(),p=$('password').value,err=$('loginError');
+    err.style.display='none';
+    const email=u.toLowerCase().replace(/\s+/g,'_')+EMAIL_DOMAIN;
+    try{await auth.signInWithEmailAndPassword(email,p);}
+    catch(ex){err.textContent=_errorMap[ex.code]||'Fehler: '+ex.code;err.style.display='block';}
+});
+
+function logout(){auth.signOut();}
+
+// Camera
+const cameraInput=$('cameraInput');
+$('captureBtn').addEventListener('click',()=>cameraInput.click());
+cameraInput.addEventListener('change',()=>{
+    if(cameraInput.files.length)processPhoto(cameraInput.files[0]);
+    cameraInput.value='';
+});
+
+// Scan history (in memory)
+const scanHistory=[];
+
+async function processPhoto(file){
+    // Show preview
+    const preview=$('previewImg');
+    if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);
+    preview._objUrl=URL.createObjectURL(file);
+    preview.src=preview._objUrl;
+    $('previewSection').style.display='block';
+    $('captureBtn').style.display='none';
+    $('newScanBtn').style.display='none';
+    document.querySelector('.scan-icon').style.display='none';
+    document.querySelector('.scan-instruction').style.display='none';
+
+    setStatus('uploading','Wird hochgeladen...','Foto wird verarbeitet und übertragen...');
+
+    try{
+        const base64=await imageToBase64(file,2000);
+        const user=auth.currentUser;
+        const username=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
+
+        await db.collection('scans').add({
+            imageBase64:base64,
+            uploadedBy:username,
+            uploadedAt:firebase.firestore.FieldValue.serverTimestamp(),
+            status:'pending'
+        });
+
+        setStatus('success','Erfolgreich übertragen!','Das Label wird in der Lagerverwaltung verarbeitet.');
+        $('newScanBtn').style.display='block';
+
+        // Add to history
+        scanHistory.unshift({time:new Date(),user:username});
+        renderHistory();
+
+    }catch(err){
+        setStatus('error','Fehler beim Hochladen',err.message);
+        $('newScanBtn').style.display='block';
+    }
+}
+
+function setStatus(type,text,sub){
+    const card=$('statusCard');
+    card.className='status-card status-'+type;
+    const icons={uploading:'&#9203;',success:'&#9989;',error:'&#10060;'};
+    $('statusIcon').innerHTML=icons[type]||'';
+    $('statusText').textContent=text;
+    $('statusSub').textContent=sub||'';
+}
+
+function resetScan(){
+    $('previewSection').style.display='none';
+    $('captureBtn').style.display='inline-flex';
+    document.querySelector('.scan-icon').style.display='block';
+    document.querySelector('.scan-instruction').style.display='block';
+}
+
+function renderHistory(){
+    if(!scanHistory.length){$('historySection').style.display='none';return;}
+    $('historySection').style.display='block';
+    $('historyList').innerHTML=scanHistory.slice(0,10).map(h=>{
+        const t=h.time;
+        const ts=t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        return`<div class="history-item"><span>Label gescannt von <strong>${h.user}</strong></span><span class="history-time">${ts}</span></div>`;
+    }).join('');
+}
+
+function imageToBase64(file,mx){
+    return new Promise((res,rej)=>{
+        const objUrl=URL.createObjectURL(file);
+        const img=new Image();
+        img.onload=()=>{
+            URL.revokeObjectURL(objUrl);
+            const c=document.createElement('canvas');
+            let w=img.width,h=img.height;
+            if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}
+            c.width=w;c.height=h;
+            c.getContext('2d').drawImage(img,0,0,w,h);
+            const result=c.toDataURL('image/jpeg',0.85);
+            c.width=0;c.height=0;
+            res(result);
+        };
+        img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};
+        img.src=objUrl;
+    });
+}
+
+// Register Service Worker
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
