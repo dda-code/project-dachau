@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lagerverwaltung Aumundswiese</title>
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+    <link rel="dns-prefetch" href="https://api.mistral.ai">
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <style>
+/* ============================================================ */
+/* BASE STYLES - Reset, Body, Buttons, Forms */
+/* ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; }
+.btn { padding: 10px 22px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; display: inline-flex; align-items: center; gap: 5px; will-change: transform; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.btn-primary { background: #4361ee; color: white; }
+.btn-secondary { background: #e2e8f0; color: #475569; }
+.btn-success { background: #10b981; color: white; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-sm { padding: 6px 14px; font-size: 0.82rem; }
+.btn-full { width: 100%; justify-content: center; }
+.btn-link { background: none; border: none; color: #4361ee; cursor: pointer; font-size: 0.88rem; text-decoration: underline; }
+.error-msg { color: #ef4444; font-size: 0.85rem; margin-top: 10px; text-align: center; }
+.success-msg { color: #10b981; font-size: 0.9rem; margin-top: 10px; font-weight: 600; text-align: center; }
+.info-msg { color: #64748b; font-size: 0.9rem; text-align: center; padding: 16px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+.form-group input, .form-select { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
+.form-group input:focus, .form-select:focus { outline: none; border-color: #4361ee; box-shadow: 0 0 0 3px rgba(67,97,238,0.1); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ============================================================ */
+/* LOGIN STYLES */
+/* ============================================================ */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; background: linear-gradient(135deg, #4361ee 0%, #7c3aed 100%); background-attachment: fixed; }
+.login-container { width: 100%; max-width: 400px; padding: 20px; }
+.login-card { background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+.login-card h1 { text-align: center; font-size: 1.6rem; margin-bottom: 2px; }
+.login-card .subtitle { text-align: center; color: #94a3b8; margin-bottom: 24px; }
+.login-footer { text-align: center; margin-top: 14px; }
+
+/* ============================================================ */
+/* LAYOUT STYLES - Topbar, Tabs, Views */
+/* ============================================================ */
+.topbar { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 100; contain: layout style; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-logo { height: 110px; width: auto; vertical-align: middle; image-rendering: pixelated; }
+.topbar h1 { font-size: 1.15rem; }
+.topbar-right { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #64748b; }
+.tabs { display: flex; background: white; border-bottom: 2px solid #e2e8f0; overflow-x: auto; -webkit-overflow-scrolling: touch; position: sticky; top: 50px; z-index: 99; contain: layout style; }
+.tab { flex: 1; padding: 12px 8px; border: none; background: none; font-size: 0.88rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; min-width: 80px; transition: color 0.15s, border-bottom-color 0.15s; }
+.tab:hover { color: #4361ee; }
+.tab.active { color: #4361ee; border-bottom-color: #4361ee; }
+.view { display: none; padding: 20px; max-width: 1200px; margin: 0 auto; }
+.view.active { display: block; }
+.view h2 { font-size: 1.3rem; margin-bottom: 16px; }
+.view h3 { font-size: 1.05rem; margin: 14px 0 10px; }
+
+/* ============================================================ */
+/* DASHBOARD STYLES */
+/* ============================================================ */
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.dash-card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); contain: content; }
+.dash-card-title { font-size: 0.82rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+.dash-card-value { font-size: 2rem; font-weight: 800; color: #1a1a2e; margin: 4px 0; }
+.dash-card-sub { font-size: 0.8rem; color: #94a3b8; }
+
+/* ============================================================ */
+/* TABLE STYLES */
+/* ============================================================ */
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); contain: layout style; }
+.data-table thead { background: #f8fafc; }
+.data-table th { padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+.data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+.scan-modal-layout { display: flex; gap: 20px; align-items: flex-start; }
+.scan-modal-left { flex: 0 0 45%; max-width: 45%; }
+.scan-modal-left img { width: 100%; height: auto; border-radius: 8px; border: 1px solid #e2e8f0; }
+.scan-modal-right { flex: 1; }
+.scan-modal-bottom { margin-top: 18px; border-top: 2px solid #e2e8f0; padding-top: 16px; }
+@media (max-width: 768px) {
+    .scan-modal-layout { flex-direction: column; }
+    .scan-modal-left { flex: none; max-width: 100%; }
+}
+.inv-filter-btn { background: none; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.75rem; color: #475569; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.inv-filter-btn:hover { background: #f0f4ff; border-color: #4361ee; }
+.inv-filter-btn.active { background: #eef2ff; border-color: #4361ee; color: #4361ee; font-weight: 700; }
+.inv-filter-popup { position: absolute; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 1001; min-width: 180px; max-width: 260px; padding: 8px 0; }
+.inv-filter-popup .inv-fp-search { width: calc(100% - 16px); margin: 0 8px 6px; padding: 5px 8px; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; }
+.inv-filter-popup .inv-fp-list { max-height: 220px; overflow-y: auto; padding: 0 8px; }
+.inv-filter-popup label { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 0.8rem; cursor: pointer; }
+.inv-filter-popup label:hover { color: #4361ee; }
+.inv-filter-popup label.inv-fp-all { font-weight: 700; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 3px; }
+.inv-filter-popup input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4361ee; }
+.inv-filter-popup .inv-fp-actions { display: flex; gap: 6px; justify-content: flex-end; padding: 8px 8px 2px; border-top: 1px solid #e2e8f0; margin-top: 6px; }
+.inv-filter-row td { padding: 4px !important; vertical-align: middle; text-align: center; }
+#view-protokoll .table-wrapper { overflow-x: hidden; }
+#view-protokoll .data-table { table-layout: auto; width: 100%; }
+#view-protokoll .data-table th, #view-protokoll .data-table td { white-space: nowrap; padding: 8px 5px; font-size: 0.75rem; }
+.data-table tbody tr:hover { background: #f8fafc; }
+.table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ============================================================ */
+/* UPLOAD & PROGRESS STYLES */
+/* ============================================================ */
+.upload-area { border: 3px dashed #cbd5e1; border-radius: 14px; padding: 36px 18px; text-align: center; cursor: pointer; transition: border-color 0.2s, background-color 0.2s; }
+.upload-area:hover { border-color: #4361ee; background: #f0f4ff; }
+.upload-area p { color: #475569; margin-bottom: 10px; }
+.image-preview { max-width: 50%; height: auto; border-radius: 8px; margin: 10px 0; border: 1px solid #e2e8f0; }
+.progress-section { margin: 14px 0; }
+.progress-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #4361ee, #7c3aed); border-radius: 4px; transition: width 0.3s ease-out; width: 0%; will-change: width; }
+.position-badge { background: #4361ee; color: white; padding: 4px 12px; border-radius: 6px; font-weight: 700; font-size: 1.1rem; }
+.position-suggestion { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.palette-card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin: 12px 0; }
+.palette-info { display: grid; gap: 6px; }
+.palette-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+.palette-label { font-weight: 600; color: #64748b; }
+
+/* ============================================================ */
+/* WAREHOUSE MAP STYLES */
+/* ============================================================ */
+.wh-layout { display: flex; gap: 30px; flex-wrap: wrap; }
+.wh-section { flex: 1; min-width: 300px; contain: layout style paint; }
+.wh-section-title { font-weight: 800; font-size: 0.9rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
+.wh-legend { display: flex; gap: 16px; margin-bottom: 14px; font-size: 0.85rem; }
+.wh-legend-item { display: flex; align-items: center; gap: 5px; }
+.wh-dot { width: 14px; height: 14px; border-radius: 3px; }
+.wh-vertical-row { display: flex; gap: 3px; align-items: flex-start; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.wh-vert-zone { display: flex; flex-direction: column; align-items: center; }
+.wh-vert-label { font-weight: 900; font-size: 0.75rem; color: #4361ee; text-align: center; margin-bottom: 2px; min-width: 28px; }
+.wh-vert-cells { display: flex; flex-direction: column; gap: 1px; }
+.wh-floor-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.wh-floor-label { width: 28px; font-weight: 900; font-size: 1rem; color: #4361ee; text-align: center; flex-shrink: 0; }
+.wh-floor-cells { display: flex; gap: 2px; flex-wrap: nowrap; }
+.wh-cell { min-width: 28px; height: 18px; padding: 0 2px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 2px; border-radius: 2px; font-size: 0.45rem; font-weight: 700; cursor: pointer; transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; border: 1px solid rgba(0,0,0,0.08); line-height: 1; contain: style; }
+.wh-cell:hover { transform: scale(1.15); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.wh-cell-nr { font-size: 0.65rem; font-weight: 800; white-space: nowrap; }
+.wh-cell-art { font-size: 0.55rem; opacity: 0.75; white-space: nowrap; }
+.wh-free { background: #d1fae5; color: #065f46; }
+.wh-occupied { background: #fef3c7; color: #92400e; }
+.wh-blocked { background: #fee2e2; color: #991b1b; }
+
+/* ============================================================ */
+/* MISC STYLES - Inventory, Inbound Steps, Modal */
+/* ============================================================ */
+.inv-actions { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 14px; flex-wrap: wrap; }
+.inv-actions .form-group { margin-bottom: 0; min-width: 160px; }
+.inbound-step { background: white; border-radius: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.section-frame { background: white; border: 2px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+.section-frame > h3 { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; contain: strict; }
+.modal { background: white; border-radius: 12px; width: 90%; max-width: 480px; max-height: 90vh; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; }
+.modal-header h3 { font-size: 1.05rem; }
+.modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #94a3b8; }
+.modal-body { padding: 18px; }
+#loginView { display: block; }
+#appView { display: none; }
+
+/* ============================================================ */
+/* RESPONSIVE STYLES */
+/* ============================================================ */
+@media (max-width: 768px) {
+    .topbar h1 { font-size: 1rem; }
+    .tab { font-size: 0.78rem; padding: 10px 6px; min-width: 60px; }
+    .view { padding: 12px; }
+    .dash-grid { grid-template-columns: 1fr 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .wh-layout { flex-direction: column; }
+    .wh-cell { min-width: 24px; height: 16px; font-size: 0.42rem; flex-direction: row; gap: 1px; }
+    .wh-cell:hover { transform: none; box-shadow: none; }
+}
+@media (max-width: 480px) {
+    .dash-grid { grid-template-columns: 1fr; }
+    .tabs { gap: 0; }
+}
+@media (hover: none) {
+    .wh-cell:hover { transform: none; box-shadow: none; }
+    .btn:hover:not(:disabled) { transform: none; box-shadow: none; }
+}
+
+    </style>
+</head>
+<body>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="loginView" class="login-page">
+    <div class="login-container">
+        <div class="login-card">
+            <h1>Lagerverwaltung</h1>
+            <p class="subtitle">Aumundswiese</p>
+            <form id="loginForm">
+                <div class="form-group"><label for="username">Benutzername</label><input type="text" id="username" required placeholder="Benutzername" autocapitalize="off" autocomplete="username" spellcheck="false"></div>
+                <div class="form-group"><label for="password">Passwort</label><input type="password" id="password" required placeholder="Passwort" autocomplete="current-password"></div>
+                <button type="submit" class="btn btn-primary btn-full">Anmelden</button>
+                <p class="error-msg" id="loginError" style="display:none"></p>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== APP ==================== -->
+<div id="appView" style="display:none">
+    <header class="topbar">
+        <div class="topbar-left"><img src="data:image/gif;base64,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6B1YM3HGZCYux9cm5D2zmMGkJjRlAanDXTN11uQmJtGjzbd9s5s9IScw4ZGps52znNFkJzb7d6+XvTN4v6BnxsJZq4Hds3nZ5GcC0mksff2zn6gg6ALoh61mHVi0egZlKEJJQTRHPfR8mqCoGTJBtTldlHz04ejBhvIwK320fiElKUgvyDYhndR/h2DpCVwqx2K9VIEppKm/bMpI/tx0gzLkKU7dUE0C/TSEeyGqtozKOy8dRNWGjGFqtCxTUXk9tYiZoSplvIi/bl11jU7iqiECOcOafZWsZaXk2MyaVrUKsnFrdetb41g6uM6VrmLUX13xmteuUlCvNX316xdd8lfBDjauhyTsYRHbR+gklrGN3Ws2HBtZyV7SgJO17GVZSRXMbpazxExqZ0EbWtGOKJa0pTXtaVGbWtWulrWtde1rYRtb2c6WtrW17W1xm1vd7pa3vfXtb4EnG1zhDpe4xTXucZGbXOUul7nNde5zoRtd6U6XutW17nWxm13tbpe7I9317nfBG17xjpe85TXvedGbXvWul73tde974Rtf+c6XvvW1Ie998Ztf/e6Xv/31738BHGABD5jABTbwgRGcYAUvmMENdiDwgyEcYQlPmMIVtvCFMZxhDW+Ywx328IdBHGIRj5jEJSA28YlRnGIVr5jFLXbxi2EcYxnPmMY1tvGNcZxjHe+Yxxw99vGPgRxkIQ+ZyEU28pGRnGQlL5nJTXbyk6EcHGUpT5nKVbbylbGcZS1vmctd9vKXwRxmMY+ZzGUbNvOZ0ZxmNa+ZzW1285vhHGc5z5nOdbbznfGcG2c975nPffbznwEdaEEPmtCFNvShEZ1oRS+a0RqNdvSjIR1pSU+a0pW29KUxnWlNb5rTnfb0pxhBHWpRj5rUpTb1qVGdalWvmtWtdvWrYR0Ya1nPmta1tvWtcZ1rXe+a17329a+BHWxhFw+b2MU29rGRnWxlL5vZzXb2s6EdbWlPGJva1bb2tbGdbW1vm9vd9va3wR1ucY+b3BblNve50Z1uda+b3e1297vhHW95z5veFvW2973xnW9975vf/fb3vwEecIEPnOAUBTf4wRGecIUvnOENd/jDIR5xiU8VnOIVt/jFMZ5xjW+c4x33+MdBHnKRFI+c5CU3+clRnnKVr5zlLXf5y2EeFXOZz5zmNbf5zXGec53vnOc99/nPgRMedKEPnehFN/rRkZ50pS+d6U13FPrToR51qU+d6lW3+tWxnnWtb53rE133+tfBHnaxj53sZTf72dGedrUSr53tbXf72+Eed7nPne51t/vdE/Ged73vne999/vfAR94wQ+e8IUSN/zhEZ94xS+e8Y13/OMhH3nJEk+e8pW3/OUxn3nNb57znff85xJBH3rRj570pTf96VGfetWvnvUQrXf962Efe9nPnva1t/3tcRKfe93vnve99/3vgR984Q+f+MUQN/7xkZ985S+f+c13/vOhHxF96U+f+tW3/vWxn33tb5/73RD3/vfBH37xj5/85Tf/+dGfEX71r5/97Xf/++Eff/nPn/71Brf//X1fAAA7" alt="XO" class="topbar-logo"><h1>Lagerverwaltung</h1></div>
+        <div class="topbar-right"><span id="userEmail"></span><button type="button" class="btn btn-sm btn-primary" id="userMgmtBtn" style="display:none" onclick="openUserMgmt()">Benutzer verwalten</button><button type="button" class="btn btn-sm btn-secondary" onclick="logout()">Abmelden</button></div>
+    </header>
+    <nav class="tabs">
+        <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
+        <button type="button" class="tab" data-tab="inbound">Einlagern</button>
+        <button type="button" class="tab" data-tab="outbound">Auslagern</button>
+        <button type="button" class="tab" data-tab="inventory">Bestandsliste</button>
+        <button type="button" class="tab" data-tab="protokoll">Protokoll</button>
+    </nav>
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+        <div class="dash-grid">
+            <div class="dash-card"><div class="dash-card-title">Fertigware</div><div class="dash-card-value"><span id="dashFertigBelegt">0</span> / <span id="dashFertigTotal">0</span></div><div class="dash-card-sub">Stellplätze belegt</div></div>
+            <div class="dash-card"><div class="dash-card-title">Halbfabrikate</div><div class="dash-card-value"><span id="dashHalbBelegt">0</span> / <span id="dashHalbTotal">0</span></div><div class="dash-card-sub">Stellplätze belegt</div></div>
+            <div class="dash-card"><div class="dash-card-title">Paletten gesamt</div><div class="dash-card-value" id="dashTotalPaletten">0</div><div class="dash-card-sub">eingelagert</div></div>
+        </div>
+        <h3 style="margin-top:24px">Bestand pro Artikel</h3>
+        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashArtikelBody"></tbody></table>
+    </section>
+
+    <!-- EINLAGERN -->
+    <section class="view" id="view-inbound">
+        <h2>Palette einlagern</h2>
+        <div class="section-frame">
+            <h3>Lager-Karte</h3>
+            <div class="wh-legend"><span class="wh-legend-item"><span class="wh-dot wh-free"></span> Frei</span><span class="wh-legend-item"><span class="wh-dot wh-occupied"></span> Belegt</span><span class="wh-legend-item"><span class="wh-dot wh-blocked"></span> Gesperrt</span></div>
+            <div id="warehouseMap"></div>
+        </div>
+        <div class="modal-overlay" id="posDetailModal" style="display:none"><div class="modal"><div class="modal-header"><h3 id="posDetailTitle">Position</h3><button class="modal-close" id="posDetailClose">&times;</button></div><div class="modal-body" id="posDetailBody"></div></div></div>
+        <div class="section-frame">
+            <h3>Palette scannen & einlagern</h3>
+            <div class="inbound-step" id="inboundStep1"><h3>1. Label scannen</h3><div class="upload-area" id="inboundDropZone"><p>Foto des Labels hochladen</p><input type="file" id="inboundFileInput" accept="image/*" capture="environment" hidden><button class="btn btn-primary" id="inboundUploadBtn">Foto aufnehmen / auswählen</button></div><div class="progress-section" id="inboundProgress" style="display:none"><div class="progress-bar"><div class="progress-fill" id="inboundProgressFill"></div></div><p id="inboundProgressText">OCR läuft...</p></div></div>
+        </div>
+    </section>
+
+    <!-- AUSLAGERN -->
+    <section class="view" id="view-outbound">
+        <h2>Palette auslagern (FIFO)</h2>
+        <div class="form-group"><label for="outboundArtikel">Artikelnummer:</label><select id="outboundArtikel" class="form-select"><option value="">-- Artikel wählen --</option></select></div>
+        <div id="outboundResult" style="display:none"><h3>Älteste Palette (FIFO) — bitte entnehmen:</h3><div class="palette-card" id="outboundCard"></div><button class="btn btn-danger btn-full" id="confirmOutboundBtn">Palette entnommen</button></div>
+        <div id="outboundEmpty" style="display:none"><p class="info-msg">Keine Paletten dieses Artikels im Lager.</p></div>
+        <div id="outboundSuccess" style="display:none"></div>
+    </section>
+
+    <!-- BESTANDSLISTE -->
+    <section class="view" id="view-inventory">
+        <h2>Bestandsliste</h2>
+        <div class="inv-actions"><button class="btn btn-success" id="invExportBtn">Excel exportieren</button></div>
+        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Prod.-Datum</th><th>Menge</th><th>Position</th><th>Status</th><th>Eingelagert</th><th>Aktionen</th></tr>
+        <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td></td><td></td></tr>
+        </thead><tbody id="invBody"></tbody></table></div>
+    </section>
+
+    <!-- PROTOKOLL -->
+    <section class="view" id="view-protokoll">
+        <h2>Ein-/Auslagerungs-Protokoll</h2>
+        <div class="inv-actions"><button class="btn btn-success" id="protokollExportBtn">Excel exportieren</button></div>
+        <div class="table-wrapper"><table class="data-table"><thead><tr><th>Artikelnr.</th><th>Aktion</th><th>SSCC / Barcode</th><th>Menge</th><th>Position</th><th>Prod.-Datum</th><th>Eingelagert am</th><th>Eingelagert von</th><th>Ausgelagert am</th><th>Ausgelagert von</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table></div>
+    </section>
+
+    <!-- SCAN RESULT MODAL -->
+    <div class="modal-overlay" id="scanResultModal" style="display:none"><div class="modal" style="max-width:95vw;width:1100px">
+        <div class="modal-header"><h3>Palette einlagern</h3><button class="modal-close" id="scanModalClose">&times;</button></div>
+        <div class="modal-body">
+            <div class="scan-modal-layout">
+                <div class="scan-modal-left"><img id="inboundPreview" alt="Label-Foto" style="display:none"></div>
+                <div class="scan-modal-right" id="inboundStep2"><h3 style="margin-bottom:12px">2. Daten prüfen</h3><div class="form-grid" id="inboundForm"></div></div>
+            </div>
+            <div class="scan-modal-bottom" id="inboundStep3" style="display:none">
+                <h3 style="margin-bottom:12px">3. Stellplatz wählen</h3>
+                <div class="form-group"><label>Vorgeschlagener Stellplatz:</label><div class="position-suggestion"><span id="suggestedPosition" class="position-badge">-</span><button class="btn btn-sm btn-secondary" id="changePositionBtn">Anderen wählen</button></div></div>
+                <select id="positionSelect" class="form-select" style="display:none"></select>
+                <div style="display:flex;gap:10px;margin-top:12px">
+                    <button class="btn btn-primary btn-full" id="confirmInboundBtn">Einlagern</button>
+                    <button class="btn btn-secondary btn-full" id="inboundResetBtn">Neue Palette scannen</button>
+                </div>
+                <p class="success-msg" id="inboundSuccess" style="display:none">Palette erfolgreich eingelagert!</p>
+            </div>
+        </div>
+    </div></div>
+
+    <!-- USER MANAGEMENT MODAL (outside view sections) -->
+    <div class="modal-overlay" id="userMgmtModal" style="display:none"><div class="modal" style="max-width:600px">
+        <div class="modal-header"><h3>Benutzerverwaltung</h3><button class="modal-close" onclick="closeUserMgmt()">&times;</button></div>
+        <div class="modal-body">
+            <div class="table-wrapper"><table class="data-table"><thead><tr><th>Benutzername</th><th>Rolle</th><th>Status</th><th>Aktionen</th></tr></thead><tbody id="userMgmtBody"></tbody></table></div>
+            <h3 style="margin-top:18px">Neuen Benutzer anlegen</h3>
+            <form id="createUserForm" style="margin-top:10px">
+                <div class="form-grid">
+                    <div class="form-group"><label for="newUsername">Benutzername</label><input type="text" id="newUsername" required placeholder="z.B. max" autocapitalize="off" spellcheck="false"></div>
+                    <div class="form-group"><label for="newPassword">Passwort</label><input type="password" id="newPassword" required minlength="6" placeholder="Min. 6 Zeichen"></div>
+                </div>
+                <div class="form-group"><label for="newRole">Rolle</label><select id="newRole" class="form-select"><option value="user">User</option><option value="qs">QS</option><option value="admin">Admin</option></select></div>
+                <button type="submit" class="btn btn-success btn-full" style="margin-top:8px">Benutzer anlegen</button>
+                <p class="error-msg" id="createUserError" style="display:none"></p>
+                <p class="success-msg" id="createUserSuccess" style="display:none"></p>
+            </form>
+        </div>
+    </div></div>
+</div>
+
+
+<!-- External Libraries -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+const WAREHOUSE_ZONES = Object.freeze({
+    halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({L:11,K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
+    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
+});
+const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
+const FERTIGWARE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
+const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032']);
+const MISTRAL_API_KEY = localStorage.getItem('mistral_api_key') || 'XorDkOZbC8YohCnxrT1bZtlsCSZvGAxW';
+if(!localStorage.getItem('mistral_api_key'))localStorage.setItem('mistral_api_key', MISTRAL_API_KEY);
+const EMAIL_DOMAIN = '@lager.local';
+
+// ============================================================
+// FIREBASE INIT + AUTH
+// ============================================================
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const _secondaryApp = firebase.initializeApp(firebaseConfig, 'UserMgmt');
+const _secondaryAuth = _secondaryApp.auth();
+const _secondaryDb = _secondaryApp.firestore();
+
+// Bootstrap: Admin-Account anlegen falls nicht vorhanden
+(async function bootstrapAdmin(){
+    const adminEmail='admin'+EMAIL_DOMAIN, adminPw='BguVP071';
+    try{
+        await _secondaryAuth.signInWithEmailAndPassword(adminEmail,adminPw);
+        // Login klappt → Admin existiert mit korrektem Passwort
+        // Sicherstellen, dass Firestore-Doc mit role:admin existiert
+        const u=_secondaryAuth.currentUser;
+        const doc=await _secondaryDb.collection('users').doc(u.uid).get();
+        if(!doc.exists){await _secondaryDb.collection('users').doc(u.uid).set({displayName:'admin',email:adminEmail,role:'admin',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
+        else if(doc.data().role!=='admin'){await _secondaryDb.collection('users').doc(u.uid).update({role:'admin'});}
+        await _secondaryAuth.signOut();
+        console.log('Admin-Account verifiziert.');
+    }catch(e){
+        console.log('Admin-Bootstrap Fehler:',e.code);
+        try{await _secondaryAuth.signOut();}catch(_){}
+        if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'){
+            try{
+                const c=await _secondaryAuth.createUserWithEmailAndPassword(adminEmail,adminPw);
+                await c.user.updateProfile({displayName:'admin'});
+                await _secondaryDb.collection('users').doc(c.user.uid).set({displayName:'admin',email:adminEmail,role:'admin',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+                await _secondaryAuth.signOut();
+                console.log('Admin-Account erstellt.');
+            }catch(ce){
+                console.warn('Admin-Bootstrap Erstellung fehlgeschlagen:',ce.code,ce.message);
+            }
+        }
+    }
+})();
+
+// Bootstrap: QS-Account anlegen falls nicht vorhanden
+(async function bootstrapQS(){
+    const qsEmail='qs'+EMAIL_DOMAIN, qsPw='xoqs-2026';
+    try{
+        await _secondaryAuth.signInWithEmailAndPassword(qsEmail,qsPw);
+        const u=_secondaryAuth.currentUser;
+        const doc=await _secondaryDb.collection('users').doc(u.uid).get();
+        if(!doc.exists){await _secondaryDb.collection('users').doc(u.uid).set({displayName:'qs',email:qsEmail,role:'qs',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
+        else if(doc.data().role!=='qs'){await _secondaryDb.collection('users').doc(u.uid).update({role:'qs'});}
+        await _secondaryAuth.signOut();
+        console.log('QS-Account verifiziert.');
+    }catch(e){
+        try{await _secondaryAuth.signOut();}catch(_){}
+        if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'){
+            try{
+                const c=await _secondaryAuth.createUserWithEmailAndPassword(qsEmail,qsPw);
+                await c.user.updateProfile({displayName:'qs'});
+                await _secondaryDb.collection('users').doc(c.user.uid).set({displayName:'qs',email:qsEmail,role:'qs',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+                await _secondaryAuth.signOut();
+                console.log('QS-Account erstellt.');
+            }catch(ce){console.warn('QS-Bootstrap fehlgeschlagen:',ce.code,ce.message);}
+        }
+    }
+})();
+
+const _wsRe=/\s+/g;
+const _validUserRe=/^[a-zA-Z0-9_.-]+$/;
+function toEmail(u){return u.trim().toLowerCase().replace(_wsRe,'_')+EMAIL_DOMAIN;}
+function toUsername(e){return e?e.replace(EMAIL_DOMAIN,''):'';}
+function getCurrentUsername(){const u=auth.currentUser;if(!u)return'';return u.displayName||toUsername(u.email);}
+function logout(){auth.signOut().catch(e=>console.warn('Logout-Fehler:',e));}
+let currentUserRole='user';
+function isAdmin(){return currentUserRole==='admin';}
+function isQS(){return currentUserRole==='qs';}
+function canManageQS(){return isAdmin()||isQS();}
+
+const $=id=>document.getElementById(id);
+auth.onAuthStateChanged(async user=>{
+    if(user){
+        $('loginView').style.display='none';$('appView').style.display='block';
+        const uName=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
+        // Load or create user doc in Firestore
+        const isAdminEmail=user.email&&user.email.toLowerCase()==='admin'+EMAIL_DOMAIN;
+        const isQSEmail=user.email&&user.email.toLowerCase()==='qs'+EMAIL_DOMAIN;
+        try{
+            const uDoc=await db.collection('users').doc(user.uid).get();
+            if(uDoc.exists){
+                const ud=uDoc.data();
+                if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
+                currentUserRole=ud.role||'user';
+                if(isAdminEmail&&currentUserRole!=='admin'){await db.collection('users').doc(user.uid).update({role:'admin'});currentUserRole='admin';}
+                if(isQSEmail&&currentUserRole!=='qs'){await db.collection('users').doc(user.uid).update({role:'qs'});currentUserRole='qs';}
+            }
+            else{
+                const role=isAdminEmail?'admin':(isQSEmail?'qs':'user');
+                await db.collection('users').doc(user.uid).set({displayName:uName,email:user.email,role:role,disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+                currentUserRole=role;
+            }
+        }catch(e){
+            console.warn('Rolle laden fehlgeschlagen:',e);
+            currentUserRole=isAdminEmail?'admin':(isQSEmail?'qs':'user');
+        }
+        console.log('Auth: user='+uName+', email='+user.email+', uid='+user.uid+', role='+currentUserRole);
+        const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='qs'?' (QS)':'');
+        $('userEmail').textContent=uName+roleLabel;
+        $('userMgmtBtn').style.display=isAdmin()?'inline-flex':'none';
+        initApp();
+    }
+    else{$('appView').style.display='none';$('loginView').style.display='flex';currentUserRole='user';$('userMgmtBtn').style.display='none';}
+});
+
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();const u=$('username').value,p=$('password').value,err=$('loginError');err.style.display='none';try{await auth.signInWithEmailAndPassword(toEmail(u),p);}catch(e){err.textContent=translateError(e.code);err.style.display='block';}});
+const _errorMap=Object.freeze({'auth/invalid-email':'Ungültiger Benutzername','auth/user-not-found':'Benutzer nicht gefunden','auth/wrong-password':'Falsches Passwort','auth/invalid-credential':'Falscher Benutzername oder Passwort','auth/email-already-in-use':'Benutzername existiert bereits','auth/weak-password':'Passwort zu schwach (min. 6 Zeichen)','auth/too-many-requests':'Zu viele Versuche. Bitte warten.'});
+function translateError(c){return _errorMap[c]||'Fehler: '+c;}
+
+// ============================================================
+// APP SHELL + TABS + DASHBOARD
+// ============================================================
+const _tabs=document.querySelectorAll('.tab');
+const _views=document.querySelectorAll('.view');
+const _tabActions={dashboard:()=>loadDashboard(),inventory:()=>loadInventory(),outbound:()=>initOutbound(),protokoll:()=>loadProtokoll()};
+_tabs.forEach(tab=>{tab.addEventListener('click',()=>{_tabs.forEach(t=>t.classList.remove('active'));_views.forEach(v=>v.classList.remove('active'));tab.classList.add('active');document.getElementById('view-'+tab.dataset.tab).classList.add('active');const fn=_tabActions[tab.dataset.tab];if(fn)fn();});});
+
+function initApp(){loadDashboard();initInbound();initOutbound();initInventory();initRemoteScanListener();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);}
+
+const _numRe=/[0-9]/g;
+const _separatorRe=/[.,]/g;
+const _hZ=new Set('LKHGFEDCBAV'.split(''));
+const _fZ=new Set('MNOPQRSTU'.split(''));
+const _hT=Object.values(WAREHOUSE_ZONES.halbfabrikate.zones).reduce((a,b)=>a+b,0);
+const _fT=Object.values(WAREHOUSE_ZONES.fertigware.zones).reduce((a,b)=>a+b,0);
+const _zoneSlotMap={};
+for(const[_,cat]of Object.entries(WAREHOUSE_ZONES))for(const[zone,count]of Object.entries(cat.zones))_zoneSlotMap[zone]=count;
+
+async function loadDashboard(){
+    const s=await db.collection('paletten').get();const paletten=[];s.forEach(d=>{const dt={id:d.id,...d.data()};if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);paletten.push(dt);});
+    let fertig=0,halb=0;const artikelMap={};
+    for(const p of paletten){const z=p.position?p.position.replace(_numRe,''):'';if(_fZ.has(z))fertig++;else if(_hZ.has(z))halb++;if(!artikelMap[p.artikelNr])artikelMap[p.artikelNr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[p.artikelNr].count++;
+        let mengeStr=p.menge||'';
+        if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('12'))mengeStr='92.400';
+        if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('18'))mengeStr='420.672';
+        if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('19'))mengeStr='196.224';
+        const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);if(!isNaN(m)){artikelMap[p.artikelNr].menge+=m;if(p.gesperrt)artikelMap[p.artikelNr].mengeGesperrt+=m;else artikelMap[p.artikelNr].mengeFrei+=m;}}
+    document.getElementById('dashFertigBelegt').textContent=fertig;document.getElementById('dashFertigTotal').textContent=_fT;
+    document.getElementById('dashHalbBelegt').textContent=halb;document.getElementById('dashHalbTotal').textContent=_hT;
+    document.getElementById('dashTotalPaletten').textContent=paletten.length;
+    renderWarehouseMap();
+    document.getElementById('dashArtikelBody').innerHTML=ARTIKEL_NUMMERN.map(nr=>{const d=artikelMap[nr]||{count:0,menge:0,mengeFrei:0,mengeGesperrt:0};return`<tr><td>${nr}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;}).join('');
+}
+
+function _normalizeArtikelNr(nr){
+    if(!nr)return nr;
+    nr=nr.replace(/[\s\-]/g,'');
+    // Exakter Match am Anfang
+    const exact=ARTIKEL_NUMMERN.find(a=>nr.startsWith(a));
+    if(exact)return exact;
+    // Fuzzy: Ersten 2 Ziffern (12/18/19) matchen, dann beste Übereinstimmung finden
+    const prefix=nr.slice(0,2);
+    const candidates=ARTIKEL_NUMMERN.filter(a=>a.startsWith(prefix));
+    if(candidates.length===1)return candidates[0];
+    if(candidates.length>1){
+        // Bester Match: meiste übereinstimmende Anfangsziffern
+        let best=candidates[0],bestLen=0;
+        for(const c of candidates){let i=0;while(i<c.length&&i<nr.length&&c[i]===nr[i])i++;if(i>bestLen){bestLen=i;best=c;}}
+        return best;
+    }
+    if(/^(12|18|19)\d+/.test(nr))return nr.slice(0,6);
+    return nr;
+}
+async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
+function findFreePosition(occ,zo){for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p])return p;}}return null;}
+const _tsOpts=Object.freeze({hour:'2-digit',minute:'2-digit'});
+function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new Date(ts);if(isNaN(d))return'-';return d.toLocaleDateString('de-DE')+' '+d.toLocaleTimeString('de-DE',_tsOpts);}
+
+// ============================================================
+// WAREHOUSE MAP
+// ============================================================
+let _lastPositions=null;
+async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div>');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div>');c.innerHTML=parts.join('');}
+function _renderCell(p,i,o){const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?pal.artikelNr:'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
+function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
+function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
+document.getElementById('warehouseMap')?.addEventListener('click',e=>{const cell=e.target.closest('.wh-cell');if(cell&&cell.dataset.pos)showPosDetail(cell.dataset.pos);});
+async function showPosDetail(pos){
+    const o=_lastPositions||await getAllPositions();const pal=o[pos];
+    document.getElementById('posDetailTitle').textContent='Position '+pos;
+    const b=document.getElementById('posDetailBody');
+    if(!pal){b.innerHTML='<p class="info-msg">Stellplatz ist frei.</p>';}
+    else{
+        const statusHtml=pal.gesperrt
+            ?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'
+            :'<span style="color:#10b981;font-weight:700">Freigegeben</span>';
+        const sperrgrundHtml=pal.gesperrt&&pal.sperrgrund?`<div class="palette-row"><span class="palette-label">Sperrgrund:</span><span style="color:#ef4444">${_escAttr(pal.sperrgrund)}</span></div>`:'';
+        const docId=_escAttr(pal.sscc||pal.id);
+        let qsBtn='';
+        if(canManageQS()){
+            if(pal.gesperrt){
+                qsBtn=`<button class="btn btn-success btn-full" style="margin-top:12px" onclick="toggleGesperrt('${docId}',false,'${_escAttr(pos)}')">Palette freigeben</button>`;
+            }else{
+                qsBtn=`<div style="margin-top:12px"><div class="form-group"><label>Sperrgrund (optional)</label><input type="text" id="posDetailSperrgrund" placeholder="z.B. Qualitätsprüfung, Reklamation..." style="font-size:0.9rem"></div><button class="btn btn-danger btn-full" onclick="toggleGesperrt('${docId}',true,'${_escAttr(pos)}',document.getElementById('posDetailSperrgrund').value)">Palette sperren</button></div>`;
+            }
+        }
+        b.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">SSCC:</span><span>${pal.sscc||''}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${pal.artikelNr}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${pal.produktionsDatum||'-'}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${pal.menge||'-'}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${formatTimestamp(pal.einlagDatum)}</span></div><div class="palette-row"><span class="palette-label">Status:</span>${statusHtml}</div>${sperrgrundHtml}</div>${qsBtn}`;
+    }
+    document.getElementById('posDetailModal').style.display='flex';
+    document.getElementById('posDetailClose').onclick=()=>{document.getElementById('posDetailModal').style.display='none';};
+}
+async function _logGesperrt(docId,newVal,sperrgrund){
+    const snap=await db.collection('paletten').doc(docId).get();const pd=snap.exists?snap.data():{};
+    const aktion=newVal?'gesperrt':'freigegeben';
+    await db.collection('protokoll').add({aktion,docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername(),sperrgrund:sperrgrund||''});
+    await db.collection('log').add({aktion,docId,artikelNr:pd.artikelNr||'',position:pd.position||'',user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp(),sperrgrund:sperrgrund||''});
+}
+async function toggleGesperrt(docId,newVal,pos,sperrgrund){
+    if(!canManageQS())return;
+    try{
+        const upd={gesperrt:newVal};
+        if(newVal)upd.sperrgrund=sperrgrund||'';
+        else{upd.sperrgrund='';}
+        await db.collection('paletten').doc(docId).update(upd);
+        await _logGesperrt(docId,newVal,sperrgrund);renderWarehouseMap();loadDashboard();showPosDetail(pos);
+    }catch(e){alert('Fehler: '+e.message);}
+}
+window.showPosDetail=showPosDetail;window.toggleGesperrt=toggleGesperrt;
+
+// ============================================================
+// SCANNER (Mistral Vision)
+// ============================================================
+const SCAN_PROMPT=`Analysiere dieses Foto eines Paletten-Labels.
+Es gibt 3 mögliche Label-Typen. Bestimme den Typ anhand dieser REGELN:
+TYP 1: "XO Fertigware" — Hat das XO-Logo UND das Wort "Beverage Can Ends" im Titel. Die Article Number beginnt mit "XO-".
+TYP 2: "XO Halbfabrikate" — Hat das XO-Logo UND das Wort "Frame" im Titel. Die Article Number ist eine reine Zahl.
+TYP 3: "ALPLA Halbfabrikate" — Hat das ALPLA-Logo. Hat Felder auf Tschechisch wie "Barva/Color", "Počet ks v balení".
+Extrahiere diese Felder. Antworte NUR mit JSON:
+{"labelTyp":"...","artikelNr":"nur die Zahl, z.B. 190009","datum":"Originalformat des Produktionsdatums","uhrzeit":"HH:MM","sscc":"mindestens 16 Ziffern, falls vorhanden","palettenNr":"Pallet Number / Running Number, falls vorhanden","lotNr":"Lot Number, falls vorhanden","orderNr":"Order Number, falls vorhanden","internalBarcode":"Internal Barcode, falls vorhanden"}`;
+
+const _jsonBlockRe=/```(?:json)?\s*([\s\S]*?)```/;
+
+function normalizeDatum(s){
+    if(!s)return s;
+    s=s.trim().replace(/\s+\d{1,2}:\d{2}(:\d{2})?$/,''); // Uhrzeit am Ende entfernen
+    let d,m,y;
+    // YYYY-MM-DD oder YYYY/MM/DD
+    let match=s.match(/^(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})/);
+    if(match){y=match[1];m=match[2];d=match[3];}
+    // MM/DD/YYYY (US-Format mit Slash)
+    if(!y){match=s.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})/);if(match){m=match[1];d=match[2];y=match[3];}}
+    // DD.MM.YYYY oder DD-MM-YYYY
+    if(!y){match=s.match(/^(\d{1,2})[\.\-](\d{1,2})[\.\-](\d{4})/);if(match){d=match[1];m=match[2];y=match[3];}}
+    // DD. Mon YYYY oder DD Mon YYYY (deutsch/englisch)
+    if(!y){match=s.match(/^(\d{1,2})\.?\s*([A-Za-zäöü]+)\s*(\d{4})/);if(match){
+        d=match[1];y=match[3];
+        const mon=match[2].toLowerCase().slice(0,3);
+        const months={jan:'01',feb:'02',mar:'03',mär:'03',apr:'04',may:'05',mai:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',okt:'10',nov:'11',dec:'12',dez:'12'};
+        m=months[mon]||'01';
+    }}
+    if(d&&m&&y)return String(d).padStart(2,'0')+'.'+String(m).padStart(2,'0')+'.'+y;
+    return s;
+}
+
+async function scanLabel(file){
+    const base64=await imageToBase64Scan(file,2000);
+    const r=await fetch('https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+MISTRAL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'mistral-small-latest',messages:[{role:'user',content:[{type:'image_url',image_url:base64},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
+    if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
+    const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
+    let data;try{data=JSON.parse(content);}catch{const m=content.match(_jsonBlockRe);if(m)data=JSON.parse(m[1]);else throw new Error('JSON-Parse-Fehler');}
+    if(data.datum){data.datum=normalizeDatum(data.datum);}
+    if(data.artikelNr){data.artikelNr=data.artikelNr.replace(/[\s\-]/g,'');data.artikelNr=_normalizeArtikelNr(data.artikelNr);}
+    if(data.sscc){data.sscc=data.sscc.replace(/[\s\-]/g,'');if(data.sscc.replace(/\D/g,'').length<16)data.sscc='';}
+    // Validierung: ungültige Felder als FEHLER markieren
+    if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';
+    if(!data.sscc&&data.labelTyp!=='XO Halbfabrikate')data.sscc='FEHLER';
+    if(!data.datum||!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum))data.datum='FEHLER';
+    if(!data.uhrzeit||!/^\d{1,2}:\d{2}/.test(data.uhrzeit))data.uhrzeit='FEHLER';
+    return{data,base64};
+}
+function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(objUrl);const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);const result=c.toDataURL('image/jpeg',0.85);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
+
+// ============================================================
+// INBOUND
+// ============================================================
+function _escAttr(s){return s?s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'):''}
+const INBOUND_FIELDS_BASE=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Artikelnummer'},
+    {key:'datum',label:'Produktionsdatum'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'sscc',label:'SSCC'}
+];
+const INBOUND_FIELDS_XO_HALB=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Artikelnummer'},
+    {key:'datum',label:'Produktionsdatum'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'orderNr',label:'Order Number'},
+    {key:'palettenNr',label:'Pallet Number'},
+    {key:'internalBarcode',label:'Internal Barcode'}
+];
+const INBOUND_FIELDS_ALPLA=[
+    ...INBOUND_FIELDS_BASE,
+    {key:'palettenNr',label:'Running Number'},
+    {key:'lotNr',label:'Lot Number'}
+];
+function getInboundFields(typ){if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;return INBOUND_FIELDS_BASE;}
+const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','palettenNr','lotNr','orderNr','internalBarcode'];
+let inboundData=null,currentLabelTyp=null;
+
+function initInbound(){
+    const fi=document.getElementById('inboundFileInput');
+    document.getElementById('inboundUploadBtn').addEventListener('click',e=>{e.stopPropagation();fi.click();});
+    document.getElementById('inboundDropZone').addEventListener('click',e=>{if(e.target.id==='inboundUploadBtn')return;fi.click();});
+    fi.addEventListener('change',()=>{if(fi.files.length)onInboundFile(fi.files[0]);fi.value='';});
+    document.getElementById('confirmInboundBtn').addEventListener('click',confirmInbound);
+    document.getElementById('inboundResetBtn').addEventListener('click',resetInbound);
+    document.getElementById('changePositionBtn').addEventListener('click',()=>{document.getElementById('positionSelect').style.display='block';});
+    document.getElementById('scanModalClose').addEventListener('click',resetInbound);
+}
+
+async function onInboundFile(file){
+    const ps=document.getElementById('inboundProgress'),pf=document.getElementById('inboundProgressFill'),pt=document.getElementById('inboundProgressText');
+    ps.style.display='block';pf.style.width='20%';pt.textContent='Label wird gescannt...';
+    try{
+        const result=await scanLabel(file);inboundData=result.data;currentLabelTyp=inboundData.labelTyp||'ALPLA Halbfabrikate';
+        const preview=document.getElementById('inboundPreview');if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);preview._objUrl=URL.createObjectURL(file);preview.src=preview._objUrl;preview.style.display='block';
+        const fields=getInboundFields(currentLabelTyp);
+        document.getElementById('inboundForm').innerHTML=fields.map(f=>{const isErr=inboundData[f.key]==='FEHLER';const errStyle=isErr?'color:#ef4444;font-weight:800;border-color:#ef4444':'';const roStyle=f.readonly?'background:#f1f5f9;font-weight:700':'';const style=[errStyle,roStyle].filter(Boolean).join(';');return`<div class="form-group"><label>${f.label}</label><input type="text" id="inbound-${f.key}" value="${_escAttr(inboundData[f.key])}"${f.readonly?' readonly':''}${style?' style="'+style+'"':''}></div>`;}).join('');
+        ps.style.display='none';document.getElementById('scanResultModal').style.display='flex';document.getElementById('inboundStep2').style.display='block';await showPositionStep();
+    }catch(err){pt.textContent='Fehler: '+err.message;pf.style.width='0%';}
+}
+
+async function showPositionStep(){
+    const occ=await getAllPositions();
+    const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['L','K','H','G','F','E','D','C','B','A','V'];
+    const fp=findFreePosition(occ,zo);document.getElementById('suggestedPosition').textContent=fp||'Kein Platz frei!';
+    const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
+    for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){const og=document.createElement('optgroup');og.label=cat.label;for(const[z,cnt]of Object.entries(cat.zones)){for(let i=1;i<=cnt;i++){const p=z+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;if(p===fp)o.selected=true;og.appendChild(o);}}}frag.appendChild(og);}sel.innerHTML='';sel.appendChild(frag);
+    document.getElementById('inboundStep3').style.display='block';document.getElementById('inboundResetBtn').style.display='block';
+}
+
+function showDuplicateWarning(docId,position){
+    return new Promise(resolve=>{
+        const overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2000;';
+        overlay.innerHTML=`<div style="background:white;border-radius:14px;padding:30px;max-width:460px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
+            <div style="font-size:3.5rem;color:#ef4444;line-height:1;margin-bottom:10px;">&#9888;</div>
+            <p style="color:#ef4444;font-weight:800;font-size:1.15rem;margin-bottom:14px;">ACHTUNG: Palette bereits eingelagert!</p>
+            <p style="color:#ef4444;font-weight:700;font-size:0.95rem;margin-bottom:20px;">Diese Palette (<strong>${_escAttr(docId)}</strong>) ist bereits auf Stellplatz <strong>${_escAttr(position)}</strong> eingelagert!</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:20px;">Trotzdem einlagern und bestehenden Eintrag überschreiben?</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger" id="_dupOk">Trotzdem einlagern</button>
+                <button class="btn btn-secondary" id="_dupCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_dupOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
+        overlay.querySelector('#_dupCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
+    });
+}
+
+async function confirmInbound(){
+    const fields=getInboundFields(currentLabelTyp);const data={};ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');fields.forEach(f=>{data[f.key]=document.getElementById('inbound-'+f.key)?.value.trim()||data[f.key]||'';});
+    const ps=document.getElementById('positionSelect'),pos=ps.style.display!=='none'&&ps.value?ps.value:document.getElementById('suggestedPosition').textContent;
+    const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
+    if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');return;}if(!pos||pos==='Kein Platz frei!'){alert('Kein Stellplatz!');return;}
+    // Duplikat-Prüfung
+    try{const existing=await db.collection('paletten').doc(docId).get();
+        if(existing.exists){
+            const ep=existing.data();
+            const proceed=await showDuplicateWarning(docId,ep.position||'?');
+            if(!proceed)return;
+        }
+    }catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
+    // Stückzahl je Palette automatisch setzen
+    if(data.artikelNr.startsWith('12'))data.menge='92.400';
+    else if(data.artikelNr.startsWith('18'))data.menge='420.672';
+    else if(data.artikelNr.startsWith('19'))data.menge='196.224';
+    console.log('EINLAGERN data:',JSON.stringify(data));console.log('EINLAGERN menge:',data.menge,'artikelNr:',data.artikelNr,'docId:',docId);
+    try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
+    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',produktionsDatum:data.datum||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
+    await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+    renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();}catch(e){alert('Fehler: '+e.message);}
+}
+
+function resetInbound(){inboundData=null;currentLabelTyp=null;_currentScanDocId=null;document.getElementById('scanResultModal').style.display='none';['inboundStep3','inboundSuccess','inboundProgress','inboundPreview'].forEach(id=>{document.getElementById(id).style.display='none';});document.getElementById('positionSelect').style.display='none';document.getElementById('confirmInboundBtn').disabled=false;}
+
+// ============================================================
+// REMOTE SCAN LISTENER (PWA Scanner-App)
+// ============================================================
+let _remoteScanUnsub=null;
+let _currentScanDocId=null;
+
+function initRemoteScanListener(){
+    if(_remoteScanUnsub)_remoteScanUnsub();
+    _remoteScanUnsub=db.collection('scans').where('status','==','pending').onSnapshot(snap=>{
+        snap.docChanges().forEach(change=>{
+            if(change.type==='added'){
+                const scanDoc={id:change.doc.id,...change.doc.data()};
+                // Nur verarbeiten wenn kein anderer Scan gerade läuft
+                if(!_currentScanDocId&&document.getElementById('scanResultModal').style.display!=='flex'){
+                    onRemoteScan(scanDoc);
+                }
+            }
+        });
+    },err=>console.warn('Remote-Scan Listener Fehler:',err));
+}
+
+async function onRemoteScan(scanDoc){
+    _currentScanDocId=scanDoc.id;
+    // Status auf "processing" setzen
+    try{await db.collection('scans').doc(scanDoc.id).update({status:'processing'});}catch(e){}
+
+    const ps=document.getElementById('inboundProgress'),pf=document.getElementById('inboundProgressFill'),pt=document.getElementById('inboundProgressText');
+    ps.style.display='block';pf.style.width='20%';pt.textContent='Remote-Scan wird verarbeitet...';
+
+    // Zum Wareneingang-Tab wechseln
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    const inboundTab=document.querySelector('.tab[data-tab="inbound"]')||document.querySelectorAll('.tab')[1];
+    if(inboundTab)inboundTab.classList.add('active');
+    document.getElementById('view-inbound').classList.add('active');
+
+    try{
+        // Base64 zu Blob konvertieren für scanLabel
+        const base64=scanDoc.imageBase64;
+        const resp=await fetch(base64);
+        const blob=await resp.blob();
+        const file=new File([blob],'remote-scan.jpg',{type:'image/jpeg'});
+
+        const result=await scanLabel(file);
+        inboundData=result.data;
+        currentLabelTyp=inboundData.labelTyp||'ALPLA Halbfabrikate';
+
+        // Vorschaubild setzen
+        const preview=document.getElementById('inboundPreview');
+        if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);
+        preview._objUrl=URL.createObjectURL(blob);
+        preview.src=preview._objUrl;
+        preview.style.display='block';
+
+        // Formular rendern
+        const fields=getInboundFields(currentLabelTyp);
+        document.getElementById('inboundForm').innerHTML=fields.map(f=>{
+            const isErr=inboundData[f.key]==='FEHLER';
+            const errStyle=isErr?'color:#ef4444;font-weight:800;border-color:#ef4444':'';
+            const roStyle=f.readonly?'background:#f1f5f9;font-weight:700':'';
+            const style=[errStyle,roStyle].filter(Boolean).join(';');
+            return`<div class="form-group"><label>${f.label}</label><input type="text" id="inbound-${f.key}" value="${_escAttr(inboundData[f.key])}"${f.readonly?' readonly':''}${style?' style="'+style+'"':''}></div>`;
+        }).join('');
+
+        ps.style.display='none';
+        document.getElementById('scanResultModal').style.display='flex';
+        document.getElementById('inboundStep2').style.display='block';
+        await showPositionStep();
+
+        // Scan-Dokument bereinigen
+        try{await db.collection('scans').doc(scanDoc.id).update({status:'done'});}catch(e){}
+
+    }catch(err){
+        pt.textContent='Fehler: '+err.message;pf.style.width='0%';
+        try{await db.collection('scans').doc(scanDoc.id).update({status:'error',error:err.message});}catch(e){}
+        _currentScanDocId=null;
+    }
+}
+
+// ============================================================
+// OUTBOUND + PROTOKOLL
+// ============================================================
+let _outboundInited=false;
+function initOutbound(){
+    if(_outboundInited)return;_outboundInited=true;
+    const sel=document.getElementById('outboundArtikel');if(sel.options.length<=1)ARTIKEL_NUMMERN.forEach(nr=>{const o=document.createElement('option');o.value=nr;o.textContent=nr;sel.appendChild(o);});
+    sel.addEventListener('change',onArtikelSelect);document.getElementById('confirmOutboundBtn').addEventListener('click',confirmOutbound);
+}
+
+async function onArtikelSelect(){
+    const nr=document.getElementById('outboundArtikel').value,rd=document.getElementById('outboundResult'),ed=document.getElementById('outboundEmpty'),sd=document.getElementById('outboundSuccess');rd.style.display='none';ed.style.display='none';if(sd)sd.style.display='none';if(!nr)return;
+    let snap;try{snap=await db.collection('paletten').where('artikelNr','==',nr).get();}catch(e){ed.innerHTML='<p class="error-msg">Fehler: '+e.message+'</p>';ed.style.display='block';return;}
+    if(snap.empty){ed.style.display='block';return;}
+    const allPal=[];snap.forEach(d=>allPal.push({id:d.id,...d.data()}));
+    const pal=allPal.filter(p=>!p.gesperrt);
+    if(!pal.length){ed.innerHTML='<p class="info-msg">Alle Paletten dieses Artikels sind gesperrt (QS).</p>';ed.style.display='block';return;}
+    pal.forEach(p=>p._sortKey=parseProdDatum(p.produktionsDatum||p.datum||'').getTime());pal.sort((a,b)=>a._sortKey-b._sortKey);
+    const p=pal[0],card=document.getElementById('outboundCard');
+    card.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">Typ:</span><span>${p.labelTyp||'-'}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${p.artikelNr}</span></div><div class="palette-row"><span class="palette-label">SSCC / Barcode:</span><span>${p.sscc||p.internalBarcode||p.palettenNr||p.id}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${p.produktionsDatum||'-'}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${p.menge||'-'}</span></div><div class="palette-row"><span class="palette-label">Stellplatz:</span><span class="position-badge">${p.position}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${formatTimestamp(p.einlagDatum)}</span></div><div class="palette-row"><span class="palette-label">Eingelagert von:</span><span>${p.eingelagertVon||'-'}</span></div></div>`;
+    card.dataset.docId=p.id;card.dataset.paletteJson=JSON.stringify(p);rd.style.display='block';document.getElementById('confirmOutboundBtn').disabled=false;
+}
+
+async function confirmOutbound(){
+    const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;document.getElementById('confirmOutboundBtn').disabled=true;
+    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
+    try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
+    try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.warn(e);}
+    document.getElementById('outboundResult').style.display='none';const sd=document.getElementById('outboundSuccess');sd.innerHTML=`<p class="success-msg">Palette entnommen von Stellplatz <strong>${pd.position}</strong></p>`;sd.style.display='block';
+    setTimeout(()=>{sd.style.display='none';document.getElementById('outboundArtikel').value='';document.getElementById('confirmOutboundBtn').disabled=false;},3000);
+}
+
+async function loadProtokoll(){
+    const s=await db.collection('protokoll').get();const rows=[];s.forEach(d=>rows.push({id:d.id,...d.data()}));
+    rows.sort((a,b)=>{const tA=a.einlagDatum?.toMillis?a.einlagDatum.toMillis():(a.auslagDatum?.toMillis?a.auslagDatum.toMillis():0),tB=b.einlagDatum?.toMillis?b.einlagDatum.toMillis():(b.auslagDatum?.toMillis?b.auslagDatum.toMillis():0);return tB-tA;});
+    document.getElementById('protokollBody').innerHTML=rows.map(p=>`<tr><td>${p.artikelNr||'-'}</td><td>${p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.labelTyp||'-'))))}</td><td>${p.sscc||p.internalBarcode||p.palettenNr||'-'}</td><td>${p.menge||'-'}</td><td>${p.position||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.einlagDatumStr||formatTimestamp(p.einlagDatum)}</td><td>${p.eingelagertVon||'-'}</td><td>${formatTimestamp(p.auslagDatum)}</td><td>${p.ausgelagertVon||'-'}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_escAttr(p.id)}">Löschen</button>`:''}</td></tr>`).join('')||'<tr><td colspan="11" class="info-msg">Noch keine Protokolleinträge</td></tr>';
+}
+document.getElementById('protokollBody').addEventListener('click',e=>{const btn=e.target.closest('[data-delete-protokoll]');if(btn)deleteProtokollEntry(btn.dataset.deleteProtokoll);});
+async function deleteProtokollEntry(docId){if(!isAdmin()){alert('Nur Administratoren dürfen Protokolleinträge löschen.');return;}if(!confirm('Protokolleintrag wirklich löschen?'))return;try{await db.collection('protokoll').doc(docId).delete();loadProtokoll();}catch(e){alert('Fehler: '+e.message);}}
+function exportProtokoll(){const t=document.querySelector('#view-protokoll .data-table'),wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(t);XLSX.utils.book_append_sheet(wb,ws,'Protokoll');XLSX.writeFile(wb,'Protokoll_'+new Date().toISOString().slice(0,10)+'.xlsx');}
+const _deDateRe=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/;
+const _usDateRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDateRe);if(de)return new Date(+de[3],+de[2]-1,+de[1]);const us=s.match(_usDateRe);if(us)return new Date(+us[3],+us[1]-1,+us[2]);const d=new Date(s);return isNaN(d)?new Date(9999,0):d;}
+
+// ============================================================
+// INVENTORY
+// ============================================================
+let _inventoryInited=false;
+const _invFilters={typ:null,artikel:null,sscc:null,datum:null,pos:null,status:null};
+let _invAllRows=[];
+let _openFilterPopup=null;
+
+function initInventory(){
+    if(_inventoryInited)return;_inventoryInited=true;
+    document.getElementById('invExportBtn').addEventListener('click',exportInventory);
+    document.getElementById('invBody').addEventListener('click',e=>{
+        const delBtn=e.target.closest('[data-delete-id]');if(delBtn){deleteInventoryItem(delBtn.dataset.deleteId);return;}
+        const qsBtn=e.target.closest('[data-qs-id]');if(qsBtn)toggleInvGesperrt(qsBtn.dataset.qsId,qsBtn.dataset.qsVal==='true');
+    });
+    // Filter-Buttons
+    document.querySelectorAll('.inv-filter-btn').forEach(btn=>{
+        btn.addEventListener('click',e=>{e.stopPropagation();openInvFilterPopup(btn,btn.dataset.filter);});
+    });
+    document.addEventListener('click',e=>{if(_openFilterPopup&&!_openFilterPopup.contains(e.target))closeInvFilterPopup();});
+}
+
+function _invGetValues(key){
+    const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
+    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',sscc:idf,datum:p=>p.produktionsDatum||'-',pos:p=>p.position||'-',status:p=>p.gesperrt?'Gesperrt':'Frei'};
+    return[...new Set(_invAllRows.map(map[key]))].sort();
+}
+
+function openInvFilterPopup(btn,key){
+    closeInvFilterPopup();
+    const values=_invGetValues(key);
+    const selected=_invFilters[key];
+    const popup=document.createElement('div');popup.className='inv-filter-popup';
+    popup.innerHTML=`<input type="text" class="inv-fp-search" placeholder="Suchen...">
+        <div class="inv-fp-list">
+        <label class="inv-fp-all"><input type="checkbox" class="inv-fp-all-cb"${!selected?' checked':''}> (Alles auswählen)</label>
+        ${values.map(v=>`<label><input type="checkbox" value="${_escAttr(v)}"${!selected||selected.has(v)?' checked':''}> ${_escAttr(v)}</label>`).join('')}
+        </div>
+        <div class="inv-fp-actions"><button class="btn btn-sm btn-primary inv-fp-ok">OK</button><button class="btn btn-sm btn-secondary inv-fp-cancel">Abbrechen</button></div>`;
+    const rect=btn.getBoundingClientRect();
+    popup.style.position='fixed';popup.style.top=(rect.bottom+2)+'px';popup.style.left=Math.min(rect.left,window.innerWidth-200)+'px';
+    document.body.appendChild(popup);
+    _openFilterPopup=popup;popup._key=key;popup._btn=btn;
+    // Search
+    const searchInput=popup.querySelector('.inv-fp-search');
+    searchInput.addEventListener('input',()=>{
+        const q=searchInput.value.toLowerCase();
+        popup.querySelectorAll('.inv-fp-list label:not(.inv-fp-all)').forEach(lbl=>{lbl.style.display=lbl.textContent.toLowerCase().includes(q)?'':'none';});
+    });
+    // All checkbox
+    const allCb=popup.querySelector('.inv-fp-all-cb');
+    allCb.addEventListener('change',()=>{popup.querySelectorAll('.inv-fp-list input[type="checkbox"]:not(.inv-fp-all-cb)').forEach(cb=>{if(cb.closest('label').style.display!=='none')cb.checked=allCb.checked;});});
+    // OK
+    popup.querySelector('.inv-fp-ok').addEventListener('click',()=>{
+        const checked=[];popup.querySelectorAll('.inv-fp-list input[type="checkbox"]:not(.inv-fp-all-cb)').forEach(cb=>{if(cb.checked)checked.push(cb.value);});
+        const allValues=_invGetValues(key);
+        _invFilters[key]=checked.length===allValues.length?null:new Set(checked);
+        btn.classList.toggle('active',!!_invFilters[key]);
+        closeInvFilterPopup();renderInvTable();
+    });
+    popup.querySelector('.inv-fp-cancel').addEventListener('click',closeInvFilterPopup);
+    popup.addEventListener('click',e=>e.stopPropagation());
+}
+function closeInvFilterPopup(){if(_openFilterPopup){_openFilterPopup.remove();_openFilterPopup=null;}}
+
+async function loadInventory(){
+    const s=await db.collection('paletten').get();_invAllRows=[];s.forEach(d=>_invAllRows.push({id:d.id,...d.data()}));
+    renderInvTable();
+}
+function renderInvTable(){
+    let rows=[..._invAllRows];
+    const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
+    if(_invFilters.typ)rows=rows.filter(p=>_invFilters.typ.has(p.labelTyp||'-'));
+    if(_invFilters.artikel)rows=rows.filter(p=>_invFilters.artikel.has(p.artikelNr||'-'));
+    if(_invFilters.sscc)rows=rows.filter(p=>_invFilters.sscc.has(idf(p)));
+    if(_invFilters.datum)rows=rows.filter(p=>_invFilters.datum.has(p.produktionsDatum||'-'));
+    if(_invFilters.pos)rows=rows.filter(p=>_invFilters.pos.has(p.position||'-'));
+    if(_invFilters.status)rows=rows.filter(p=>_invFilters.status.has(p.gesperrt?'Gesperrt':'Frei'));
+    rows.sort((a,b)=>{const tA=a.einlagDatum?.toMillis?a.einlagDatum.toMillis():0,tB=b.einlagDatum?.toMillis?b.einlagDatum.toMillis():0;return tA-tB;});
+    document.getElementById('invBody').innerHTML=rows.map(p=>{
+        const statusHtml=p.gesperrt?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):'<span style="color:#10b981;font-weight:700">Frei</span>';
+        const qsBtn=canManageQS()?(p.gesperrt
+            ?`<button class="btn btn-success btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="false">Freigeben</button>`
+            :`<button class="btn btn-danger btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="true">Sperren</button>`):'';
+        const delBtn=isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`:'';
+        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${idf(p)}</td><td>${p.produktionsDatum||'-'}</td><td>${p.menge||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${delBtn}</td></tr>`;
+    }).join('')||'<tr><td colspan="9" class="info-msg">Keine Paletten im Lager</td></tr>';
+}
+async function toggleInvGesperrt(docId,newVal){
+    if(!canManageQS())return;
+    let sperrgrund='';
+    if(newVal){sperrgrund=prompt('Sperrgrund (optional):')||'';}
+    try{
+        const upd={gesperrt:newVal};
+        if(newVal)upd.sperrgrund=sperrgrund;
+        else upd.sperrgrund='';
+        await db.collection('paletten').doc(docId).update(upd);
+        await _logGesperrt(docId,newVal,sperrgrund);loadInventory();renderWarehouseMap();
+    }catch(e){alert('Fehler: '+e.message);}
+}
+async function deleteInventoryItem(docId){if(!isAdmin()){alert('Nur Administratoren dürfen Einträge löschen.');return;}if(!confirm('Palette wirklich löschen?'))return;try{await db.collection('paletten').doc(docId).delete();loadInventory();loadDashboard();}catch(e){alert('Fehler: '+e.message);}}
+function exportInventory(){const t=document.querySelector('#view-inventory .data-table'),wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(t);XLSX.utils.book_append_sheet(wb,ws,'Bestandsliste');XLSX.writeFile(wb,'Bestandsliste_'+new Date().toISOString().slice(0,10)+'.xlsx');}
+
+// ============================================================
+// USER MANAGEMENT (Admin only)
+// ============================================================
+function openUserMgmt(){if(!isAdmin())return;$('userMgmtModal').style.display='flex';loadUserMgmt();}
+function closeUserMgmt(){$('userMgmtModal').style.display='none';}
+$('userMgmtModal').addEventListener('click',e=>{if(e.target===$('userMgmtModal'))closeUserMgmt();});
+
+async function loadUserMgmt(){
+    let rows=[];
+    try{
+        const s=await db.collection('users').get();
+        s.forEach(d=>rows.push({uid:d.id,...d.data()}));
+    }catch(e){console.warn('UserMgmt laden fehlgeschlagen:',e);}
+    // Falls aktiver User nicht in der Liste ist, hinzufügen
+    const cur=auth.currentUser;
+    const curUid=cur?.uid;
+    if(cur&&!rows.find(r=>r.uid===curUid)){
+        rows.push({uid:curUid,displayName:cur.displayName||toUsername(cur.email),email:cur.email,role:currentUserRole,disabled:false});
+    }
+    console.log('UserMgmt: '+rows.length+' Benutzer geladen',rows.map(r=>r.displayName));
+    rows.sort((a,b)=>(a.displayName||'').localeCompare(b.displayName||''));
+    $('userMgmtBody').innerHTML=rows.map(u=>{
+        const isSelf=u.uid===curUid;
+        const statusTxt=u.disabled?'<span style="color:#ef4444;font-weight:600">Deaktiviert</span>':'<span style="color:#10b981;font-weight:600">Aktiv</span>';
+        const roleSelect=isSelf?`<span style="font-weight:600">${u.role==='admin'?'Admin':(u.role==='qs'?'QS':'User')}</span>`
+            :`<select class="form-select" style="padding:4px 8px;font-size:0.82rem;width:auto" onchange="changeUserRole('${_escAttr(u.uid)}',this.value)"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="qs"${u.role==='qs'?' selected':''}>QS</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select>`;
+        const actions=isSelf?'<span style="color:#94a3b8;font-size:0.8rem">Eigenes Konto</span>'
+            :(u.disabled
+                ?`<button class="btn btn-success btn-sm" onclick="reactivateUser('${_escAttr(u.uid)}')">Aktivieren</button>`
+                :`<button class="btn btn-danger btn-sm" onclick="deactivateUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Deaktivieren</button>`);
+        return`<tr><td>${u.displayName||'-'}</td><td>${roleSelect}</td><td>${statusTxt}</td><td>${actions}</td></tr>`;
+    }).join('')||'<tr><td colspan="4" class="info-msg">Keine Benutzer</td></tr>';
+}
+
+$('createUserForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const err=$('createUserError'),suc=$('createUserSuccess');
+    err.style.display='none';suc.style.display='none';
+    const u=$('newUsername').value.trim(),p=$('newPassword').value,r=$('newRole').value;
+    if(!_validUserRe.test(u)){err.textContent='Nur Buchstaben, Zahlen, Punkt, Bindestrich, Unterstrich';err.style.display='block';return;}
+    try{
+        let uid;
+        try{
+            const c=await _secondaryAuth.createUserWithEmailAndPassword(toEmail(u),p);
+            await c.user.updateProfile({displayName:u});
+            uid=c.user.uid;
+        }catch(createErr){
+            if(createErr.code==='auth/email-already-in-use'){
+                // User existiert in Firebase Auth aber nicht in Firestore — mit neuem Passwort einloggen
+                try{
+                    const c=await _secondaryAuth.signInWithEmailAndPassword(toEmail(u),p);
+                    uid=c.user.uid;
+                    if(!c.user.displayName)await c.user.updateProfile({displayName:u});
+                }catch(loginErr){
+                    // Passwort stimmt nicht mit dem bestehenden Auth-Eintrag überein
+                    err.textContent='Benutzername existiert bereits in Firebase Auth mit anderem Passwort. Bitte in der Firebase Console löschen oder anderes Passwort verwenden.';
+                    err.style.display='block';return;
+                }
+            }else{throw createErr;}
+        }
+        // User schreibt sein eigenes Dokument (Firestore Rules: auth.uid == doc.id)
+        await _secondaryDb.collection('users').doc(uid).set({displayName:u,email:toEmail(u),role:r,disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+        await _secondaryAuth.signOut();
+        $('newUsername').value='';$('newPassword').value='';$('newRole').value='user';
+        suc.textContent='Benutzer "'+u+'" erfolgreich angelegt!';suc.style.display='block';
+        loadUserMgmt();
+    }catch(ex){err.textContent=translateError(ex.code);err.style.display='block';}
+});
+
+async function changeUserRole(uid,newRole){
+    if(!isAdmin())return;
+    try{await db.collection('users').doc(uid).update({role:newRole});loadUserMgmt();}
+    catch(e){alert('Fehler: '+e.message);}
+}
+
+async function deactivateUser(uid,name){
+    if(!isAdmin())return;
+    if(!confirm('Benutzer "'+name+'" wirklich deaktivieren?\n\nDer Benutzer kann sich danach nicht mehr anmelden. Über "Aktivieren" kann das rückgängig gemacht werden.'))return;
+    try{await db.collection('users').doc(uid).update({disabled:true});loadUserMgmt();}
+    catch(e){alert('Fehler: '+e.message);}
+}
+
+async function reactivateUser(uid){
+    if(!isAdmin())return;
+    try{await db.collection('users').doc(uid).update({disabled:false});loadUserMgmt();}
+    catch(e){alert('Fehler: '+e.message);}
+}
+
+</script>
+</body>
+</html>
