@@ -575,11 +575,11 @@ window.showPosDetail=showPosDetail;window.toggleGesperrt=toggleGesperrt;
 // ============================================================
 const SCAN_PROMPT=`Analysiere dieses Foto eines Paletten-Labels.
 Es gibt 3 mögliche Label-Typen. Bestimme den Typ anhand dieser REGELN:
-TYP 1: "XO Fertigware" — Hat das XO-Logo UND das Wort "Beverage Can Ends" im Titel. Die Article Number beginnt mit "XO-".
+TYP 1: "XO Fertigware" — Hat das XO-Logo UND das Wort "Beverage Can Ends" im Titel. Die Article Number beginnt mit "XO-" und hat das Format XO-XXX-XXXXXZ (z.B. XO-202-2046G). Kann Buchstaben am Ende enthalten. Hat IMMER die Felder "GTIN", "SSCC", "QTY/Sleeve" und "Customer".
 TYP 2: "XO Halbfabrikate" — Hat das XO-Logo UND das Wort "Frame" im Titel. Die Article Number ist eine reine Zahl.
 TYP 3: "ALPLA Halbfabrikate" — Hat das ALPLA-Logo. Hat Felder auf Tschechisch wie "Barva/Color", "Počet ks v balení".
 Extrahiere diese Felder. Antworte NUR mit JSON:
-{"labelTyp":"...","artikelNr":"nur die Zahl, z.B. 190009","datum":"Originalformat des Produktionsdatums","uhrzeit":"HH:MM","sscc":"mindestens 16 Ziffern, falls vorhanden","palettenNr":"Pallet Number / Running Number, falls vorhanden","lotNr":"Lot Number, falls vorhanden","orderNr":"Order Number, falls vorhanden","internalBarcode":"Internal Barcode, falls vorhanden"}`;
+{"labelTyp":"...","artikelNr":"Bei XO Fertigware im Format XO-XXX-XXXXX belassen, bei anderen nur die Zahl z.B. 190009","datum":"Originalformat des Produktionsdatums","uhrzeit":"HH:MM","sscc":"mindestens 16 Ziffern, falls vorhanden","palettenNr":"Pallet Number / Running Number, falls vorhanden","lotNr":"Lot Number, falls vorhanden","orderNr":"Order Number / Auftragsnummer, z.B. 26-0013 oder 26-0012-Part2, falls vorhanden","internalBarcode":"Internal Barcode, falls vorhanden","kunde":"Customer, falls vorhanden","schicht":"Shift, falls vorhanden","gtin":"GTIN, falls vorhanden","menge":"QTY/Pallet oder Menge, falls vorhanden"}`;
 
 const _jsonBlockRe=/```(?:json)?\s*([\s\S]*?)```/;
 
@@ -612,13 +612,27 @@ async function scanLabel(file){
     const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
     let data;try{data=JSON.parse(content);}catch{const m=content.match(_jsonBlockRe);if(m)data=JSON.parse(m[1]);else throw new Error('JSON-Parse-Fehler');}
     if(data.datum){data.datum=normalizeDatum(data.datum);}
-    if(data.artikelNr){data.artikelNr=data.artikelNr.replace(/[\s\-]/g,'');data.artikelNr=_normalizeArtikelNr(data.artikelNr);}
+    const isXOFertig=data.labelTyp==='XO Fertigware';
+    if(data.artikelNr&&!isXOFertig){data.artikelNr=data.artikelNr.replace(/[\s\-]/g,'');data.artikelNr=_normalizeArtikelNr(data.artikelNr);}
+    if(data.artikelNr&&isXOFertig){
+        data.artikelNr=data.artikelNr.trim();
+        // Normalisierung: Format XO-XXX-XXXXXX (z.B. XO-202-2046G)
+        const xoMatch=data.artikelNr.match(/XO[\-\s]*(\d{2,4})[\-\s]*([A-Za-z0-9]{4,7})/i);
+        if(xoMatch)data.artikelNr='XO-'+xoMatch[1]+'-'+xoMatch[2].toUpperCase();
+        console.log('XO Fertigware artikelNr nach Normalisierung:',data.artikelNr);
+    }
     if(data.sscc){data.sscc=data.sscc.replace(/[\s\-]/g,'');if(data.sscc.replace(/\D/g,'').length<16)data.sscc='';}
-    // Validierung: ungültige Felder als FEHLER markieren
-    if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';
-    if(!data.sscc&&data.labelTyp!=='XO Halbfabrikate')data.sscc='FEHLER';
+    // Validierung: jedes leere oder ungültige Feld als FEHLER markieren
+    if(isXOFertig){if(!data.artikelNr||!/^XO-\d+-[A-Za-z0-9]+$/.test(data.artikelNr))data.artikelNr='FEHLER';}
+    else{if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';}
     if(!data.datum||!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum))data.datum='FEHLER';
     if(!data.uhrzeit||!/^\d{1,2}:\d{2}/.test(data.uhrzeit))data.uhrzeit='FEHLER';
+    // Alle weiteren Felder: leer → FEHLER
+    const _checkFields=isXOFertig
+        ?['sscc','menge','palettenNr','kunde','orderNr','schicht','gtin']
+        :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode']
+        :['sscc','palettenNr','lotNr'];
+    _checkFields.forEach(k=>{if(!data[k])data[k]='FEHLER';});
     return{data,base64};
 }
 function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(objUrl);const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);const result=c.toDataURL('image/jpeg',0.85);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
@@ -643,13 +657,26 @@ const INBOUND_FIELDS_XO_HALB=[
     {key:'palettenNr',label:'Pallet Number'},
     {key:'internalBarcode',label:'Internal Barcode'}
 ];
+const INBOUND_FIELDS_XO_FERTIG=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Article Number'},
+    {key:'datum',label:'Production Date'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'sscc',label:'SSCC'},
+    {key:'menge',label:'QTY/Pallet'},
+    {key:'palettenNr',label:'Pallet Number'},
+    {key:'kunde',label:'Customer'},
+    {key:'orderNr',label:'Order Number'},
+    {key:'schicht',label:'Shift'},
+    {key:'gtin',label:'GTIN'}
+];
 const INBOUND_FIELDS_ALPLA=[
     ...INBOUND_FIELDS_BASE,
     {key:'palettenNr',label:'Running Number'},
     {key:'lotNr',label:'Lot Number'}
 ];
-function getInboundFields(typ){if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;return INBOUND_FIELDS_BASE;}
-const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','palettenNr','lotNr','orderNr','internalBarcode'];
+function getInboundFields(typ){if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;if(typ==='XO Fertigware')return INBOUND_FIELDS_XO_FERTIG;return INBOUND_FIELDS_BASE;}
+const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','palettenNr','lotNr','orderNr','internalBarcode','kunde','schicht','gtin'];
 let inboundData=null,currentLabelTyp=null;
 
 function initInbound(){
@@ -717,10 +744,12 @@ async function confirmInbound(){
             if(!proceed)return;
         }
     }catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
-    // Stückzahl je Palette automatisch setzen
-    if(data.artikelNr.startsWith('12'))data.menge='92.400';
-    else if(data.artikelNr.startsWith('18'))data.menge='420.672';
-    else if(data.artikelNr.startsWith('19'))data.menge='196.224';
+    // Stückzahl je Palette automatisch setzen (nur für ALPLA/XO Halbfabrikate, nicht XO Fertigware)
+    if(!data.artikelNr.startsWith('XO')){
+        if(data.artikelNr.startsWith('12'))data.menge='92.400';
+        else if(data.artikelNr.startsWith('18'))data.menge='420.672';
+        else if(data.artikelNr.startsWith('19'))data.menge='196.224';
+    }
     console.log('EINLAGERN data:',JSON.stringify(data));console.log('EINLAGERN menge:',data.menge,'artikelNr:',data.artikelNr,'docId:',docId);
     try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
     await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',produktionsDatum:data.datum||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
