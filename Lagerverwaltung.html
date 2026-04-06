@@ -46,12 +46,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ============================================================ */
 /* LAYOUT STYLES - Topbar, Tabs, Views */
 /* ============================================================ */
-.topbar { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 100; contain: layout style; }
+.topbar { background: white; padding: 5px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 100; contain: layout style; }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
-.topbar-logo { height: 110px; width: auto; vertical-align: middle; image-rendering: pixelated; }
+.topbar-logo { height: 62px; width: auto; vertical-align: middle; image-rendering: pixelated; }
 .topbar h1 { font-size: 1.15rem; }
 .topbar-right { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #64748b; }
-.tabs { display: flex; background: white; border-bottom: 2px solid #e2e8f0; overflow-x: auto; -webkit-overflow-scrolling: touch; position: sticky; top: 50px; z-index: 99; contain: layout style; }
+.tabs { display: flex; background: white; border-bottom: 2px solid #e2e8f0; overflow-x: auto; -webkit-overflow-scrolling: touch; position: sticky; top: 28px; z-index: 99; contain: layout style; }
 .tab { flex: 1; padding: 12px 8px; border: none; background: none; font-size: 0.88rem; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; min-width: 80px; transition: color 0.15s, border-bottom-color 0.15s; }
 .tab:hover { color: #4361ee; }
 .tab.active { color: #4361ee; border-bottom-color: #4361ee; }
@@ -93,7 +93,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .inv-filter-btn.active { background: #eef2ff; border-color: #4361ee; color: #4361ee; font-weight: 700; }
 .inv-filter-popup { position: absolute; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 1001; min-width: 180px; max-width: 260px; padding: 8px 0; }
 .inv-filter-popup .inv-fp-search { width: calc(100% - 16px); margin: 0 8px 6px; padding: 5px 8px; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; }
-.inv-filter-popup .inv-fp-list { max-height: 220px; overflow-y: auto; padding: 0 8px; }
+.inv-filter-popup .inv-fp-list { max-height: 240px; overflow-y: auto; padding: 0 8px; scrollbar-width: thin; }
 .inv-filter-popup label { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 0.8rem; cursor: pointer; }
 .inv-filter-popup label:hover { color: #4361ee; }
 .inv-filter-popup label.inv-fp-all { font-weight: 700; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 3px; }
@@ -103,6 +103,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 #view-protokoll .table-wrapper { overflow-x: hidden; }
 #view-protokoll .data-table { table-layout: auto; width: 100%; }
 #view-protokoll .data-table th, #view-protokoll .data-table td { white-space: nowrap; padding: 8px 5px; font-size: 0.75rem; }
+#view-inventory { max-width: 100%; }
+#view-inventory .table-wrapper { overflow-x: auto; }
+#view-inventory .data-table { table-layout: auto; width: 100%; }
+#view-inventory .data-table th, #view-inventory .data-table td { white-space: nowrap; padding: 6px 4px; font-size: 0.72rem; }
 .data-table tbody tr:hover { background: #eef2ff; }
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
@@ -126,23 +130,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ============================================================ */
 /* WAREHOUSE MAP STYLES */
 /* ============================================================ */
-.wh-layout { display: flex; gap: 30px; flex-wrap: wrap; }
-.wh-section { flex: 1; min-width: 300px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); contain: layout style paint; }
+.wh-layout { display: flex; flex-direction: column; gap: 16px; }
+.wh-section { width: 100%; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); contain: layout style paint; }
 .wh-section-title { font-weight: 800; font-size: 0.9rem; color: #334155; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #cbd5e1; background: #f1f5f9; margin: -16px -16px 12px; padding: 12px 16px 8px; border-radius: 10px 10px 0 0; }
 .wh-legend { display: flex; gap: 16px; margin-bottom: 14px; font-size: 0.85rem; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
 .wh-legend-item { display: flex; align-items: center; gap: 5px; font-weight: 600; }
 .wh-dot { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
-.wh-vertical-row { display: flex; gap: 2px; align-items: flex-start; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 6px; background: #fafbfc; }
-.wh-vert-zone { display: flex; flex-direction: column; align-items: center; border-right: 1px solid #e2e8f0; padding-right: 2px; }
+.wh-vertical-row { display: flex; gap: 2px; align-items: flex-start; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 6px; background: #fafbfc; }
+.wh-vert-zone { display: flex; flex-direction: column; align-items: center; border-right: 1px solid #e2e8f0; padding-right: 2px; flex: 1; min-width: 0; }
 .wh-vert-zone:last-child { border-right: none; padding-right: 0; }
-.wh-vert-label { font-weight: 900; font-size: 0.8rem; color: #4361ee; text-align: center; margin-bottom: 4px; min-width: 28px; padding: 2px 0; background: #eef2ff; border-radius: 3px; }
-.wh-vert-cells { display: flex; flex-direction: column; gap: 1px; }
+.wh-vert-label { font-weight: 900; font-size: 0.8rem; color: #4361ee; text-align: center; margin-bottom: 4px; width: 100%; padding: 2px 0; background: #eef2ff; border-radius: 3px; }
+.wh-vert-cells { display: flex; flex-direction: column; gap: 1px; width: 100%; }
 .wh-floor-row { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; padding: 3px 6px; border-bottom: 1px solid #f1f5f9; }
 .wh-floor-row:last-child { border-bottom: none; }
 .wh-floor-label { width: 30px; font-weight: 900; font-size: 1rem; color: #4361ee; text-align: center; flex-shrink: 0; background: #eef2ff; border-radius: 4px; padding: 2px 0; }
 .wh-floor-container { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 6px; background: #fafbfc; }
-.wh-floor-cells { display: flex; gap: 2px; flex-wrap: nowrap; }
-.wh-cell { min-width: 28px; height: 18px; padding: 0 2px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 2px; border-radius: 3px; font-size: 0.45rem; font-weight: 700; cursor: pointer; transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; border: 1px solid rgba(0,0,0,0.12); line-height: 1; contain: style; }
+.wh-floor-cells { display: flex; gap: 2px; flex-wrap: nowrap; flex: 1; min-width: 0; }
+.wh-cell { flex: 1; min-width: 0; height: 18px; padding: 0 1px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 1px; border-radius: 3px; font-size: 0.45rem; font-weight: 700; cursor: pointer; transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; border: 1px solid rgba(0,0,0,0.12); line-height: 1; contain: style; overflow: hidden; }
 .wh-cell:hover { transform: scale(1.15); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
 .wh-cell-nr { font-size: 0.65rem; font-weight: 800; white-space: nowrap; }
 .wh-cell-art { font-size: 0.55rem; opacity: 0.75; white-space: nowrap; }
@@ -228,6 +232,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <div class="dash-grid">
             <div class="dash-card"><div class="dash-card-title">Fertigware</div><div class="dash-card-value"><span id="dashFertigBelegt">0</span> / <span id="dashFertigTotal">0</span></div><div class="dash-card-sub">Stellplätze belegt</div></div>
             <div class="dash-card"><div class="dash-card-title">Halbfabrikate</div><div class="dash-card-value"><span id="dashHalbBelegt">0</span> / <span id="dashHalbTotal">0</span></div><div class="dash-card-sub">Stellplätze belegt</div></div>
+            <div class="dash-card"><div class="dash-card-title">Granulate</div><div class="dash-card-value"><span id="dashGranBelegt">0</span> / <span id="dashGranTotal">0</span></div><div class="dash-card-sub">Stellplätze belegt</div></div>
             <div class="dash-card"><div class="dash-card-title">Paletten gesamt</div><div class="dash-card-value" id="dashTotalPaletten">0</div><div class="dash-card-sub">eingelagert</div></div>
         </div>
         <h3 style="margin-top:24px">Bestand pro Artikel</h3>
@@ -236,7 +241,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     <!-- EINLAGERN -->
     <section class="view" id="view-inbound">
-        <h2>Palette einlagern</h2>
         <div class="section-frame">
             <h3>Lager-Karte</h3>
             <div class="wh-legend"><span class="wh-legend-item"><span class="wh-dot wh-free"></span> Frei</span><span class="wh-legend-item"><span class="wh-dot wh-occupied"></span> Belegt</span><span class="wh-legend-item"><span class="wh-dot wh-blocked"></span> Gesperrt</span></div>
@@ -262,8 +266,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <section class="view" id="view-inventory">
         <h2>Bestandsliste</h2>
         <div class="inv-actions"><button class="btn btn-success" id="invExportBtn">Excel exportieren</button></div>
-        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Prod.-Datum</th><th>Menge</th><th>Position</th><th>Status</th><th>Eingelagert</th><th>Aktionen</th></tr>
-        <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td></td><td></td></tr>
+        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Uhrzeit</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th>Eingelagert</th><th>Aktionen</th></tr>
+        <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="palNr">&#9660; Pal-Nr</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td><button class="inv-filter-btn" data-filter="uhrzeit">&#9660; Uhrzeit</button></td><td><button class="inv-filter-btn" data-filter="menge">&#9660; Menge</button></td><td><button class="inv-filter-btn" data-filter="lotNr">&#9660; Lot-Nr</button></td><td><button class="inv-filter-btn" data-filter="orderNr">&#9660; Order</button></td><td><button class="inv-filter-btn" data-filter="kunde">&#9660; Kunde</button></td><td><button class="inv-filter-btn" data-filter="schicht">&#9660; Schicht</button></td><td><button class="inv-filter-btn" data-filter="gtin">&#9660; GTIN</button></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td><button class="inv-filter-btn" data-filter="einlagDatum">&#9660; Datum</button></td><td></td></tr>
         </thead><tbody id="invBody"></tbody></table></div>
     </section>
 
@@ -336,9 +340,11 @@ const firebaseConfig = {
 };
 const WAREHOUSE_ZONES = Object.freeze({
     halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({L:11,K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
+    granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GR:25}) }),
     fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
 });
 const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
+const GRANULATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.granulate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const FERTIGWARE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032']);
 const MISTRAL_API_KEY = localStorage.getItem('mistral_api_key') || 'XorDkOZbC8YohCnxrT1bZtlsCSZvGAxW';
@@ -476,13 +482,22 @@ const _hZ=new Set('LKHGFEDCBAV'.split(''));
 const _fZ=new Set('MNOPQRSTU'.split(''));
 const _hT=Object.values(WAREHOUSE_ZONES.halbfabrikate.zones).reduce((a,b)=>a+b,0);
 const _fT=Object.values(WAREHOUSE_ZONES.fertigware.zones).reduce((a,b)=>a+b,0);
+const _grT=Object.values(WAREHOUSE_ZONES.granulate.zones).reduce((a,b)=>a+b,0)*2;
 const _zoneSlotMap={};
 for(const[_,cat]of Object.entries(WAREHOUSE_ZONES))for(const[zone,count]of Object.entries(cat.zones))_zoneSlotMap[zone]=count;
+// Granulate: Unten = GR1Unten–GR25Unten, Oben = GR26Oben–GR50Oben
+const GRANULATE_SLOT_COUNT=25;
+const GRANULATE_ALL_POSITIONS=[];
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++)GRANULATE_ALL_POSITIONS.push('GR'+i+'Unten');
+for(let i=26;i<=50;i++)GRANULATE_ALL_POSITIONS.push('GR'+i+'Oben');
+// Mapping: GR26Oben steht auf GR1Unten, GR27Oben auf GR2Unten, etc.
+function grObenToUnten(obenNr){return 'GR'+(obenNr-25)+'Unten';}
+function grUntenToOben(untenNr){return 'GR'+(untenNr+25)+'Oben';}
 
 async function loadDashboard(){
     const s=await db.collection('paletten').get();const paletten=[];s.forEach(d=>{const dt={id:d.id,...d.data()};if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);paletten.push(dt);});
-    let fertig=0,halb=0;const artikelMap={};
-    for(const p of paletten){const z=p.position?p.position.replace(_numRe,''):'';if(_fZ.has(z))fertig++;else if(_hZ.has(z))halb++;if(!artikelMap[p.artikelNr])artikelMap[p.artikelNr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[p.artikelNr].count++;
+    let fertig=0,halb=0,gran=0;const artikelMap={};
+    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');if(pos.startsWith('GR'))gran++;else if(_fZ.has(z))fertig++;else if(_hZ.has(z))halb++;if(!artikelMap[p.artikelNr])artikelMap[p.artikelNr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[p.artikelNr].count++;
         let mengeStr=p.menge||'';
         if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('12'))mengeStr='92.400';
         if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('18'))mengeStr='420.672';
@@ -490,6 +505,7 @@ async function loadDashboard(){
         const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);if(!isNaN(m)){artikelMap[p.artikelNr].menge+=m;if(p.gesperrt)artikelMap[p.artikelNr].mengeGesperrt+=m;else artikelMap[p.artikelNr].mengeFrei+=m;}}
     document.getElementById('dashFertigBelegt').textContent=fertig;document.getElementById('dashFertigTotal').textContent=_fT;
     document.getElementById('dashHalbBelegt').textContent=halb;document.getElementById('dashHalbTotal').textContent=_hT;
+    document.getElementById('dashGranBelegt').textContent=gran;document.getElementById('dashGranTotal').textContent=_grT;
     document.getElementById('dashTotalPaletten').textContent=paletten.length;
     renderWarehouseMap();
     document.getElementById('dashArtikelBody').innerHTML=ARTIKEL_NUMMERN.map(nr=>{const d=artikelMap[nr]||{count:0,menge:0,mengeFrei:0,mengeGesperrt:0};return`<tr><td>${nr}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;}).join('');
@@ -516,6 +532,11 @@ function _normalizeArtikelNr(nr){
 }
 async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
 function findFreePosition(occ,zo){for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p])return p;}}return null;}
+function findFreeGranulatePosition(occ){
+// Zuerst freie Bodenplätze (Unten), dann Stapelplätze (Oben) nur wenn Unten belegt
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GR'+i+'Unten';if(!occ[p])return p;}
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pu='GR'+i+'Unten',po=grUntenToOben(i);if(occ[pu]&&!occ[po])return po;}
+return null;}
 const _tsOpts=Object.freeze({hour:'2-digit',minute:'2-digit'});
 function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new Date(ts);if(isNaN(d))return'-';return d.toLocaleDateString('de-DE')+' '+d.toLocaleTimeString('de-DE',_tsOpts);}
 
@@ -523,10 +544,17 @@ function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new 
 // WAREHOUSE MAP
 // ============================================================
 let _lastPositions=null;
-async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
-function _renderCell(p,i,o){const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?pal.artikelNr:'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
+async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GR 1–50)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
+function _renderCell(p,i,o,showField){const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
-function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
+function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr'));parts.push('</div></div>');return parts.join('');}
+function rgr(o){const parts=[];
+parts.push('<div class="wh-floor-row"><div class="wh-floor-label" style="font-size:0.7rem">GR-unten</div><div class="wh-floor-cells">');
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++)parts.push(_renderCell('GR'+i+'Unten',i,o));
+parts.push('</div></div>');
+parts.push('<div class="wh-floor-row"><div class="wh-floor-label" style="font-size:0.7rem">GR-oben</div><div class="wh-floor-cells">');
+for(let i=26;i<=50;i++)parts.push(_renderCell('GR'+i+'Oben',i,o));
+parts.push('</div></div>');return parts.join('');}
 document.getElementById('warehouseMap')?.addEventListener('click',e=>{const cell=e.target.closest('.wh-cell');if(cell&&cell.dataset.pos)showPosDetail(cell.dataset.pos);});
 async function showPosDetail(pos){
     const o=_lastPositions||await getAllPositions();const pal=o[pos];
@@ -707,7 +735,17 @@ async function showPositionStep(){
     const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['L','K','H','G','F','E','D','C','B','A','V'];
     const fp=findFreePosition(occ,zo);document.getElementById('suggestedPosition').textContent=fp||'Kein Platz frei!';
     const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
-    for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){const og=document.createElement('optgroup');og.label=cat.label;for(const[z,cnt]of Object.entries(cat.zones)){for(let i=1;i<=cnt;i++){const p=z+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;if(p===fp)o.selected=true;og.appendChild(o);}}}frag.appendChild(og);}sel.innerHTML='';sel.appendChild(frag);
+    for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){
+        if(ck==='granulate'){
+            // Granulate: Unten + Oben Positionen separat auflisten
+            const og=document.createElement('optgroup');og.label=cat.label;
+            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GR'+i+'Unten';if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);}}
+            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pu='GR'+i+'Unten',po=grUntenToOben(i);if(occ[pu]&&!occ[po]){const o=document.createElement('option');o.value=po;o.textContent=po;og.appendChild(o);}}
+            frag.appendChild(og);
+        }else{
+            const og=document.createElement('optgroup');og.label=cat.label;for(const[z,cnt]of Object.entries(cat.zones)){for(let i=1;i<=cnt;i++){const p=z+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;if(p===fp)o.selected=true;og.appendChild(o);}}}frag.appendChild(og);
+        }
+    }sel.innerHTML='';sel.appendChild(frag);
     document.getElementById('inboundStep3').style.display='block';document.getElementById('inboundResetBtn').style.display='block';
 }
 
@@ -744,6 +782,16 @@ async function confirmInbound(){
             if(!proceed)return;
         }
     }catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
+    // FIFO-Prüfung für Granulate-Stapelplätze
+    if(pos.startsWith('GR')&&pos.endsWith('Oben')){
+        const obenNr=parseInt(pos.replace('GR','').replace('Oben',''),10);
+        const untenPos=grObenToUnten(obenNr);
+        try{const occ=await getAllPositions();const untenPal=occ[untenPos];
+            if(!untenPal){alert('Fehler: Bodenplatz '+untenPos+' ist leer! Zuerst den unteren Platz belegen.');return;}
+            const neuDatum=parseProdDatum(data.datum||'');const untenDatum=parseProdDatum(untenPal.produktionsDatum||untenPal.datum||'');
+            if(neuDatum.getTime()>untenDatum.getTime()){alert('FIFO-Verstoß: Die obere Palette (Prod.-Datum: '+(data.datum||'?')+') muss älter sein als die untere Palette (Prod.-Datum: '+(untenPal.produktionsDatum||untenPal.datum||'?')+').');return;}
+        }catch(e){console.warn('FIFO-Prüfung fehlgeschlagen:',e);}
+    }
     // Stückzahl je Palette automatisch setzen (nur für ALPLA/XO Halbfabrikate, nicht XO Fertigware)
     if(!data.artikelNr.startsWith('XO')){
         if(data.artikelNr.startsWith('12'))data.menge='92.400';
@@ -863,6 +911,12 @@ async function onArtikelSelect(){
 
 async function confirmOutbound(){
     const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;document.getElementById('confirmOutboundBtn').disabled=true;
+    // FIFO-Sperre: Granulate Bodenpalette nur auslagern wenn Oben frei
+    if(pd.position&&pd.position.startsWith('GR')&&pd.position.endsWith('Unten')){
+        const untenNr=parseInt(pd.position.replace('GR','').replace('Unten',''),10);
+        const obenPos=grUntenToOben(untenNr);
+        try{const occ=await getAllPositions();if(occ[obenPos]){alert('FIFO-Sperre: Zuerst die obere Palette auf '+obenPos+' auslagern!');document.getElementById('confirmOutboundBtn').disabled=false;return;}}catch(e){console.warn('FIFO-Sperre Prüfung fehlgeschlagen:',e);}
+    }
     try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.warn(e);}
@@ -893,7 +947,7 @@ function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDat
 // INVENTORY
 // ============================================================
 let _inventoryInited=false;
-const _invFilters={typ:null,artikel:null,sscc:null,datum:null,pos:null,status:null};
+const _invFilters={typ:null,artikel:null,sscc:null,palNr:null,datum:null,uhrzeit:null,menge:null,lotNr:null,orderNr:null,kunde:null,schicht:null,gtin:null,pos:null,status:null,einlagDatum:null};
 let _invAllRows=[];
 let _openFilterPopup=null;
 
@@ -911,27 +965,89 @@ function initInventory(){
     document.addEventListener('click',e=>{if(_openFilterPopup&&!_openFilterPopup.contains(e.target))closeInvFilterPopup();});
 }
 
+// Textsuche-Filter Keys (kein Checkbox-Popup, nur Eingabefeld)
+const _TEXT_FILTER_KEYS=new Set(['sscc','lotNr','orderNr']);
+
+// Monatsname-Mapping
+const _MONAT_NAMEN=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+function _getKW(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));t.setUTCDate(t.getUTCDate()+4-(t.getUTCDay()||7));const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/86400000+1)/7);}
+function _datumToMonat(s){const d=parseProdDatum(s);if(d.getFullYear()>9000)return null;return _MONAT_NAMEN[d.getMonth()]+' '+d.getFullYear();}
+function _datumToKW(s){const d=parseProdDatum(s);if(d.getFullYear()>9000)return null;return'KW '+_getKW(d)+' / '+d.getFullYear();}
+function _tsToMonat(ts){if(!ts)return null;const d=ts.toDate?ts.toDate():new Date(ts);if(isNaN(d))return null;return _MONAT_NAMEN[d.getMonth()]+' '+d.getFullYear();}
+
+// Positions-Bereich ermitteln
+const _hZSet=new Set('LKHGFEDCBAV'.split(''));
+const _fZSet=new Set('MNOPQRSTU'.split(''));
+function _posToBereich(pos){if(!pos||pos==='-')return'-';if(pos.startsWith('GR'))return'Granulate (GR)';const z=pos.replace(/[0-9]/g,'');if(_hZSet.has(z))return'Halbfabrikate (L–V)';if(_fZSet.has(z))return'Fertigware (M–U)';return'-';}
+
 function _invGetValues(key){
     const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
-    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',sscc:idf,datum:p=>p.produktionsDatum||'-',pos:p=>p.position||'-',status:p=>p.gesperrt?'Gesperrt':'Frei'};
+    // Datum: Monats- und KW-Gruppen
+    if(key==='datum'){
+        const monate=new Set();
+        _invAllRows.forEach(p=>{const s=p.produktionsDatum||'';const m=_datumToMonat(s);if(m)monate.add(m);});
+        return[...monate].sort();
+    }
+    // Eingelagert: Monatsgruppen
+    if(key==='einlagDatum'){
+        const monate=new Set();
+        _invAllRows.forEach(p=>{const m=_tsToMonat(p.einlagDatum);if(m)monate.add(m);});
+        return[...monate].sort();
+    }
+    // Position: Bereichs-Gruppen + Einzelpositionen
+    if(key==='pos'){
+        const bereiche=new Set(),positionen=new Set();
+        _invAllRows.forEach(p=>{const pos=p.position||'-';positionen.add(pos);bereiche.add(_posToBereich(pos));});
+        return[...bereiche].sort().concat(['---']).concat([...positionen].sort());
+    }
+    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',sscc:idf,palNr:p=>p.palettenNr||'-',uhrzeit:p=>p.uhrzeit||'-',menge:p=>p.menge||'-',lotNr:p=>p.lotNr||'-',orderNr:p=>p.orderNr||'-',kunde:p=>p.kunde||'-',schicht:p=>p.schicht||'-',gtin:p=>p.gtin||'-',status:p=>p.gesperrt?'Gesperrt':'Frei'};
     return[...new Set(_invAllRows.map(map[key]))].sort();
 }
 
 function openInvFilterPopup(btn,key){
     closeInvFilterPopup();
-    const values=_invGetValues(key);
-    const selected=_invFilters[key];
     const popup=document.createElement('div');popup.className='inv-filter-popup';
-    popup.innerHTML=`<input type="text" class="inv-fp-search" placeholder="Suchen...">
-        <div class="inv-fp-list">
-        <label class="inv-fp-all"><input type="checkbox" class="inv-fp-all-cb"${!selected?' checked':''}> (Alles auswählen)</label>
-        ${values.map(v=>`<label><input type="checkbox" value="${_escAttr(v)}"${!selected||selected.has(v)?' checked':''}> ${_escAttr(v)}</label>`).join('')}
-        </div>
-        <div class="inv-fp-actions"><button class="btn btn-sm btn-primary inv-fp-ok">OK</button><button class="btn btn-sm btn-secondary inv-fp-cancel">Abbrechen</button></div>`;
     const rect=btn.getBoundingClientRect();
     popup.style.position='fixed';popup.style.top=(rect.bottom+2)+'px';popup.style.left=Math.min(rect.left,window.innerWidth-200)+'px';
-    document.body.appendChild(popup);
     _openFilterPopup=popup;popup._key=key;popup._btn=btn;
+
+    // --- Textsuche-Filter (SSCC, Paletten-Nr., Lot-Nr., Order-Nr.) ---
+    if(_TEXT_FILTER_KEYS.has(key)){
+        const cur=typeof _invFilters[key]==='string'?_invFilters[key]:'';
+        popup.innerHTML=`<div style="padding:10px"><div style="font-weight:700;font-size:0.8rem;margin-bottom:6px">Textsuche</div>
+            <input type="text" class="inv-fp-search" placeholder="Suchbegriff eingeben..." value="${_escAttr(cur)}" style="width:100%;margin-bottom:8px">
+            <div class="inv-fp-actions"><button class="btn btn-sm btn-primary inv-fp-ok">OK</button><button class="btn btn-sm btn-secondary inv-fp-cancel">Abbrechen</button><button class="btn btn-sm btn-secondary inv-fp-clear" style="margin-left:auto">Zurücksetzen</button></div></div>`;
+        popup.querySelector('.inv-fp-ok').addEventListener('click',()=>{
+            const v=popup.querySelector('.inv-fp-search').value.trim().toLowerCase();
+            _invFilters[key]=v||null;
+            btn.classList.toggle('active',!!_invFilters[key]);
+            closeInvFilterPopup();renderInvTable();
+        });
+        popup.querySelector('.inv-fp-clear').addEventListener('click',()=>{
+            _invFilters[key]=null;btn.classList.remove('active');closeInvFilterPopup();renderInvTable();
+        });
+        popup.querySelector('.inv-fp-cancel').addEventListener('click',closeInvFilterPopup);
+        popup.addEventListener('click',e=>e.stopPropagation());
+        document.body.appendChild(popup);
+        popup.querySelector('.inv-fp-search').focus();
+        return;
+    }
+
+    // --- Checkbox-Filter (Standard + Gruppiert) ---
+    const values=_invGetValues(key);
+    const selected=_invFilters[key];
+    const isGrouped=key==='datum'||key==='pos'||key==='einlagDatum';
+    let listHtml='<label class="inv-fp-all"><input type="checkbox" class="inv-fp-all-cb"'+((!selected)?' checked':'')+' > (Alles auswählen)</label>';
+    values.forEach(v=>{
+        if(v==='---'){listHtml+='<hr style="margin:4px 0;border:none;border-top:1px solid #cbd5e1">';return;}
+        const isGroup=isGrouped&&(v.startsWith('KW ')||v.includes('(L')||v.includes('(GR')||v.includes('(M')||_MONAT_NAMEN.some(m=>v.startsWith(m)));
+        const style=isGroup?'font-weight:700;color:#4361ee':'';
+        listHtml+=`<label${style?' style="'+style+'"':''}><input type="checkbox" value="${_escAttr(v)}"${!selected||selected.has(v)?' checked':''}> ${_escAttr(v)}</label>`;
+    });
+    popup.innerHTML=`<input type="text" class="inv-fp-search" placeholder="Suchen...">
+        <div class="inv-fp-list">${listHtml}</div>
+        <div class="inv-fp-actions"><button class="btn btn-sm btn-primary inv-fp-ok">OK</button><button class="btn btn-sm btn-secondary inv-fp-cancel">Abbrechen</button></div>`;
+    document.body.appendChild(popup);
     // Search
     const searchInput=popup.querySelector('.inv-fp-search');
     searchInput.addEventListener('input',()=>{
@@ -944,7 +1060,7 @@ function openInvFilterPopup(btn,key){
     // OK
     popup.querySelector('.inv-fp-ok').addEventListener('click',()=>{
         const checked=[];popup.querySelectorAll('.inv-fp-list input[type="checkbox"]:not(.inv-fp-all-cb)').forEach(cb=>{if(cb.checked)checked.push(cb.value);});
-        const allValues=_invGetValues(key);
+        const allValues=values.filter(v=>v!=='---');
         _invFilters[key]=checked.length===allValues.length?null:new Set(checked);
         btn.classList.toggle('active',!!_invFilters[key]);
         closeInvFilterPopup();renderInvTable();
@@ -963,10 +1079,24 @@ function renderInvTable(){
     const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
     if(_invFilters.typ)rows=rows.filter(p=>_invFilters.typ.has(p.labelTyp||'-'));
     if(_invFilters.artikel)rows=rows.filter(p=>_invFilters.artikel.has(p.artikelNr||'-'));
-    if(_invFilters.sscc)rows=rows.filter(p=>_invFilters.sscc.has(idf(p)));
-    if(_invFilters.datum)rows=rows.filter(p=>_invFilters.datum.has(p.produktionsDatum||'-'));
-    if(_invFilters.pos)rows=rows.filter(p=>_invFilters.pos.has(p.position||'-'));
+    // Textsuche-Filter: String-Match per includes()
+    if(_invFilters.sscc){const q=_invFilters.sscc;rows=rows.filter(p=>idf(p).toLowerCase().includes(q));}
+    if(_invFilters.palNr)rows=rows.filter(p=>_invFilters.palNr.has(p.palettenNr||'-'));
+    // Datum: Match gegen Monat- und KW-Gruppen
+    if(_invFilters.datum){const f=_invFilters.datum;rows=rows.filter(p=>{const m=_datumToMonat(p.produktionsDatum||'');return m&&f.has(m);});}
+    if(_invFilters.uhrzeit)rows=rows.filter(p=>_invFilters.uhrzeit.has(p.uhrzeit||'-'));
+    if(_invFilters.menge)rows=rows.filter(p=>_invFilters.menge.has(p.menge||'-'));
+    // Textsuche-Filter
+    if(_invFilters.lotNr){const q=_invFilters.lotNr;rows=rows.filter(p=>(p.lotNr||'').toLowerCase().includes(q));}
+    if(_invFilters.orderNr){const q=_invFilters.orderNr;rows=rows.filter(p=>(p.orderNr||'').toLowerCase().includes(q));}
+    if(_invFilters.kunde)rows=rows.filter(p=>_invFilters.kunde.has(p.kunde||'-'));
+    if(_invFilters.schicht)rows=rows.filter(p=>_invFilters.schicht.has(p.schicht||'-'));
+    if(_invFilters.gtin)rows=rows.filter(p=>_invFilters.gtin.has(p.gtin||'-'));
+    // Position: Match gegen Bereiche + Einzelpositionen
+    if(_invFilters.pos){const f=_invFilters.pos;rows=rows.filter(p=>{const pos=p.position||'-';return f.has(pos)||f.has(_posToBereich(pos));});}
     if(_invFilters.status)rows=rows.filter(p=>_invFilters.status.has(p.gesperrt?'Gesperrt':'Frei'));
+    // Eingelagert: Match gegen Monatsgruppen
+    if(_invFilters.einlagDatum){const f=_invFilters.einlagDatum;rows=rows.filter(p=>{const m=_tsToMonat(p.einlagDatum);return m&&f.has(m);});}
     rows.sort((a,b)=>{const tA=a.einlagDatum?.toMillis?a.einlagDatum.toMillis():0,tB=b.einlagDatum?.toMillis?b.einlagDatum.toMillis():0;return tA-tB;});
     document.getElementById('invBody').innerHTML=rows.map(p=>{
         const statusHtml=p.gesperrt?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):'<span style="color:#10b981;font-weight:700">Frei</span>';
@@ -974,8 +1104,8 @@ function renderInvTable(){
             ?`<button class="btn btn-success btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="false">Freigeben</button>`
             :`<button class="btn btn-danger btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="true">Sperren</button>`):'';
         const delBtn=isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`:'';
-        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${idf(p)}</td><td>${p.produktionsDatum||'-'}</td><td>${p.menge||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${delBtn}</td></tr>`;
-    }).join('')||'<tr><td colspan="9" class="info-msg">Keine Paletten im Lager</td></tr>';
+        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${delBtn}</td></tr>`;
+    }).join('')||'<tr><td colspan="16" class="info-msg">Keine Paletten im Lager</td></tr>';
 }
 async function toggleInvGesperrt(docId,newVal){
     if(!canManageQS())return;
