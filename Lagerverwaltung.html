@@ -72,10 +72,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ============================================================ */
 /* TABLE STYLES */
 /* ============================================================ */
-.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); contain: layout style; }
-.data-table thead { background: #f8fafc; }
-.data-table th { padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
-.data-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); contain: layout style; border: 1px solid #e2e8f0; }
+.data-table thead { background: #f1f5f9; }
+.data-table th { padding: 10px 12px; text-align: left; font-weight: 700; color: #334155; border-bottom: 2px solid #cbd5e1; border-right: 1px solid #e2e8f0; white-space: nowrap; }
+.data-table th:last-child { border-right: none; }
+.data-table td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #f1f5f9; white-space: nowrap; }
+.data-table td:last-child { border-right: none; }
+.data-table tbody tr:nth-child(even) { background: #fafbfc; }
 .scan-modal-layout { display: flex; gap: 20px; align-items: flex-start; }
 .scan-modal-left { flex: 0 0 45%; max-width: 45%; }
 .scan-modal-left img { width: 100%; height: auto; border-radius: 8px; border: 1px solid #e2e8f0; }
@@ -100,7 +103,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 #view-protokoll .table-wrapper { overflow-x: hidden; }
 #view-protokoll .data-table { table-layout: auto; width: 100%; }
 #view-protokoll .data-table th, #view-protokoll .data-table td { white-space: nowrap; padding: 8px 5px; font-size: 0.75rem; }
-.data-table tbody tr:hover { background: #f8fafc; }
+.data-table tbody tr:hover { background: #eef2ff; }
 .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* ============================================================ */
@@ -124,25 +127,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* WAREHOUSE MAP STYLES */
 /* ============================================================ */
 .wh-layout { display: flex; gap: 30px; flex-wrap: wrap; }
-.wh-section { flex: 1; min-width: 300px; contain: layout style paint; }
-.wh-section-title { font-weight: 800; font-size: 0.9rem; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
-.wh-legend { display: flex; gap: 16px; margin-bottom: 14px; font-size: 0.85rem; }
-.wh-legend-item { display: flex; align-items: center; gap: 5px; }
-.wh-dot { width: 14px; height: 14px; border-radius: 3px; }
-.wh-vertical-row { display: flex; gap: 3px; align-items: flex-start; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-.wh-vert-zone { display: flex; flex-direction: column; align-items: center; }
-.wh-vert-label { font-weight: 900; font-size: 0.75rem; color: #4361ee; text-align: center; margin-bottom: 2px; min-width: 28px; }
+.wh-section { flex: 1; min-width: 300px; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); contain: layout style paint; }
+.wh-section-title { font-weight: 800; font-size: 0.9rem; color: #334155; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #cbd5e1; background: #f1f5f9; margin: -16px -16px 12px; padding: 12px 16px 8px; border-radius: 10px 10px 0 0; }
+.wh-legend { display: flex; gap: 16px; margin-bottom: 14px; font-size: 0.85rem; padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+.wh-legend-item { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+.wh-dot { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+.wh-vertical-row { display: flex; gap: 2px; align-items: flex-start; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 6px; background: #fafbfc; }
+.wh-vert-zone { display: flex; flex-direction: column; align-items: center; border-right: 1px solid #e2e8f0; padding-right: 2px; }
+.wh-vert-zone:last-child { border-right: none; padding-right: 0; }
+.wh-vert-label { font-weight: 900; font-size: 0.8rem; color: #4361ee; text-align: center; margin-bottom: 4px; min-width: 28px; padding: 2px 0; background: #eef2ff; border-radius: 3px; }
 .wh-vert-cells { display: flex; flex-direction: column; gap: 1px; }
-.wh-floor-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
-.wh-floor-label { width: 28px; font-weight: 900; font-size: 1rem; color: #4361ee; text-align: center; flex-shrink: 0; }
+.wh-floor-row { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; padding: 3px 6px; border-bottom: 1px solid #f1f5f9; }
+.wh-floor-row:last-child { border-bottom: none; }
+.wh-floor-label { width: 30px; font-weight: 900; font-size: 1rem; color: #4361ee; text-align: center; flex-shrink: 0; background: #eef2ff; border-radius: 4px; padding: 2px 0; }
+.wh-floor-container { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 6px; background: #fafbfc; }
 .wh-floor-cells { display: flex; gap: 2px; flex-wrap: nowrap; }
-.wh-cell { min-width: 28px; height: 18px; padding: 0 2px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 2px; border-radius: 2px; font-size: 0.45rem; font-weight: 700; cursor: pointer; transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; border: 1px solid rgba(0,0,0,0.08); line-height: 1; contain: style; }
-.wh-cell:hover { transform: scale(1.15); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.wh-cell { min-width: 28px; height: 18px; padding: 0 2px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 2px; border-radius: 3px; font-size: 0.45rem; font-weight: 700; cursor: pointer; transition: transform 0.1s ease-out, box-shadow 0.1s ease-out; border: 1px solid rgba(0,0,0,0.12); line-height: 1; contain: style; }
+.wh-cell:hover { transform: scale(1.15); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
 .wh-cell-nr { font-size: 0.65rem; font-weight: 800; white-space: nowrap; }
 .wh-cell-art { font-size: 0.55rem; opacity: 0.75; white-space: nowrap; }
-.wh-free { background: #d1fae5; color: #065f46; }
-.wh-occupied { background: #fef3c7; color: #92400e; }
-.wh-blocked { background: #fee2e2; color: #991b1b; }
+.wh-free { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+.wh-occupied { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.wh-blocked { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
 
 /* ============================================================ */
 /* MISC STYLES - Inventory, Inbound Steps, Modal */
@@ -265,7 +271,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <section class="view" id="view-protokoll">
         <h2>Ein-/Auslagerungs-Protokoll</h2>
         <div class="inv-actions"><button class="btn btn-success" id="protokollExportBtn">Excel exportieren</button></div>
-        <div class="table-wrapper"><table class="data-table"><thead><tr><th>Artikelnr.</th><th>Aktion</th><th>SSCC / Barcode</th><th>Menge</th><th>Position</th><th>Prod.-Datum</th><th>Eingelagert am</th><th>Eingelagert von</th><th>Ausgelagert am</th><th>Ausgelagert von</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table></div>
+        <div class="table-wrapper"><table class="data-table"><thead><tr><th>Artikelnr.</th><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>SSCC / Barcode</th><th>Menge</th><th>Position</th><th>Prod.-Datum</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table></div>
     </section>
 
     <!-- SCAN RESULT MODAL -->
@@ -517,7 +523,7 @@ function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new 
 // WAREHOUSE MAP
 // ============================================================
 let _lastPositions=null;
-async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div>');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div>');c.innerHTML=parts.join('');}
+async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
 function _renderCell(p,i,o){const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?pal.artikelNr:'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
 function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
@@ -837,8 +843,15 @@ async function confirmOutbound(){
 
 async function loadProtokoll(){
     const s=await db.collection('protokoll').get();const rows=[];s.forEach(d=>rows.push({id:d.id,...d.data()}));
-    rows.sort((a,b)=>{const tA=a.einlagDatum?.toMillis?a.einlagDatum.toMillis():(a.auslagDatum?.toMillis?a.auslagDatum.toMillis():0),tB=b.einlagDatum?.toMillis?b.einlagDatum.toMillis():(b.auslagDatum?.toMillis?b.auslagDatum.toMillis():0);return tB-tA;});
-    document.getElementById('protokollBody').innerHTML=rows.map(p=>`<tr><td>${p.artikelNr||'-'}</td><td>${p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.labelTyp||'-'))))}</td><td>${p.sscc||p.internalBarcode||p.palettenNr||'-'}</td><td>${p.menge||'-'}</td><td>${p.position||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.einlagDatumStr||formatTimestamp(p.einlagDatum)}</td><td>${p.eingelagertVon||'-'}</td><td>${formatTimestamp(p.auslagDatum)}</td><td>${p.ausgelagertVon||'-'}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_escAttr(p.id)}">Löschen</button>`:''}</td></tr>`).join('')||'<tr><td colspan="11" class="info-msg">Noch keine Protokolleinträge</td></tr>';
+    // Aktionszeitpunkt bestimmen: einlagern→einlagDatum, alle anderen→auslagDatum
+    function _aktionTs(p){return p.aktion==='einlagern'?(p.einlagDatum||null):(p.auslagDatum||p.einlagDatum||null);}
+    function _aktionUser(p){return p.aktion==='einlagern'?(p.eingelagertVon||'-'):(p.ausgelagertVon||p.eingelagertVon||'-');}
+    function _formatDDMMYYYYHHMM(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new Date(ts);if(isNaN(d))return'-';const dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),yy=d.getFullYear(),hh=String(d.getHours()).padStart(2,'0'),mi=String(d.getMinutes()).padStart(2,'0');return dd+'.'+mm+'.'+yy+' '+hh+':'+mi;}
+    rows.sort((a,b)=>{const tA=_aktionTs(a),tB=_aktionTs(b);const mA=tA?.toMillis?tA.toMillis():0,mB=tB?.toMillis?tB.toMillis():0;return mB-mA;});
+    document.getElementById('protokollBody').innerHTML=rows.map(p=>{
+        const aktionHtml=p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.labelTyp||'-'))));
+        return`<tr><td>${p.artikelNr||'-'}</td><td>${aktionHtml}</td><td>${_formatDDMMYYYYHHMM(_aktionTs(p))}</td><td>${_aktionUser(p)}</td><td>${p.sscc||p.internalBarcode||p.palettenNr||'-'}</td><td>${p.menge||'-'}</td><td>${p.position||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_escAttr(p.id)}">Löschen</button>`:''}</td></tr>`;
+    }).join('')||'<tr><td colspan="9" class="info-msg">Noch keine Protokolleinträge</td></tr>';
 }
 document.getElementById('protokollBody').addEventListener('click',e=>{const btn=e.target.closest('[data-delete-protokoll]');if(btn)deleteProtokollEntry(btn.dataset.deleteProtokoll);});
 async function deleteProtokollEntry(docId){if(!isAdmin()){alert('Nur Administratoren dürfen Protokolleinträge löschen.');return;}if(!confirm('Protokolleintrag wirklich löschen?'))return;try{await db.collection('protokoll').doc(docId).delete();loadProtokoll();}catch(e){alert('Fehler: '+e.message);}}
