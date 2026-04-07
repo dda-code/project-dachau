@@ -236,8 +236,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="dash-card"><div class="dash-card-title">Granulate</div><div class="dash-card-value"><span id="dashGranBelegt">0</span> / <span id="dashGranTotal">0</span></div><div class="dash-card-sub">Stellplätze belegt</div></div>
             <div class="dash-card"><div class="dash-card-title">Paletten gesamt</div><div class="dash-card-value" id="dashTotalPaletten">0</div><div class="dash-card-sub">eingelagert</div></div>
         </div>
-        <h3 style="margin-top:24px">Bestand pro Artikel</h3>
+        <h3 style="margin-top:24px">Bestand Halbfabrikate / Granulate</h3>
         <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashArtikelBody"></tbody></table>
+        <h3 style="margin-top:24px">Bestand Fertigware</h3>
+        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashFertigBody"></tbody></table>
     </section>
 
     <!-- EINLAGERN -->
@@ -499,19 +501,33 @@ function gbToGs(nr){return 'GS'+nr;}
 
 async function loadDashboard(){
     const s=await db.collection('paletten').get();const paletten=[];s.forEach(d=>{const dt={id:d.id,...d.data()};if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);paletten.push(dt);});
-    let fertig=0,halb=0,gran=0;const artikelMap={};
-    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');if(pos.startsWith('GB')||pos.startsWith('GS'))gran++;else if(_fZ.has(z))fertig++;else if(_hZ.has(z))halb++;if(!artikelMap[p.artikelNr])artikelMap[p.artikelNr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[p.artikelNr].count++;
-        let mengeStr=p.menge||'';
-        if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('12'))mengeStr='92.400';
-        if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('18'))mengeStr='420.672';
-        if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('19'))mengeStr='196.224';
-        const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);if(!isNaN(m)){artikelMap[p.artikelNr].menge+=m;if(p.gesperrt)artikelMap[p.artikelNr].mengeGesperrt+=m;else artikelMap[p.artikelNr].mengeFrei+=m;}}
+    let fertig=0,halb=0,gran=0;const artikelMap={};const fertigMap={};
+    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');const isFertig=pos.startsWith('GB')||pos.startsWith('GS')?false:_fZ.has(z);if(pos.startsWith('GB')||pos.startsWith('GS'))gran++;else if(isFertig)fertig++;else if(_hZ.has(z))halb++;
+        const nr=p.artikelNr||'';const isXO=nr.startsWith('XO');
+        if(isXO){
+            // Fertigware: Menge aus gescannten Daten
+            if(!fertigMap[nr])fertigMap[nr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};fertigMap[nr].count++;
+            const mengeStr=p.menge||'';const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);
+            if(!isNaN(m)){fertigMap[nr].menge+=m;if(p.gesperrt)fertigMap[nr].mengeGesperrt+=m;else fertigMap[nr].mengeFrei+=m;}
+        }else{
+            // Halbfabrikate / Granulate: Menge mit Defaults
+            if(!artikelMap[nr])artikelMap[nr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[nr].count++;
+            let mengeStr=p.menge||'';
+            if(!mengeStr&&nr.startsWith('12'))mengeStr='92.400';
+            if(!mengeStr&&nr.startsWith('18'))mengeStr='420.672';
+            if(!mengeStr&&nr.startsWith('19'))mengeStr='196.224';
+            const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);if(!isNaN(m)){artikelMap[nr].menge+=m;if(p.gesperrt)artikelMap[nr].mengeGesperrt+=m;else artikelMap[nr].mengeFrei+=m;}
+        }
+    }
     document.getElementById('dashFertigBelegt').textContent=fertig;document.getElementById('dashFertigTotal').textContent=_fT;
     document.getElementById('dashHalbBelegt').textContent=halb;document.getElementById('dashHalbTotal').textContent=_hT;
     document.getElementById('dashGranBelegt').textContent=gran;document.getElementById('dashGranTotal').textContent=_grT;
     document.getElementById('dashTotalPaletten').textContent=paletten.length;
     renderWarehouseMap();
-    document.getElementById('dashArtikelBody').innerHTML=ARTIKEL_NUMMERN.map(nr=>{const d=artikelMap[nr]||{count:0,menge:0,mengeFrei:0,mengeGesperrt:0};return`<tr><td>${nr}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;}).join('');
+    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
+    document.getElementById('dashArtikelBody').innerHTML=ARTIKEL_NUMMERN.map(nr=>{const d=artikelMap[nr]||{count:0,menge:0,mengeFrei:0,mengeGesperrt:0};return _rowHtml(nr,d);}).join('');
+    const fertigNrs=Object.keys(fertigMap).sort();
+    document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="5" class="info-msg">Keine Fertigware eingelagert</td></tr>';
 }
 
 function _normalizeArtikelNr(nr){
