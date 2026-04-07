@@ -221,7 +221,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </header>
     <nav class="tabs">
         <button type="button" class="tab active" data-tab="dashboard">Dashboard</button>
-        <button type="button" class="tab" data-tab="inbound">Einlagern</button>
+        <button type="button" class="tab" data-tab="inbound">Lagerkarte & Einlagern</button>
         <button type="button" class="tab" data-tab="outbound">Auslagern</button>
         <button type="button" class="tab" data-tab="inventory">Bestandsliste</button>
         <button type="button" class="tab" data-tab="protokoll">Protokoll</button>
@@ -340,7 +340,7 @@ const firebaseConfig = {
 };
 const WAREHOUSE_ZONES = Object.freeze({
     halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({L:11,K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
-    granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GR:25}) }),
+    granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
     fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
 });
 const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
@@ -482,22 +482,23 @@ const _hZ=new Set('LKHGFEDCBAV'.split(''));
 const _fZ=new Set('MNOPQRSTU'.split(''));
 const _hT=Object.values(WAREHOUSE_ZONES.halbfabrikate.zones).reduce((a,b)=>a+b,0);
 const _fT=Object.values(WAREHOUSE_ZONES.fertigware.zones).reduce((a,b)=>a+b,0);
-const _grT=Object.values(WAREHOUSE_ZONES.granulate.zones).reduce((a,b)=>a+b,0)*2;
+const _grT=Object.values(WAREHOUSE_ZONES.granulate.zones).reduce((a,b)=>a+b,0);
 const _zoneSlotMap={};
 for(const[_,cat]of Object.entries(WAREHOUSE_ZONES))for(const[zone,count]of Object.entries(cat.zones))_zoneSlotMap[zone]=count;
-// Granulate: Unten = GR1Unten–GR25Unten, Oben = GR26Oben–GR50Oben
+// Granulate: 5 Reihen à 5 Paare = 25 Boden (GB1–GB25) + 25 gestapelt (GS1–GS25) = 50 Plätze
 const GRANULATE_SLOT_COUNT=25;
+const GRANULATE_ROW_SIZE=5;
 const GRANULATE_ALL_POSITIONS=[];
-for(let i=1;i<=GRANULATE_SLOT_COUNT;i++)GRANULATE_ALL_POSITIONS.push('GR'+i+'Unten');
-for(let i=26;i<=50;i++)GRANULATE_ALL_POSITIONS.push('GR'+i+'Oben');
-// Mapping: GR26Oben steht auf GR1Unten, GR27Oben auf GR2Unten, etc.
-function grObenToUnten(obenNr){return 'GR'+(obenNr-25)+'Unten';}
-function grUntenToOben(untenNr){return 'GR'+(untenNr+25)+'Oben';}
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++)GRANULATE_ALL_POSITIONS.push('GB'+i);
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++)GRANULATE_ALL_POSITIONS.push('GS'+i);
+// Mapping: GS1 steht auf GB1, GS2 auf GB2, etc.
+function gsToGb(nr){return 'GB'+nr;}
+function gbToGs(nr){return 'GS'+nr;}
 
 async function loadDashboard(){
     const s=await db.collection('paletten').get();const paletten=[];s.forEach(d=>{const dt={id:d.id,...d.data()};if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);paletten.push(dt);});
     let fertig=0,halb=0,gran=0;const artikelMap={};
-    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');if(pos.startsWith('GR'))gran++;else if(_fZ.has(z))fertig++;else if(_hZ.has(z))halb++;if(!artikelMap[p.artikelNr])artikelMap[p.artikelNr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[p.artikelNr].count++;
+    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');if(pos.startsWith('GB')||pos.startsWith('GS'))gran++;else if(_fZ.has(z))fertig++;else if(_hZ.has(z))halb++;if(!artikelMap[p.artikelNr])artikelMap[p.artikelNr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[p.artikelNr].count++;
         let mengeStr=p.menge||'';
         if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('12'))mengeStr='92.400';
         if(!mengeStr&&p.artikelNr&&p.artikelNr.startsWith('18'))mengeStr='420.672';
@@ -533,9 +534,9 @@ function _normalizeArtikelNr(nr){
 async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
 function findFreePosition(occ,zo){for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p])return p;}}return null;}
 function findFreeGranulatePosition(occ){
-// Zuerst freie Bodenplätze (Unten), dann Stapelplätze (Oben) nur wenn Unten belegt
-for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GR'+i+'Unten';if(!occ[p])return p;}
-for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pu='GR'+i+'Unten',po=grUntenToOben(i);if(occ[pu]&&!occ[po])return po;}
+// Zuerst freie Bodenplätze (GB), dann Stapelplätze (GS) nur wenn GB belegt
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;if(!occ[p])return p;}
+for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pb='GB'+i,ps='GS'+i;if(occ[pb]&&!occ[ps])return ps;}
 return null;}
 const _tsOpts=Object.freeze({hour:'2-digit',minute:'2-digit'});
 function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new Date(ts);if(isNaN(d))return'-';return d.toLocaleDateString('de-DE')+' '+d.toLocaleTimeString('de-DE',_tsOpts);}
@@ -544,17 +545,26 @@ function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new 
 // WAREHOUSE MAP
 // ============================================================
 let _lastPositions=null;
-async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GR 1–50)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
+async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GB / GS)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
 function _renderCell(p,i,o,showField){const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
 function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr'));parts.push('</div></div>');return parts.join('');}
 function rgr(o){const parts=[];
-parts.push('<div class="wh-floor-row"><div class="wh-floor-label" style="font-size:0.7rem">GR-unten</div><div class="wh-floor-cells">');
-for(let i=1;i<=GRANULATE_SLOT_COUNT;i++)parts.push(_renderCell('GR'+i+'Unten',i,o));
-parts.push('</div></div>');
-parts.push('<div class="wh-floor-row"><div class="wh-floor-label" style="font-size:0.7rem">GR-oben</div><div class="wh-floor-cells">');
-for(let i=26;i<=50;i++)parts.push(_renderCell('GR'+i+'Oben',i,o));
-parts.push('</div></div>');return parts.join('');}
+const rows=GRANULATE_SLOT_COUNT/GRANULATE_ROW_SIZE;
+for(let r=0;r<rows;r++){
+    const start=r*GRANULATE_ROW_SIZE+1,end=start+GRANULATE_ROW_SIZE-1;
+    const label='GB '+start+'–'+end;
+    parts.push('<div style="margin-bottom:6px;padding:6px;border:1px solid #e2e8f0;border-radius:6px;background:#fafbfc">');
+    parts.push('<div style="font-weight:700;font-size:0.7rem;color:#334155;margin-bottom:4px;text-align:center">Reihe '+(r+1)+' ('+start+'–'+end+')</div>');
+    parts.push('<div class="wh-floor-row"><div class="wh-floor-label" style="font-size:0.7rem">GB</div><div class="wh-floor-cells">');
+    for(let i=start;i<=end;i++)parts.push(_renderCell('GB'+i,i,o));
+    parts.push('</div></div>');
+    parts.push('<div class="wh-floor-row"><div class="wh-floor-label" style="font-size:0.7rem">GS</div><div class="wh-floor-cells">');
+    for(let i=start;i<=end;i++)parts.push(_renderCell('GS'+i,i,o));
+    parts.push('</div></div>');
+    parts.push('</div>');
+}
+return parts.join('');}
 document.getElementById('warehouseMap')?.addEventListener('click',e=>{const cell=e.target.closest('.wh-cell');if(cell&&cell.dataset.pos)showPosDetail(cell.dataset.pos);});
 async function showPosDetail(pos){
     const o=_lastPositions||await getAllPositions();const pal=o[pos];
@@ -737,10 +747,10 @@ async function showPositionStep(){
     const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
     for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){
         if(ck==='granulate'){
-            // Granulate: Unten + Oben Positionen separat auflisten
+            // Granulate: Boden (GB) + Stapel (GS) Positionen separat auflisten
             const og=document.createElement('optgroup');og.label=cat.label;
-            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GR'+i+'Unten';if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);}}
-            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pu='GR'+i+'Unten',po=grUntenToOben(i);if(occ[pu]&&!occ[po]){const o=document.createElement('option');o.value=po;o.textContent=po;og.appendChild(o);}}
+            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);}}
+            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pb='GB'+i,ps='GS'+i;if(occ[pb]&&!occ[ps]){const o=document.createElement('option');o.value=ps;o.textContent=ps;og.appendChild(o);}}
             frag.appendChild(og);
         }else{
             const og=document.createElement('optgroup');og.label=cat.label;for(const[z,cnt]of Object.entries(cat.zones)){for(let i=1;i<=cnt;i++){const p=z+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;if(p===fp)o.selected=true;og.appendChild(o);}}}frag.appendChild(og);
@@ -782,14 +792,14 @@ async function confirmInbound(){
             if(!proceed)return;
         }
     }catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
-    // FIFO-Prüfung für Granulate-Stapelplätze
-    if(pos.startsWith('GR')&&pos.endsWith('Oben')){
-        const obenNr=parseInt(pos.replace('GR','').replace('Oben',''),10);
-        const untenPos=grObenToUnten(obenNr);
-        try{const occ=await getAllPositions();const untenPal=occ[untenPos];
-            if(!untenPal){alert('Fehler: Bodenplatz '+untenPos+' ist leer! Zuerst den unteren Platz belegen.');return;}
-            const neuDatum=parseProdDatum(data.datum||'');const untenDatum=parseProdDatum(untenPal.produktionsDatum||untenPal.datum||'');
-            if(neuDatum.getTime()>untenDatum.getTime()){alert('FIFO-Verstoß: Die obere Palette (Prod.-Datum: '+(data.datum||'?')+') muss älter sein als die untere Palette (Prod.-Datum: '+(untenPal.produktionsDatum||untenPal.datum||'?')+').');return;}
+    // FIFO-Prüfung für Granulate-Stapelplätze (GS auf GB)
+    if(pos.startsWith('GS')){
+        const nr=parseInt(pos.replace('GS',''),10);
+        const bodenPos=gsToGb(nr);
+        try{const occ=await getAllPositions();const bodenPal=occ[bodenPos];
+            if(!bodenPal){alert('Fehler: Bodenplatz '+bodenPos+' ist leer! Zuerst den unteren Platz belegen.');return;}
+            const neuDatum=parseProdDatum(data.datum||'');const bodenDatum=parseProdDatum(bodenPal.produktionsDatum||bodenPal.datum||'');
+            if(neuDatum.getTime()>bodenDatum.getTime()){alert('FIFO-Verstoß: Die gestapelte Palette (Prod.-Datum: '+(data.datum||'?')+') muss älter sein als die Bodenpalette (Prod.-Datum: '+(bodenPal.produktionsDatum||bodenPal.datum||'?')+').');return;}
         }catch(e){console.warn('FIFO-Prüfung fehlgeschlagen:',e);}
     }
     // Stückzahl je Palette automatisch setzen (nur für ALPLA/XO Halbfabrikate, nicht XO Fertigware)
@@ -911,11 +921,11 @@ async function onArtikelSelect(){
 
 async function confirmOutbound(){
     const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;document.getElementById('confirmOutboundBtn').disabled=true;
-    // FIFO-Sperre: Granulate Bodenpalette nur auslagern wenn Oben frei
-    if(pd.position&&pd.position.startsWith('GR')&&pd.position.endsWith('Unten')){
-        const untenNr=parseInt(pd.position.replace('GR','').replace('Unten',''),10);
-        const obenPos=grUntenToOben(untenNr);
-        try{const occ=await getAllPositions();if(occ[obenPos]){alert('FIFO-Sperre: Zuerst die obere Palette auf '+obenPos+' auslagern!');document.getElementById('confirmOutboundBtn').disabled=false;return;}}catch(e){console.warn('FIFO-Sperre Prüfung fehlgeschlagen:',e);}
+    // FIFO-Sperre: Granulate Bodenpalette (GB) nur auslagern wenn Stapelplatz (GS) frei
+    if(pd.position&&pd.position.startsWith('GB')){
+        const nr=parseInt(pd.position.replace('GB',''),10);
+        const stapelPos=gbToGs(nr);
+        try{const occ=await getAllPositions();if(occ[stapelPos]){alert('FIFO-Sperre: Zuerst die gestapelte Palette auf '+stapelPos+' auslagern!');document.getElementById('confirmOutboundBtn').disabled=false;return;}}catch(e){console.warn('FIFO-Sperre Prüfung fehlgeschlagen:',e);}
     }
     try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
@@ -978,7 +988,7 @@ function _tsToMonat(ts){if(!ts)return null;const d=ts.toDate?ts.toDate():new Dat
 // Positions-Bereich ermitteln
 const _hZSet=new Set('LKHGFEDCBAV'.split(''));
 const _fZSet=new Set('MNOPQRSTU'.split(''));
-function _posToBereich(pos){if(!pos||pos==='-')return'-';if(pos.startsWith('GR'))return'Granulate (GR)';const z=pos.replace(/[0-9]/g,'');if(_hZSet.has(z))return'Halbfabrikate (L–V)';if(_fZSet.has(z))return'Fertigware (M–U)';return'-';}
+function _posToBereich(pos){if(!pos||pos==='-')return'-';if(pos.startsWith('GB')||pos.startsWith('GS'))return'Granulate (GB/GS)';const z=pos.replace(/[0-9]/g,'');if(_hZSet.has(z))return'Halbfabrikate (L–V)';if(_fZSet.has(z))return'Fertigware (M–U)';return'-';}
 
 function _invGetValues(key){
     const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
