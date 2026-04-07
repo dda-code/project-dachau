@@ -88,10 +88,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     .scan-modal-layout { flex-direction: column; }
     .scan-modal-left { flex: none; max-width: 100%; }
 }
-.inv-sort-th { cursor: pointer; user-select: none; }
-.inv-sort-th:hover { background: #e2e8f0; }
-.inv-sort-arrow { font-size: 0.7rem; color: #94a3b8; }
-.inv-sort-th.sort-active .inv-sort-arrow { color: #4361ee; font-weight: 900; }
 .inv-filter-btn { background: none; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.75rem; color: #475569; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .inv-filter-btn:hover { background: #f0f4ff; border-color: #4361ee; }
 .inv-filter-btn.active { background: #eef2ff; border-color: #4361ee; color: #4361ee; font-weight: 700; }
@@ -273,8 +269,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <!-- BESTANDSLISTE -->
     <section class="view" id="view-inventory">
         <h2>Bestandsliste</h2>
-        <div class="inv-actions"><button class="btn btn-success" id="invExportBtn">Excel exportieren</button></div>
-        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th class="inv-sort-th" data-sort="typ">Typ <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="artikel">Artikelnr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="bezeichnung">Bezeichnung <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="sscc">SSCC / Barcode <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="palNr">Paletten-Nr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="datum">Prod.-Datum <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="uhrzeit">Uhrzeit <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="menge">Menge <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="lotNr">Lot-Nr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="orderNr">Order-Nr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="kunde">Kunde <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="schicht">Schicht <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="gtin">GTIN <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="pos">Position <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="status">Status <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="einlagDatum">Eingelagert <span class="inv-sort-arrow"></span></th><th>Aktionen</th></tr>
+        <div class="inv-actions">
+            <div class="form-group" style="min-width:200px"><label>Sortierung</label>
+                <div style="display:flex;gap:6px">
+                    <select id="invSortSelect" class="form-select" style="flex:1">
+                        <option value="">Keine Sortierung</option>
+                        <option value="typ">Typ</option>
+                        <option value="artikel">Artikelnr.</option>
+                        <option value="bezeichnung">Bezeichnung</option>
+                        <option value="sscc">SSCC / Barcode</option>
+                        <option value="palNr">Paletten-Nr.</option>
+                        <option value="datum" selected>Prod.-Datum</option>
+                        <option value="uhrzeit">Uhrzeit</option>
+                        <option value="menge">Menge</option>
+                        <option value="lotNr">Lot-Nr.</option>
+                        <option value="orderNr">Order-Nr.</option>
+                        <option value="kunde">Kunde</option>
+                        <option value="schicht">Schicht</option>
+                        <option value="gtin">GTIN</option>
+                        <option value="pos">Position</option>
+                        <option value="status">Status</option>
+                        <option value="einlagDatum">Eingelagert</option>
+                    </select>
+                    <button class="btn btn-sm btn-secondary" id="invSortDirBtn" onclick="toggleInvSortDir()" title="Sortierrichtung wechseln" style="padding:6px 10px;font-size:0.9rem">&#9650;</button>
+                </div>
+            </div>
+            <button class="btn btn-success" id="invExportBtn" style="align-self:flex-end">Excel exportieren</button>
+        </div>
+        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th>Typ</th><th>Artikelnr.</th><th>Bezeichnung</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Uhrzeit</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th>Eingelagert</th><th>Aktionen</th></tr>
         <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="bezeichnung">&#9660; Bez.</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="palNr">&#9660; Pal-Nr</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td><button class="inv-filter-btn" data-filter="uhrzeit">&#9660; Uhrzeit</button></td><td><button class="inv-filter-btn" data-filter="menge">&#9660; Menge</button></td><td><button class="inv-filter-btn" data-filter="lotNr">&#9660; Lot-Nr</button></td><td><button class="inv-filter-btn" data-filter="orderNr">&#9660; Order</button></td><td><button class="inv-filter-btn" data-filter="kunde">&#9660; Kunde</button></td><td><button class="inv-filter-btn" data-filter="schicht">&#9660; Schicht</button></td><td><button class="inv-filter-btn" data-filter="gtin">&#9660; GTIN</button></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td><button class="inv-filter-btn" data-filter="einlagDatum">&#9660; Datum</button></td><td></td></tr>
         </thead><tbody id="invBody"></tbody></table></div>
     </section>
@@ -1034,19 +1056,8 @@ const _invFilters={typ:null,artikel:null,bezeichnung:null,sscc:null,palNr:null,d
 let _invAllRows=[];
 let _openFilterPopup=null;
 let _invSortCol='datum',_invSortDir='asc';
-function toggleInvSort(col){
-    if(_invSortCol===col){_invSortDir=_invSortDir==='asc'?'desc':'asc';}
-    else{_invSortCol=col;_invSortDir='asc';}
-    // Pfeile aktualisieren
-    document.querySelectorAll('.inv-sort-th').forEach(th=>{
-        const arrow=th.querySelector('.inv-sort-arrow');
-        if(th.dataset.sort===_invSortCol){th.classList.add('sort-active');arrow.innerHTML=_invSortDir==='asc'?'&#9650;':'&#9660;';}
-        else{th.classList.remove('sort-active');arrow.innerHTML='';}
-    });
-    renderInvTable();
-}
-// Click-Handler für alle Sortier-Header
-document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.inv-sort-th').forEach(th=>{th.addEventListener('click',()=>toggleInvSort(th.dataset.sort));});});
+function toggleInvSortDir(){_invSortDir=_invSortDir==='asc'?'desc':'asc';document.getElementById('invSortDirBtn').innerHTML=_invSortDir==='asc'?'&#9650;':'&#9660;';renderInvTable();}
+document.getElementById('invSortSelect').addEventListener('change',function(){_invSortCol=this.value;renderInvTable();});
 
 function initInventory(){
     if(_inventoryInited)return;_inventoryInited=true;
@@ -1215,8 +1226,10 @@ function renderInvTable(){
         status:p=>p.gesperrt?1:0,
         einlagDatum:p=>p.einlagDatum?.toMillis?p.einlagDatum.toMillis():0
     };
-    const getVal=_sortVal[_invSortCol]||_sortVal.datum;
-    rows.sort((a,b)=>{const vA=getVal(a),vB=getVal(b);const cmp=typeof vA==='number'?vA-vB:String(vA).localeCompare(String(vB));return _invSortDir==='asc'?cmp:-cmp;});
+    if(_invSortCol&&_sortVal[_invSortCol]){
+        const getVal=_sortVal[_invSortCol];
+        rows.sort((a,b)=>{const vA=getVal(a),vB=getVal(b);const cmp=typeof vA==='number'?vA-vB:String(vA).localeCompare(String(vB));return _invSortDir==='asc'?cmp:-cmp;});
+    }
     document.getElementById('invBody').innerHTML=rows.map(p=>{
         const statusHtml=p.gesperrt?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):'<span style="color:#10b981;font-weight:700">Frei</span>';
         const qsBtn=canManageQS()?(p.gesperrt
