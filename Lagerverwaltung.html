@@ -100,9 +100,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .inv-filter-popup input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4361ee; }
 .inv-filter-popup .inv-fp-actions { display: flex; gap: 6px; justify-content: flex-end; padding: 8px 8px 2px; border-top: 1px solid #e2e8f0; margin-top: 6px; }
 .inv-filter-row td { padding: 4px !important; vertical-align: middle; text-align: center; }
-#view-protokoll .table-wrapper { overflow-x: hidden; }
+#view-protokoll { max-width: 100%; }
+#view-protokoll .table-wrapper { overflow-x: auto; }
 #view-protokoll .data-table { table-layout: auto; width: 100%; }
-#view-protokoll .data-table th, #view-protokoll .data-table td { white-space: nowrap; padding: 8px 5px; font-size: 0.75rem; }
+#view-protokoll .data-table th, #view-protokoll .data-table td { white-space: nowrap; padding: 6px 4px; font-size: 0.72rem; }
 #view-inventory { max-width: 100%; }
 #view-inventory .table-wrapper { overflow-x: auto; }
 #view-inventory .data-table { table-layout: auto; width: 100%; }
@@ -276,7 +277,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <section class="view" id="view-protokoll">
         <h2>Ein-/Auslagerungs-Protokoll</h2>
         <div class="inv-actions"><button class="btn btn-success" id="protokollExportBtn">Excel exportieren</button></div>
-        <div class="table-wrapper"><table class="data-table"><thead><tr><th>Artikelnr.</th><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>SSCC / Barcode</th><th>Menge</th><th>Position</th><th>Prod.-Datum</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table></div>
+        <div class="table-wrapper"><table class="data-table"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table></div>
     </section>
 
     <!-- SCAN RESULT MODAL -->
@@ -340,7 +341,7 @@ const firebaseConfig = {
     appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
 };
 const WAREHOUSE_ZONES = Object.freeze({
-    halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({L:11,K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
+    halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
     granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
     fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
 });
@@ -479,7 +480,7 @@ function initApp(){loadDashboard();initInbound();initOutbound();initInventory();
 
 const _numRe=/[0-9]/g;
 const _separatorRe=/[.,]/g;
-const _hZ=new Set('LKHGFEDCBAV'.split(''));
+const _hZ=new Set('KHGFEDCBAV'.split(''));
 const _fZ=new Set('MNOPQRSTU'.split(''));
 const _hT=Object.values(WAREHOUSE_ZONES.halbfabrikate.zones).reduce((a,b)=>a+b,0);
 const _fT=Object.values(WAREHOUSE_ZONES.fertigware.zones).reduce((a,b)=>a+b,0);
@@ -546,7 +547,7 @@ function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new 
 // WAREHOUSE MAP
 // ============================================================
 let _lastPositions=null;
-async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (L — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GB / GS)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
+async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (K — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GB / GS)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
 function _renderCell(p,i,o,showField){const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
 function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr'));parts.push('</div></div>');return parts.join('');}
@@ -594,7 +595,7 @@ async function showPosDetail(pos){
 async function _logGesperrt(docId,newVal,sperrgrund){
     const snap=await db.collection('paletten').doc(docId).get();const pd=snap.exists?snap.data():{};
     const aktion=newVal?'gesperrt':'freigegeben';
-    await db.collection('protokoll').add({aktion,docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername(),sperrgrund:sperrgrund||''});
+    await db.collection('protokoll').add({aktion,docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername(),sperrgrund:sperrgrund||''});
     await db.collection('log').add({aktion,docId,artikelNr:pd.artikelNr||'',position:pd.position||'',user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp(),sperrgrund:sperrgrund||''});
 }
 async function toggleGesperrt(docId,newVal,pos,sperrgrund){
@@ -743,7 +744,7 @@ async function onInboundFile(file){
 
 async function showPositionStep(){
     const occ=await getAllPositions();
-    const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['L','K','H','G','F','E','D','C','B','A','V'];
+    const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['K','H','G','F','E','D','C','B','A','V'];
     const fp=findFreePosition(occ,zo);document.getElementById('suggestedPosition').textContent=fp||'Kein Platz frei!';
     const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
     for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){
@@ -811,7 +812,7 @@ async function confirmInbound(){
     }
     console.log('EINLAGERN data:',JSON.stringify(data));console.log('EINLAGERN menge:',data.menge,'artikelNr:',data.artikelNr,'docId:',docId);
     try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
-    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',produktionsDatum:data.datum||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
+    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
     await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
     renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();}catch(e){alert('Fehler: '+e.message);}
 }
@@ -928,7 +929,7 @@ async function confirmOutbound(){
         const stapelPos=gbToGs(nr);
         try{const occ=await getAllPositions();if(occ[stapelPos]){alert('FIFO-Sperre: Zuerst die gestapelte Palette auf '+stapelPos+' auslagern!');document.getElementById('confirmOutboundBtn').disabled=false;return;}}catch(e){console.warn('FIFO-Sperre Prüfung fehlgeschlagen:',e);}
     }
-    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
+    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.warn(e);}
     document.getElementById('outboundResult').style.display='none';const sd=document.getElementById('outboundSuccess');sd.innerHTML=`<p class="success-msg">Palette entnommen von Stellplatz <strong>${pd.position}</strong></p>`;sd.style.display='block';
@@ -944,8 +945,9 @@ async function loadProtokoll(){
     rows.sort((a,b)=>{const tA=_aktionTs(a),tB=_aktionTs(b);const mA=tA?.toMillis?tA.toMillis():0,mB=tB?.toMillis?tB.toMillis():0;return mB-mA;});
     document.getElementById('protokollBody').innerHTML=rows.map(p=>{
         const aktionHtml=p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.labelTyp||'-'))));
-        return`<tr><td>${p.artikelNr||'-'}</td><td>${aktionHtml}</td><td>${_formatDDMMYYYYHHMM(_aktionTs(p))}</td><td>${_aktionUser(p)}</td><td>${p.sscc||p.internalBarcode||p.palettenNr||'-'}</td><td>${p.menge||'-'}</td><td>${p.position||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_escAttr(p.id)}">Löschen</button>`:''}</td></tr>`;
-    }).join('')||'<tr><td colspan="9" class="info-msg">Noch keine Protokolleinträge</td></tr>';
+        const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
+        return`<tr><td>${aktionHtml}</td><td>${_formatDDMMYYYYHHMM(_aktionTs(p))}</td><td>${_aktionUser(p)}</td><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${p.sscc||p.internalBarcode||'-'}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td>${p.position||'-'}</td><td>${statusHtml}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_escAttr(p.id)}">Löschen</button>`:''}</td></tr>`;
+    }).join('')||'<tr><td colspan="17" class="info-msg">Noch keine Protokolleinträge</td></tr>';
 }
 document.getElementById('protokollBody').addEventListener('click',e=>{const btn=e.target.closest('[data-delete-protokoll]');if(btn)deleteProtokollEntry(btn.dataset.deleteProtokoll);});
 async function deleteProtokollEntry(docId){if(!isAdmin()){alert('Nur Administratoren dürfen Protokolleinträge löschen.');return;}if(!confirm('Protokolleintrag wirklich löschen?'))return;try{await db.collection('protokoll').doc(docId).delete();loadProtokoll();}catch(e){alert('Fehler: '+e.message);}}
@@ -987,9 +989,9 @@ function _datumToKW(s){const d=parseProdDatum(s);if(d.getFullYear()>9000)return 
 function _tsToMonat(ts){if(!ts)return null;const d=ts.toDate?ts.toDate():new Date(ts);if(isNaN(d))return null;return _MONAT_NAMEN[d.getMonth()]+' '+d.getFullYear();}
 
 // Positions-Bereich ermitteln
-const _hZSet=new Set('LKHGFEDCBAV'.split(''));
+const _hZSet=new Set('KHGFEDCBAV'.split(''));
 const _fZSet=new Set('MNOPQRSTU'.split(''));
-function _posToBereich(pos){if(!pos||pos==='-')return'-';if(pos.startsWith('GB')||pos.startsWith('GS'))return'Granulate (GB/GS)';const z=pos.replace(/[0-9]/g,'');if(_hZSet.has(z))return'Halbfabrikate (L–V)';if(_fZSet.has(z))return'Fertigware (M–U)';return'-';}
+function _posToBereich(pos){if(!pos||pos==='-')return'-';if(pos.startsWith('GB')||pos.startsWith('GS'))return'Granulate (GB/GS)';const z=pos.replace(/[0-9]/g,'');if(_hZSet.has(z))return'Halbfabrikate (K–V)';if(_fZSet.has(z))return'Fertigware (M–U)';return'-';}
 
 function _invGetValues(key){
     const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
