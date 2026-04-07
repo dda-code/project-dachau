@@ -1113,7 +1113,7 @@ function renderInvTable(){
         const qsBtn=canManageQS()?(p.gesperrt
             ?`<button class="btn btn-success btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="false">Freigeben</button>`
             :`<button class="btn btn-danger btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="true">Sperren</button>`):'';
-        const delBtn=isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`:'';
+        const delBtn=`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`;
         return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${delBtn}</td></tr>`;
     }).join('')||'<tr><td colspan="16" class="info-msg">Keine Paletten im Lager</td></tr>';
 }
@@ -1129,7 +1129,7 @@ async function toggleInvGesperrt(docId,newVal){
         await _logGesperrt(docId,newVal,sperrgrund);loadInventory();renderWarehouseMap();
     }catch(e){alert('Fehler: '+e.message);}
 }
-async function deleteInventoryItem(docId){if(!isAdmin()){alert('Nur Administratoren dürfen Einträge löschen.');return;}if(!confirm('Palette wirklich löschen?'))return;try{await db.collection('paletten').doc(docId).delete();loadInventory();loadDashboard();}catch(e){alert('Fehler: '+e.message);}}
+async function deleteInventoryItem(docId){if(!confirm('Palette wirklich löschen?'))return;try{await db.collection('paletten').doc(docId).delete();loadInventory();loadDashboard();}catch(e){alert('Fehler: '+e.message);}}
 function exportInventory(){const t=document.querySelector('#view-inventory .data-table'),wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(t);XLSX.utils.book_append_sheet(wb,ws,'Bestandsliste');XLSX.writeFile(wb,'Bestandsliste_'+new Date().toISOString().slice(0,10)+'.xlsx');}
 
 // ============================================================
@@ -1160,8 +1160,8 @@ async function loadUserMgmt(){
             :`<select class="form-select" style="padding:4px 8px;font-size:0.82rem;width:auto" onchange="changeUserRole('${_escAttr(u.uid)}',this.value)"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="qs"${u.role==='qs'?' selected':''}>QS</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select>`;
         const actions=isSelf?'<span style="color:#94a3b8;font-size:0.8rem">Eigenes Konto</span>'
             :(u.disabled
-                ?`<button class="btn btn-success btn-sm" onclick="reactivateUser('${_escAttr(u.uid)}')">Aktivieren</button>`
-                :`<button class="btn btn-danger btn-sm" onclick="deactivateUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Deaktivieren</button>`);
+                ?`<button class="btn btn-success btn-sm" onclick="reactivateUser('${_escAttr(u.uid)}')">Aktivieren</button> <button class="btn btn-danger btn-sm" onclick="deleteUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Löschen</button>`
+                :`<button class="btn btn-danger btn-sm" onclick="deactivateUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Deaktivieren</button> <button class="btn btn-danger btn-sm" style="background:#991b1b" onclick="deleteUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Löschen</button>`);
         return`<tr><td>${u.displayName||'-'}</td><td>${roleSelect}</td><td>${statusTxt}</td><td>${actions}</td></tr>`;
     }).join('')||'<tr><td colspan="4" class="info-msg">Keine Benutzer</td></tr>';
 }
@@ -1217,6 +1217,13 @@ async function deactivateUser(uid,name){
 async function reactivateUser(uid){
     if(!isAdmin())return;
     try{await db.collection('users').doc(uid).update({disabled:false});loadUserMgmt();}
+    catch(e){alert('Fehler: '+e.message);}
+}
+
+async function deleteUser(uid,name){
+    if(!isAdmin())return;
+    if(!confirm('Benutzer "'+name+'" wirklich ENDGÜLTIG löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden. Der Firestore-Eintrag wird gelöscht.\n\nHinweis: Der Firebase Auth-Eintrag muss ggf. manuell in der Firebase Console entfernt werden.'))return;
+    try{await db.collection('users').doc(uid).delete();loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
