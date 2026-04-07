@@ -242,15 +242,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <!-- EINLAGERN -->
     <section class="view" id="view-inbound">
         <div class="section-frame">
+            <h3>Palette scannen & einlagern</h3>
+            <div style="text-align:center;margin-bottom:12px"><input type="file" id="inboundFileInput" accept="image/*" capture="environment" hidden><button class="btn btn-primary" id="inboundUploadBtn" style="font-size:1rem;padding:12px 28px">Foto aufnehmen / auswählen</button></div>
+            <div class="inbound-step" id="inboundStep1" style="margin:0;box-shadow:none;padding:0"><div class="upload-area" id="inboundDropZone" style="display:none"><p>Foto des Labels hochladen</p></div><div class="progress-section" id="inboundProgress" style="display:none"><div class="progress-bar"><div class="progress-fill" id="inboundProgressFill"></div></div><p id="inboundProgressText">OCR läuft...</p></div></div>
+        </div>
+        <div class="section-frame">
             <h3>Lager-Karte</h3>
             <div class="wh-legend"><span class="wh-legend-item"><span class="wh-dot wh-free"></span> Frei</span><span class="wh-legend-item"><span class="wh-dot wh-occupied"></span> Belegt</span><span class="wh-legend-item"><span class="wh-dot wh-blocked"></span> Gesperrt</span></div>
             <div id="warehouseMap"></div>
         </div>
         <div class="modal-overlay" id="posDetailModal" style="display:none"><div class="modal"><div class="modal-header"><h3 id="posDetailTitle">Position</h3><button class="modal-close" id="posDetailClose">&times;</button></div><div class="modal-body" id="posDetailBody"></div></div></div>
-        <div class="section-frame">
-            <h3>Palette scannen & einlagern</h3>
-            <div class="inbound-step" id="inboundStep1"><h3>1. Label scannen</h3><div class="upload-area" id="inboundDropZone"><p>Foto des Labels hochladen</p><input type="file" id="inboundFileInput" accept="image/*" capture="environment" hidden><button class="btn btn-primary" id="inboundUploadBtn">Foto aufnehmen / auswählen</button></div><div class="progress-section" id="inboundProgress" style="display:none"><div class="progress-bar"><div class="progress-fill" id="inboundProgressFill"></div></div><p id="inboundProgressText">OCR läuft...</p></div></div>
-        </div>
     </section>
 
     <!-- AUSLAGERN -->
