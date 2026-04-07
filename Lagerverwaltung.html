@@ -88,6 +88,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     .scan-modal-layout { flex-direction: column; }
     .scan-modal-left { flex: none; max-width: 100%; }
 }
+.inv-sort-th { cursor: pointer; user-select: none; }
+.inv-sort-th:hover { background: #e2e8f0; }
+.inv-sort-arrow { font-size: 0.7rem; color: #94a3b8; }
+.inv-sort-th.sort-active .inv-sort-arrow { color: #4361ee; font-weight: 900; }
 .inv-filter-btn { background: none; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.75rem; color: #475569; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .inv-filter-btn:hover { background: #f0f4ff; border-color: #4361ee; }
 .inv-filter-btn.active { background: #eef2ff; border-color: #4361ee; color: #4361ee; font-weight: 700; }
@@ -237,9 +241,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="dash-card"><div class="dash-card-title">Paletten gesamt</div><div class="dash-card-value" id="dashTotalPaletten">0</div><div class="dash-card-sub">eingelagert</div></div>
         </div>
         <h3 style="margin-top:24px">Bestand Halbfabrikate / Granulate</h3>
-        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashArtikelBody"></tbody></table>
+        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashArtikelBody"></tbody></table>
         <h3 style="margin-top:24px">Bestand Fertigware</h3>
-        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashFertigBody"></tbody></table>
+        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashFertigBody"></tbody></table>
     </section>
 
     <!-- EINLAGERN -->
@@ -270,8 +274,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <section class="view" id="view-inventory">
         <h2>Bestandsliste</h2>
         <div class="inv-actions"><button class="btn btn-success" id="invExportBtn">Excel exportieren</button></div>
-        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Uhrzeit</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th>Eingelagert</th><th>Aktionen</th></tr>
-        <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="palNr">&#9660; Pal-Nr</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td><button class="inv-filter-btn" data-filter="uhrzeit">&#9660; Uhrzeit</button></td><td><button class="inv-filter-btn" data-filter="menge">&#9660; Menge</button></td><td><button class="inv-filter-btn" data-filter="lotNr">&#9660; Lot-Nr</button></td><td><button class="inv-filter-btn" data-filter="orderNr">&#9660; Order</button></td><td><button class="inv-filter-btn" data-filter="kunde">&#9660; Kunde</button></td><td><button class="inv-filter-btn" data-filter="schicht">&#9660; Schicht</button></td><td><button class="inv-filter-btn" data-filter="gtin">&#9660; GTIN</button></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td><button class="inv-filter-btn" data-filter="einlagDatum">&#9660; Datum</button></td><td></td></tr>
+        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th class="inv-sort-th" data-sort="typ">Typ <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="artikel">Artikelnr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="bezeichnung">Bezeichnung <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="sscc">SSCC / Barcode <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="palNr">Paletten-Nr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="datum">Prod.-Datum <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="uhrzeit">Uhrzeit <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="menge">Menge <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="lotNr">Lot-Nr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="orderNr">Order-Nr. <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="kunde">Kunde <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="schicht">Schicht <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="gtin">GTIN <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="pos">Position <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="status">Status <span class="inv-sort-arrow"></span></th><th class="inv-sort-th" data-sort="einlagDatum">Eingelagert <span class="inv-sort-arrow"></span></th><th>Aktionen</th></tr>
+        <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="bezeichnung">&#9660; Bez.</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="palNr">&#9660; Pal-Nr</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td><button class="inv-filter-btn" data-filter="uhrzeit">&#9660; Uhrzeit</button></td><td><button class="inv-filter-btn" data-filter="menge">&#9660; Menge</button></td><td><button class="inv-filter-btn" data-filter="lotNr">&#9660; Lot-Nr</button></td><td><button class="inv-filter-btn" data-filter="orderNr">&#9660; Order</button></td><td><button class="inv-filter-btn" data-filter="kunde">&#9660; Kunde</button></td><td><button class="inv-filter-btn" data-filter="schicht">&#9660; Schicht</button></td><td><button class="inv-filter-btn" data-filter="gtin">&#9660; GTIN</button></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td><button class="inv-filter-btn" data-filter="einlagDatum">&#9660; Datum</button></td><td></td></tr>
         </thead><tbody id="invBody"></tbody></table></div>
     </section>
 
@@ -300,6 +304,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 </div>
                 <p class="success-msg" id="inboundSuccess" style="display:none">Palette erfolgreich eingelagert!</p>
             </div>
+        </div>
+    </div></div>
+
+    <!-- EDIT PALETTE MODAL -->
+    <div class="modal-overlay" id="editPalModal" style="display:none"><div class="modal" style="max-width:550px">
+        <div class="modal-header"><h3>Palette bearbeiten</h3><button class="modal-close" onclick="closeEditPal()">&times;</button></div>
+        <div class="modal-body">
+            <div class="form-grid" id="editPalForm"></div>
+            <div style="display:flex;gap:10px;margin-top:14px">
+                <button class="btn btn-primary btn-full" onclick="saveEditPal()">Speichern</button>
+                <button class="btn btn-secondary btn-full" onclick="closeEditPal()">Abbrechen</button>
+            </div>
+            <p class="error-msg" id="editPalError" style="display:none"></p>
         </div>
     </div></div>
 
@@ -350,7 +367,12 @@ const WAREHOUSE_ZONES = Object.freeze({
 const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const GRANULATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.granulate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const FERTIGWARE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
-const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032']);
+const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032','190033']);
+const ARTIKEL_BEZEICHNUNG = Object.freeze({
+    '120025':'Frame Black','120026':'Frame Natural','120027':'Frame Natural','120028':'Frame Natural',
+    '180006':'Inner Slider Black','180007':'Inner Slider Natural',
+    '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
+});
 const MISTRAL_API_KEY = localStorage.getItem('mistral_api_key') || 'XorDkOZbC8YohCnxrT1bZtlsCSZvGAxW';
 if(!localStorage.getItem('mistral_api_key'))localStorage.setItem('mistral_api_key', MISTRAL_API_KEY);
 const EMAIL_DOMAIN = '@lager.local';
@@ -524,29 +546,33 @@ async function loadDashboard(){
     document.getElementById('dashGranBelegt').textContent=gran;document.getElementById('dashGranTotal').textContent=_grT;
     document.getElementById('dashTotalPaletten').textContent=paletten.length;
     renderWarehouseMap();
-    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
+    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${ARTIKEL_BEZEICHNUNG[nr]||'-'}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
     document.getElementById('dashArtikelBody').innerHTML=ARTIKEL_NUMMERN.map(nr=>{const d=artikelMap[nr]||{count:0,menge:0,mengeFrei:0,mengeGesperrt:0};return _rowHtml(nr,d);}).join('');
     const fertigNrs=Object.keys(fertigMap).sort();
-    document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="5" class="info-msg">Keine Fertigware eingelagert</td></tr>';
+    document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="6" class="info-msg">Keine Fertigware eingelagert</td></tr>';
 }
 
 function _normalizeArtikelNr(nr){
     if(!nr)return nr;
-    nr=nr.replace(/[\s\-]/g,'');
-    // Exakter Match am Anfang
+    nr=nr.replace(/[\s\-]/g,'').replace(/[Oo]/g,'0');
+    // Exakter Match
     const exact=ARTIKEL_NUMMERN.find(a=>nr.startsWith(a));
     if(exact)return exact;
-    // Fuzzy: Ersten 2 Ziffern (12/18/19) matchen, dann beste Übereinstimmung finden
-    const prefix=nr.slice(0,2);
+    // Exakt 6 Ziffern und in der Liste
+    const digits=nr.replace(/\D/g,'');
+    if(digits.length===6&&ARTIKEL_NUMMERN.includes(digits))return digits;
+    // Teilmatch: nur die letzten 4 Ziffern erkannt (z.B. "0024" → suche "??0024")
+    if(digits.length>=4){const suffix=digits.slice(-4);const endMatch=ARTIKEL_NUMMERN.find(a=>a.endsWith(suffix));if(endMatch)return endMatch;}
+    // Fuzzy: Ersten 2 Ziffern (12/18/19) matchen
+    const prefix=digits.slice(0,2);
     const candidates=ARTIKEL_NUMMERN.filter(a=>a.startsWith(prefix));
     if(candidates.length===1)return candidates[0];
     if(candidates.length>1){
-        // Bester Match: meiste übereinstimmende Anfangsziffern
         let best=candidates[0],bestLen=0;
-        for(const c of candidates){let i=0;while(i<c.length&&i<nr.length&&c[i]===nr[i])i++;if(i>bestLen){bestLen=i;best=c;}}
+        for(const c of candidates){let i=0;while(i<c.length&&i<digits.length&&c[i]===digits[i])i++;if(i>bestLen){bestLen=i;best=c;}}
         return best;
     }
-    if(/^(12|18|19)\d+/.test(nr))return nr.slice(0,6);
+    if(/^(12|18|19)\d+/.test(digits))return digits.slice(0,6);
     return nr;
 }
 async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
@@ -629,13 +655,31 @@ window.showPosDetail=showPosDetail;window.toggleGesperrt=toggleGesperrt;
 // ============================================================
 // SCANNER (Mistral Vision)
 // ============================================================
-const SCAN_PROMPT=`Analysiere dieses Foto eines Paletten-Labels.
-Es gibt 3 mögliche Label-Typen. Bestimme den Typ anhand dieser REGELN:
-TYP 1: "XO Fertigware" — Hat das XO-Logo UND das Wort "Beverage Can Ends" im Titel. Die Article Number beginnt mit "XO-" und hat das Format XO-XXX-XXXXXZ (z.B. XO-202-2046G). Kann Buchstaben am Ende enthalten. Hat IMMER die Felder "GTIN", "SSCC", "QTY/Sleeve" und "Customer".
-TYP 2: "XO Halbfabrikate" — Hat das XO-Logo UND das Wort "Frame" im Titel. Die Article Number ist eine reine Zahl.
-TYP 3: "ALPLA Halbfabrikate" — Hat das ALPLA-Logo. Hat Felder auf Tschechisch wie "Barva/Color", "Počet ks v balení".
-Extrahiere diese Felder. Antworte NUR mit JSON:
-{"labelTyp":"...","artikelNr":"Bei XO Fertigware im Format XO-XXX-XXXXX belassen, bei anderen nur die Zahl z.B. 190009","datum":"Originalformat des Produktionsdatums","uhrzeit":"HH:MM","sscc":"mindestens 16 Ziffern, falls vorhanden","palettenNr":"Pallet Number / Running Number, falls vorhanden","lotNr":"Lot Number, falls vorhanden","orderNr":"Order Number / Auftragsnummer, z.B. 26-0013 oder 26-0012-Part2, falls vorhanden","internalBarcode":"Internal Barcode, falls vorhanden","kunde":"Customer, falls vorhanden","schicht":"Shift, falls vorhanden","gtin":"GTIN, falls vorhanden","menge":"QTY/Pallet oder Menge, falls vorhanden"}`;
+const SCAN_PROMPT=`Du bist ein OCR-Spezialist. Lies JEDES einzelne Textfeld auf dem Paletten-Label EXAKT ab. Erfinde KEINE Werte — lies nur was gedruckt steht. Achte besonders auf korrekte Ziffernfolgen.
+
+LABEL-TYPEN:
+TYP 1: "XO Fertigware" — XO-Logo + "Beverage Can Ends". Article Number im Format XO-XXX-XXXXXZ (z.B. XO-202-2046G).
+TYP 2: "XO Halbfabrikate" — XO-Logo + "Frame". Article Number ist eine 6-stellige Zahl (z.B. 190009).
+TYP 3: "ALPLA Halbfabrikate" — ALPLA-Logo, tschechische Felder wie "Barva/Color", "Počet ks v balení". Artikelnr. ist 6-stellig (z.B. 190009).
+
+WICHTIGE REGELN:
+- Lies Zahlen EXAKT Ziffer für Ziffer ab. Verwechsle nicht 0/O, 1/l, 5/S, 8/B.
+- ARTIKELNUMMER bei ALPLA/XO Halbfabrikate: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Mögliche Nummern: 120025,120026,120027,120028,180006,180007,190009,190024,190032,190033. Gib IMMER die 6-stellige Nummer zurück.
+- SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor.
+- Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024" oder "05.04.2024").
+- Order Number hat typisch das Format "26-XXXX" oder "26-XXXX-PartX".
+- Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
+
+BEISPIEL 1 — ALPLA Halbfabrikate:
+{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"","gtin":"","menge":"196224"}
+
+BEISPIEL 2 — XO Fertigware:
+{"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"03.04.2024","uhrzeit":"14:30","sscc":"385921960012345678","palettenNr":"PAL001","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Ball Beverage","schicht":"A","gtin":"08592196003445","menge":"5.040"}
+
+BEISPIEL 3 — XO Halbfabrikate:
+{"labelTyp":"XO Halbfabrikate","artikelNr":"190009","datum":"02.04.2024","uhrzeit":"08:15","sscc":"","palettenNr":"FR260001","lotNr":"","orderNr":"26-0012","internalBarcode":"INT-00123456","kunde":"","schicht":"B","gtin":"","menge":""}
+
+Antworte NUR mit einem JSON-Objekt in exakt diesem Format (alle Felder müssen vorhanden sein):`;
 
 const _jsonBlockRe=/```(?:json)?\s*([\s\S]*?)```/;
 
@@ -662,7 +706,7 @@ function normalizeDatum(s){
 }
 
 async function scanLabel(file){
-    const base64=await imageToBase64Scan(file,2000);
+    const base64=await imageToBase64Scan(file,2500);
     const r=await fetch('https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+MISTRAL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'mistral-small-latest',messages:[{role:'user',content:[{type:'image_url',image_url:base64},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
     if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
     const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
@@ -677,7 +721,8 @@ async function scanLabel(file){
         if(xoMatch)data.artikelNr='XO-'+xoMatch[1]+'-'+xoMatch[2].toUpperCase();
         console.log('XO Fertigware artikelNr nach Normalisierung:',data.artikelNr);
     }
-    if(data.sscc){data.sscc=data.sscc.replace(/[\s\-]/g,'');if(data.sscc.replace(/\D/g,'').length<16)data.sscc='';}
+    console.log('SCAN RAW:',JSON.stringify(data));
+    if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');console.log('SSCC nach Bereinigung:',data.sscc,'Länge:',data.sscc.length);if(data.sscc.length<16)data.sscc='';}
     // Validierung: jedes leere oder ungültige Feld als FEHLER markieren
     if(isXOFertig){if(!data.artikelNr||!/^XO-\d+-[A-Za-z0-9]+$/.test(data.artikelNr))data.artikelNr='FEHLER';}
     else{if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';}
@@ -691,7 +736,16 @@ async function scanLabel(file){
     _checkFields.forEach(k=>{if(!data[k])data[k]='FEHLER';});
     return{data,base64};
 }
-function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(objUrl);const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);const result=c.toDataURL('image/jpeg',0.85);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
+function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(objUrl);const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}c.width=w;c.height=h;const ctx=c.getContext('2d');
+    // Kontrast und Schärfe verbessern für bessere OCR
+    ctx.filter='contrast(1.3) brightness(1.05)';
+    ctx.drawImage(img,0,0,w,h);ctx.filter='none';
+    // Unschärfemaske (Schärfung): Original minus Blur addieren
+    const tc=document.createElement('canvas');tc.width=w;tc.height=h;const tctx=tc.getContext('2d');tctx.filter='blur(1px)';tctx.drawImage(c,0,0);tctx.filter='none';
+    const orig=ctx.getImageData(0,0,w,h);const blurred=tctx.getImageData(0,0,w,h);
+    for(let i=0;i<orig.data.length;i+=4){for(let ch=0;ch<3;ch++){orig.data[i+ch]=Math.min(255,Math.max(0,Math.round(orig.data[i+ch]*1.4-blurred.data[i+ch]*0.4)));}}
+    ctx.putImageData(orig,0,0);tc.width=0;tc.height=0;
+    const result=c.toDataURL('image/jpeg',0.92);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
 
 // ============================================================
 // INBOUND
@@ -976,16 +1030,31 @@ function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDat
 // INVENTORY
 // ============================================================
 let _inventoryInited=false;
-const _invFilters={typ:null,artikel:null,sscc:null,palNr:null,datum:null,uhrzeit:null,menge:null,lotNr:null,orderNr:null,kunde:null,schicht:null,gtin:null,pos:null,status:null,einlagDatum:null};
+const _invFilters={typ:null,artikel:null,bezeichnung:null,sscc:null,palNr:null,datum:null,uhrzeit:null,menge:null,lotNr:null,orderNr:null,kunde:null,schicht:null,gtin:null,pos:null,status:null,einlagDatum:null};
 let _invAllRows=[];
 let _openFilterPopup=null;
+let _invSortCol='datum',_invSortDir='asc';
+function toggleInvSort(col){
+    if(_invSortCol===col){_invSortDir=_invSortDir==='asc'?'desc':'asc';}
+    else{_invSortCol=col;_invSortDir='asc';}
+    // Pfeile aktualisieren
+    document.querySelectorAll('.inv-sort-th').forEach(th=>{
+        const arrow=th.querySelector('.inv-sort-arrow');
+        if(th.dataset.sort===_invSortCol){th.classList.add('sort-active');arrow.innerHTML=_invSortDir==='asc'?'&#9650;':'&#9660;';}
+        else{th.classList.remove('sort-active');arrow.innerHTML='';}
+    });
+    renderInvTable();
+}
+// Click-Handler für alle Sortier-Header
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.inv-sort-th').forEach(th=>{th.addEventListener('click',()=>toggleInvSort(th.dataset.sort));});});
 
 function initInventory(){
     if(_inventoryInited)return;_inventoryInited=true;
     document.getElementById('invExportBtn').addEventListener('click',exportInventory);
     document.getElementById('invBody').addEventListener('click',e=>{
         const delBtn=e.target.closest('[data-delete-id]');if(delBtn){deleteInventoryItem(delBtn.dataset.deleteId);return;}
-        const qsBtn=e.target.closest('[data-qs-id]');if(qsBtn)toggleInvGesperrt(qsBtn.dataset.qsId,qsBtn.dataset.qsVal==='true');
+        const qsBtn=e.target.closest('[data-qs-id]');if(qsBtn){toggleInvGesperrt(qsBtn.dataset.qsId,qsBtn.dataset.qsVal==='true');return;}
+        const edBtn=e.target.closest('[data-edit-id]');if(edBtn){openEditPal(edBtn.dataset.editId);return;}
     });
     // Filter-Buttons
     document.querySelectorAll('.inv-filter-btn').forEach(btn=>{
@@ -1029,7 +1098,7 @@ function _invGetValues(key){
         _invAllRows.forEach(p=>{const pos=p.position||'-';positionen.add(pos);bereiche.add(_posToBereich(pos));});
         return[...bereiche].sort().concat(['---']).concat([...positionen].sort());
     }
-    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',sscc:idf,palNr:p=>p.palettenNr||'-',uhrzeit:p=>p.uhrzeit||'-',menge:p=>p.menge||'-',lotNr:p=>p.lotNr||'-',orderNr:p=>p.orderNr||'-',kunde:p=>p.kunde||'-',schicht:p=>p.schicht||'-',gtin:p=>p.gtin||'-',status:p=>p.gesperrt?'Gesperrt':'Frei'};
+    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',bezeichnung:p=>ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-',sscc:idf,palNr:p=>p.palettenNr||'-',uhrzeit:p=>p.uhrzeit||'-',menge:p=>p.menge||'-',lotNr:p=>p.lotNr||'-',orderNr:p=>p.orderNr||'-',kunde:p=>p.kunde||'-',schicht:p=>p.schicht||'-',gtin:p=>p.gtin||'-',status:p=>p.gesperrt?'Gesperrt':'Frei'};
     return[...new Set(_invAllRows.map(map[key]))].sort();
 }
 
@@ -1108,6 +1177,7 @@ function renderInvTable(){
     const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
     if(_invFilters.typ)rows=rows.filter(p=>_invFilters.typ.has(p.labelTyp||'-'));
     if(_invFilters.artikel)rows=rows.filter(p=>_invFilters.artikel.has(p.artikelNr||'-'));
+    if(_invFilters.bezeichnung)rows=rows.filter(p=>_invFilters.bezeichnung.has(ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'));
     // Textsuche-Filter: String-Match per includes()
     if(_invFilters.sscc){const q=_invFilters.sscc;rows=rows.filter(p=>idf(p).toLowerCase().includes(q));}
     if(_invFilters.palNr)rows=rows.filter(p=>_invFilters.palNr.has(p.palettenNr||'-'));
@@ -1126,15 +1196,36 @@ function renderInvTable(){
     if(_invFilters.status)rows=rows.filter(p=>_invFilters.status.has(p.gesperrt?'Gesperrt':'Frei'));
     // Eingelagert: Match gegen Monatsgruppen
     if(_invFilters.einlagDatum){const f=_invFilters.einlagDatum;rows=rows.filter(p=>{const m=_tsToMonat(p.einlagDatum);return m&&f.has(m);});}
-    rows.sort((a,b)=>{const tA=a.einlagDatum?.toMillis?a.einlagDatum.toMillis():0,tB=b.einlagDatum?.toMillis?b.einlagDatum.toMillis():0;return tA-tB;});
+    // Generische Sortierung
+    const _sortVal={
+        typ:p=>(p.labelTyp||'').toLowerCase(),
+        artikel:p=>p.artikelNr||'',
+        bezeichnung:p=>(ARTIKEL_BEZEICHNUNG[p.artikelNr]||'').toLowerCase(),
+        sscc:p=>idf(p).toLowerCase(),
+        palNr:p=>(p.palettenNr||'').toLowerCase(),
+        datum:p=>parseProdDatum(p.produktionsDatum||p.datum||'').getTime(),
+        uhrzeit:p=>p.uhrzeit||'',
+        menge:p=>parseInt((p.menge||'0').replace(/[.,]/g,''),10)||0,
+        lotNr:p=>(p.lotNr||'').toLowerCase(),
+        orderNr:p=>(p.orderNr||'').toLowerCase(),
+        kunde:p=>(p.kunde||'').toLowerCase(),
+        schicht:p=>(p.schicht||'').toLowerCase(),
+        gtin:p=>(p.gtin||'').toLowerCase(),
+        pos:p=>p.position||'',
+        status:p=>p.gesperrt?1:0,
+        einlagDatum:p=>p.einlagDatum?.toMillis?p.einlagDatum.toMillis():0
+    };
+    const getVal=_sortVal[_invSortCol]||_sortVal.datum;
+    rows.sort((a,b)=>{const vA=getVal(a),vB=getVal(b);const cmp=typeof vA==='number'?vA-vB:String(vA).localeCompare(String(vB));return _invSortDir==='asc'?cmp:-cmp;});
     document.getElementById('invBody').innerHTML=rows.map(p=>{
         const statusHtml=p.gesperrt?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):'<span style="color:#10b981;font-weight:700">Frei</span>';
         const qsBtn=canManageQS()?(p.gesperrt
             ?`<button class="btn btn-success btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="false">Freigeben</button>`
             :`<button class="btn btn-danger btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="true">Sperren</button>`):'';
-        const delBtn=`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`;
-        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${delBtn}</td></tr>`;
-    }).join('')||'<tr><td colspan="16" class="info-msg">Keine Paletten im Lager</td></tr>';
+        const editBtn=isAdmin()?`<button class="btn btn-sm btn-secondary" data-edit-id="${_escAttr(p.id)}" style="margin-left:4px">Bearbeiten</button>`:'';
+        const delBtn=isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`:'';
+        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${editBtn}${delBtn}</td></tr>`;
+    }).join('')||'<tr><td colspan="17" class="info-msg">Keine Paletten im Lager</td></tr>';
 }
 async function toggleInvGesperrt(docId,newVal){
     if(!canManageQS())return;
@@ -1149,6 +1240,57 @@ async function toggleInvGesperrt(docId,newVal){
     }catch(e){alert('Fehler: '+e.message);}
 }
 async function deleteInventoryItem(docId){if(!confirm('Palette wirklich löschen?'))return;try{await db.collection('paletten').doc(docId).delete();loadInventory();loadDashboard();}catch(e){alert('Fehler: '+e.message);}}
+
+// ============================================================
+// PALETTE BEARBEITEN (Admin)
+// ============================================================
+let _editPalId=null;
+const _editPalFields=[
+    {key:'labelTyp',label:'Label-Typ'},
+    {key:'artikelNr',label:'Artikelnummer'},
+    {key:'produktionsDatum',label:'Produktionsdatum'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'sscc',label:'SSCC'},
+    {key:'menge',label:'Menge'},
+    {key:'palettenNr',label:'Paletten-Nr.'},
+    {key:'lotNr',label:'Lot-Nr.'},
+    {key:'orderNr',label:'Order-Nr.'},
+    {key:'internalBarcode',label:'Internal Barcode'},
+    {key:'kunde',label:'Kunde'},
+    {key:'schicht',label:'Schicht'},
+    {key:'gtin',label:'GTIN'},
+    {key:'position',label:'Position'}
+];
+
+async function openEditPal(docId){
+    if(!isAdmin())return;
+    _editPalId=docId;
+    try{
+        const snap=await db.collection('paletten').doc(docId).get();
+        if(!snap.exists){alert('Palette nicht gefunden.');return;}
+        const d=snap.data();
+        document.getElementById('editPalForm').innerHTML=_editPalFields.map(f=>
+            `<div class="form-group"><label>${f.label}</label><input type="text" id="editPal-${f.key}" value="${_escAttr(d[f.key]||'')}"></div>`
+        ).join('');
+        document.getElementById('editPalError').style.display='none';
+        document.getElementById('editPalModal').style.display='flex';
+    }catch(e){alert('Fehler: '+e.message);}
+}
+function closeEditPal(){document.getElementById('editPalModal').style.display='none';_editPalId=null;}
+async function saveEditPal(){
+    if(!isAdmin()||!_editPalId)return;
+    const upd={};
+    _editPalFields.forEach(f=>{upd[f.key]=document.getElementById('editPal-'+f.key)?.value.trim()||'';});
+    // datum-Feld synchron halten
+    upd.datum=upd.produktionsDatum;
+    try{
+        await db.collection('paletten').doc(_editPalId).update(upd);
+        await db.collection('log').add({aktion:'bearbeitet',docId:_editPalId,artikelNr:upd.artikelNr,position:upd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+        closeEditPal();loadInventory();loadDashboard();renderWarehouseMap();
+    }catch(e){
+        const err=document.getElementById('editPalError');err.textContent='Fehler: '+e.message;err.style.display='block';
+    }
+}
 function exportInventory(){const t=document.querySelector('#view-inventory .data-table'),wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(t);XLSX.utils.book_append_sheet(wb,ws,'Bestandsliste');XLSX.writeFile(wb,'Bestandsliste_'+new Date().toISOString().slice(0,10)+'.xlsx');}
 
 // ============================================================
