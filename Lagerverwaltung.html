@@ -6,7 +6,7 @@
     <title>Lagerverwaltung Aumundswiese</title>
     <link rel="dns-prefetch" href="https://www.gstatic.com">
     <link rel="dns-prefetch" href="https://firestore.googleapis.com">
-    <link rel="dns-prefetch" href="https://api.mistral.ai">
+    <link rel="dns-prefetch" href="https://api.groq.com">
     <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
     <style>
 /* ============================================================ */
@@ -246,7 +246,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <section class="view" id="view-inbound">
         <div class="section-frame">
             <h3>Palette scannen & einlagern</h3>
-            <div style="text-align:center;margin-bottom:12px"><input type="file" id="inboundFileInput" accept="image/*" capture="environment" hidden><button class="btn btn-primary" id="inboundUploadBtn" style="font-size:1rem;padding:12px 28px">Foto aufnehmen / auswählen</button></div>
+            <div style="text-align:center;margin-bottom:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><input type="file" id="inboundFileInput" accept="image/*" capture="environment" hidden><button class="btn btn-primary" id="inboundUploadBtn" style="font-size:1rem;padding:12px 28px">Foto aufnehmen / auswählen</button><button class="btn btn-secondary" id="manualEntryBtn" style="font-size:1rem;padding:12px 28px">Palette manuell eingeben</button></div>
             <div class="inbound-step" id="inboundStep1" style="margin:0;box-shadow:none;padding:0"><div class="upload-area" id="inboundDropZone" style="display:none"><p>Foto des Labels hochladen</p></div><div class="progress-section" id="inboundProgress" style="display:none"><div class="progress-bar"><div class="progress-fill" id="inboundProgressFill"></div></div><p id="inboundProgressText">OCR läuft...</p></div></div>
         </div>
         <div class="section-frame">
@@ -395,8 +395,8 @@ const ARTIKEL_BEZEICHNUNG = Object.freeze({
     '180006':'Inner Slider Black','180007':'Inner Slider Natural',
     '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
 });
-const MISTRAL_API_KEY = localStorage.getItem('mistral_api_key') || 'XorDkOZbC8YohCnxrT1bZtlsCSZvGAxW';
-if(!localStorage.getItem('mistral_api_key'))localStorage.setItem('mistral_api_key', MISTRAL_API_KEY);
+const GROQ_API_KEY = localStorage.getItem('groq_api_key') || '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';
+if(!localStorage.getItem('groq_api_key'))localStorage.setItem('groq_api_key', GROQ_API_KEY);
 const EMAIL_DOMAIN = '@lager.local';
 
 // ============================================================
@@ -680,7 +680,7 @@ window.showPosDetail=showPosDetail;window.toggleGesperrt=toggleGesperrt;
 const SCAN_PROMPT=`Du bist ein OCR-Spezialist. Lies JEDES einzelne Textfeld auf dem Paletten-Label EXAKT ab. Erfinde KEINE Werte — lies nur was gedruckt steht. Achte besonders auf korrekte Ziffernfolgen.
 
 LABEL-TYPEN:
-TYP 1: "XO Fertigware" — XO-Logo + "Beverage Can Ends". Article Number im Format XO-XXX-XXXXXZ (z.B. XO-202-2046G).
+TYP 1: "XO Fertigware" — XO-Logo + "Beverage Can Ends". Article Number im Format XO-XXX-XXXXXZ (z.B. XO-202-2046G). WICHTIG: Dieses Label hat ZWEI getrennte Mengenfelder nebeneinander: "QTY/Pallet" (linke Spalte, große Zahl z.B. 71280) und "QTY/Sleeve" (rechte Spalte, kleinere Zahl z.B. 198). Lies BEIDE Werte SEPARAT und EXAKT ab. Verwechsle sie NICHT!
 TYP 2: "XO Halbfabrikate" — XO-Logo + "Frame". Article Number ist eine 6-stellige Zahl (z.B. 190009).
 TYP 3: "ALPLA Halbfabrikate" — ALPLA-Logo, tschechische Felder wie "Barva/Color", "Počet ks v balení". Artikelnr. ist 6-stellig (z.B. 190009).
 
@@ -693,13 +693,13 @@ WICHTIGE REGELN:
 - Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
 
 BEISPIEL 1 — ALPLA Halbfabrikate:
-{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"","gtin":"","menge":"196224"}
+{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"","gtin":"","menge":"196224","mengePerSleeve":""}
 
 BEISPIEL 2 — XO Fertigware:
-{"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"03.04.2024","uhrzeit":"14:30","sscc":"385921960012345678","palettenNr":"PAL001","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Ball Beverage","schicht":"A","gtin":"08592196003445","menge":"5.040"}
+{"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"02.04.2026","uhrzeit":"19:26","sscc":"34262503660026793","palettenNr":"C26-0338","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Monster","schicht":"2","gtin":"4262503660396","menge":"71280","mengePerSleeve":"198"}
 
 BEISPIEL 3 — XO Halbfabrikate:
-{"labelTyp":"XO Halbfabrikate","artikelNr":"190009","datum":"02.04.2024","uhrzeit":"08:15","sscc":"","palettenNr":"FR260001","lotNr":"","orderNr":"26-0012","internalBarcode":"INT-00123456","kunde":"","schicht":"B","gtin":"","menge":""}
+{"labelTyp":"XO Halbfabrikate","artikelNr":"190009","datum":"02.04.2024","uhrzeit":"08:15","sscc":"","palettenNr":"FR260001","lotNr":"","orderNr":"26-0012","internalBarcode":"INT-00123456","kunde":"","schicht":"B","gtin":"","menge":"","mengePerSleeve":""}
 
 Antworte NUR mit einem JSON-Objekt in exakt diesem Format (alle Felder müssen vorhanden sein):`;
 
@@ -729,7 +729,7 @@ function normalizeDatum(s){
 
 async function scanLabel(file){
     const base64=await imageToBase64Scan(file,2500);
-    const r=await fetch('https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+MISTRAL_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'mistral-small-latest',messages:[{role:'user',content:[{type:'image_url',image_url:base64},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
+    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+GROQ_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:[{type:'image_url',image_url:{url:base64}},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
     if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
     const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
     let data;try{data=JSON.parse(content);}catch{const m=content.match(_jsonBlockRe);if(m)data=JSON.parse(m[1]);else throw new Error('JSON-Parse-Fehler');}
@@ -752,7 +752,7 @@ async function scanLabel(file){
     if(!data.uhrzeit||!/^\d{1,2}:\d{2}/.test(data.uhrzeit))data.uhrzeit='FEHLER';
     // Alle weiteren Felder: leer → FEHLER
     const _checkFields=isXOFertig
-        ?['sscc','menge','palettenNr','kunde','orderNr','schicht','gtin']
+        ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
         :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode']
         :['sscc','palettenNr','lotNr'];
     _checkFields.forEach(k=>{if(!data[k])data[k]='FEHLER';});
@@ -796,6 +796,7 @@ const INBOUND_FIELDS_XO_FERTIG=[
     {key:'uhrzeit',label:'Uhrzeit'},
     {key:'sscc',label:'SSCC'},
     {key:'menge',label:'QTY/Pallet'},
+    {key:'mengePerSleeve',label:'QTY/Sleeve'},
     {key:'palettenNr',label:'Pallet Number'},
     {key:'kunde',label:'Customer'},
     {key:'orderNr',label:'Order Number'},
@@ -808,7 +809,7 @@ const INBOUND_FIELDS_ALPLA=[
     {key:'lotNr',label:'Lot Number'}
 ];
 function getInboundFields(typ){if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;if(typ==='XO Fertigware')return INBOUND_FIELDS_XO_FERTIG;return INBOUND_FIELDS_BASE;}
-const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','palettenNr','lotNr','orderNr','internalBarcode','kunde','schicht','gtin'];
+const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','mengePerSleeve','palettenNr','lotNr','orderNr','internalBarcode','kunde','schicht','gtin'];
 let inboundData=null,currentLabelTyp=null;
 
 function initInbound(){
@@ -820,6 +821,63 @@ function initInbound(){
     document.getElementById('inboundResetBtn').addEventListener('click',resetInbound);
     document.getElementById('changePositionBtn').addEventListener('click',()=>{document.getElementById('positionSelect').style.display='block';});
     document.getElementById('scanModalClose').addEventListener('click',resetInbound);
+    document.getElementById('manualEntryBtn').addEventListener('click',openManualEntry);
+}
+
+function openManualEntry(){
+    // Show modal with type selection first
+    const typOptions=['ALPLA Halbfabrikate','XO Halbfabrikate','XO Fertigware'];
+    const overlay=document.createElement('div');
+    overlay.className='modal-overlay';overlay.id='manualEntryModal';overlay.style.display='flex';
+    overlay.innerHTML=`<div class="modal" style="max-width:500px">
+        <div class="modal-header"><h3>Palette manuell eingeben</h3><button class="modal-close" id="manualEntryClose">&times;</button></div>
+        <div class="modal-body">
+            <div class="form-group"><label>Label-Typ auswählen:</label><select id="manualTypSelect" class="form-select">
+                <option value="">-- Typ wählen --</option>
+                ${typOptions.map(t=>`<option value="${t}">${t}</option>`).join('')}
+            </select></div>
+            <div id="manualFieldsContainer" style="display:none">
+                <h3 style="margin:14px 0 10px">Daten eingeben:</h3>
+                <div class="form-grid" id="manualFields"></div>
+                <button class="btn btn-primary btn-full" id="manualEntrySubmit" style="margin-top:14px">Weiter zur Einlagerung</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#manualEntryClose').addEventListener('click',()=>overlay.remove());
+    overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+    const typSel=overlay.querySelector('#manualTypSelect');
+    typSel.addEventListener('change',()=>{
+        const typ=typSel.value;
+        if(!typ){overlay.querySelector('#manualFieldsContainer').style.display='none';return;}
+        const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
+        overlay.querySelector('#manualFields').innerHTML=fields.map(f=>
+            `<div class="form-group"><label>${f.label}</label><input type="text" id="manual-${f.key}" placeholder="${f.label}"></div>`
+        ).join('');
+        overlay.querySelector('#manualFieldsContainer').style.display='block';
+    });
+    overlay.querySelector('#manualEntrySubmit').addEventListener('click',async()=>{
+        const typ=typSel.value;
+        if(!typ){alert('Bitte Label-Typ auswählen!');return;}
+        const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
+        const data={labelTyp:typ};
+        ALL_STORE_KEYS.forEach(k=>data[k]=data[k]||'');
+        fields.forEach(f=>{data[f.key]=overlay.querySelector('#manual-'+f.key)?.value.trim()||'';});
+        if(!data.artikelNr){alert('Artikelnummer muss ausgefüllt werden!');return;}
+        overlay.remove();
+        // Reuse the scan modal for position selection
+        inboundData=data;currentLabelTyp=typ;
+        document.getElementById('inboundPreview').style.display='none';
+        const allFields=getInboundFields(typ);
+        document.getElementById('inboundForm').innerHTML=allFields.map(f=>{
+            const val=f.key==='labelTyp'?typ:(data[f.key]||'');
+            const roStyle=f.readonly?'background:#f1f5f9;font-weight:700':'';
+            return`<div class="form-group"><label>${f.label}</label><input type="text" id="inbound-${f.key}" value="${_escAttr(val)}"${f.readonly?' readonly':''}${roStyle?' style="'+roStyle+'"':''}></div>`;
+        }).join('');
+        document.getElementById('scanResultModal').style.display='flex';
+        document.getElementById('inboundStep2').style.display='block';
+        await showPositionStep();
+    });
 }
 
 async function onInboundFile(file){
@@ -904,7 +962,7 @@ async function confirmInbound(){
     }
     console.log('EINLAGERN data:',JSON.stringify(data));console.log('EINLAGERN menge:',data.menge,'artikelNr:',data.artikelNr,'docId:',docId);
     try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
-    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
+    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
     await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
     renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();}catch(e){alert('Fehler: '+e.message);}
 }
