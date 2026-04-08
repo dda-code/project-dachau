@@ -91,14 +91,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .inv-filter-btn { background: none; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.75rem; color: #475569; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .inv-filter-btn:hover { background: #f0f4ff; border-color: #4361ee; }
 .inv-filter-btn.active { background: #eef2ff; border-color: #4361ee; color: #4361ee; font-weight: 700; }
-.inv-filter-popup { position: absolute; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 1001; min-width: 180px; max-width: 260px; padding: 8px 0; }
+.inv-filter-popup { position: fixed; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 1001; min-width: 200px; max-width: 280px; padding: 8px 0; }
 .inv-filter-popup .inv-fp-search { width: calc(100% - 16px); margin: 0 8px 6px; padding: 5px 8px; font-size: 0.8rem; border: 1px solid #cbd5e1; border-radius: 4px; }
 .inv-filter-popup .inv-fp-list { max-height: 240px; overflow-y: auto; padding: 0 8px; scrollbar-width: thin; }
 .inv-filter-popup label { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 0.8rem; cursor: pointer; }
 .inv-filter-popup label:hover { color: #4361ee; }
 .inv-filter-popup label.inv-fp-all { font-weight: 700; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 3px; }
 .inv-filter-popup input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4361ee; }
-.inv-filter-popup .inv-fp-actions { display: flex; gap: 6px; justify-content: flex-end; padding: 8px 8px 2px; border-top: 1px solid #e2e8f0; margin-top: 6px; }
+.inv-filter-popup .inv-fp-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; padding: 8px 8px 4px; border-top: 1px solid #e2e8f0; margin-top: 6px; }
+.inv-filter-popup .inv-fp-actions .btn { padding: 5px 10px; font-size: 0.78rem; white-space: nowrap; }
 .inv-filter-row td { padding: 4px !important; vertical-align: middle; text-align: center; }
 #view-protokoll { max-width: 100%; }
 #view-protokoll .table-wrapper { overflow-x: auto; }
@@ -522,7 +523,22 @@ const _views=document.querySelectorAll('.view');
 const _tabActions={dashboard:()=>loadDashboard(),inventory:()=>loadInventory(),outbound:()=>initOutbound(),protokoll:()=>loadProtokoll()};
 _tabs.forEach(tab=>{tab.addEventListener('click',()=>{_tabs.forEach(t=>t.classList.remove('active'));_views.forEach(v=>v.classList.remove('active'));tab.classList.add('active');document.getElementById('view-'+tab.dataset.tab).classList.add('active');const fn=_tabActions[tab.dataset.tab];if(fn)fn();});});
 
-function initApp(){loadDashboard();initInbound();initOutbound();initInventory();initRemoteScanListener();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);}
+function _getActiveTab(){const t=document.querySelector('.tab.active');return t?t.dataset.tab:'dashboard';}
+let _realtimeUnsubs=[];
+function _initRealtimeListeners(){
+    // Paletten-Collection: Dashboard, Lagerkarte, Bestandsliste aktualisieren
+    _realtimeUnsubs.push(db.collection('paletten').onSnapshot(()=>{
+        const tab=_getActiveTab();
+        if(tab==='dashboard'){loadDashboard();}
+        else if(tab==='inventory'){loadInventory();}
+        else{renderWarehouseMap();}
+    }));
+    // Protokoll-Collection: Protokoll-Tab aktualisieren
+    _realtimeUnsubs.push(db.collection('protokoll').onSnapshot(()=>{
+        if(_getActiveTab()==='protokoll')loadProtokoll();
+    }));
+}
+function initApp(){loadDashboard();initInbound();initOutbound();initInventory();initRemoteScanListener();_initRealtimeListeners();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);}
 
 const _numRe=/[0-9]/g;
 const _separatorRe=/[.,]/g;
@@ -1130,10 +1146,11 @@ function initInventory(){
         btn.addEventListener('click',e=>{e.stopPropagation();openInvFilterPopup(btn,btn.dataset.filter);});
     });
     document.addEventListener('click',e=>{if(_openFilterPopup&&!_openFilterPopup.contains(e.target))closeInvFilterPopup();});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&_openFilterPopup)closeInvFilterPopup();});
 }
 
 // Textsuche-Filter Keys (kein Checkbox-Popup, nur Eingabefeld)
-const _TEXT_FILTER_KEYS=new Set(['sscc','lotNr','orderNr']);
+const _TEXT_FILTER_KEYS=new Set(['sscc','lotNr','orderNr','palNr','kunde','gtin']);
 
 // Monatsname-Mapping
 const _MONAT_NAMEN=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
@@ -1152,14 +1169,14 @@ function _invGetValues(key){
     // Datum: Monats- und KW-Gruppen
     if(key==='datum'){
         const monate=new Set();
-        _invAllRows.forEach(p=>{const s=p.produktionsDatum||'';const m=_datumToMonat(s);if(m)monate.add(m);});
-        return[...monate].sort();
+        _invAllRows.forEach(p=>{const s=p.produktionsDatum||p.datum||'';const m=_datumToMonat(s);monate.add(m||'(Unbekannt)');});
+        return[...monate].sort((a,b)=>a==='(Unbekannt)'?1:b==='(Unbekannt)'?-1:a.localeCompare(b));
     }
     // Eingelagert: Monatsgruppen
     if(key==='einlagDatum'){
         const monate=new Set();
-        _invAllRows.forEach(p=>{const m=_tsToMonat(p.einlagDatum);if(m)monate.add(m);});
-        return[...monate].sort();
+        _invAllRows.forEach(p=>{const m=_tsToMonat(p.einlagDatum);monate.add(m||'(Unbekannt)');});
+        return[...monate].sort((a,b)=>a==='(Unbekannt)'?1:b==='(Unbekannt)'?-1:a.localeCompare(b));
     }
     // Position: Bereichs-Gruppen + Einzelpositionen
     if(key==='pos'){
@@ -1174,8 +1191,7 @@ function _invGetValues(key){
 function openInvFilterPopup(btn,key){
     closeInvFilterPopup();
     const popup=document.createElement('div');popup.className='inv-filter-popup';
-    const rect=btn.getBoundingClientRect();
-    popup.style.position='fixed';popup.style.top=(rect.bottom+2)+'px';popup.style.left=Math.min(rect.left,window.innerWidth-200)+'px';
+    popup.style.position='fixed';popup.style.visibility='hidden';
     _openFilterPopup=popup;popup._key=key;popup._btn=btn;
 
     // --- Textsuche-Filter (SSCC, Paletten-Nr., Lot-Nr., Order-Nr.) ---
@@ -1183,7 +1199,7 @@ function openInvFilterPopup(btn,key){
         const cur=typeof _invFilters[key]==='string'?_invFilters[key]:'';
         popup.innerHTML=`<div style="padding:10px"><div style="font-weight:700;font-size:0.8rem;margin-bottom:6px">Textsuche</div>
             <input type="text" class="inv-fp-search" placeholder="Suchbegriff eingeben..." value="${_escAttr(cur)}" style="width:100%;margin-bottom:8px">
-            <div class="inv-fp-actions"><button class="btn btn-sm btn-primary inv-fp-ok">OK</button><button class="btn btn-sm btn-secondary inv-fp-cancel">Abbrechen</button><button class="btn btn-sm btn-secondary inv-fp-clear" style="margin-left:auto">Zurücksetzen</button></div></div>`;
+            <div class="inv-fp-actions" style="justify-content:space-between"><div style="display:flex;gap:6px"><button class="btn btn-sm btn-primary inv-fp-ok">OK</button><button class="btn btn-sm btn-secondary inv-fp-cancel">Abbrechen</button></div><button class="btn btn-sm btn-secondary inv-fp-clear">Reset</button></div></div>`;
         popup.querySelector('.inv-fp-ok').addEventListener('click',()=>{
             const v=popup.querySelector('.inv-fp-search').value.trim().toLowerCase();
             _invFilters[key]=v||null;
@@ -1196,6 +1212,7 @@ function openInvFilterPopup(btn,key){
         popup.querySelector('.inv-fp-cancel').addEventListener('click',closeInvFilterPopup);
         popup.addEventListener('click',e=>e.stopPropagation());
         document.body.appendChild(popup);
+        _positionFilterPopup(popup,btn);
         popup.querySelector('.inv-fp-search').focus();
         return;
     }
@@ -1215,6 +1232,7 @@ function openInvFilterPopup(btn,key){
         <div class="inv-fp-list">${listHtml}</div>
         <div class="inv-fp-actions"><button class="btn btn-sm btn-primary inv-fp-ok">OK</button><button class="btn btn-sm btn-secondary inv-fp-cancel">Abbrechen</button></div>`;
     document.body.appendChild(popup);
+    _positionFilterPopup(popup,btn);
     // Search
     const searchInput=popup.querySelector('.inv-fp-search');
     searchInput.addEventListener('input',()=>{
@@ -1235,6 +1253,17 @@ function openInvFilterPopup(btn,key){
     popup.querySelector('.inv-fp-cancel').addEventListener('click',closeInvFilterPopup);
     popup.addEventListener('click',e=>e.stopPropagation());
 }
+function _positionFilterPopup(popup,btn){
+    const rect=btn.getBoundingClientRect();
+    const pw=popup.offsetWidth||220,ph=popup.offsetHeight||200;
+    let top=rect.bottom+2,left=rect.left;
+    // Rechten Rand prüfen
+    if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+    if(left<8)left=8;
+    // Unteren Rand prüfen — wenn nicht genug Platz unten, oben anzeigen
+    if(top+ph>window.innerHeight-8&&rect.top-ph-2>8)top=rect.top-ph-2;
+    popup.style.top=top+'px';popup.style.left=left+'px';popup.style.visibility='visible';
+}
 function closeInvFilterPopup(){if(_openFilterPopup){_openFilterPopup.remove();_openFilterPopup=null;}}
 
 async function loadInventory(){
@@ -1249,30 +1278,30 @@ function renderInvTable(){
     if(_invFilters.bezeichnung)rows=rows.filter(p=>_invFilters.bezeichnung.has(ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'));
     // Textsuche-Filter: String-Match per includes()
     if(_invFilters.sscc){const q=_invFilters.sscc;rows=rows.filter(p=>idf(p).toLowerCase().includes(q));}
-    if(_invFilters.palNr)rows=rows.filter(p=>_invFilters.palNr.has(p.palettenNr||'-'));
+    if(_invFilters.palNr){const q=_invFilters.palNr;if(typeof q==='string')rows=rows.filter(p=>(p.palettenNr||'').toLowerCase().includes(q));else rows=rows.filter(p=>q.has(p.palettenNr||'-'));}
     // Datum: Match gegen Monat- und KW-Gruppen
-    if(_invFilters.datum){const f=_invFilters.datum;rows=rows.filter(p=>{const m=_datumToMonat(p.produktionsDatum||'');return m&&f.has(m);});}
+    if(_invFilters.datum){const f=_invFilters.datum;rows=rows.filter(p=>{const m=_datumToMonat(p.produktionsDatum||p.datum||'')||'(Unbekannt)';return f.has(m);});}
     if(_invFilters.uhrzeit)rows=rows.filter(p=>_invFilters.uhrzeit.has(p.uhrzeit||'-'));
     if(_invFilters.menge)rows=rows.filter(p=>_invFilters.menge.has(p.menge||'-'));
     // Textsuche-Filter
     if(_invFilters.lotNr){const q=_invFilters.lotNr;rows=rows.filter(p=>(p.lotNr||'').toLowerCase().includes(q));}
     if(_invFilters.orderNr){const q=_invFilters.orderNr;rows=rows.filter(p=>(p.orderNr||'').toLowerCase().includes(q));}
-    if(_invFilters.kunde)rows=rows.filter(p=>_invFilters.kunde.has(p.kunde||'-'));
+    if(_invFilters.kunde){const q=_invFilters.kunde;if(typeof q==='string')rows=rows.filter(p=>(p.kunde||'').toLowerCase().includes(q));else rows=rows.filter(p=>q.has(p.kunde||'-'));}
     if(_invFilters.schicht)rows=rows.filter(p=>_invFilters.schicht.has(p.schicht||'-'));
-    if(_invFilters.gtin)rows=rows.filter(p=>_invFilters.gtin.has(p.gtin||'-'));
+    if(_invFilters.gtin){const q=_invFilters.gtin;if(typeof q==='string')rows=rows.filter(p=>(p.gtin||'').toLowerCase().includes(q));else rows=rows.filter(p=>q.has(p.gtin||'-'));}
     // Position: Match gegen Bereiche + Einzelpositionen
     if(_invFilters.pos){const f=_invFilters.pos;rows=rows.filter(p=>{const pos=p.position||'-';return f.has(pos)||f.has(_posToBereich(pos));});}
     if(_invFilters.status)rows=rows.filter(p=>_invFilters.status.has(p.gesperrt?'Gesperrt':'Frei'));
     // Eingelagert: Match gegen Monatsgruppen
-    if(_invFilters.einlagDatum){const f=_invFilters.einlagDatum;rows=rows.filter(p=>{const m=_tsToMonat(p.einlagDatum);return m&&f.has(m);});}
+    if(_invFilters.einlagDatum){const f=_invFilters.einlagDatum;rows=rows.filter(p=>{const m=_tsToMonat(p.einlagDatum)||'(Unbekannt)';return f.has(m);});}
     // Generische Sortierung
     const _sortVal={
         typ:p=>(p.labelTyp||'').toLowerCase(),
-        artikel:p=>p.artikelNr||'',
+        artikel:p=>{const nr=p.artikelNr||'';const digits=nr.replace(/\D/g,'');return digits?parseInt(digits,10):nr;},
         bezeichnung:p=>(ARTIKEL_BEZEICHNUNG[p.artikelNr]||'').toLowerCase(),
         sscc:p=>idf(p).toLowerCase(),
         palNr:p=>(p.palettenNr||'').toLowerCase(),
-        datum:p=>parseProdDatum(p.produktionsDatum||p.datum||'').getTime(),
+        datum:p=>{const d=parseProdDatum(p.produktionsDatum||p.datum||'');return d.getFullYear()>9000?(_invSortDir==='asc'?Infinity:-Infinity):d.getTime();},
         uhrzeit:p=>p.uhrzeit||'',
         menge:p=>parseInt((p.menge||'0').replace(/[.,]/g,''),10)||0,
         lotNr:p=>(p.lotNr||'').toLowerCase(),
@@ -1280,9 +1309,9 @@ function renderInvTable(){
         kunde:p=>(p.kunde||'').toLowerCase(),
         schicht:p=>(p.schicht||'').toLowerCase(),
         gtin:p=>(p.gtin||'').toLowerCase(),
-        pos:p=>p.position||'',
+        pos:p=>{const s=p.position||'';const m=s.match(/^([A-Z]+)(\d+)$/);return m?m[1]+String(parseInt(m[2],10)).padStart(4,'0'):s;},
         status:p=>p.gesperrt?1:0,
-        einlagDatum:p=>p.einlagDatum?.toMillis?p.einlagDatum.toMillis():0
+        einlagDatum:p=>{if(!p.einlagDatum)return _invSortDir==='asc'?Infinity:-Infinity;if(p.einlagDatum.toMillis)return p.einlagDatum.toMillis();const d=new Date(p.einlagDatum);return isNaN(d)?(_invSortDir==='asc'?Infinity:-Infinity):d.getTime();}
     };
     if(_invSortCol&&_sortVal[_invSortCol]){
         const getVal=_sortVal[_invSortCol];
