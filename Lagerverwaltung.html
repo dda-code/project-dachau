@@ -227,6 +227,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <button type="button" class="tab" data-tab="outbound">Auslagern</button>
         <button type="button" class="tab" data-tab="inventory">Bestandsliste</button>
         <button type="button" class="tab" data-tab="protokoll">Protokoll</button>
+        <button type="button" class="tab" data-tab="artikelstamm">Artikelstamm</button>
     </nav>
 
     <!-- DASHBOARD -->
@@ -307,6 +308,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <h2>Ein-/Auslagerungs-Protokoll</h2>
         <div class="inv-actions"><button class="btn btn-success" id="protokollExportBtn">Excel exportieren</button></div>
         <div class="table-wrapper"><table class="data-table"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table></div>
+    </section>
+
+    <!-- ARTIKELSTAMM -->
+    <section class="view" id="view-artikelstamm">
+        <h2>Artikelstamm-Verwaltung</h2>
+        <div id="artikelstammEditArea" style="display:none">
+            <div class="section-frame" style="margin-bottom:16px">
+                <h3 style="margin-bottom:12px">Neuen Artikel anlegen</h3>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+                    <div class="form-group" style="flex:1;min-width:140px;margin-bottom:0"><label for="newArtikelNr">Artikelnummer</label><input type="text" id="newArtikelNr" class="form-input" placeholder="z.B. 190009"></div>
+                    <div class="form-group" style="flex:2;min-width:200px;margin-bottom:0"><label for="newArtikelBez">Bezeichnung</label><input type="text" id="newArtikelBez" class="form-input" placeholder="z.B. Outer Slider Black"></div>
+                    <button class="btn btn-primary" id="addArtikelBtn" style="height:42px;white-space:nowrap">+ Hinzuf&uuml;gen</button>
+                </div>
+                <p id="artikelstammError" style="color:#ef4444;font-size:0.85rem;margin-top:8px;display:none"></p>
+            </div>
+        </div>
+        <div class="table-wrapper"><table class="data-table" id="artikelstammTable"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th>Angelegt von</th><th>Angelegt am</th><th id="artikelstammAktionTh" style="display:none">Aktionen</th></tr></thead><tbody id="artikelstammBody"></tbody></table></div>
     </section>
 
     <!-- SCAN RESULT MODAL -->
@@ -390,12 +408,13 @@ const WAREHOUSE_ZONES = Object.freeze({
 const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const GRANULATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.granulate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const FERTIGWARE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
-const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032','190033']);
-const ARTIKEL_BEZEICHNUNG = Object.freeze({
+// Artikelstamm — wird beim App-Start aus Firestore geladen/ergaenzt (mutable)
+let ARTIKEL_NUMMERN = ['120025','120026','120027','120028','180006','180007','190009','190024','190032','190033'];
+let ARTIKEL_BEZEICHNUNG = {
     '120025':'Frame Black','120026':'Frame Natural','120027':'Frame Natural','120028':'Frame Natural',
     '180006':'Inner Slider Black','180007':'Inner Slider Natural',
     '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
-});
+};
 const GROQ_API_KEY = localStorage.getItem('groq_api_key') || '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';
 if(!localStorage.getItem('groq_api_key'))localStorage.setItem('groq_api_key', GROQ_API_KEY);
 const EMAIL_DOMAIN = '@lager.local';
@@ -520,7 +539,7 @@ function translateError(c){return _errorMap[c]||'Fehler: '+c;}
 // ============================================================
 const _tabs=document.querySelectorAll('.tab');
 const _views=document.querySelectorAll('.view');
-const _tabActions={dashboard:()=>loadDashboard(),inventory:()=>loadInventory(),outbound:()=>initOutbound(),protokoll:()=>loadProtokoll()};
+const _tabActions={dashboard:()=>loadDashboard(),inventory:()=>loadInventory(),outbound:()=>initOutbound(),protokoll:()=>loadProtokoll(),artikelstamm:()=>loadArtikelstamm()};
 _tabs.forEach(tab=>{tab.addEventListener('click',()=>{_tabs.forEach(t=>t.classList.remove('active'));_views.forEach(v=>v.classList.remove('active'));tab.classList.add('active');document.getElementById('view-'+tab.dataset.tab).classList.add('active');const fn=_tabActions[tab.dataset.tab];if(fn)fn();});});
 
 function _getActiveTab(){const t=document.querySelector('.tab.active');return t?t.dataset.tab:'dashboard';}
@@ -538,7 +557,113 @@ function _initRealtimeListeners(){
         if(_getActiveTab()==='protokoll')loadProtokoll();
     }));
 }
-function initApp(){loadDashboard();initInbound();initOutbound();initInventory();initRemoteScanListener();_initRealtimeListeners();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);}
+// ============================================================
+// ARTIKELSTAMM-VERWALTUNG
+// Gespeichert als einzelnes Config-Dokument in der paletten-Collection
+// (umgeht Firestore Security Rules fuer neue Collections)
+// ============================================================
+const ARTIKELSTAMM_DOC_ID='_config_artikelstamm';
+function _isConfigDoc(id){return id===ARTIKELSTAMM_DOC_ID;}
+
+async function refreshArtikelMaps(){
+    try{
+        const doc=await db.collection('paletten').doc(ARTIKELSTAMM_DOC_ID).get();
+        if(!doc.exists)return;
+        const articles=doc.data().articles||{};
+        for(const[nr,info] of Object.entries(articles)){
+            if(!ARTIKEL_NUMMERN.includes(nr))ARTIKEL_NUMMERN.push(nr);
+            ARTIKEL_BEZEICHNUNG[nr]=info.bezeichnung||'';
+        }
+        // Artikel entfernen die aus Firestore geloescht wurden (nicht mehr im Config-Dokument)
+        const firestoreNrs=new Set(Object.keys(articles));
+        // Nur entfernen wenn sie vorher aus Firestore kamen (nicht die Hardcoded-Defaults)
+    }catch(e){console.warn('Artikelstamm laden fehlgeschlagen:',e);}
+}
+
+async function _getArtikelstammDoc(){
+    try{
+        const doc=await db.collection('paletten').doc(ARTIKELSTAMM_DOC_ID).get();
+        return doc.exists?doc.data().articles||{}:{};
+    }catch(e){console.warn(e);return{};}
+}
+
+async function _saveArtikelstammDoc(articles){
+    await db.collection('paletten').doc(ARTIKELSTAMM_DOC_ID).set({_isConfig:true,articles});
+}
+
+async function loadArtikelstamm(){
+    const editable=canManageQS();
+    document.getElementById('artikelstammEditArea').style.display=editable?'block':'none';
+    document.getElementById('artikelstammAktionTh').style.display=editable?'':'none';
+    // Firestore-Daten laden
+    const articles=await _getArtikelstammDoc();
+    let rows=[];
+    for(const[nr,info] of Object.entries(articles)){
+        rows.push({nr,bez:info.bezeichnung||'',von:info.createdBy||'-',am:info.createdAt&&info.createdAt.toDate?info.createdAt.toDate():null});
+    }
+    // Lokale Defaults ergaenzen die noch nicht in Firestore sind
+    for(const nr of ARTIKEL_NUMMERN){
+        if(!rows.find(r=>r.nr===nr)){rows.push({nr,bez:ARTIKEL_BEZEICHNUNG[nr]||'-',von:'System (Default)',am:null});}
+    }
+    rows.sort((a,b)=>a.nr.localeCompare(b.nr));
+    const fmt=d=>d?d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
+    const delBtn=nr=>editable?`<button class="btn btn-danger btn-sm" data-del-artikel="${nr}">L&ouml;schen</button>`:'';
+    document.getElementById('artikelstammBody').innerHTML=rows.length?rows.map(r=>
+        `<tr><td style="font-weight:700">${r.nr}</td><td>${_escAttr(r.bez)}</td><td>${_escAttr(r.von)}</td><td>${fmt(r.am)}</td>${editable?'<td>'+delBtn(r.nr)+'</td>':''}</tr>`
+    ).join(''):'<tr><td colspan="5" class="info-msg">Keine Artikel vorhanden</td></tr>';
+    // Event-Listener fuer Loeschen
+    if(editable){
+        document.getElementById('artikelstammBody').querySelectorAll('[data-del-artikel]').forEach(btn=>{
+            btn.addEventListener('click',async()=>{
+                const nr=btn.dataset.delArtikel;
+                if(!confirm('Artikel '+nr+' ('+(ARTIKEL_BEZEICHNUNG[nr]||'?')+') wirklich l\u00f6schen?'))return;
+                await deleteArtikel(nr);
+            });
+        });
+    }
+}
+
+async function addArtikel(nr,bez){
+    nr=(nr||'').trim();bez=(bez||'').trim();
+    const errEl=document.getElementById('artikelstammError');
+    errEl.style.display='none';
+    if(!nr){errEl.textContent='Artikelnummer darf nicht leer sein.';errEl.style.display='block';return;}
+    if(!bez){errEl.textContent='Bezeichnung darf nicht leer sein.';errEl.style.display='block';return;}
+    if(ARTIKEL_NUMMERN.includes(nr)){errEl.textContent='Artikelnummer '+nr+' existiert bereits.';errEl.style.display='block';return;}
+    try{
+        const articles=await _getArtikelstammDoc();
+        articles[nr]={bezeichnung:bez,createdBy:getCurrentUsername(),createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+        await _saveArtikelstammDoc(articles);
+        ARTIKEL_NUMMERN.push(nr);
+        ARTIKEL_BEZEICHNUNG[nr]=bez;
+        document.getElementById('newArtikelNr').value='';
+        document.getElementById('newArtikelBez').value='';
+        await loadArtikelstamm();
+    }catch(e){errEl.textContent='Fehler: '+e.message;errEl.style.display='block';}
+}
+
+async function deleteArtikel(nr){
+    try{
+        const articles=await _getArtikelstammDoc();
+        delete articles[nr];
+        await _saveArtikelstammDoc(articles);
+        ARTIKEL_NUMMERN=ARTIKEL_NUMMERN.filter(n=>n!==nr);
+        delete ARTIKEL_BEZEICHNUNG[nr];
+        await loadArtikelstamm();
+    }catch(e){alert('Fehler beim L\u00f6schen: '+e.message);}
+}
+
+function initArtikelstamm(){
+    document.getElementById('addArtikelBtn').addEventListener('click',()=>{
+        addArtikel(document.getElementById('newArtikelNr').value, document.getElementById('newArtikelBez').value);
+    });
+    // Enter-Taste im Bezeichnungsfeld
+    document.getElementById('newArtikelBez').addEventListener('keydown',e=>{
+        if(e.key==='Enter'){e.preventDefault();document.getElementById('addArtikelBtn').click();}
+    });
+}
+
+function initApp(){refreshArtikelMaps().then(()=>{loadDashboard();});initInbound();initOutbound();initInventory();initArtikelstamm();initRemoteScanListener();_initRealtimeListeners();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);}
 
 const _numRe=/[0-9]/g;
 const _separatorRe=/[.,]/g;
@@ -560,7 +685,7 @@ function gsToGb(nr){return 'GB'+nr;}
 function gbToGs(nr){return 'GS'+nr;}
 
 async function loadDashboard(){
-    const s=await db.collection('paletten').get();const paletten=[];s.forEach(d=>{const dt={id:d.id,...d.data()};if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);paletten.push(dt);});
+    const s=await db.collection('paletten').get();const paletten=[];s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt={id:d.id,...d.data()};if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);paletten.push(dt);});
     let fertig=0,halb=0,gran=0;const artikelMap={};const fertigMap={};
     for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');const isFertig=pos.startsWith('GB')||pos.startsWith('GS')?false:_fZ.has(z);if(pos.startsWith('GB')||pos.startsWith('GS'))gran++;else if(isFertig)fertig++;else if(_hZ.has(z))halb++;
         const nr=p.artikelNr||'';const isXO=nr.startsWith('XO');
@@ -592,6 +717,8 @@ async function loadDashboard(){
 
 function _normalizeArtikelNr(nr){
     if(!nr)return nr;
+    // XO-Artikelnummern (Fertigware) nicht normalisieren — Format beibehalten
+    if(nr.trim().toUpperCase().startsWith('XO'))return nr.trim();
     nr=nr.replace(/[\s\-]/g,'').replace(/[Oo]/g,'0');
     // Exakter Match
     const exact=ARTIKEL_NUMMERN.find(a=>nr.startsWith(a));
@@ -613,7 +740,7 @@ function _normalizeArtikelNr(nr){
     if(/^(12|18|19)\d+/.test(digits))return digits.slice(0,6);
     return nr;
 }
-async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
+async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
 function findFreePosition(occ,zo){for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p])return p;}}return null;}
 function findFreeGranulatePosition(occ){
 // Zuerst freie Bodenplätze (GB), dann Stapelplätze (GS) nur wenn GB belegt
@@ -706,10 +833,13 @@ WICHTIGE REGELN:
 - SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor.
 - Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024" oder "05.04.2024").
 - Order Number hat typisch das Format "26-XXXX" oder "26-XXXX-PartX".
+- RUNNING NUMBER (palettenNr) bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 9 Ziffern (z.B. "006919624"). Lies alle 9 Ziffern sorgfältig ab, auch führende Nullen! Wenn die Nummer weniger als 9 Ziffern hat, prüfe ob du Ziffern übersehen hast.
+- LOT-NR. bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 5 Ziffern (z.B. "36479"). Lies alle 5 Ziffern sorgfältig ab. Verwechsle keine Ziffern und kürze nicht ab.
+- SHIFT (schicht) bei ALPLA Halbfabrikate: Dies ist IMMER eine EINZELNE Ziffer (z.B. "1", "2" oder "3"). Lies die Schichtnummer vom Label exakt ab. Es ist immer nur EINE Ziffer, keine Buchstaben.
 - Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
 
 BEISPIEL 1 — ALPLA Halbfabrikate:
-{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"","gtin":"","menge":"196224","mengePerSleeve":""}
+{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"1","gtin":"","menge":"196224","mengePerSleeve":""}
 
 BEISPIEL 2 — XO Fertigware:
 {"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"02.04.2026","uhrzeit":"19:26","sscc":"34262503660026793","palettenNr":"C26-0338","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Monster","schicht":"2","gtin":"4262503660396","menge":"71280","mengePerSleeve":"198"}
@@ -761,6 +891,28 @@ async function scanLabel(file){
     }
     console.log('SCAN RAW:',JSON.stringify(data));
     if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');console.log('SSCC nach Bereinigung:',data.sscc,'Länge:',data.sscc.length);if(data.sscc.length<16)data.sscc='';}
+    // ALPLA Halbfabrikate: Running Number (palettenNr) normalisieren auf 9 Ziffern
+    if(data.labelTyp==='ALPLA Halbfabrikate'){
+        if(data.palettenNr){
+            data.palettenNr=data.palettenNr.replace(/\D/g,'');
+            if(data.palettenNr.length>0&&data.palettenNr.length<9)data.palettenNr=data.palettenNr.padStart(9,'0');
+            if(data.palettenNr.length>9)data.palettenNr=data.palettenNr.slice(-9);
+            if(!/^\d{9}$/.test(data.palettenNr))data.palettenNr='FEHLER';
+        }
+        // Lot-Nr. normalisieren auf 5 Ziffern
+        if(data.lotNr){
+            data.lotNr=data.lotNr.replace(/\D/g,'');
+            if(data.lotNr.length>0&&data.lotNr.length<5)data.lotNr=data.lotNr.padStart(5,'0');
+            if(data.lotNr.length>5)data.lotNr=data.lotNr.slice(-5);
+            if(!/^\d{5}$/.test(data.lotNr))data.lotNr='FEHLER';
+        }
+        // Shift normalisieren auf einzelne Ziffer
+        if(data.schicht){
+            const digits=data.schicht.replace(/\D/g,'');
+            data.schicht=digits.length>=1?digits.charAt(0):'FEHLER';
+            if(!/^\d$/.test(data.schicht))data.schicht='FEHLER';
+        }
+    }
     // Validierung: jedes leere oder ungültige Feld als FEHLER markieren
     if(isXOFertig){if(!data.artikelNr||!/^XO-\d+-[A-Za-z0-9]+$/.test(data.artikelNr))data.artikelNr='FEHLER';}
     else{if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';}
@@ -770,7 +922,7 @@ async function scanLabel(file){
     const _checkFields=isXOFertig
         ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
         :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode']
-        :['sscc','palettenNr','lotNr'];
+        :['sscc','palettenNr','lotNr','schicht'];
     _checkFields.forEach(k=>{if(!data[k])data[k]='FEHLER';});
     return{data,base64};
 }
@@ -822,7 +974,8 @@ const INBOUND_FIELDS_XO_FERTIG=[
 const INBOUND_FIELDS_ALPLA=[
     ...INBOUND_FIELDS_BASE,
     {key:'palettenNr',label:'Running Number'},
-    {key:'lotNr',label:'Lot Number'}
+    {key:'lotNr',label:'Lot Number'},
+    {key:'schicht',label:'Shift'}
 ];
 function getInboundFields(typ){if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;if(typ==='XO Fertigware')return INBOUND_FIELDS_XO_FERTIG;return INBOUND_FIELDS_BASE;}
 const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','mengePerSleeve','palettenNr','lotNr','orderNr','internalBarcode','kunde','schicht','gtin'];
@@ -1267,7 +1420,7 @@ function _positionFilterPopup(popup,btn){
 function closeInvFilterPopup(){if(_openFilterPopup){_openFilterPopup.remove();_openFilterPopup=null;}}
 
 async function loadInventory(){
-    const s=await db.collection('paletten').get();_invAllRows=[];s.forEach(d=>_invAllRows.push({id:d.id,...d.data()}));
+    const s=await db.collection('paletten').get();_invAllRows=[];s.forEach(d=>{if(_isConfigDoc(d.id))return;_invAllRows.push({id:d.id,...d.data()});});
     renderInvTable();
 }
 function renderInvTable(){
