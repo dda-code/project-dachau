@@ -405,6 +405,8 @@ const WAREHOUSE_ZONES = Object.freeze({
     granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
     fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
 });
+const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
+function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
 const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const GRANULATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.granulate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const FERTIGWARE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
@@ -415,8 +417,14 @@ let ARTIKEL_BEZEICHNUNG = {
     '180006':'Inner Slider Black','180007':'Inner Slider Natural',
     '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
 };
-const GROQ_API_KEY = localStorage.getItem('groq_api_key') || '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';
-if(!localStorage.getItem('groq_api_key'))localStorage.setItem('groq_api_key', GROQ_API_KEY);
+const GROQ_API_KEYS = [
+    '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',
+    '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'
+];
+let _groqKeyIndex = 0;
+function getGroqKey(){ return GROQ_API_KEYS[_groqKeyIndex]; }
+function rotateGroqKey(){ _groqKeyIndex = (_groqKeyIndex+1) % GROQ_API_KEYS.length; console.log('Groq Key gewechselt auf Key #'+(_groqKeyIndex+1)); }
+const GROQ_API_KEY = GROQ_API_KEYS[0];
 const EMAIL_DOMAIN = '@lager.local';
 
 // ============================================================
@@ -670,8 +678,8 @@ const _numRe=/[0-9]/g;
 const _separatorRe=/[.,]/g;
 const _hZ=new Set('KHGFEDCBAV'.split(''));
 const _fZ=new Set('MNOPQRSTU'.split(''));
-const _hT=Object.values(WAREHOUSE_ZONES.halbfabrikate.zones).reduce((a,b)=>a+b,0);
-const _fT=Object.values(WAREHOUSE_ZONES.fertigware.zones).reduce((a,b)=>a+b,0);
+const _hT=Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).reduce((a,[z,c])=>{for(let i=1;i<=c;i++)if(isValidPosition(z+i))a++;return a;},0);
+const _fT=Object.entries(WAREHOUSE_ZONES.fertigware.zones).reduce((a,[z,c])=>{for(let i=1;i<=c;i++)if(isValidPosition(z+i))a++;return a;},0);
 const _grT=Object.values(WAREHOUSE_ZONES.granulate.zones).reduce((a,b)=>a+b,0);
 const _zoneSlotMap={};
 for(const[_,cat]of Object.entries(WAREHOUSE_ZONES))for(const[zone,count]of Object.entries(cat.zones))_zoneSlotMap[zone]=count;
@@ -742,7 +750,21 @@ function _normalizeArtikelNr(nr){
     return nr;
 }
 async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
-function findFreePosition(occ,zo){for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p])return p;}}return null;}
+function findFreePosition(occ,zo){
+    const lastPos=localStorage.getItem('lastStoredPosition');
+    if(lastPos){
+        const m=lastPos.match(/^([A-Z]+)(\d+)$/);
+        if(m){
+            const lastZone=m[1], lastNum=parseInt(m[2]);
+            const maxSlot=_zoneSlotMap[lastZone];
+            if(maxSlot && zo.includes(lastZone)){
+                for(let i=lastNum+1;i<=maxSlot;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+                for(let i=1;i<=lastNum;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+            }
+        }
+    }
+    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))return p;}}return null;
+}
 function findFreeGranulatePosition(occ){
 // Zuerst freie Bodenplätze (GB), dann Stapelplätze (GS) nur wenn GB belegt
 for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;if(!occ[p])return p;}
@@ -756,7 +778,7 @@ function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new 
 // ============================================================
 let _lastPositions=null;
 async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (K — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GB / GS)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
-function _renderCell(p,i,o,showField){const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
+function _renderCell(p,i,o,showField){if(!isValidPosition(p))return '';const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
 function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr'));parts.push('</div></div>');return parts.join('');}
 function rgr(o){const parts=[];
@@ -874,9 +896,37 @@ function normalizeDatum(s){
     return s;
 }
 
+async function _groqRequest(base64, retries=2){
+    const models=['meta-llama/llama-4-scout-17b-16e-instruct'];
+    const totalKeys=GROQ_API_KEYS.length;
+    for(let k=0;k<totalKeys;k++){
+        const currentKey=getGroqKey();
+        for(let m=0;m<models.length;m++){
+            for(let i=0;i<retries;i++){
+                const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+currentKey,'Content-Type':'application/json'},body:JSON.stringify({model:models[m],messages:[{role:'user',content:[{type:'image_url',image_url:{url:base64}},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
+                if(r.ok) return r;
+                if(r.status===429){
+                    const body=await r.text();
+                    const waitMatch=body.match(/try again in (\d+)m?([\d.]+)s/i);
+                    let waitSec=15*(i+1);
+                    if(waitMatch){waitSec=parseInt(waitMatch[1]||'0')*60+parseFloat(waitMatch[2]||'15');}
+                    if(waitSec>60){console.warn('Rate-Limit bei Key #'+(_groqKeyIndex+1)+': Wechsle Modell/Key...');break;}
+                    console.warn(`Rate-Limit (429) Key #${_groqKeyIndex+1}. Warte ${Math.ceil(waitSec)}s (Versuch ${i+1}/${retries})...`);
+                    await new Promise(ok=>setTimeout(ok,waitSec*1000));
+                    continue;
+                }
+                throw new Error('API-Fehler '+r.status+': '+await r.text());
+            }
+        }
+        rotateGroqKey();
+        console.log('Wechsle zu Groq Key #'+(_groqKeyIndex+1)+' ...');
+    }
+    throw new Error('Alle Groq API-Keys haben das Tages-Limit erreicht. Bitte warte bis morgen oder füge einen weiteren Key hinzu.');
+}
+
 async function scanLabel(file){
     const base64=await imageToBase64Scan(file,2500);
-    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+GROQ_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:[{type:'image_url',image_url:{url:base64}},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
+    const r=await _groqRequest(base64);
     if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
     const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
     let data;try{data=JSON.parse(content);}catch{const m=content.match(_jsonBlockRe);if(m)data=JSON.parse(m[1]);else throw new Error('JSON-Parse-Fehler');}
@@ -1067,15 +1117,15 @@ async function showPositionStep(){
     const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['K','H','G','F','E','D','C','B','A','V'];
     const fp=findFreePosition(occ,zo);document.getElementById('suggestedPosition').textContent=fp||'Kein Platz frei!';
     const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
+    sel._occSnapshot=occ;
     for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){
         if(ck==='granulate'){
-            // Granulate: Boden (GB) + Stapel (GS) Positionen separat auflisten
             const og=document.createElement('optgroup');og.label=cat.label;
-            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);}}
-            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pb='GB'+i,ps='GS'+i;if(occ[pb]&&!occ[ps]){const o=document.createElement('option');o.value=ps;o.textContent=ps;og.appendChild(o);}}
+            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
+            for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const ps='GS'+i;const o=document.createElement('option');o.value=ps;o.textContent=occ[ps]?'\u26a0\ufe0f '+ps+' (belegt)':ps;if(occ[ps])o.style.color='#dc2626';if(ps===fp)o.selected=true;og.appendChild(o);}
             frag.appendChild(og);
         }else{
-            const og=document.createElement('optgroup');og.label=cat.label;for(const[z,cnt]of Object.entries(cat.zones)){for(let i=1;i<=cnt;i++){const p=z+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;if(p===fp)o.selected=true;og.appendChild(o);}}}frag.appendChild(og);
+            const og=document.createElement('optgroup');og.label=cat.label;for(const[z,cnt]of Object.entries(cat.zones)){for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}}frag.appendChild(og);
         }
     }sel.innerHTML='';sel.appendChild(frag);
     document.getElementById('inboundStep3').style.display='block';document.getElementById('inboundResetBtn').style.display='block';
@@ -1101,6 +1151,30 @@ function showDuplicateWarning(docId,position){
     });
 }
 
+function showOccupiedWarning(pos, existingPal){
+    return new Promise(resolve=>{
+        const art=existingPal.artikelNr||'?';
+        const datum=existingPal.produktionsDatum||existingPal.datum||'?';
+        const overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2000;';
+        overlay.innerHTML=`<div style="background:white;border-radius:14px;padding:30px;max-width:460px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
+            <div style="font-size:3.5rem;color:#f59e0b;line-height:1;margin-bottom:10px;">&#9888;</div>
+            <p style="color:#f59e0b;font-weight:800;font-size:1.15rem;margin-bottom:14px;">Stellplatz ${_escAttr(pos)} ist bereits belegt!</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:6px;">Aktuelle Palette auf diesem Platz:</p>
+            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:4px;">Artikel: ${_escAttr(art)}</p>
+            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:20px;">Datum: ${_escAttr(datum)}</p>
+            <p style="color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:20px;">Die bestehende Palette wird &uuml;berschrieben!</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger" id="_occOk">Trotzdem belegen</button>
+                <button class="btn btn-secondary" id="_occCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_occOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
+        overlay.querySelector('#_occCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
+    });
+}
+
 async function confirmInbound(){
     const fields=getInboundFields(currentLabelTyp);const data={};ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');fields.forEach(f=>{data[f.key]=document.getElementById('inbound-'+f.key)?.value.trim()||data[f.key]||'';});
     const ps=document.getElementById('positionSelect'),pos=ps.style.display!=='none'&&ps.value?ps.value:document.getElementById('suggestedPosition').textContent;
@@ -1114,6 +1188,13 @@ async function confirmInbound(){
             if(!proceed)return;
         }
     }catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
+    // Prüfung ob Stellplatz bereits belegt
+    try{const occSnap=ps._occSnapshot||await getAllPositions();
+        if(occSnap[pos]){
+            const proceed=await showOccupiedWarning(pos, occSnap[pos]);
+            if(!proceed)return;
+        }
+    }catch(e){console.warn('Belegungsprüfung fehlgeschlagen:',e);}
     // FIFO-Prüfung für Granulate-Stapelplätze (GS auf GB)
     if(pos.startsWith('GS')){
         const nr=parseInt(pos.replace('GS',''),10);
@@ -1134,6 +1215,7 @@ async function confirmInbound(){
     try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
     await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
     await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+    localStorage.setItem('lastStoredPosition', pos);
     renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();}catch(e){alert('Fehler: '+e.message);}
 }
 
