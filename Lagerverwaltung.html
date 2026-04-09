@@ -494,6 +494,7 @@ let currentUserRole='user';
 function isAdmin(){return currentUserRole==='admin';}
 function isQS(){return currentUserRole==='qs';}
 function canManageQS(){return isAdmin()||isQS();}
+function canDeletePalette(){return isAdmin()||isQS()||getCurrentUsername().toLowerCase()==='lager';}
 
 const $=id=>document.getElementById(id);
 auth.onAuthStateChanged(async user=>{
@@ -1476,7 +1477,7 @@ function renderInvTable(){
             ?`<button class="btn btn-success btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="false">Freigeben</button>`
             :`<button class="btn btn-danger btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="true">Sperren</button>`):'';
         const editBtn=isAdmin()?`<button class="btn btn-sm btn-secondary" data-edit-id="${_escAttr(p.id)}" style="margin-left:4px">Bearbeiten</button>`:'';
-        const delBtn=isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`:'';
+        const delBtn=canDeletePalette()?`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`:'';
         return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${editBtn}${delBtn}</td></tr>`;
     }).join('')||'<tr><td colspan="17" class="info-msg">Keine Paletten im Lager</td></tr>';
 }
