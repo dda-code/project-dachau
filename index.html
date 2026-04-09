@@ -245,8 +245,14 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 const $ = id => document.getElementById(id);
 
-const GROQ_API_KEY = localStorage.getItem('groq_api_key') || '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';
-if(!localStorage.getItem('groq_api_key'))localStorage.setItem('groq_api_key', GROQ_API_KEY);
+const GROQ_API_KEYS = [
+    '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',
+    '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'
+];
+let _groqKeyIndex = 0;
+function getGroqKey(){ return GROQ_API_KEYS[_groqKeyIndex]; }
+function rotateGroqKey(){ _groqKeyIndex = (_groqKeyIndex+1) % GROQ_API_KEYS.length; console.log('Groq Key gewechselt auf Key #'+(_groqKeyIndex+1)); }
+const GROQ_API_KEY = GROQ_API_KEYS[0];
 
 const WAREHOUSE_ZONES = Object.freeze({
     halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
@@ -415,9 +421,38 @@ function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=
     ctx.putImageData(orig,0,0);tc.width=0;tc.height=0;
     const result=c.toDataURL('image/jpeg',0.92);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
 
+async function _groqRequest(base64, retries=2){
+    const models=['meta-llama/llama-4-scout-17b-16e-instruct','llama-3.3-70b-versatile'];
+    const totalKeys=GROQ_API_KEYS.length;
+    for(let k=0;k<totalKeys;k++){
+        const currentKey=getGroqKey();
+        for(let m=0;m<models.length;m++){
+            for(let i=0;i<retries;i++){
+                const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+currentKey,'Content-Type':'application/json'},body:JSON.stringify({model:models[m],messages:[{role:'user',content:[{type:'image_url',image_url:{url:base64}},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
+                if(r.ok) return r;
+                if(r.status===429){
+                    const body=await r.text();
+                    const waitMatch=body.match(/try again in (\d+)m?([\d.]+)s/i);
+                    let waitSec=15*(i+1);
+                    if(waitMatch){waitSec=parseInt(waitMatch[1]||'0')*60+parseFloat(waitMatch[2]||'15');}
+                    if(waitSec>60){console.warn('Rate-Limit bei Key #'+(_groqKeyIndex+1)+': Wechsle Modell/Key...');break;}
+                    console.warn(`Rate-Limit (429) Key #${_groqKeyIndex+1}. Warte ${Math.ceil(waitSec)}s (Versuch ${i+1}/${retries})...`);
+                    await new Promise(ok=>setTimeout(ok,waitSec*1000));
+                    continue;
+                }
+                throw new Error('API-Fehler '+r.status+': '+await r.text());
+            }
+        }
+        // Alle Modelle bei diesem Key limitiert → nächsten Key probieren
+        rotateGroqKey();
+        console.log('Wechsle zu Groq Key #'+(_groqKeyIndex+1)+' ...');
+    }
+    throw new Error('Alle Groq API-Keys haben das Tages-Limit erreicht. Bitte warte bis morgen oder füge einen weiteren Key hinzu.');
+}
+
 async function scanLabel(file){
     const base64=await imageToBase64Scan(file,2500);
-    const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+GROQ_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',messages:[{role:'user',content:[{type:'image_url',image_url:{url:base64}},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
+    const r=await _groqRequest(base64);
     if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
     const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
     let data;try{data=JSON.parse(content);}catch{const mt=content.match(_jsonBlockRe);if(mt)data=JSON.parse(mt[1]);else throw new Error('JSON-Parse-Fehler');}
