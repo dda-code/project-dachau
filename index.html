@@ -259,6 +259,8 @@ const WAREHOUSE_ZONES = Object.freeze({
     granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
     fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
 });
+const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
+function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
 const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032','190033']);
 const GRANULATE_SLOT_COUNT = 25;
 const _zoneSlotMap = {};
@@ -422,7 +424,7 @@ function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=
     const result=c.toDataURL('image/jpeg',0.92);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
 
 async function _groqRequest(base64, retries=2){
-    const models=['meta-llama/llama-4-scout-17b-16e-instruct','llama-3.3-70b-versatile'];
+    const models=['meta-llama/llama-4-scout-17b-16e-instruct'];
     const totalKeys=GROQ_API_KEYS.length;
     for(let k=0;k<totalKeys;k++){
         const currentKey=getGroqKey();
@@ -510,7 +512,20 @@ async function getAllPositions(){
 }
 
 function findFreePosition(occ,zo){
-    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p])return p;}}return null;
+    // Smart-Vorschlag: nächsten freien Platz nach der letzten Einlagerung vorschlagen
+    const lastPos=localStorage.getItem('lastStoredPosition');
+    if(lastPos){
+        const m=lastPos.match(/^([A-Z]+)(\d+)$/);
+        if(m){
+            const lastZone=m[1], lastNum=parseInt(m[2]);
+            const maxSlot=_zoneSlotMap[lastZone];
+            if(maxSlot && zo.includes(lastZone)){
+                for(let i=lastNum+1;i<=maxSlot;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+                for(let i=1;i<=lastNum;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+            }
+        }
+    }
+    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))return p;}}return null;
 }
 
 function findFreeGranulatePosition(occ){
@@ -535,6 +550,7 @@ const GRANULATE_ROW_SIZE=5;
 function renderMiniMap(occ, selectedPos){
     const c=$('warehouseMapContainer');
     const mc=(pos)=>{
+        if(!isValidPosition(pos)) return '';
         const pal=occ[pos];
         const cls=pos===selectedPos?'selected':pal?(pal.gesperrt?'blocked':'occ'):'free';
         return `<div class="wh-minicell ${cls}" data-pos="${pos}" title="${pos}${pal?' — belegt':' — frei'}"></div>`;
@@ -732,20 +748,20 @@ $('toStep3Btn').addEventListener('click', async ()=>{
         const fp=findFreePosition(occ,zo);
         $('suggestedPos').textContent=fp||'Kein Platz frei!';
 
-        // Populate dropdown
+        // Populate dropdown – alle Plätze anzeigen, belegte markiert aber wählbar
         const sel=$('positionSelect');
+        sel._occSnapshot=occ; // Belegung merken für spätere Warnung
         const frag=document.createDocumentFragment();
         for(const[ck,cat] of Object.entries(WAREHOUSE_ZONES)){
             if(ck==='granulate'){
                 const og=document.createElement('optgroup');og.label=cat.label;
-                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);}}
-                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pb='GB'+i,ps='GS'+i;if(occ[pb]&&!occ[ps]){const o=document.createElement('option');o.value=ps;o.textContent=ps;og.appendChild(o);}}
+                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
+                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const ps='GS'+i;const o=document.createElement('option');o.value=ps;o.textContent=occ[ps]?'\u26a0\ufe0f '+ps+' (belegt)':ps;if(occ[ps])o.style.color='#dc2626';if(ps===fp)o.selected=true;og.appendChild(o);}
                 frag.appendChild(og);
             } else {
                 const og=document.createElement('optgroup');og.label=cat.label;
                 for(const[z,cnt] of Object.entries(cat.zones)){
-                    for(let i=1;i<=cnt;i++){const p=z+i;if(!occ[p]){const o=document.createElement('option');o.value=p;o.textContent=p;if(p===fp)o.selected=true;og.appendChild(o);}}
-                }
+                    for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}}
                 frag.appendChild(og);
             }
         }
@@ -796,6 +812,15 @@ $('confirmBtn').addEventListener('click', async ()=>{
         }
     } catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
 
+    // Prüfung ob Stellplatz bereits belegt
+    try {
+        const occSnap=sel._occSnapshot||await getAllPositions();
+        if(occSnap[pos]){
+            const proceed=await showOccupiedWarning(pos, occSnap[pos]);
+            if(!proceed){$('confirmBtn').disabled=false;return;}
+        }
+    } catch(e){console.warn('Belegungsprüfung fehlgeschlagen:',e);}
+
     // FIFO-Prüfung für Granulate
     if(pos.startsWith('GS')){
         const nr=parseInt(pos.replace('GS',''),10);
@@ -820,6 +845,9 @@ $('confirmBtn').addEventListener('click', async ()=>{
         await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
         await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
         await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+
+        // Letzte Position merken für Smart-Vorschlag
+        localStorage.setItem('lastStoredPosition', pos);
 
         // Success
         $('successDetail').textContent=data.artikelNr+' auf '+pos;
@@ -852,6 +880,30 @@ function showDuplicateWarning(docId,position){
         document.body.appendChild(overlay);
         overlay.querySelector('#_dupOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
         overlay.querySelector('#_dupCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
+    });
+}
+
+function showOccupiedWarning(pos, existingPal){
+    return new Promise(resolve=>{
+        const art=existingPal.artikelNr||'?';
+        const datum=existingPal.produktionsDatum||existingPal.datum||'?';
+        const overlay=document.createElement('div');
+        overlay.className='overlay';
+        overlay.innerHTML=`<div class="overlay-card">
+            <div style="font-size:3.5rem;color:#f59e0b;line-height:1;margin-bottom:10px;">&#9888;</div>
+            <p style="color:#f59e0b;font-weight:800;font-size:1.1rem;margin-bottom:14px;">Stellplatz ${_escAttr(pos)} ist bereits belegt!</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:6px;">Aktuelle Palette auf diesem Platz:</p>
+            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:4px;">Artikel: ${_escAttr(art)}</p>
+            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:20px;">Datum: ${_escAttr(datum)}</p>
+            <p style="color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:20px;">Die bestehende Palette wird &uuml;berschrieben!</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger btn-sm" id="_occOk">Trotzdem belegen</button>
+                <button class="btn btn-secondary btn-sm" id="_occCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_occOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
+        overlay.querySelector('#_occCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
     });
 }
 
