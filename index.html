@@ -322,7 +322,8 @@ const INBOUND_FIELDS_XO_FERTIG=[
 const INBOUND_FIELDS_ALPLA=[
     ...INBOUND_FIELDS_BASE,
     {key:'palettenNr',label:'Running Number'},
-    {key:'lotNr',label:'Lot Number'}
+    {key:'lotNr',label:'Lot Number'},
+    {key:'schicht',label:'Shift'}
 ];
 function getInboundFields(typ){
     if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;
@@ -348,10 +349,13 @@ WICHTIGE REGELN:
 - SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor.
 - Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024" oder "05.04.2024").
 - Order Number hat typisch das Format "26-XXXX" oder "26-XXXX-PartX".
+- RUNNING NUMBER (palettenNr) bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 9 Ziffern (z.B. "006919624"). Lies alle 9 Ziffern sorgfältig ab, auch führende Nullen! Wenn die Nummer weniger als 9 Ziffern hat, prüfe ob du Ziffern übersehen hast.
+- LOT-NR. bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 5 Ziffern (z.B. "36479"). Lies alle 5 Ziffern sorgfältig ab. Verwechsle keine Ziffern und kürze nicht ab.
+- SHIFT (schicht) bei ALPLA Halbfabrikate: Dies ist IMMER eine EINZELNE Ziffer (z.B. "1", "2" oder "3"). Lies die Schichtnummer vom Label exakt ab. Es ist immer nur EINE Ziffer, keine Buchstaben.
 - Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
 
 BEISPIEL 1 — ALPLA Halbfabrikate:
-{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"","gtin":"","menge":"196224","mengePerSleeve":""}
+{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"1","gtin":"","menge":"196224","mengePerSleeve":""}
 
 BEISPIEL 2 — XO Fertigware:
 {"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"02.04.2026","uhrzeit":"19:26","sscc":"34262503660026793","palettenNr":"C26-0338","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Monster","schicht":"2","gtin":"4262503660396","menge":"71280","mengePerSleeve":"198"}
@@ -365,6 +369,8 @@ const _jsonBlockRe=/```(?:json)?\s*([\s\S]*?)```/;
 
 function _normalizeArtikelNr(nr){
     if(!nr)return nr;
+    // XO-Artikelnummern (Fertigware) nicht normalisieren — Format beibehalten
+    if(nr.trim().toUpperCase().startsWith('XO'))return nr.trim();
     nr=nr.replace(/[\s\-]/g,'').replace(/[Oo]/g,'0');
     const exact=ARTIKEL_NUMMERN.find(a=>nr.startsWith(a));
     if(exact)return exact;
@@ -424,6 +430,28 @@ async function scanLabel(file){
         if(xoMatch)data.artikelNr='XO-'+xoMatch[1]+'-'+xoMatch[2].toUpperCase();
     }
     if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');if(data.sscc.length<16)data.sscc='';}
+    // ALPLA Halbfabrikate: Running Number (palettenNr) normalisieren auf 9 Ziffern
+    if(data.labelTyp==='ALPLA Halbfabrikate'){
+        if(data.palettenNr){
+            data.palettenNr=data.palettenNr.replace(/\D/g,'');
+            if(data.palettenNr.length>0&&data.palettenNr.length<9)data.palettenNr=data.palettenNr.padStart(9,'0');
+            if(data.palettenNr.length>9)data.palettenNr=data.palettenNr.slice(-9);
+            if(!/^\d{9}$/.test(data.palettenNr))data.palettenNr='FEHLER';
+        }
+        // Lot-Nr. normalisieren auf 5 Ziffern
+        if(data.lotNr){
+            data.lotNr=data.lotNr.replace(/\D/g,'');
+            if(data.lotNr.length>0&&data.lotNr.length<5)data.lotNr=data.lotNr.padStart(5,'0');
+            if(data.lotNr.length>5)data.lotNr=data.lotNr.slice(-5);
+            if(!/^\d{5}$/.test(data.lotNr))data.lotNr='FEHLER';
+        }
+        // Shift normalisieren auf einzelne Ziffer
+        if(data.schicht){
+            const digits=data.schicht.replace(/\D/g,'');
+            data.schicht=digits.length>=1?digits.charAt(0):'FEHLER';
+            if(!/^\d$/.test(data.schicht))data.schicht='FEHLER';
+        }
+    }
     if(isXOFertig){if(!data.artikelNr||!/^XO-\d+-[A-Za-z0-9]+$/.test(data.artikelNr))data.artikelNr='FEHLER';}
     else{if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';}
     if(!data.datum||!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum))data.datum='FEHLER';
@@ -431,7 +459,7 @@ async function scanLabel(file){
     const _checkFields=isXOFertig
         ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
         :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode']
-        :['sscc','palettenNr','lotNr'];
+        :['sscc','palettenNr','lotNr','schicht'];
     for(const k of _checkFields){if(!data[k])data[k]='FEHLER';}
     return {data, base64};
 }
