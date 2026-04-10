@@ -70,7 +70,7 @@ body {
 .logo {
   height: 40px; width: auto; flex-shrink: 0;
 }
-.header h1 { font-size: 18px; font-weight: 700; flex: 1; }
+.header h1 { font-size: 22px; font-weight: 700; flex: 1; }
 .status-dot {
   width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
   background: var(--text3); transition: background .3s;
@@ -78,7 +78,7 @@ body {
 .status-dot.connected { background: var(--green); }
 .status-dot.error { background: var(--red); }
 .btn-icon {
-  background: none; border: none; font-size: 18px; cursor: pointer;
+  background: none; border: none; font-size: 22px; cursor: pointer;
   color: var(--text2); padding: 4px; border-radius: 8px;
   min-width: 36px; min-height: 36px;
   display: flex; align-items: center; justify-content: center;
@@ -90,11 +90,11 @@ body {
   display: flex; align-items: center; justify-content: center; gap: 4px;
   margin-bottom: 8px;
 }
-.week-nav .btn-icon { font-size: 18px; min-width: 32px; min-height: 32px; }
-.kw-label { font-size: 16px; font-weight: 700; color: var(--accent); min-width: 60px; text-align: center; }
-.kw-dates { font-size: 11px; color: var(--text2); text-align: center; }
+.week-nav .btn-icon { font-size: 22px; min-width: 32px; min-height: 32px; }
+.kw-label { font-size: 19px; font-weight: 700; color: var(--accent); min-width: 60px; text-align: center; }
+.kw-dates { font-size: 13px; color: var(--text2); text-align: center; }
 .btn-today {
-  font-size: 11px; font-weight: 600; padding: 4px 10px;
+  font-size: 13px; font-weight: 600; padding: 4px 10px;
   border-radius: 14px; border: 1px solid var(--accent);
   background: none; color: var(--accent); cursor: pointer; min-height: 28px;
 }
@@ -108,18 +108,18 @@ body {
 }
 .day-hdr-cell {
   flex: 1; text-align: center; padding: 6px 0 4px;
-  border-left: 1px solid var(--border);
-  font-size: 11px; line-height: 1.3;
+  border-left: 2px solid var(--text3);
+  font-size: 13px; line-height: 1.3;
 }
 .day-hdr-cell:first-child { border-left: none; }
 .day-hdr-cell .dn { font-weight: 700; text-transform: uppercase; color: var(--text2); }
-.day-hdr-cell .dd { font-size: 12px; font-weight: 600; color: var(--text); }
+.day-hdr-cell .dd { font-size: 14px; font-weight: 600; color: var(--text); }
 .day-hdr-cell.today { background: var(--accent); }
 .day-hdr-cell.today .dn, .day-hdr-cell.today .dd { color: #fff; }
 .day-hdr-cell.weekend .dn, .day-hdr-cell.weekend .dd { color: var(--text3); }
 .day-hdr-cell.holiday { background: rgba(239,68,68,.10); }
 .day-hdr-cell.holiday .dn, .day-hdr-cell.holiday .dd { color: var(--red); }
-.day-hdr-cell.holiday .hol-name { font-size: 8px; color: var(--red); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+.day-hdr-cell.holiday .hol-name { font-size: 10px; color: var(--red); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
 .day-cell.holiday-col { background: rgba(239,68,68,.05); }
 
 /* ── Gantt Rows ── */
@@ -129,10 +129,10 @@ body {
 }
 .gantt-group:active { background: rgba(79,110,247,.04); }
 .gantt-label-row {
-  padding: 6px 8px 2px; font-size: 12px; font-weight: 600;
+  padding: 6px 8px 2px; font-size: 14px; font-weight: 600;
   color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.gantt-label-row.child-label { padding-left: 20px; font-size: 11px; font-weight: 500; }
+.gantt-label-row.child-label { padding-left: 20px; font-size: 13px; font-weight: 500; }
 .gantt-row {
   display: flex; position: relative;
   min-height: 26px;
@@ -143,7 +143,7 @@ body {
   overflow: visible;
 }
 .day-cell {
-  flex: 1; border-left: 1px solid var(--border);
+  flex: 1; border-left: 2px solid var(--text3);
   min-height: 100%;
 }
 .day-cell:first-child { border-left: none; }
@@ -187,14 +187,34 @@ body {
   display: flex; align-items: center;
   background: var(--bg); padding: 6px 8px;
   border-bottom: 1px solid var(--border);
-  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  font-size: 13px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .5px; color: var(--text3); gap: 6px;
   position: sticky; top: 0; z-index: 5;
 }
-.section-icon { font-size: 13px; }
+.section-icon { font-size: 16px; }
 .section-count {
   background: var(--border); border-radius: 8px; padding: 1px 6px;
-  font-size: 10px;
+  font-size: 12px;
+}
+/* ── Shared utility classes ── */
+.fab-menu-btn {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  border-radius: 12px; border: none; color: #fff; font-size: 16px;
+  font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  font-family: inherit;
+}
+.badge-meeting {
+  font-size: 12px; font-weight: 600; background: #8b5cf6; color: #fff;
+  border-radius: 4px; padding: 2px 6px; white-space: nowrap;
+}
+.modal-heading { display: flex; align-items: center; gap: 8px; }
+.field-row { display: flex; gap: 8px; }
+.field-half { flex: 1; }
+.empty-message { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 16px; }
+.error-message { color: var(--red); font-size: 17px; text-align: center; padding: 20px; }
+.btn-retry {
+  margin-top: 12px; padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--red); background: none; color: var(--red); cursor: pointer;
 }
 
 /* ── Detail Modal ── */
@@ -220,10 +240,10 @@ body {
   width: 36px; height: 4px; border-radius: 2px; background: var(--border);
   margin: 0 auto 14px;
 }
-.modal h2 { font-size: 17px; margin-bottom: 10px; line-height: 1.3; }
+.modal h2 { font-size: 20px; margin-bottom: 10px; line-height: 1.3; }
 .modal-row {
   display: flex; justify-content: space-between; padding: 7px 0;
-  border-bottom: 1px solid var(--border); font-size: 13px;
+  border-bottom: 1px solid var(--border); font-size: 16px;
 }
 .modal-row:last-child { border-bottom: none; }
 .modal-label { color: var(--text2); }
@@ -235,7 +255,7 @@ body {
 }
 .modal-progress-fill { height: 100%; border-radius: 3px; }
 .badge {
-  font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+  font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
 }
 .badge.overdue { background: #fef2f2; color: var(--red); }
 .badge.active { background: #eff6ff; color: var(--accent); }
@@ -251,7 +271,7 @@ body {
 .btn-delete {
   display: block; width: 100%; margin-top: 16px; padding: 12px;
   background: none; border: 1.5px solid var(--red); border-radius: 8px;
-  color: var(--red); font-size: 14px; font-weight: 600; cursor: pointer;
+  color: var(--red); font-size: 17px; font-weight: 600; cursor: pointer;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   transition: background .15s, color .15s;
 }
@@ -271,12 +291,12 @@ body {
   box-shadow: 0 16px 48px rgba(0,0,0,.25);
 }
 @keyframes fadeIn { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
-.confirm-modal h3 { font-size: 16px; margin-bottom: 6px; }
-.confirm-modal p { font-size: 13px; color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
+.confirm-modal h3 { font-size: 19px; margin-bottom: 6px; }
+.confirm-modal p { font-size: 16px; color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
 .confirm-actions { display: flex; gap: 8px; }
 .confirm-actions button {
   flex: 1; padding: 12px; border: none; border-radius: 8px;
-  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-size: 17px; font-weight: 600; cursor: pointer;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 44px;
 }
@@ -289,7 +309,7 @@ body {
 .fab {
   position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 20px;
   width: 52px; height: 52px; border-radius: 50%; border: none;
-  background: var(--accent); color: #fff; font-size: 28px; line-height: 1;
+  background: var(--accent); color: #fff; font-size: 34px; line-height: 1;
   cursor: pointer; box-shadow: 0 4px 16px rgba(79,110,247,.4);
   z-index: 50; display: flex; align-items: center; justify-content: center;
   transition: transform .15s, box-shadow .15s;
@@ -310,12 +330,12 @@ body {
   padding: 16px 20px calc(16px + var(--safe-bottom));
   overflow-y: auto; animation: slideDown .25s ease;
 }
-.add-modal h2 { font-size: 17px; margin-bottom: 14px; }
+.add-modal h2 { font-size: 20px; margin-bottom: 14px; }
 .add-field { margin-bottom: 14px; }
-.add-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.add-field label { display: block; font-size: 16px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
 .add-field input, .add-field select {
   width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
-  border-radius: 10px; font-size: 16px; outline: none; background: var(--bg);
+  border-radius: 10px; font-size: 19px; outline: none; background: var(--bg);
   color: var(--text); transition: border .15s; min-height: 48px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-appearance: none; appearance: none;
@@ -324,7 +344,7 @@ body {
 .add-actions { display: flex; gap: 10px; margin-top: 20px; }
 .add-actions button {
   flex: 1; padding: 14px; border: none; border-radius: 10px;
-  font-size: 15px; font-weight: 600; cursor: pointer; min-height: 48px;
+  font-size: 18px; font-weight: 600; cursor: pointer; min-height: 48px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .btn-save { background: var(--accent); color: #fff; }
@@ -333,7 +353,7 @@ body {
 .btn-cancel { background: var(--border); color: var(--text); }
 .btn-cancel:hover { background: #cbd5e1; }
 .btn-cancel:active { background: #cbd5e1; }
-.add-error { color: var(--red); font-size: 12px; margin-top: 6px; display: none; }
+.add-error { color: var(--red); font-size: 14px; margin-top: 6px; display: none; }
 
 /* ── Loading ── */
 .loading {
@@ -358,30 +378,30 @@ body {
   width: 360px; max-width: 92vw;
   box-shadow: 0 24px 80px rgba(0,0,0,.5); text-align: center;
 }
-#login-box h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-#login-box p { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+#login-box h2 { font-size: 24px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+#login-box p { font-size: 16px; color: var(--text2); margin-bottom: 28px; }
 #login-box input {
   width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
-  border-radius: 8px; font-size: 14px; outline: none;
+  border-radius: 8px; font-size: 17px; outline: none;
   transition: border .15s; margin-bottom: 12px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 #login-box input:focus { border-color: var(--accent); }
 #login-box button {
   width: 100%; padding: 11px; background: var(--accent); color: #fff;
-  border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+  border: none; border-radius: 8px; font-size: 17px; font-weight: 600;
   cursor: pointer; transition: background .15s;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 #login-box button:hover { background: #3b5de7; }
-#login-err { color: #ef4444; font-size: 12px; margin-top: -6px; margin-bottom: 10px; min-height: 16px; }
+#login-err { color: #ef4444; font-size: 14px; margin-top: -6px; margin-bottom: 10px; min-height: 16px; }
 #login-logo { width: 132px; height: auto; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; }
 
 /* ── Responsive ── */
 @media(max-width:380px){
   #login-box { padding: 28px 24px; }
   #login-logo img { width: 90px !important; }
-  #login-box h2 { font-size: 18px !important; }
+  #login-box h2 { font-size: 22px !important; }
 }
 </style>
 </head>
@@ -431,8 +451,8 @@ body {
 
 <!-- FAB Button + Menu -->
 <div id="fabMenu" style="display:none;position:fixed;bottom:calc(84px + var(--safe-bottom));right:20px;z-index:51;flex-direction:column;gap:8px;align-items:flex-end">
-  <button onclick="closeFabMenu();openAddTask()" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:inherit">Neue Aufgabe</button>
-  <button onclick="closeFabMenu();openAddMeeting()" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:none;background:#8b5cf6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:inherit">Neues Meeting</button>
+  <button onclick="closeFabMenu();openAddTask()" class="fab-menu-btn" style="background:var(--accent)">Neue Aufgabe</button>
+  <button onclick="closeFabMenu();openAddMeeting()" class="fab-menu-btn" style="background:#8b5cf6">Neues Meeting</button>
 </div>
 <button class="fab" id="addTaskBtn" onclick="toggleFabMenu()" title="Neu erstellen">+</button>
 <script>
@@ -499,82 +519,11 @@ document.addEventListener('click',function(e){
 var tasks = [];
 var outlookEvents = [];
 var OUTLOOK_COL = db.collection('outlook_events');
-/*
- * ══════════════════════════════════════════════════════════════════
- * OUTLOOK → TASKVIEW SYNCHRONISIERUNG
- * E-Mail: xo.technik.meeting@gmail.com
- * ══════════════════════════════════════════════════════════════════
- *
- * ABLAUF:
- *   1. Teammitglied erstellt Outlook-Termin
- *   2. Laedt xo.technik.meeting@gmail.com als Teilnehmer ein
- *   3. Einladung landet im Gmail-Postfach
- *   4. Power Automate erkennt neue Kalendereinladung
- *   5. Schreibt Termin in Firestore → TaskView zeigt ihn live an
- *
- * ── POWER AUTOMATE SETUP ──────────────────────────────────────
- *
- * VORAUSSETZUNG:
- *   - Gmail-Konto xo.technik.meeting@gmail.com muss in Power Automate
- *     als Gmail-Verbindung eingerichtet sein
- *   - Google Calendar API muss im Google-Konto aktiviert sein
- *     (passiert automatisch bei erster Power Automate Verbindung)
- *
- * FLOW 1: "Outlook-Termin nach Firestore" (Erstellen/Aendern)
- * ─────────────────────────────────────────────────────────────
- *   Trigger:  "When an event is added, updated or deleted"
- *             Connector: Google Calendar
- *             Calendar ID: xo.technik.meeting@gmail.com
- *             (alternativ: Gmail Connector → "When a new email arrives"
- *              mit Filter auf Betreff "Einladung:" oder "invitation:")
- *
- *   Action 1: Bedingung – Pruefen ob Event existiert (nicht geloescht)
- *
- *   Action 2 (Ja-Zweig): HTTP – PATCH Request
- *     URI:     https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/@{triggerOutputs()?['body/id']}?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0
- *     Method:  PATCH
- *     Headers: Content-Type: application/json
- *     Body:
- *     {
- *       "fields": {
- *         "name":      {"stringValue": "@{triggerOutputs()?['body/subject']}"},
- *         "start":     {"stringValue": "@{formatDateTime(triggerOutputs()?['body/start'],'yyyy-MM-dd')}"},
- *         "end":       {"stringValue": "@{formatDateTime(triggerOutputs()?['body/end'],'yyyy-MM-dd')}"},
- *         "startTime": {"stringValue": "@{formatDateTime(triggerOutputs()?['body/start'],'HH:mm')}"},
- *         "endTime":   {"stringValue": "@{formatDateTime(triggerOutputs()?['body/end'],'HH:mm')}"},
- *         "organizer": {"stringValue": "@{triggerOutputs()?['body/organizer/displayName']}"},
- *         "type":      {"stringValue": "meeting"},
- *         "source":    {"stringValue": "outlook"}
- *       }
- *     }
- *
- *   Action 3 (Nein-Zweig / Loeschung): HTTP – DELETE Request
- *     URI:     https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/@{triggerOutputs()?['body/id']}?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0
- *     Method:  DELETE
- *
- * ── FIRESTORE SECURITY RULES ──────────────────────────────────
- *   match /outlook_events/{eventId} {
- *     allow read: if true;
- *     allow write: if true;
- *   }
- *
- * ── TESTEN (ohne Power Automate) ──────────────────────────────
- *   1. Firebase Console oeffnen: https://console.firebase.google.com
- *   2. Projekt "project-dachau" → Firestore Database
- *   3. Collection "outlook_events" anlegen
- *   4. Dokument "test1" erstellen mit Feldern:
- *      name: "Test-Meeting"
- *      start: "2026-04-15"
- *      end: "2026-04-15"
- *      startTime: "09:00"
- *      endTime: "10:30"
- *      organizer: "Max Mustermann"
- *      type: "meeting"
- *      source: "outlook"
- *   5. TaskView oeffnen → Termin erscheint in KW 16 unter Meetings
- * ══════════════════════════════════════════════════════════════════
- */
-var FILTER_COLOR = null; // deaktiviert – Filterung erfolgt jetzt über showInTaskView
+var _unsubGantt = null;
+var _unsubOutlook = null;
+var MEETING_API = 'https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/';
+var MEETING_KEY = '?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
+function meetingUrl(docId){ return MEETING_API+encodeURIComponent(docId)+MEETING_KEY; }
 var today = new Date();
 var todayStr = today.toISOString().slice(0,10);
 var currentMonday = getMonday(today);
@@ -796,8 +745,7 @@ function render() {
     allMeetings.forEach(function(t){ html += renderRow(t, monStr, sunStr, false); });
   }
 
-  if(!html) html = '<div style="text-align:center;padding:40px 20px;color:var(--text3);font-size:13px">Keine Aufgaben in dieser Woche.</div>';
-
+  if(!html) html = '<div class="empty-message">Keine Aufgaben in dieser Woche.</div>';
   document.getElementById('ganttBody').innerHTML = html;
   document.getElementById('ganttBody').style.display = 'block';
   document.getElementById('loadingArea').style.display = 'none';
@@ -818,8 +766,8 @@ function renderRow(t, monStr, sunStr, isChild) {
   var h = '<div class="gantt-group" onclick="showDetail('+idParam+')">';
 
   // Label row
-  var outlookBadge = t.source==='outlook' ? ' <span style="font-size:8px;font-weight:700;background:#8b5cf6;color:#fff;border-radius:3px;padding:1px 4px;vertical-align:middle">Outlook</span>' : '';
-  var timeLabel = (t.source==='outlook'&&t.startTime) ? ' <span style="font-size:10px;color:var(--text2)">'+esc(t.startTime)+(t.endTime?' – '+esc(t.endTime):'')+'</span>' : '';
+  var outlookBadge = t.source==='outlook' ? ' <span style="font-size:10px;font-weight:700;background:#8b5cf6;color:#fff;border-radius:3px;padding:1px 4px;vertical-align:middle">Outlook</span>' : '';
+  var timeLabel = (t.source==='outlook'&&t.startTime) ? ' <span style="font-size:12px;color:var(--text2)">'+esc(t.startTime)+(t.endTime?' – '+esc(t.endTime):'')+'</span>' : '';
   h += '<div class="gantt-label-row'+labelCls+'">'+name+outlookBadge+timeLabel+'</div>';
 
   // Bar row
@@ -882,17 +830,17 @@ function showDetail(id) {
   // Outlook-Termine: editierbare Ansicht
   if(t.source==='outlook'){
     _editMeetingId=t.id;
-    var h='<h2 style="display:flex;align-items:center;gap:8px">Meeting bearbeiten<span style="font-size:10px;font-weight:600;background:#8b5cf6;color:#fff;border-radius:4px;padding:2px 6px;white-space:nowrap">Outlook</span></h2>';
+    var h='<h2 class="modal-heading">Meeting bearbeiten<span class="badge-meeting">Outlook</span></h2>';
     h+='<div class="add-field"><label>Name</label>';
     h+='<input type="text" id="editMeetingName" value="'+esc(t.name||'')+'"></div>';
     h+='<div class="add-field"><label>Beginn (Datum)</label>';
     h+='<input type="date" id="editMeetingStart" value="'+(t.start||'')+'"></div>';
     h+='<div class="add-field"><label>Ende (Datum)</label>';
     h+='<input type="date" id="editMeetingEnd" value="'+(t.end||t.start||'')+'"></div>';
-    h+='<div style="display:flex;gap:8px">';
-    h+='<div class="add-field" style="flex:1"><label>Startzeit</label>';
+    h+='<div class="field-row">';
+    h+='<div class="add-field field-half"><label>Startzeit</label>';
     h+='<input type="time" id="editMeetingStartTime" value="'+(t.startTime||'')+'"></div>';
-    h+='<div class="add-field" style="flex:1"><label>Endzeit</label>';
+    h+='<div class="add-field field-half"><label>Endzeit</label>';
     h+='<input type="time" id="editMeetingEndTime" value="'+(t.endTime||'')+'"></div>';
     h+='</div>';
     h+='<div class="add-field"><label>Organisator</label>';
@@ -1071,7 +1019,7 @@ function saveMeeting(){
   errEl.style.display='none';
 
   var docId=_editMeetingId.replace('outlook_','');
-  var url='https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/'+encodeURIComponent(docId)+'?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
+  var url=meetingUrl(docId);
   var fields={
     name:{stringValue:name},
     start:{stringValue:start},
@@ -1100,7 +1048,7 @@ function confirmDeleteMeeting(){
   document.getElementById('confirmModalBg').classList.remove('open');
   closeModal();
   // Markiere als gelöscht statt zu löschen (verhindert dass Apps Script es wieder anlegt)
-  var url='https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/'+encodeURIComponent(docId)+'?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
+  var url=meetingUrl(docId);
   var fields={deleted:{booleanValue:true},name:{stringValue:''},start:{stringValue:''},end:{stringValue:''},type:{stringValue:'meeting'},source:{stringValue:'outlook'}};
   fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:fields})})
     .catch(function(e){console.error('Delete meeting error:',e);});
@@ -1108,17 +1056,17 @@ function confirmDeleteMeeting(){
 
 function openAddMeeting(){
   var todayD=new Date();
-  var h='<h2 style="display:flex;align-items:center;gap:8px">Neues Meeting<span style="font-size:10px;font-weight:600;background:#8b5cf6;color:#fff;border-radius:4px;padding:2px 6px">Meeting</span></h2>';
+  var h='<h2 class="modal-heading">Neues Meeting<span class="badge-meeting">Meeting</span></h2>';
   h+='<div class="add-field"><label>Name</label>';
   h+='<input type="text" id="editMeetingName" placeholder="Meetingname eingeben"></div>';
   h+='<div class="add-field"><label>Beginn (Datum)</label>';
   h+='<input type="date" id="editMeetingStart" value="'+toStr(todayD)+'"></div>';
   h+='<div class="add-field"><label>Ende (Datum)</label>';
   h+='<input type="date" id="editMeetingEnd" value="'+toStr(todayD)+'"></div>';
-  h+='<div style="display:flex;gap:8px">';
-  h+='<div class="add-field" style="flex:1"><label>Startzeit</label>';
+  h+='<div class="field-row">';
+  h+='<div class="add-field field-half"><label>Startzeit</label>';
   h+='<input type="time" id="editMeetingStartTime" value="09:00"></div>';
-  h+='<div class="add-field" style="flex:1"><label>Endzeit</label>';
+  h+='<div class="add-field field-half"><label>Endzeit</label>';
   h+='<input type="time" id="editMeetingEndTime" value="10:00"></div>';
   h+='</div>';
   h+='<div class="add-field"><label>Organisator</label>';
@@ -1147,7 +1095,7 @@ function saveNewMeeting(){
   errEl.style.display='none';
 
   var docId='manual_'+Date.now();
-  var url='https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/'+docId+'?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
+  var url=meetingUrl(docId);
   var fields={
     name:{stringValue:name},
     start:{stringValue:start},
@@ -1305,44 +1253,41 @@ function firebaseStart(){
     render(); markConnected();
   }).catch(function(e){
     console.error('Firebase error:',e);
-    document.getElementById('loadingArea').innerHTML='<div style="color:var(--red);font-size:14px;text-align:center;padding:20px">&#x26A0; Verbindung fehlgeschlagen<br><button onclick="location.reload()" style="margin-top:12px;padding:8px 16px;border-radius:8px;border:1px solid var(--red);background:none;color:var(--red);cursor:pointer">Erneut versuchen</button></div>';
+    document.getElementById('loadingArea').innerHTML='<div class="error-message">&#x26A0; Verbindung fehlgeschlagen<br><button onclick="location.reload()" class="btn-retry">Erneut versuchen</button></div>';
     markError();
   });
 
-  GANTT_DOC.onSnapshot(function(doc){
+  _unsubGantt = GANTT_DOC.onSnapshot(function(doc){
     if(!doc.exists)return;
     var d=doc.data();if(!d||!d.tasks)return;
     tasks=d.tasks; render(); markConnected();
   },function(err){console.warn('Snapshot error:',err);});
 
-  // ── Outlook-Termine via xo.technik.meeting@gmail.com ──
-  try{
-    OUTLOOK_COL.onSnapshot(function(snap){
-      outlookEvents=[];
-      snap.forEach(function(doc){
-        var d=doc.data();
-        // Gelöschte Meetings überspringen
-        if(d.deleted) return;
-        outlookEvents.push({
-          id:'outlook_'+doc.id,
-          name:d.name||d.subject||'Outlook-Termin',
-          start:d.start||'',
-          end:d.end||d.start||'',
-          startTime:d.startTime||'',
-          endTime:d.endTime||'',
-          organizer:d.organizer||'',
-          type:'meeting',
-          source:'outlook',
-          progress:0,
-          done:false
-        });
+  // ── Outlook-Termine via outlook_sync.py (ol_* Dokumente) ──
+  _unsubOutlook = OUTLOOK_COL.onSnapshot(function(snap){
+    outlookEvents=[];
+    snap.forEach(function(doc){
+      var d=doc.data();
+      if(!doc.id.startsWith('ol_')) return;
+      if(d.deleted) return;
+      outlookEvents.push({
+        id:'outlook_'+doc.id,
+        name:d.name||d.subject||'Outlook-Termin',
+        start:d.start||'',
+        end:d.end||d.start||'',
+        startTime:d.startTime||'',
+        endTime:d.endTime||'',
+        organizer:d.organizer||'',
+        type:'meeting',
+        source:'outlook',
+        progress:0,
+        done:false
       });
-      // Nur rendern wenn Tasks bereits geladen sind
-      if(tasks.length>0) render();
-    },function(err){
-      console.warn('Outlook events nicht verfügbar:',err);
     });
-  }catch(e){console.warn('Outlook listener setup error:',e);}
+    if(tasks.length>0) render();
+  },function(err){
+    console.warn('Outlook events nicht verfügbar:',err);
+  });
 }
 
 function showLogin(){
@@ -1351,6 +1296,8 @@ function showLogin(){
 }
 
 function doLogout(){
+  if(_unsubGantt){_unsubGantt();_unsubGantt=null;}
+  if(_unsubOutlook){_unsubOutlook();_unsubOutlook=null;}
   currentUser=null;
   _firebaseStarted=false;
   try{localStorage.removeItem('taskview_auth_session');}catch(e){}
@@ -1382,16 +1329,17 @@ function doLogout(){
     }catch(e){}
     showLogin();
   }
-  var fallback=setTimeout(tryShowLogin,3000);
+  var fallback=setTimeout(tryShowLogin,1500);
+  var fallback2=setTimeout(tryShowLogin,5000);
   GANTT_DOC.get().then(function(doc){
-    clearTimeout(fallback);
+    clearTimeout(fallback);clearTimeout(fallback2);
     if(doc.exists){
       var d=doc.data();
       if(d.users&&d.users.length){ USERS=d.users; }
     }
     tryShowLogin();
   }).catch(function(){
-    clearTimeout(fallback);
+    clearTimeout(fallback);clearTimeout(fallback2);
     tryShowLogin();
   });
 })();
