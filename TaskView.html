@@ -117,11 +117,15 @@ body {
 .day-hdr-cell.today { background: var(--accent); }
 .day-hdr-cell.today .dn, .day-hdr-cell.today .dd { color: #fff; }
 .day-hdr-cell.weekend .dn, .day-hdr-cell.weekend .dd { color: var(--text3); }
+.day-hdr-cell.holiday { background: rgba(239,68,68,.10); }
+.day-hdr-cell.holiday .dn, .day-hdr-cell.holiday .dd { color: var(--red); }
+.day-hdr-cell.holiday .hol-name { font-size: 8px; color: var(--red); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+.day-cell.holiday-col { background: rgba(239,68,68,.05); }
 
 /* ── Gantt Rows ── */
 .gantt-body { padding-bottom: 40px; }
 .gantt-group {
-  border-bottom: 1px solid var(--border); cursor: pointer;
+  border-bottom: 3px solid var(--border); cursor: pointer;
 }
 .gantt-group:active { background: rgba(79,110,247,.04); }
 .gantt-label-row {
@@ -197,16 +201,21 @@ body {
 .modal-bg {
   display: none; position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,.4); backdrop-filter: blur(4px);
-  align-items: flex-end; justify-content: center;
+  align-items: flex-start; justify-content: center;
 }
 .modal-bg.open { display: flex; }
 .modal {
-  background: var(--bg2); border-radius: 20px 20px 0 0;
-  width: 100%; max-width: 500px; max-height: 75dvh;
+  background: var(--bg2); border-radius: 0 0 20px 20px;
+  width: 100%; max-width: 500px; max-height: 85dvh;
   padding: 16px 20px calc(16px + var(--safe-bottom));
-  overflow-y: auto; animation: slideUp .25s ease;
+  overflow-y: auto; animation: slideDown .25s ease;
 }
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media(max-width:600px){
+  .modal, .add-modal {
+    max-width: 100%; max-height: 100dvh; border-radius: 0; height: 100dvh;
+  }
+}
+@keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
 .modal-handle {
   width: 36px; height: 4px; border-radius: 2px; background: var(--border);
   margin: 0 auto 14px;
@@ -238,6 +247,93 @@ body {
   .badge.done { background: #132a1a; }
   .badge.planned { background: #1e2030; }
 }
+/* ── Delete Button in Detail Modal ── */
+.btn-delete {
+  display: block; width: 100%; margin-top: 16px; padding: 12px;
+  background: none; border: 1.5px solid var(--red); border-radius: 8px;
+  color: var(--red); font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: background .15s, color .15s;
+}
+.btn-delete:hover { background: var(--red); color: #fff; }
+.btn-delete:active { background: #dc2626; color: #fff; }
+/* ── Confirm Modal ── */
+#confirmModalBg {
+  display: none; position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+#confirmModalBg.open { display: flex; }
+.confirm-modal {
+  background: var(--bg2); border-radius: 16px;
+  width: 92%; max-width: 360px; padding: 24px 20px;
+  text-align: center; animation: fadeIn .15s ease;
+  box-shadow: 0 16px 48px rgba(0,0,0,.25);
+}
+@keyframes fadeIn { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
+.confirm-modal h3 { font-size: 16px; margin-bottom: 6px; }
+.confirm-modal p { font-size: 13px; color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 8px; }
+.confirm-actions button {
+  flex: 1; padding: 12px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 44px;
+}
+.btn-confirm-del { background: var(--red); color: #fff; }
+.btn-confirm-del:active { background: #dc2626; }
+.btn-confirm-cancel { background: var(--border); color: var(--text); }
+.btn-confirm-cancel:active { background: #cbd5e1; }
+
+/* ── FAB (Floating Action Button) ── */
+.fab {
+  position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 20px;
+  width: 52px; height: 52px; border-radius: 50%; border: none;
+  background: var(--accent); color: #fff; font-size: 28px; line-height: 1;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(79,110,247,.4);
+  z-index: 50; display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, box-shadow .15s;
+}
+.fab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(79,110,247,.5); }
+.fab:active { transform: scale(.95); }
+
+/* ── Add-Task Modal ── */
+#addModalBg {
+  display: none; position: fixed; inset: 0; z-index: 210;
+  background: rgba(0,0,0,.4); backdrop-filter: blur(4px);
+  align-items: flex-start; justify-content: center;
+}
+#addModalBg.open { display: flex; }
+.add-modal {
+  background: var(--bg2); border-radius: 0 0 20px 20px;
+  width: 100%; max-width: 500px; max-height: 85dvh;
+  padding: 16px 20px calc(16px + var(--safe-bottom));
+  overflow-y: auto; animation: slideDown .25s ease;
+}
+.add-modal h2 { font-size: 17px; margin-bottom: 14px; }
+.add-field { margin-bottom: 14px; }
+.add-field label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.add-field input, .add-field select {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 16px; outline: none; background: var(--bg);
+  color: var(--text); transition: border .15s; min-height: 48px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-appearance: none; appearance: none;
+}
+.add-field input:focus, .add-field select:focus { border-color: var(--accent); }
+.add-actions { display: flex; gap: 10px; margin-top: 20px; }
+.add-actions button {
+  flex: 1; padding: 14px; border: none; border-radius: 10px;
+  font-size: 15px; font-weight: 600; cursor: pointer; min-height: 48px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.btn-save { background: var(--accent); color: #fff; }
+.btn-save:hover { background: #3b5de7; }
+.btn-save:active { background: #3b5de7; }
+.btn-cancel { background: var(--border); color: var(--text); }
+.btn-cancel:hover { background: #cbd5e1; }
+.btn-cancel:active { background: #cbd5e1; }
+.add-error { color: var(--red); font-size: 12px; margin-top: 6px; display: none; }
 
 /* ── Loading ── */
 .loading {
@@ -333,14 +429,152 @@ body {
 
 <div class="gantt-body" id="ganttBody" style="display:none"></div>
 
+<!-- FAB Button + Menu -->
+<div id="fabMenu" style="display:none;position:fixed;bottom:calc(84px + var(--safe-bottom));right:20px;z-index:51;flex-direction:column;gap:8px;align-items:flex-end">
+  <button onclick="closeFabMenu();openAddTask()" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:inherit">Neue Aufgabe</button>
+  <button onclick="closeFabMenu();openAddMeeting()" style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;border:none;background:#8b5cf6;color:#fff;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:inherit">Neues Meeting</button>
+</div>
+<button class="fab" id="addTaskBtn" onclick="toggleFabMenu()" title="Neu erstellen">+</button>
+<script>
+function toggleFabMenu(){
+  var m=document.getElementById('fabMenu');
+  if(m.style.display==='flex'){closeFabMenu();}
+  else{m.style.display='flex';}
+}
+function closeFabMenu(){document.getElementById('fabMenu').style.display='none';}
+document.addEventListener('click',function(e){
+  var fab=document.getElementById('addTaskBtn');
+  var menu=document.getElementById('fabMenu');
+  if(!fab.contains(e.target)&&!menu.contains(e.target))closeFabMenu();
+});
+</script>
+
+<!-- Add-Task Modal -->
+<div id="addModalBg" onclick="if(event.target===this)closeAddModal()">
+  <div class="add-modal">
+    <div class="modal-handle"></div>
+    <h2>Neue Aufgabe</h2>
+    <div class="add-field">
+      <label>Name</label>
+      <input type="text" id="addName" placeholder="Aufgabenname eingeben">
+    </div>
+    <div class="add-field">
+      <label>Übergeordnete Aufgabe</label>
+      <select id="addParent"></select>
+    </div>
+    <div class="add-field">
+      <label>Beginn</label>
+      <input type="date" id="addStart">
+    </div>
+    <div class="add-field">
+      <label>Ende</label>
+      <input type="date" id="addEnd">
+    </div>
+    <div class="add-error" id="addError"></div>
+    <div class="add-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Abbrechen</button>
+      <button class="btn-save" onclick="saveNewTask()">Erstellen</button>
+    </div>
+  </div>
+</div>
+
 <!-- Detail Modal -->
 <div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
   <div class="modal"><div class="modal-handle"></div><div id="modalContent"></div></div>
 </div>
 
+<!-- Confirm Delete Modal -->
+<div id="confirmModalBg" onclick="if(event.target===this)closeConfirm()">
+  <div class="confirm-modal">
+    <h3>Aufgabe löschen?</h3>
+    <p id="confirmText"></p>
+    <div class="confirm-actions">
+      <button class="btn-confirm-cancel" onclick="closeConfirm()">Abbrechen</button>
+      <button class="btn-confirm-del" onclick="if(_deleteMeetingId){confirmDeleteMeeting();}else{confirmDelete();}">Löschen</button>
+    </div>
+  </div>
+</div>
+
 <script>
 var tasks = [];
-var FILTER_COLOR = '#6366f1'; // nur lila Aufgaben anzeigen (null = alle)
+var outlookEvents = [];
+var OUTLOOK_COL = db.collection('outlook_events');
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * OUTLOOK → TASKVIEW SYNCHRONISIERUNG
+ * E-Mail: xo.technik.meeting@gmail.com
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * ABLAUF:
+ *   1. Teammitglied erstellt Outlook-Termin
+ *   2. Laedt xo.technik.meeting@gmail.com als Teilnehmer ein
+ *   3. Einladung landet im Gmail-Postfach
+ *   4. Power Automate erkennt neue Kalendereinladung
+ *   5. Schreibt Termin in Firestore → TaskView zeigt ihn live an
+ *
+ * ── POWER AUTOMATE SETUP ──────────────────────────────────────
+ *
+ * VORAUSSETZUNG:
+ *   - Gmail-Konto xo.technik.meeting@gmail.com muss in Power Automate
+ *     als Gmail-Verbindung eingerichtet sein
+ *   - Google Calendar API muss im Google-Konto aktiviert sein
+ *     (passiert automatisch bei erster Power Automate Verbindung)
+ *
+ * FLOW 1: "Outlook-Termin nach Firestore" (Erstellen/Aendern)
+ * ─────────────────────────────────────────────────────────────
+ *   Trigger:  "When an event is added, updated or deleted"
+ *             Connector: Google Calendar
+ *             Calendar ID: xo.technik.meeting@gmail.com
+ *             (alternativ: Gmail Connector → "When a new email arrives"
+ *              mit Filter auf Betreff "Einladung:" oder "invitation:")
+ *
+ *   Action 1: Bedingung – Pruefen ob Event existiert (nicht geloescht)
+ *
+ *   Action 2 (Ja-Zweig): HTTP – PATCH Request
+ *     URI:     https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/@{triggerOutputs()?['body/id']}?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0
+ *     Method:  PATCH
+ *     Headers: Content-Type: application/json
+ *     Body:
+ *     {
+ *       "fields": {
+ *         "name":      {"stringValue": "@{triggerOutputs()?['body/subject']}"},
+ *         "start":     {"stringValue": "@{formatDateTime(triggerOutputs()?['body/start'],'yyyy-MM-dd')}"},
+ *         "end":       {"stringValue": "@{formatDateTime(triggerOutputs()?['body/end'],'yyyy-MM-dd')}"},
+ *         "startTime": {"stringValue": "@{formatDateTime(triggerOutputs()?['body/start'],'HH:mm')}"},
+ *         "endTime":   {"stringValue": "@{formatDateTime(triggerOutputs()?['body/end'],'HH:mm')}"},
+ *         "organizer": {"stringValue": "@{triggerOutputs()?['body/organizer/displayName']}"},
+ *         "type":      {"stringValue": "meeting"},
+ *         "source":    {"stringValue": "outlook"}
+ *       }
+ *     }
+ *
+ *   Action 3 (Nein-Zweig / Loeschung): HTTP – DELETE Request
+ *     URI:     https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/@{triggerOutputs()?['body/id']}?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0
+ *     Method:  DELETE
+ *
+ * ── FIRESTORE SECURITY RULES ──────────────────────────────────
+ *   match /outlook_events/{eventId} {
+ *     allow read: if true;
+ *     allow write: if true;
+ *   }
+ *
+ * ── TESTEN (ohne Power Automate) ──────────────────────────────
+ *   1. Firebase Console oeffnen: https://console.firebase.google.com
+ *   2. Projekt "project-dachau" → Firestore Database
+ *   3. Collection "outlook_events" anlegen
+ *   4. Dokument "test1" erstellen mit Feldern:
+ *      name: "Test-Meeting"
+ *      start: "2026-04-15"
+ *      end: "2026-04-15"
+ *      startTime: "09:00"
+ *      endTime: "10:30"
+ *      organizer: "Max Mustermann"
+ *      type: "meeting"
+ *      source: "outlook"
+ *   5. TaskView oeffnen → Termin erscheint in KW 16 unter Meetings
+ * ══════════════════════════════════════════════════════════════════
+ */
+var FILTER_COLOR = null; // deaktiviert – Filterung erfolgt jetzt über showInTaskView
 var today = new Date();
 var todayStr = today.toISOString().slice(0,10);
 var currentMonday = getMonday(today);
@@ -369,6 +603,43 @@ function fmtDate(d){
 }
 function fmtDateShort(d){ return d.getDate()+'. '+MN[d.getMonth()]; }
 function esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ── BAVARIAN HOLIDAYS 2026–2028 ──────────────────────
+function easterDate(y){
+  var a=y%19,b=Math.floor(y/100),c=y%100;
+  var d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  var g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+  var i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  var m=Math.floor((a+11*h+22*l)/451);
+  var mo=Math.floor((h+l-7*m+114)/31),dy=(h+l-7*m+114)%31+1;
+  return new Date(y,mo-1,dy);
+}
+function fmtD(d){var mm=('0'+(d.getMonth()+1)).slice(-2),dd=('0'+d.getDate()).slice(-2);return d.getFullYear()+'-'+mm+'-'+dd;}
+function buildHolidays(){
+  var h={};
+  function addH(key,name){ h[key]=h[key]?h[key]+' / '+name:name; }
+  [2026,2027,2028].forEach(function(y){
+    var e=easterDate(y);
+    addH(y+'-01-01','Neujahr');
+    addH(y+'-01-06','Heilige Drei Könige');
+    addH(y+'-05-01','Tag der Arbeit');
+    addH(y+'-08-15','Mariä Himmelfahrt');
+    addH(y+'-10-03','Tag der Deutschen Einheit');
+    addH(y+'-11-01','Allerheiligen');
+    addH(y+'-12-25','1. Weihnachtsfeiertag');
+    addH(y+'-12-26','2. Weihnachtsfeiertag');
+    addH(fmtD(addDays(e,-2)),'Karfreitag');
+    addH(fmtD(e),'Ostersonntag');
+    addH(fmtD(addDays(e,1)),'Ostermontag');
+    addH(fmtD(addDays(e,39)),'Christi Himmelfahrt');
+    addH(fmtD(addDays(e,49)),'Pfingstsonntag');
+    addH(fmtD(addDays(e,50)),'Pfingstmontag');
+    addH(fmtD(addDays(e,60)),'Corpus Christi');
+    addH(y+'-10-31','Reformationstag');
+  });
+  return h;
+}
+var HOLIDAYS = buildHolidays();
 
 function getStatus(t) {
   if(t.done||(t.progress||0)>=100) return 'done';
@@ -436,9 +707,11 @@ function render() {
     var dd = addDays(currentMonday, d);
     var dStr = toStr(dd);
     var cls = 'day-hdr-cell';
+    var holName = HOLIDAYS[dStr] || '';
     if(dStr===todayStr) cls += ' today';
+    else if(holName) cls += ' holiday';
     else if(d>=5) cls += ' weekend';
-    dhHtml += '<div class="'+cls+'"><div class="dn">'+DN[d]+'</div><div class="dd">'+dd.getDate()+'</div></div>';
+    dhHtml += '<div class="'+cls+'"><div class="dn">'+DN[d]+'</div><div class="dd">'+dd.getDate()+'</div>'+(holName?'<div class="hol-name">'+esc(holName)+'</div>':'')+'</div>';
   }
   document.getElementById('dayHeaderRow').innerHTML = dhHtml;
 
@@ -457,7 +730,7 @@ function render() {
     ch.forEach(function(t){
       if(t.hidden) return;
       if(t.type==='urlaub'||t.type==='meeting') return;
-      var matches = !FILTER_COLOR || t.color === FILTER_COLOR;
+      var matches = !!t.showInTaskView;
       if(matches && taskInWeek(t, monStr, sunStr)){
         list.push({task:t, depth:0});
       }
@@ -472,7 +745,7 @@ function render() {
     if(!ch) return false;
     return ch.some(function(c){
       if(c.hidden) return false;
-      if(!FILTER_COLOR || c.color === FILTER_COLOR){
+      if(c.showInTaskView){
         if(taskInWeek(c, monStr, sunStr)) return true;
       }
       return hasMatchingDescendant(c.id);
@@ -485,7 +758,7 @@ function render() {
     if(t.parentId) return;
     if(t.hidden) return;
     if(t.type==='urlaub'||t.type==='meeting') return;
-    var rootMatches = !FILTER_COLOR || t.color === FILTER_COLOR;
+    var rootMatches = !!t.showInTaskView;
     if(rootMatches && taskInWeek(t, monStr, sunStr)){
       orderedNormal.push({task:t, depth:0});
     }
@@ -495,6 +768,13 @@ function render() {
 
   var vacations = tasks.filter(function(t){ return t.type==='urlaub'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
   var meetings = tasks.filter(function(t){ return t.type==='meeting'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
+  var outlookInWeek = outlookEvents.filter(function(t){ return taskInWeek(t, monStr, sunStr); });
+  var allMeetings = meetings.concat(outlookInWeek);
+  allMeetings.sort(function(a,b){
+    if(a.start!==b.start) return a.start<b.start?-1:1;
+    if(a.startTime&&b.startTime&&a.startTime!==b.startTime) return a.startTime<b.startTime?-1:1;
+    return 0;
+  });
 
   var html = '';
 
@@ -510,10 +790,10 @@ function render() {
     vacations.forEach(function(t){ html += renderRow(t, monStr, sunStr, false); });
   }
 
-  // ── Meetings ──
-  if(meetings.length){
-    html += '<div class="section-row"><span class="section-icon">&#128197;</span>Meetings<span class="section-count">'+meetings.length+'</span></div>';
-    meetings.forEach(function(t){ html += renderRow(t, monStr, sunStr, false); });
+  // ── Meetings (manuell + Outlook) ──
+  if(allMeetings.length){
+    html += '<div class="section-row"><span class="section-icon">&#128197;</span>Meetings<span class="section-count">'+allMeetings.length+'</span></div>';
+    allMeetings.forEach(function(t){ html += renderRow(t, monStr, sunStr, false); });
   }
 
   if(!html) html = '<div style="text-align:center;padding:40px 20px;color:var(--text3);font-size:13px">Keine Aufgaben in dieser Woche.</div>';
@@ -526,7 +806,7 @@ function render() {
 
 function renderRow(t, monStr, sunStr, isChild) {
   var s = getStatus(t);
-  var color = '#60a5fa'; // hellblau für alle Balken
+  var color = t.type==='urlaub' ? '#f59e0b' : t.source==='outlook' ? '#8b5cf6' : '#60a5fa';
   var pct = t.progress || 0;
   var name = esc(t.name || '');
   var childCls = isChild ? ' child-row' : '';
@@ -534,10 +814,13 @@ function renderRow(t, monStr, sunStr, isChild) {
   var labelCls = isChild ? ' child-label' : '';
   var childCls2 = isChild ? ' child-row' : '';
 
-  var h = '<div class="gantt-group" onclick="showDetail('+t.id+')">';
+  var idParam = typeof t.id==='string' ? "'"+t.id.replace(/'/g,"\\'")+"'" : t.id;
+  var h = '<div class="gantt-group" onclick="showDetail('+idParam+')">';
 
   // Label row
-  h += '<div class="gantt-label-row'+labelCls+'">'+name+'</div>';
+  var outlookBadge = t.source==='outlook' ? ' <span style="font-size:8px;font-weight:700;background:#8b5cf6;color:#fff;border-radius:3px;padding:1px 4px;vertical-align:middle">Outlook</span>' : '';
+  var timeLabel = (t.source==='outlook'&&t.startTime) ? ' <span style="font-size:10px;color:var(--text2)">'+esc(t.startTime)+(t.endTime?' – '+esc(t.endTime):'')+'</span>' : '';
+  h += '<div class="gantt-label-row'+labelCls+'">'+name+outlookBadge+timeLabel+'</div>';
 
   // Bar row
   h += '<div class="gantt-row'+childCls2+'">';
@@ -546,6 +829,7 @@ function renderRow(t, monStr, sunStr, isChild) {
     var dStr = toStr(addDays(new Date(monStr),d));
     var cls = 'day-cell';
     if(dStr===todayStr) cls += ' today-col';
+    else if(HOLIDAYS[dStr]) cls += ' holiday-col';
     else if(d>=5) cls += ' weekend-col';
     h += '<div class="'+cls+'"></div>';
   }
@@ -587,54 +871,366 @@ function renderRow(t, monStr, sunStr, isChild) {
   return h;
 }
 
-// ── Detail Modal ──
+// ── Detail / Edit Modal ──
+var _editTaskId=null;
 function showDetail(id) {
   var t=null;
   for(var i=0;i<tasks.length;i++){if(tasks[i].id===id){t=tasks[i];break;}}
+  if(!t){for(var i=0;i<outlookEvents.length;i++){if(outlookEvents[i].id===id){t=outlookEvents[i];break;}}}
   if(!t) return;
-  var s=getStatus(t), pct=t.progress||0, color=t.color||'#4f6ef7';
-  var dur=Math.round((new Date(t.end)-new Date(t.start))/86400000);
 
-  var h='<h2>'+esc(t.name||'')+'</h2>';
-  h+='<div class="modal-row"><span class="modal-label">Status</span><span class="modal-val"><span class="badge '+s+'">'+statusLabel(s)+'</span></span></div>';
-  h+='<div class="modal-row"><span class="modal-label">Beginn</span><span class="modal-val">'+fmtDate(t.start)+'</span></div>';
-  h+='<div class="modal-row"><span class="modal-label">Ende</span><span class="modal-val">'+fmtDate(t.end)+'</span></div>';
-  h+='<div class="modal-row"><span class="modal-label">Dauer</span><span class="modal-val">'+dur+' Tage</span></div>';
-
-  if(t.milestone){
-    h+='<div class="modal-row"><span class="modal-label">&#9873; Meilenstein</span><span class="modal-val" style="color:var(--amber)">'+fmtDate(t.milestone)+'</span></div>';
-  }
-  if(t.extraPeriods&&t.extraPeriods.length){
-    h+='<div class="modal-row"><span class="modal-label">Zusatzzeiträume</span><span class="modal-val">'+
-      t.extraPeriods.map(function(ep){return fmtDate(ep.start)+' – '+fmtDate(ep.end);}).join('<br>')+
-      '</span></div>';
-  }
-  if(t.parentId){
-    var parent=null;
-    for(var i=0;i<tasks.length;i++){if(tasks[i].id===t.parentId){parent=tasks[i];break;}}
-    if(parent) h+='<div class="modal-row"><span class="modal-label">Hauptaufgabe</span><span class="modal-val">'+esc(parent.name||'')+'</span></div>';
-  }
-  var children=tasks.filter(function(c){return c.parentId===t.id&&!c.hidden;});
-  if(children.length){
-    h+='<div class="modal-row" style="flex-direction:column"><span class="modal-label" style="margin-bottom:6px">Unteraufgaben ('+children.length+')</span>';
-    children.forEach(function(c){
-      var cs=getStatus(c);
-      h+='<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
-        +'<div style="width:3px;height:16px;border-radius:1px;background:'+(c.color||color)+'"></div>'
-        +'<span style="flex:1;font-size:12px">'+esc(c.name||'')+'</span>'
-        +'<span class="badge '+cs+'" style="font-size:9px">'+statusLabel(cs)+'</span></div>';
-    });
+  // Outlook-Termine: editierbare Ansicht
+  if(t.source==='outlook'){
+    _editMeetingId=t.id;
+    var h='<h2 style="display:flex;align-items:center;gap:8px">Meeting bearbeiten<span style="font-size:10px;font-weight:600;background:#8b5cf6;color:#fff;border-radius:4px;padding:2px 6px;white-space:nowrap">Outlook</span></h2>';
+    h+='<div class="add-field"><label>Name</label>';
+    h+='<input type="text" id="editMeetingName" value="'+esc(t.name||'')+'"></div>';
+    h+='<div class="add-field"><label>Beginn (Datum)</label>';
+    h+='<input type="date" id="editMeetingStart" value="'+(t.start||'')+'"></div>';
+    h+='<div class="add-field"><label>Ende (Datum)</label>';
+    h+='<input type="date" id="editMeetingEnd" value="'+(t.end||t.start||'')+'"></div>';
+    h+='<div style="display:flex;gap:8px">';
+    h+='<div class="add-field" style="flex:1"><label>Startzeit</label>';
+    h+='<input type="time" id="editMeetingStartTime" value="'+(t.startTime||'')+'"></div>';
+    h+='<div class="add-field" style="flex:1"><label>Endzeit</label>';
+    h+='<input type="time" id="editMeetingEndTime" value="'+(t.endTime||'')+'"></div>';
     h+='</div>';
+    h+='<div class="add-field"><label>Organisator</label>';
+    h+='<input type="text" id="editMeetingOrganizer" value="'+esc(t.organizer||'')+'"></div>';
+    h+='<div class="add-error" id="editMeetingError"></div>';
+    h+='<div class="add-actions">';
+    h+='<button class="btn-cancel" onclick="closeModal()">Abbrechen</button>';
+    h+='<button class="btn-save" onclick="saveMeeting()">Speichern</button>';
+    h+='</div>';
+    h+='<button class="btn-delete" id="btnDelMeeting">Meeting löschen</button>';
+    document.getElementById('modalContent').innerHTML=h;
+    document.getElementById('btnDelMeeting').addEventListener('click',function(){askDeleteMeeting(_editMeetingId,document.getElementById('editMeetingName').value);});
+    document.getElementById('modalBg').classList.add('open');
+    return;
   }
+
+  _editTaskId=id;
+  var pct=t.progress||0;
+
+  var h='<h2>Aufgabe bearbeiten</h2>';
+
+  // Name
+  h+='<div class="add-field"><label>Name</label>';
+  h+='<input type="text" id="editName" value="'+esc(t.name||'')+'"></div>';
+
+  // Parent
+  h+='<div class="add-field"><label>Übergeordnete Aufgabe</label>';
+  h+='<select id="editParent"><option value="">— Keine (Hauptaufgabe) —</option>';
+  tasks.forEach(function(p){
+    if(p.parentId||p.hidden||p.type==='urlaub'||p.type==='meeting'||p.id===id) return;
+    h+='<option value="'+p.id+'"'+(t.parentId===p.id?' selected':'')+'>'+esc(p.name)+'</option>';
+  });
+  h+='</select></div>';
+
+  // Start
+  h+='<div class="add-field"><label>Beginn</label>';
+  h+='<input type="date" id="editStart" value="'+(t.start||'')+'"></div>';
+
+  // End
+  h+='<div class="add-field"><label>Ende</label>';
+  h+='<input type="date" id="editEnd" value="'+(t.end||'')+'"></div>';
+
+  // Progress
   if(t.type!=='urlaub'&&t.type!=='meeting'){
-    h+='<div class="modal-progress"><div style="display:flex;justify-content:space-between;font-size:12px">'
-      +'<span>Fortschritt</span><span style="font-weight:600">'+pct+'%</span></div>'
-      +'<div class="modal-progress-bar"><div class="modal-progress-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div>';
+    h+='<div class="add-field"><label>Fortschritt ('+pct+'%)</label>';
+    h+='<input type="range" id="editProgress" min="0" max="100" value="'+pct+'" style="min-height:auto;padding:0" oninput="this.previousElementSibling.textContent=\'Fortschritt (\'+this.value+\'%)\'"></div>';
   }
+
+  // Done checkbox
+  h+='<div class="add-field" style="display:flex;align-items:center;gap:10px">';
+  h+='<input type="checkbox" id="editDone" style="width:20px;height:20px;min-height:auto;padding:0;accent-color:var(--green)"'+(t.done?' checked':'')+'>';
+  h+='<label style="margin:0" for="editDone">Erledigt</label></div>';
+
+  // Error
+  h+='<div class="add-error" id="editError"></div>';
+
+  // Action buttons
+  h+='<div class="add-actions">';
+  h+='<button class="btn-cancel" onclick="closeModal()">Abbrechen</button>';
+  h+='<button class="btn-save" onclick="saveEditTask()">Speichern</button>';
+  h+='</div>';
+
+  // Delete button
+  h+='<button class="btn-delete" onclick="askDelete('+t.id+',\''+esc(t.name).replace(/'/g,"\\'")+'\')">Aufgabe löschen</button>';
+
   document.getElementById('modalContent').innerHTML=h;
   document.getElementById('modalBg').classList.add('open');
 }
-function closeModal(){ document.getElementById('modalBg').classList.remove('open'); }
+function closeModal(){ _editTaskId=null; document.getElementById('modalBg').classList.remove('open'); }
+
+// ── Save Edit ──
+function saveEditTask(){
+  if(!_editTaskId) return;
+  var name=document.getElementById('editName').value.trim();
+  var parentId=document.getElementById('editParent').value;
+  var start=document.getElementById('editStart').value;
+  var end=document.getElementById('editEnd').value;
+  var progressEl=document.getElementById('editProgress');
+  var progress=progressEl?parseInt(progressEl.value):0;
+  var done=document.getElementById('editDone').checked;
+  var errEl=document.getElementById('editError');
+
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start||!end){errEl.textContent='Bitte Beginn und Ende angeben.';errEl.style.display='block';return;}
+  if(end<start){errEl.textContent='Ende darf nicht vor Beginn liegen.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  var editId=_editTaskId;
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var state=doc.data();
+    if(!state.tasks) return;
+    for(var i=0;i<state.tasks.length;i++){
+      if(state.tasks[i].id===editId){
+        state.tasks[i].name=name;
+        state.tasks[i].start=start;
+        state.tasks[i].end=end;
+        state.tasks[i].parentId=parentId?parseInt(parentId):null;
+        state.tasks[i].progress=progress;
+        state.tasks[i].done=done;
+        break;
+      }
+    }
+    state.savedAt=new Date().toISOString();
+    return GANTT_DOC.set(state);
+  }).then(function(){
+    closeModal();
+  }).catch(function(e){
+    console.error('Edit error:',e);
+    errEl.textContent='Fehler beim Speichern: '+e.message;
+    errEl.style.display='block';
+  });
+}
+
+// ── Delete Task ──
+var _deleteTaskId=null;
+function askDelete(id,name){
+  _deleteTaskId=id;
+  var childCount=tasks.filter(function(t){return t.parentId===id;}).length;
+  var msg='Die Aufgabe <strong>„'+name+'"</strong> wird unwiderruflich gelöscht.';
+  if(childCount>0) msg+='<br><br>⚠ Inklusive <strong>'+childCount+' Unteraufgabe'+(childCount>1?'n':'')+'</strong>.';
+  document.getElementById('confirmText').innerHTML=msg;
+  document.getElementById('confirmModalBg').classList.add('open');
+}
+function closeConfirm(){
+  _deleteTaskId=null;
+  document.getElementById('confirmModalBg').classList.remove('open');
+}
+function confirmDelete(){
+  if(!_deleteTaskId) return;
+  var delId=_deleteTaskId;
+  closeConfirm();
+  closeModal();
+
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var state=doc.data();
+    if(!state.tasks) return;
+    // Collect IDs to delete (task + all descendants)
+    var idsToDelete={};
+    idsToDelete[delId]=true;
+    var changed=true;
+    while(changed){
+      changed=false;
+      state.tasks.forEach(function(t){
+        if(t.parentId&&idsToDelete[t.parentId]&&!idsToDelete[t.id]){
+          idsToDelete[t.id]=true;
+          changed=true;
+        }
+      });
+    }
+    state.tasks=state.tasks.filter(function(t){return !idsToDelete[t.id];});
+    state.savedAt=new Date().toISOString();
+    return GANTT_DOC.set(state);
+  }).catch(function(e){
+    console.error('Delete error:',e);
+  });
+}
+
+// ── Meeting Edit/Delete/Create (Firestore outlook_events) ──
+var _editMeetingId=null;
+var _deleteMeetingId=null;
+
+function saveMeeting(){
+  if(!_editMeetingId) return;
+  var name=document.getElementById('editMeetingName').value.trim();
+  var start=document.getElementById('editMeetingStart').value;
+  var end=document.getElementById('editMeetingEnd').value;
+  var startTime=document.getElementById('editMeetingStartTime').value;
+  var endTime=document.getElementById('editMeetingEndTime').value;
+  var organizer=document.getElementById('editMeetingOrganizer').value.trim();
+  var errEl=document.getElementById('editMeetingError');
+
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start){errEl.textContent='Bitte ein Startdatum angeben.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  var docId=_editMeetingId.replace('outlook_','');
+  var url='https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/'+encodeURIComponent(docId)+'?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
+  var fields={
+    name:{stringValue:name},
+    start:{stringValue:start},
+    end:{stringValue:end||start},
+    startTime:{stringValue:startTime||''},
+    endTime:{stringValue:endTime||''},
+    organizer:{stringValue:organizer},
+    type:{stringValue:'meeting'},
+    source:{stringValue:'outlook'}
+  };
+  fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:fields})})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);closeModal();})
+    .catch(function(e){errEl.textContent='Fehler: '+e.message;errEl.style.display='block';});
+}
+
+function askDeleteMeeting(id,name){
+  _deleteMeetingId=id;
+  document.getElementById('confirmText').innerHTML='Das Meeting <strong>„'+name+'"</strong> wird unwiderruflich gelöscht.';
+  document.getElementById('confirmModalBg').classList.add('open');
+}
+
+function confirmDeleteMeeting(){
+  if(!_deleteMeetingId) return;
+  var docId=_deleteMeetingId.replace('outlook_','');
+  _deleteMeetingId=null;
+  document.getElementById('confirmModalBg').classList.remove('open');
+  closeModal();
+  var url='https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/'+encodeURIComponent(docId)+'?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
+  fetch(url,{method:'DELETE'}).catch(function(e){console.error('Delete meeting error:',e);});
+}
+
+function openAddMeeting(){
+  var todayD=new Date();
+  var h='<h2 style="display:flex;align-items:center;gap:8px">Neues Meeting<span style="font-size:10px;font-weight:600;background:#8b5cf6;color:#fff;border-radius:4px;padding:2px 6px">Meeting</span></h2>';
+  h+='<div class="add-field"><label>Name</label>';
+  h+='<input type="text" id="editMeetingName" placeholder="Meetingname eingeben"></div>';
+  h+='<div class="add-field"><label>Beginn (Datum)</label>';
+  h+='<input type="date" id="editMeetingStart" value="'+toStr(todayD)+'"></div>';
+  h+='<div class="add-field"><label>Ende (Datum)</label>';
+  h+='<input type="date" id="editMeetingEnd" value="'+toStr(todayD)+'"></div>';
+  h+='<div style="display:flex;gap:8px">';
+  h+='<div class="add-field" style="flex:1"><label>Startzeit</label>';
+  h+='<input type="time" id="editMeetingStartTime" value="09:00"></div>';
+  h+='<div class="add-field" style="flex:1"><label>Endzeit</label>';
+  h+='<input type="time" id="editMeetingEndTime" value="10:00"></div>';
+  h+='</div>';
+  h+='<div class="add-field"><label>Organisator</label>';
+  h+='<input type="text" id="editMeetingOrganizer" placeholder="optional"></div>';
+  h+='<div class="add-error" id="editMeetingError"></div>';
+  h+='<div class="add-actions">';
+  h+='<button class="btn-cancel" onclick="closeModal()">Abbrechen</button>';
+  h+='<button class="btn-save" onclick="saveNewMeeting()">Erstellen</button>';
+  h+='</div>';
+  document.getElementById('modalContent').innerHTML=h;
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(function(){document.getElementById('editMeetingName').focus();},300);
+}
+
+function saveNewMeeting(){
+  var name=document.getElementById('editMeetingName').value.trim();
+  var start=document.getElementById('editMeetingStart').value;
+  var end=document.getElementById('editMeetingEnd').value;
+  var startTime=document.getElementById('editMeetingStartTime').value;
+  var endTime=document.getElementById('editMeetingEndTime').value;
+  var organizer=document.getElementById('editMeetingOrganizer').value.trim();
+  var errEl=document.getElementById('editMeetingError');
+
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start){errEl.textContent='Bitte ein Startdatum angeben.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  var docId='manual_'+Date.now();
+  var url='https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/'+docId+'?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
+  var fields={
+    name:{stringValue:name},
+    start:{stringValue:start},
+    end:{stringValue:end||start},
+    startTime:{stringValue:startTime||''},
+    endTime:{stringValue:endTime||''},
+    organizer:{stringValue:organizer},
+    type:{stringValue:'meeting'},
+    source:{stringValue:'outlook'}
+  };
+  fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:fields})})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);closeModal();})
+    .catch(function(e){errEl.textContent='Fehler: '+e.message;errEl.style.display='block';});
+}
+
+// ── Add Task ──
+function openAddTask(){
+  // Populate parent dropdown
+  var sel=document.getElementById('addParent');
+  sel.innerHTML='<option value="">— Keine (Hauptaufgabe) —</option>';
+  tasks.forEach(function(t){
+    if(t.parentId||t.hidden||t.type==='urlaub'||t.type==='meeting') return;
+    var o=document.createElement('option');
+    o.value=t.id;
+    o.textContent=t.name;
+    sel.appendChild(o);
+  });
+  // Default dates: today + 7 days
+  var todayD=new Date();
+  document.getElementById('addStart').value=toStr(todayD);
+  document.getElementById('addEnd').value=toStr(addDays(todayD,7));
+  document.getElementById('addName').value='';
+  document.getElementById('addError').style.display='none';
+  document.getElementById('addModalBg').classList.add('open');
+  setTimeout(function(){document.getElementById('addName').focus();},300);
+}
+
+function closeAddModal(){
+  document.getElementById('addModalBg').classList.remove('open');
+}
+
+function saveNewTask(){
+  var name=document.getElementById('addName').value.trim();
+  var parentId=document.getElementById('addParent').value;
+  var start=document.getElementById('addStart').value;
+  var end=document.getElementById('addEnd').value;
+  var errEl=document.getElementById('addError');
+
+  // Validation
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start||!end){errEl.textContent='Bitte Beginn und Ende angeben.';errEl.style.display='block';return;}
+  if(end<start){errEl.textContent='Ende darf nicht vor Beginn liegen.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  // Read fresh state from Firestore, add task, write back
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists){errEl.textContent='Fehler: Kein gespeicherter State gefunden.';errEl.style.display='block';return;}
+    var state=doc.data();
+    var nid=state.nid||state.tasks.length+2;
+    var newTask={
+      id:nid,
+      name:name,
+      start:start,
+      end:end,
+      progress:0,
+      color:'#4f6ef7',
+      deps:[],
+      parentId:parentId?parseInt(parentId):null,
+      extraPeriods:[],
+      milestone:null,
+      done:false,
+      showInTaskView:true
+    };
+    state.tasks.push(newTask);
+    state.nid=nid+1;
+    state.savedAt=new Date().toISOString();
+    return GANTT_DOC.set(state);
+  }).then(function(){
+    closeAddModal();
+    // The onSnapshot listener will automatically pick up the change and re-render
+  }).catch(function(e){
+    console.error('Save error:',e);
+    errEl.textContent='Fehler beim Speichern: '+e.message;
+    errEl.style.display='block';
+  });
+}
 
 // ── Swipe ──
 (function(){
@@ -711,10 +1307,37 @@ function firebaseStart(){
   });
 
   GANTT_DOC.onSnapshot(function(doc){
-    if(!doc.exists||doc.metadata.hasPendingWrites)return;
+    if(!doc.exists)return;
     var d=doc.data();if(!d||!d.tasks)return;
     tasks=d.tasks; render(); markConnected();
   },function(err){console.warn('Snapshot error:',err);});
+
+  // ── Outlook-Termine via xo.technik.meeting@gmail.com ──
+  try{
+    OUTLOOK_COL.onSnapshot(function(snap){
+      outlookEvents=[];
+      snap.forEach(function(doc){
+        var d=doc.data();
+        outlookEvents.push({
+          id:'outlook_'+doc.id,
+          name:d.name||d.subject||'Outlook-Termin',
+          start:d.start||'',
+          end:d.end||d.start||'',
+          startTime:d.startTime||'',
+          endTime:d.endTime||'',
+          organizer:d.organizer||'',
+          type:'meeting',
+          source:'outlook',
+          progress:0,
+          done:false
+        });
+      });
+      // Nur rendern wenn Tasks bereits geladen sind
+      if(tasks.length>0) render();
+    },function(err){
+      console.warn('Outlook events nicht verfügbar:',err);
+    });
+  }catch(e){console.warn('Outlook listener setup error:',e);}
 }
 
 function showLogin(){
