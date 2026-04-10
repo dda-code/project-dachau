@@ -1099,8 +1099,11 @@ function confirmDeleteMeeting(){
   _deleteMeetingId=null;
   document.getElementById('confirmModalBg').classList.remove('open');
   closeModal();
+  // Markiere als gelöscht statt zu löschen (verhindert dass Apps Script es wieder anlegt)
   var url='https://firestore.googleapis.com/v1/projects/project-dachau/databases/(default)/documents/outlook_events/'+encodeURIComponent(docId)+'?key=AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0';
-  fetch(url,{method:'DELETE'}).catch(function(e){console.error('Delete meeting error:',e);});
+  var fields={deleted:{booleanValue:true},name:{stringValue:''},start:{stringValue:''},end:{stringValue:''},type:{stringValue:'meeting'},source:{stringValue:'outlook'}};
+  fetch(url,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:fields})})
+    .catch(function(e){console.error('Delete meeting error:',e);});
 }
 
 function openAddMeeting(){
@@ -1318,6 +1321,8 @@ function firebaseStart(){
       outlookEvents=[];
       snap.forEach(function(doc){
         var d=doc.data();
+        // Gelöschte Meetings überspringen
+        if(d.deleted) return;
         outlookEvents.push({
           id:'outlook_'+doc.id,
           name:d.name||d.subject||'Outlook-Termin',
