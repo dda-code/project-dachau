@@ -37,7 +37,7 @@
   --shadow: 0 1px 3px rgba(0,0,0,.08);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --col-w: calc(100% / 7);
+  --col-w: calc(100% / 5);
 }
 @media(prefers-color-scheme:dark){
   :root {
@@ -159,13 +159,14 @@ body {
   position: absolute; top: 2px; bottom: 2px;
   border-radius: 4px; min-width: 6px;
   z-index: 2; display: flex; align-items: center;
-  overflow: visible;
+  overflow: hidden;
 }
 .task-bar.done-bar { opacity: .4; }
 .bar-time {
   position: relative; z-index: 3; color: #fff; font-size: 10px;
-  font-weight: 600; padding: 0 5px; white-space: nowrap;
+  font-weight: 600; padding: 0 4px; white-space: nowrap;
   text-shadow: 0 1px 2px rgba(0,0,0,.3);
+  overflow: hidden; text-overflow: ellipsis;
 }
 .bar-bg {
   position: absolute; inset: 0; border-radius: 4px;
@@ -632,39 +633,41 @@ function taskInWeek(t, monStr, sunStr) {
 
 // ── Calculate bar position (left%, width%) within the 7-day grid ──
 function barPos(startStr, endStr, monStr, sunStr) {
-  var monD = new Date(monStr), sunD = new Date(sunStr);
+  var monD = new Date(monStr), friD = addDays(new Date(monStr), 4);
   var s = new Date(startStr), e = new Date(endStr);
-  // Clamp to week boundaries
+  // Clamp to Mon-Fri boundaries
   if(s < monD) s = monD;
-  if(e > sunD) e = sunD;
+  if(e > friD) e = friD;
   var dayStart = Math.round((s - monD) / 86400000);
   var dayEnd = Math.round((e - monD) / 86400000);
-  var left = (dayStart / 7) * 100;
-  var width = ((dayEnd - dayStart + 1) / 7) * 100;
+  if(dayStart > 4) dayStart = 4;
+  if(dayEnd > 4) dayEnd = 4;
+  var left = (dayStart / 5) * 100;
+  var width = ((dayEnd - dayStart + 1) / 5) * 100;
   return { left: left, width: width };
 }
 
 function render() {
   var kw = getISOWeek(currentMonday);
+  var friday = addDays(currentMonday, 4);
   var sunday = addDays(currentMonday, 6);
   var monStr = toStr(currentMonday), sunStr = toStr(sunday);
 
   document.getElementById('kwLabel').textContent = 'KW ' + kw;
-  document.getElementById('kwDates').textContent = fmtDateShort(currentMonday) + ' – ' + fmtDateShort(sunday) + ' ' + currentMonday.getFullYear();
+  document.getElementById('kwDates').textContent = fmtDateShort(currentMonday) + ' – ' + fmtDateShort(friday) + ' ' + currentMonday.getFullYear();
 
   var todayMonday = getMonday(today);
   document.getElementById('btnToday').className = 'btn-today' + (currentMonday.getTime()===todayMonday.getTime()?' hidden':'');
 
   // Day header
   var dhHtml = '';
-  for(var d=0;d<7;d++){
+  for(var d=0;d<5;d++){
     var dd = addDays(currentMonday, d);
     var dStr = toStr(dd);
     var cls = 'day-hdr-cell';
     var holName = HOLIDAYS[dStr] || '';
     if(dStr===todayStr) cls += ' today';
     else if(holName) cls += ' holiday';
-    else if(d>=5) cls += ' weekend';
     dhHtml += '<div class="'+cls+'"><div class="dn">'+DN[d]+'</div><div class="dd">'+dd.getDate()+'</div>'+(holName?'<div class="hol-name">'+esc(holName)+'</div>':'')+'</div>';
   }
   document.getElementById('dayHeaderRow').innerHTML = dhHtml;
@@ -777,12 +780,11 @@ function renderRow(t, monStr, sunStr, isChild) {
   // Bar row
   h += '<div class="gantt-row'+childCls2+'">';
   h += '<div class="day-cells">';
-  for(var d=0;d<7;d++){
+  for(var d=0;d<5;d++){
     var dStr = toStr(addDays(new Date(monStr),d));
     var cls = 'day-cell';
     if(dStr===todayStr) cls += ' today-col';
     else if(HOLIDAYS[dStr]) cls += ' holiday-col';
-    else if(d>=5) cls += ' weekend-col';
     h += '<div class="'+cls+'"></div>';
   }
 
