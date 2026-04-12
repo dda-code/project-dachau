@@ -243,6 +243,10 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .prow input[type=range]{flex:1;accent-color:var(--accent)}
 #pval{font-size:13px;font-weight:600;min-width:36px;text-align:right}
 .swatches{display:flex;gap:7px;flex-wrap:wrap}
+.visibility-chips{display:flex;flex-wrap:wrap;gap:6px}
+.vis-chip{padding:5px 12px;border:1.5px solid var(--border);border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;background:none;color:var(--text2);transition:all .15s;font-family:var(--font)}
+.vis-chip.active{background:var(--accent,#4f6ef7);color:#fff;border-color:var(--accent,#4f6ef7)}
+.vis-chip:active{opacity:.7}
 .sw{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
 .sw.sel{border-color:#fff}
 .dlw{max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px}
@@ -566,8 +570,6 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
     <button class="btn" onclick="openAddUrlaub()" style="background:#fef3c7;border-color:#f59e0b;color:#92400e">🏖 + Urlaub</button>
     <button class="btn" onclick="openAddMeeting()" style="background:#ede9fe;border-color:#8b5cf6;color:#4c1d95">📅 + Besprechung</button>
     <div class="sep"></div>
-    <button class="btn" onclick="window.open('Checklisten.html','_blank')" style="background:#ecfdf5;border-color:#10b981;color:#065f46" title="Checklisten öffnen">✅ Checklisten</button>
-    <div class="sep"></div>
     <button class="btn" id="btn-toggle-all" onclick="toggleAllVisibility()" title="Aufgaben ein-/ausblenden">👁 Filter</button>
     <button class="btn" onclick="openICSExport()" style="background:#e0f2fe;border-color:#0284c7;color:#0369a1" title="Aufgaben als ICS-Datei f\u00fcr Outlook exportieren">📅 Outlook</button>
     <div class="sep"></div>
@@ -630,6 +632,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
         <div id="period-list"></div>
       </div>
 
+      <div class="field"><label>Sichtbar f&uuml;r</label><div class="visibility-chips" id="visChips"></div></div>
       <div class="field"><label>Farbe</label><div class="swatches" id="swl"></div></div>
       <div class="field">
         <label>Abhängigkeiten (Vorgänger)</label>
@@ -926,6 +929,7 @@ function visibleRows(){
     for(var i=0;i<ch.length;i++){
       var t=ch[i];
       if(t.hidden)continue;
+      if(!canSeeTask(t))continue;
       rows.push({task:t,depth:depth});
       if(!collapsed[t.id])addChildren(t.id,depth+1);
     }
@@ -934,13 +938,14 @@ function visibleRows(){
   tasks.forEach(function(t){
     if(t.parentId)return;
     if(t.hidden)return;
+    if(!canSeeTask(t))return;
     if(t.type==='urlaub')return; // handled below in group
     if(t.type==='meeting')return; // handled below in meeting group
     rows.push({task:t,depth:0});
     if(!collapsed[t.id])addChildren(t.id,1);
   });
   // Vacation group – virtual header + children
-  var urlaubTasks=tasks.filter(function(t){return t.type==='urlaub'&&!t.hidden;});
+  var urlaubTasks=tasks.filter(function(t){return t.type==='urlaub'&&!t.hidden&&canSeeTask(t);});
   if(urlaubTasks.length){
     var starts=urlaubTasks.map(function(t){return t.start;}).sort();
     var ends=urlaubTasks.map(function(t){return t.end;}).sort();
@@ -954,7 +959,7 @@ function visibleRows(){
     }
   }
   // Meeting group – virtual header + children
-  var meetingTasks=tasks.filter(function(t){return t.type==='meeting'&&!t.hidden;});
+  var meetingTasks=tasks.filter(function(t){return t.type==='meeting'&&!t.hidden&&canSeeTask(t);});
   if(meetingTasks.length){
     var mStarts=meetingTasks.map(function(t){return t.start;}).sort();
     var mEnds=meetingTasks.map(function(t){return t.end;}).sort();
@@ -1313,7 +1318,8 @@ function buildGrid(vrows){
     var pct=t.progress||0;
     var isOverdue=!t.done && t.end<todayStr;
     var isDone=!!t.done;
-    var barStyle=isOverdue?'background:#ef4444':'background:'+t.color;
+    var isPrivate=t.visibleTo&&t.visibleTo.length>0&&t.visibleTo.filter(function(v,i,a){return a.indexOf(v)===i;}).length<USERS.length;
+    var barStyle=isOverdue?'background:#ef4444':isPrivate?'background:rgba(245,158,11,0.5)':'background:'+t.color;
     var barClass='bar'+(isOverdue?' overdue-bar':'')+(isDone?' done-bar':'');
     var bw=Math.max((eo-so+1)*_ppd,8);
     var wr=mk('div','bwrap');
@@ -2204,7 +2210,7 @@ function openAdd(){
   tasks.filter(function(t){return !t.parentId;}).forEach(function(t){
     var o=document.createElement('option');o.value=t.id;o.textContent=t.name;sel.appendChild(o);
   });
-  buildSW();buildDL([]);buildPeriodList([]);calcDurFromDates();document.getElementById('mbg').classList.add('open');document.getElementById('fn').focus();
+  buildSW();buildDL([]);buildVisChips(null);buildPeriodList([]);calcDurFromDates();document.getElementById('mbg').classList.add('open');document.getElementById('fn').focus();
 }
 function openEdit(id){
   var t=taskMap.get(id);if(!t)return;
@@ -2242,7 +2248,7 @@ function openEdit(id){
       bw.style.display='none';
     }
   }
-  buildSW();buildDL(t.deps||[]);
+  buildSW();buildDL(t.deps||[]);buildVisChips(t.visibleTo||null);
   // Extra periods
   buildPeriodList(t.extraPeriods||[]);
   calcDurFromDates();
@@ -2418,8 +2424,9 @@ function saveT(){
     var s=row.querySelector('.ps').value,e2=row.querySelector('.pe').value;
     if(s&&e2&&s<=e2) extraPeriods.push({start:s,end:e2});
   });
-  if(eid){var _t=taskMap.get(eid);if(_t)Object.assign(_t,{name:name,start:start,end:end,progress:prog,color:sc,deps:deps,parentId:parentId,extraPeriods:extraPeriods,milestone:milestone});}
-  else tasks.push({id:nid++,name:name,start:start,end:end,progress:prog,color:sc,deps:[],parentId:parentId,extraPeriods:extraPeriods,milestone:milestone});
+  var visibleTo=collectVisibleTo();
+  if(eid){var _t=taskMap.get(eid);if(_t)Object.assign(_t,{name:name,start:start,end:end,progress:prog,color:sc,deps:deps,parentId:parentId,extraPeriods:extraPeriods,milestone:milestone,visibleTo:visibleTo});}
+  else tasks.push({id:nid++,name:name,start:start,end:end,progress:prog,color:sc,deps:[],parentId:parentId,extraPeriods:extraPeriods,milestone:milestone,visibleTo:visibleTo});
   closeM();triggerSave();buildAll();
   var saved=taskMap.get(eid?eid:nid-1);
   if(saved)checkSubtaskConflict(saved);
@@ -2841,6 +2848,26 @@ var USERS = [
 ];
 var currentRole = null;
 var currentUser = null;
+function canSeeTask(t){
+  if(!t.visibleTo||!t.visibleTo.length) return true;
+  return t.visibleTo.indexOf(currentUser)!==-1;
+}
+function buildVisChips(selectedUsers){
+  var el=document.getElementById('visChips');if(!el)return;
+  var allSelected=!selectedUsers||!selectedUsers.length;
+  var h='';
+  USERS.forEach(function(u){
+    var active=allSelected||(selectedUsers&&selectedUsers.indexOf(u.name)!==-1);
+    h+='<button type="button" class="vis-chip'+(active?' active':'')+'" onclick="this.classList.toggle(\'active\')" data-user="'+u.name+'">'+u.name+'</button>';
+  });
+  el.innerHTML=h;
+}
+function collectVisibleTo(){
+  var chips=document.querySelectorAll('#visChips .vis-chip');
+  var active=[];var total=0;
+  chips.forEach(function(c){total++;if(c.classList.contains('active'))active.push(c.getAttribute('data-user'));});
+  return active.length===total?null:active;
+}
 
 function simpleHash(str){
   try{return btoa(unescape(encodeURIComponent(str)));}catch(e){return btoa(str);}
@@ -2878,11 +2905,12 @@ function doLogin(){
 function applyRole(){
   var badge=document.getElementById('role-badge');
   var pwBtn=document.getElementById('btn-pw');
+  var isMainAdmin=currentUser&&currentUser.toLowerCase()==='admin';
   if(currentRole==='admin'){
     document.body.classList.remove('user-mode');
     badge.textContent=(currentUser||'Admin');badge.className='admin';
     if(badge)badge.style.display='';
-    if(pwBtn)pwBtn.style.display='';
+    if(pwBtn)pwBtn.style.display=isMainAdmin?'':'none';
   } else {
     document.body.classList.add('user-mode');
     badge.textContent=(currentUser||'Nur lesen');badge.className='user';
@@ -2921,7 +2949,7 @@ function doLogout(){
 var _editUserIdx = null; // null = neu, number = index in USERS
 
 function openPW(){
-  if(currentRole!=='admin')return;
+  if(!currentUser||currentUser.toLowerCase()!=='admin')return;
   _editUserIdx=null;
   renderUserList();
   resetUserForm();
@@ -2998,6 +3026,7 @@ function updateUsers(){
     });
 }
 function saveUser(){
+  if(!currentUser||currentUser.toLowerCase()!=='admin')return;
   var name=document.getElementById('uf-name').value.trim();
   var role=document.getElementById('uf-role').value;
   var pw=document.getElementById('uf-pw').value;
@@ -3032,6 +3061,7 @@ function saveUser(){
   renderUserList();
 }
 function deleteUser(idx){
+  if(!currentUser||currentUser.toLowerCase()!=='admin')return;
   if(USERS.length<=1)return alert('Es muss mindestens ein Benutzer vorhanden sein.');
   var u=USERS[idx];
   if(!confirm('Really delete user "'+u.name+'"?'))return;
