@@ -800,7 +800,7 @@ function render() {
 
 function renderRow(t, monStr, sunStr, isChild) {
   var s = getStatus(t);
-  var isPrivate = t.visibleTo && t.visibleTo.length===1 && t.visibleTo[0]===currentUser;
+  var isPrivate = t.visibleTo && t.visibleTo.length>0 && t.visibleTo.filter(function(v,i,a){return a.indexOf(v)===i;}).length<USERS.length;
   var color = t.type==='urlaub' ? '#f59e0b' : t.source==='outlook' ? '#8b5cf6' : isPrivate ? 'rgba(245,158,11,0.5)' : '#60a5fa';
   var pct = t.progress || 0;
   var name = esc(t.name || '');
