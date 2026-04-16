@@ -47,6 +47,7 @@
   }
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html { zoom: var(--ui-scale, 1); }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: var(--bg); color: var(--text);
@@ -1860,6 +1861,20 @@ function doLogout(){
     clearTimeout(fallback);clearTimeout(fallback2);
     tryShowLogin();
   });
+})();
+
+/* ── Dynamisches UI-Scaling: passt Schriftgroessen/Abstaende an Fensterbreite an ── */
+(function(){
+  var DESIGN_WIDTH = 520;   // Referenzbreite, bei der Scale = 1
+  var MIN_SCALE = 0.55;
+  var MAX_SCALE = 1.40;
+  function applyScale(){
+    var w = window.innerWidth || document.documentElement.clientWidth;
+    var s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, w / DESIGN_WIDTH));
+    document.documentElement.style.setProperty('--ui-scale', s.toFixed(3));
+  }
+  applyScale();
+  window.addEventListener('resize', applyScale);
 })();
 </script>
 </body>
