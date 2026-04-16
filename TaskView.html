@@ -383,6 +383,98 @@ body {
 .btn-cancel:active { background: #cbd5e1; }
 .add-error { color: var(--red); font-size: 14px; margin-top: 6px; display: none; }
 
+/* ── Personal To-Do Liste ── */
+.personal-todo-section {
+  border-bottom: 3px solid var(--border);
+}
+.personal-todo-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg);
+  font-size: 13px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text3); gap: 6px;
+  cursor: pointer; user-select: none;
+}
+.personal-todo-header:active { background: rgba(79,110,247,.04); }
+.personal-todo-header .section-icon { font-size: 16px; }
+.personal-todo-header .section-left { display: flex; align-items: center; gap: 6px; }
+.personal-todo-chevron {
+  font-size: 16px; color: var(--text3); transition: transform .2s ease;
+  display: flex; align-items: center;
+}
+.personal-todo-chevron.open { transform: rotate(90deg); }
+.personal-todo-body { display: none; }
+.personal-todo-body.open { display: block; border-top: 1px solid var(--border); }
+.personal-todo-items { padding: 6px 10px 2px; }
+.personal-todo-item {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s, opacity .15s;
+}
+.personal-todo-item:last-child { border-bottom: none; }
+.personal-todo-item.dragging { opacity: .3; }
+.personal-todo-item.drag-over { background: rgba(79,110,247,.08); }
+.personal-todo-drag {
+  width: 24px; flex-shrink: 0; cursor: grab; color: var(--text3);
+  font-size: 18px; display: flex; align-items: center; justify-content: center;
+  touch-action: none; user-select: none;
+}
+.personal-todo-drag:active { cursor: grabbing; }
+.personal-todo-check {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px;
+  border: 2px solid var(--border); background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--green); transition: all .15s;
+}
+.personal-todo-check.checked {
+  background: var(--green); border-color: var(--green); color: #fff;
+}
+.personal-todo-text {
+  flex: 1; font-size: 15px; color: var(--text); line-height: 1.4;
+  word-break: break-word;
+}
+.personal-todo-text.checked { text-decoration: line-through; color: var(--text3); }
+.personal-todo-date {
+  width: 38px; flex-shrink: 0; padding: 4px 0; border: none; background: none;
+  font-size: 12px; color: var(--accent); text-align: center; cursor: pointer;
+  font-family: inherit; outline: none; font-weight: 600;
+}
+.personal-todo-date::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; }
+.personal-todo-date-wrap {
+  position: relative; flex-shrink: 0; width: 38px; display: flex; align-items: center; justify-content: center;
+}
+.personal-todo-date-label {
+  font-size: 11px; font-weight: 600; color: var(--accent); cursor: pointer;
+  white-space: nowrap; text-align: center; line-height: 1;
+}
+.personal-todo-date-label.empty { color: var(--text3); font-size: 16px; }
+.personal-todo-del {
+  width: 28px; height: 28px; flex-shrink: 0; border: none; background: none;
+  color: var(--text3); font-size: 16px; cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.personal-todo-del:hover { color: var(--red); background: rgba(239,68,68,.08); }
+.personal-todo-del:active { background: rgba(239,68,68,.15); }
+.personal-todo-add-row {
+  display: flex; gap: 8px; padding: 6px 10px 8px; align-items: center;
+}
+.personal-todo-input {
+  flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 15px; background: var(--bg); color: var(--text); outline: none;
+  font-family: inherit; min-height: 38px;
+}
+.personal-todo-input:focus { border-color: var(--accent); }
+.personal-todo-add-btn {
+  padding: 8px 14px; border: none; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 14px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; min-height: 38px;
+  font-family: inherit;
+}
+.personal-todo-add-btn:active { background: #3b5de7; }
+.personal-todo-empty {
+  padding: 12px 10px; color: var(--text3); font-size: 14px; text-align: center;
+}
+
 /* ── Loading ── */
 .loading {
   display: flex; flex-direction: column; align-items: center;
@@ -773,10 +865,37 @@ function render() {
 
   var html = '';
 
+  // ── Persönliche To-Do Liste (ganz oben) ──
+  if(currentUser){
+    html += renderPersonalTodoSection();
+  }
+
+  // ── Personal todos mit Datum als virtuelle Aufgaben sammeln ──
+  var personalInWeek = [];
+  if(currentUser){
+    personalTodos.forEach(function(pt,idx){
+      if(!pt.date||pt.done) return;
+      if(pt.date>=monStr&&pt.date<=sunStr){
+        personalInWeek.push({
+          id:'_ptodo_'+idx,
+          name:pt.text,
+          start:pt.date,
+          end:pt.date,
+          progress:0,
+          done:false,
+          type:'personal_todo',
+          _ptodoIdx:idx
+        });
+      }
+    });
+  }
+
   // ── Normal tasks ──
-  if(orderedNormal.length){
-    html += '<div class="section-row"><span class="section-icon">&#9654;</span>Aufgaben<span class="section-count">'+orderedNormal.length+'</span></div>';
+  var totalAufgaben = orderedNormal.length + personalInWeek.length;
+  if(totalAufgaben){
+    html += '<div class="section-row"><span class="section-icon">&#9654;</span>Aufgaben<span class="section-count">'+totalAufgaben+'</span></div>';
     orderedNormal.forEach(function(item){ html += renderRow(item.task, monStr, sunStr, item.depth > 0); });
+    personalInWeek.forEach(function(pt){ html += renderRow(pt, monStr, sunStr, false); });
   }
 
   // ── Vacations ──
@@ -801,7 +920,7 @@ function render() {
 function renderRow(t, monStr, sunStr, isChild) {
   var s = getStatus(t);
   var isPrivate = t.visibleTo && t.visibleTo.length>0 && t.visibleTo.filter(function(v,i,a){return a.indexOf(v)===i;}).length<USERS.length;
-  var color = t.type==='urlaub' ? '#f59e0b' : t.source==='outlook' ? '#8b5cf6' : isPrivate ? 'rgba(245,158,11,0.5)' : '#60a5fa';
+  var color = t.type==='personal_todo' ? '#f59e0b' : t.type==='urlaub' ? '#f59e0b' : t.source==='outlook' ? '#8b5cf6' : isPrivate ? 'rgba(245,158,11,0.5)' : '#60a5fa';
   var pct = t.progress || 0;
   var name = esc(t.name || '');
   var childCls = isChild ? ' child-row' : '';
@@ -809,8 +928,8 @@ function renderRow(t, monStr, sunStr, isChild) {
   var labelCls = isChild ? ' child-label' : '';
   var childCls2 = isChild ? ' child-row' : '';
 
-  var idParam = typeof t.id==='string' ? "'"+t.id.replace(/'/g,"\\'")+"'" : t.id;
-  var h = '<div class="gantt-group" onclick="showDetail('+idParam+')">';
+  var clickAction = t.type==='personal_todo' ? 'openPersonalTodoFromBar('+t._ptodoIdx+')' : 'showDetail('+(typeof t.id==='string' ? "'"+t.id.replace(/'/g,"\\'")+"'" : t.id)+')';
+  var h = '<div class="gantt-group" onclick="'+clickAction+'">';
 
   // Label row
   var timeLabel = (t.source==='outlook'&&t.startTime) ? esc(t.startTime)+(t.endTime?' – '+esc(t.endTime):'') : '';
@@ -1039,6 +1158,219 @@ function todoSectionHtml(){
     +'<div class="todo-list" id="todoList"></div>'
     +'<button class="todo-add" onclick="addTodoRow()">+ To-Do</button></div>';
 }
+
+// ── PERSÖNLICHE TO-DO LISTE (pro Nutzer) ──
+var personalTodos = [];
+function loadPersonalTodos(){
+  if(!currentUser) return;
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var d=doc.data();
+    var all=d.personalTodos||{};
+    personalTodos=all[currentUser]||[];
+    render();
+  }).catch(function(e){console.warn('Persönliche Todos laden fehlgeschlagen:',e);});
+}
+function savePersonalTodos(){
+  if(!currentUser) return;
+  var update={};
+  update['personalTodos.'+currentUser]=personalTodos.length?personalTodos:firebase.firestore.FieldValue.delete();
+  GANTT_DOC.update(update).catch(function(e){console.warn('Persönliche Todos speichern fehlgeschlagen:',e);});
+}
+function addPersonalTodo(){
+  var input=document.getElementById('personalTodoInput');
+  if(!input) return;
+  var text=input.value.trim();
+  if(!text) return;
+  personalTodos.push({text:text,done:false,createdAt:new Date().toISOString()});
+  input.value='';
+  savePersonalTodos();
+  render();
+}
+function togglePersonalTodo(idx){
+  if(idx<0||idx>=personalTodos.length) return;
+  personalTodos[idx].done=!personalTodos[idx].done;
+  savePersonalTodos();
+  render();
+}
+function removePersonalTodo(idx){
+  if(idx<0||idx>=personalTodos.length) return;
+  personalTodos.splice(idx,1);
+  savePersonalTodos();
+  render();
+}
+function fmtDateShortTodo(dStr){
+  if(!dStr) return '';
+  var p=dStr.split('-');
+  return parseInt(p[2])+'.'+parseInt(p[1])+'.';
+}
+function openPersonalTodoFromBar(idx){
+  if(!_personalTodoOpen){
+    _personalTodoOpen=true;
+    var body=document.getElementById('personalTodoBody');
+    var chevron=document.getElementById('personalTodoChevron');
+    if(body) body.classList.add('open');
+    if(chevron) chevron.classList.add('open');
+  }
+  setTimeout(function(){
+    var items=document.querySelectorAll('.personal-todo-item[data-idx="'+idx+'"]');
+    if(items.length) items[0].scrollIntoView({behavior:'smooth',block:'center'});
+  },150);
+}
+function setPersonalTodoDate(idx,val){
+  if(idx<0||idx>=personalTodos.length) return;
+  personalTodos[idx].date=val||null;
+  savePersonalTodos();
+  render();
+}
+var _personalTodoOpen = false;
+function togglePersonalTodoSection(){
+  _personalTodoOpen = !_personalTodoOpen;
+  var body = document.getElementById('personalTodoBody');
+  var chevron = document.getElementById('personalTodoChevron');
+  if(body) body.classList.toggle('open', _personalTodoOpen);
+  if(chevron) chevron.classList.toggle('open', _personalTodoOpen);
+  if(_personalTodoOpen){
+    setTimeout(function(){ var inp=document.getElementById('personalTodoInput'); if(inp) inp.focus(); },100);
+  }
+}
+function renderPersonalTodoSection(){
+  var openCount=personalTodos.filter(function(t){return !t.done;}).length;
+  var totalCount=personalTodos.length;
+  var h='<div class="personal-todo-section">';
+  h+='<div class="personal-todo-header" onclick="togglePersonalTodoSection()">';
+  h+='<div class="section-left"><span class="section-icon">&#9997;</span>To-Do Liste<span class="section-count">'+openCount+(totalCount>openCount?' / '+totalCount:'')+'</span></div>';
+  h+='<span class="personal-todo-chevron'+(_personalTodoOpen?' open':'')+'" id="personalTodoChevron">&#x276F;</span>';
+  h+='</div>';
+  h+='<div class="personal-todo-body'+(_personalTodoOpen?' open':'')+'" id="personalTodoBody">';
+  if(personalTodos.length){
+    h+='<div class="personal-todo-items" id="personalTodoItems">';
+    personalTodos.forEach(function(t,i){
+      var dateLabel=t.date?fmtDateShortTodo(t.date):'';
+      h+='<div class="personal-todo-item" data-idx="'+i+'">';
+      h+='<span class="personal-todo-drag" data-drag="true">&#x2630;</span>';
+      h+='<button class="personal-todo-check'+(t.done?' checked':'')+'" onclick="togglePersonalTodo('+i+')">'+(t.done?'&#x2713;':'')+'</button>';
+      h+='<span class="personal-todo-text'+(t.done?' checked':'')+'">'+esc(t.text)+'</span>';
+      h+='<div class="personal-todo-date-wrap">';
+      h+='<span class="personal-todo-date-label'+(dateLabel?'':' empty')+'" onclick="this.nextElementSibling.showPicker?this.nextElementSibling.showPicker():this.nextElementSibling.focus()">'+(dateLabel||'&#x1F4C5;')+'</span>';
+      h+='<input type="date" class="personal-todo-date" value="'+(t.date||'')+'" onchange="setPersonalTodoDate('+i+',this.value)" style="position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer">';
+      h+='</div>';
+      h+='<button class="personal-todo-del" onclick="removePersonalTodo('+i+')" title="Entfernen">&#x2715;</button>';
+      h+='</div>';
+    });
+    h+='</div>';
+  } else {
+    h+='<div class="personal-todo-empty">Keine Eintr\u00e4ge \u2013 f\u00fcge deinen ersten Punkt hinzu.</div>';
+  }
+  h+='<div class="personal-todo-add-row">';
+  h+='<input type="text" class="personal-todo-input" id="personalTodoInput" placeholder="Neuen Punkt hinzuf\u00fcgen..." onkeydown="if(event.key===\'Enter\')addPersonalTodo()">';
+  h+='<button class="personal-todo-add-btn" onclick="addPersonalTodo()">+</button>';
+  h+='</div>';
+  h+='</div>';
+  h+='</div>';
+  return h;
+}
+
+// ── Drag & Drop für persönliche To-Do Liste ──
+(function(){
+  var dragIdx=null, overIdx=null, container=null;
+
+  function getItemFromEvent(e){
+    var el=e.target.closest('.personal-todo-item');
+    if(!el) return null;
+    return {el:el, idx:parseInt(el.getAttribute('data-idx'))};
+  }
+
+  function clearDragClasses(){
+    if(!container) return;
+    container.querySelectorAll('.personal-todo-item').forEach(function(el){
+      el.classList.remove('dragging','drag-over');
+    });
+  }
+
+  function doReorder(fromIdx, toIdx){
+    if(fromIdx===toIdx||fromIdx<0||toIdx<0) return;
+    if(fromIdx>=personalTodos.length||toIdx>=personalTodos.length) return;
+    var item=personalTodos.splice(fromIdx,1)[0];
+    personalTodos.splice(toIdx,0,item);
+    savePersonalTodos();
+    render();
+  }
+
+  // ── Mouse drag ──
+  document.addEventListener('mousedown',function(e){
+    if(!e.target.closest('[data-drag]')) return;
+    var item=getItemFromEvent(e);
+    if(!item) return;
+    e.preventDefault();
+    dragIdx=item.idx;
+    container=document.getElementById('personalTodoItems');
+    item.el.classList.add('dragging');
+  });
+
+  document.addEventListener('mousemove',function(e){
+    if(dragIdx===null||!container) return;
+    var items=container.querySelectorAll('.personal-todo-item');
+    items.forEach(function(el){
+      el.classList.remove('drag-over');
+      var rect=el.getBoundingClientRect();
+      var midY=rect.top+rect.height/2;
+      if(e.clientY>=rect.top&&e.clientY<=rect.bottom){
+        var idx=parseInt(el.getAttribute('data-idx'));
+        if(idx!==dragIdx){
+          el.classList.add('drag-over');
+          overIdx=idx;
+        }
+      }
+    });
+  });
+
+  document.addEventListener('mouseup',function(){
+    if(dragIdx===null) return;
+    if(overIdx!==null&&overIdx!==dragIdx) doReorder(dragIdx,overIdx);
+    clearDragClasses();
+    dragIdx=null; overIdx=null; container=null;
+  });
+
+  // ── Touch drag ──
+  var touchStartY=0, touchItem=null;
+  document.addEventListener('touchstart',function(e){
+    var drag=e.target.closest('[data-drag]');
+    if(!drag) return;
+    var item=getItemFromEvent(e);
+    if(!item) return;
+    dragIdx=item.idx;
+    touchItem=item.el;
+    container=document.getElementById('personalTodoItems');
+    touchStartY=e.touches[0].clientY;
+    item.el.classList.add('dragging');
+  },{passive:true});
+
+  document.addEventListener('touchmove',function(e){
+    if(dragIdx===null||!container) return;
+    var ty=e.touches[0].clientY;
+    var items=container.querySelectorAll('.personal-todo-item');
+    overIdx=null;
+    items.forEach(function(el){
+      el.classList.remove('drag-over');
+      var rect=el.getBoundingClientRect();
+      if(ty>=rect.top&&ty<=rect.bottom){
+        var idx=parseInt(el.getAttribute('data-idx'));
+        if(idx!==dragIdx){
+          el.classList.add('drag-over');
+          overIdx=idx;
+        }
+      }
+    });
+  },{passive:true});
+
+  document.addEventListener('touchend',function(){
+    if(dragIdx===null) return;
+    if(overIdx!==null&&overIdx!==dragIdx) doReorder(dragIdx,overIdx);
+    clearDragClasses();
+    dragIdx=null; overIdx=null; container=null; touchItem=null;
+  });
+})();
 
 // ── Sichtbarkeit pro User ──
 function visibilityChipsHtml(selectedUsers){
@@ -1423,7 +1755,7 @@ function firebaseStart(){
 
   loadAllTodos();
   GANTT_DOC.get().then(function(doc){
-    if(doc.exists){var d=doc.data();if(d.tasks&&d.tasks.length) tasks=d.tasks;}
+    if(doc.exists){var d=doc.data();if(d.tasks&&d.tasks.length) tasks=d.tasks;if(d.personalTodos&&currentUser) personalTodos=d.personalTodos[currentUser]||[];}
     render(); markConnected();
   }).catch(function(e){
     console.error('Firebase error:',e);
@@ -1436,6 +1768,7 @@ function firebaseStart(){
     var d=doc.data();if(!d||!d.tasks)return;
     tasks=d.tasks;
     if(d.todos) taskTodos=d.todos;
+    if(d.personalTodos&&currentUser) personalTodos=d.personalTodos[currentUser]||[];
     render(); markConnected();
   },function(err){console.warn('Snapshot error:',err);});
 
