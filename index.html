@@ -224,9 +224,33 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </div>
 
 <!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
+import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-ai.js";
+const firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+const aiApp = initializeApp(firebaseConfig, "aiApp");
+initializeAppCheck(aiApp, {
+    provider: new ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+    isTokenAutoRefreshEnabled: true
+});
+const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
+window.aiModel = getGenerativeModel(ai, {
+    model: "gemini-2.5-flash",
+    generationConfig: { responseMimeType: "application/json", temperature: 0 }
+});
+</script>
 <script>
 // ============================================================
 // CONFIG & CONSTANTS
@@ -241,18 +265,13 @@ const firebaseConfig = {
 };
 const EMAIL_DOMAIN = '@lager.local';
 firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+    true
+);
 const auth = firebase.auth();
 const db = firebase.firestore();
 const $ = id => document.getElementById(id);
-
-const GROQ_API_KEYS = [
-    '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',
-    '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'
-];
-let _groqKeyIndex = 0;
-function getGroqKey(){ return GROQ_API_KEYS[_groqKeyIndex]; }
-function rotateGroqKey(){ _groqKeyIndex = (_groqKeyIndex+1) % GROQ_API_KEYS.length; console.log('Groq Key gewechselt auf Key #'+(_groqKeyIndex+1)); }
-const GROQ_API_KEY = GROQ_API_KEYS[0];
 
 const WAREHOUSE_ZONES = Object.freeze({
     halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
@@ -423,40 +442,20 @@ function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=
     ctx.putImageData(orig,0,0);tc.width=0;tc.height=0;
     const result=c.toDataURL('image/jpeg',0.92);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
 
-async function _groqRequest(base64, retries=2){
-    const models=['meta-llama/llama-4-scout-17b-16e-instruct'];
-    const totalKeys=GROQ_API_KEYS.length;
-    for(let k=0;k<totalKeys;k++){
-        const currentKey=getGroqKey();
-        for(let m=0;m<models.length;m++){
-            for(let i=0;i<retries;i++){
-                const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+currentKey,'Content-Type':'application/json'},body:JSON.stringify({model:models[m],messages:[{role:'user',content:[{type:'image_url',image_url:{url:base64}},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
-                if(r.ok) return r;
-                if(r.status===429){
-                    const body=await r.text();
-                    const waitMatch=body.match(/try again in (\d+)m?([\d.]+)s/i);
-                    let waitSec=15*(i+1);
-                    if(waitMatch){waitSec=parseInt(waitMatch[1]||'0')*60+parseFloat(waitMatch[2]||'15');}
-                    if(waitSec>60){console.warn('Rate-Limit bei Key #'+(_groqKeyIndex+1)+': Wechsle Modell/Key...');break;}
-                    console.warn(`Rate-Limit (429) Key #${_groqKeyIndex+1}. Warte ${Math.ceil(waitSec)}s (Versuch ${i+1}/${retries})...`);
-                    await new Promise(ok=>setTimeout(ok,waitSec*1000));
-                    continue;
-                }
-                throw new Error('API-Fehler '+r.status+': '+await r.text());
-            }
-        }
-        // Alle Modelle bei diesem Key limitiert → nächsten Key probieren
-        rotateGroqKey();
-        console.log('Wechsle zu Groq Key #'+(_groqKeyIndex+1)+' ...');
-    }
-    throw new Error('Alle Groq API-Keys haben das Tages-Limit erreicht. Bitte warte bis morgen oder füge einen weiteren Key hinzu.');
+async function _aiRequest(base64){
+    if(!window.aiModel) throw new Error('KI-Modell noch nicht geladen — Seite neu laden');
+    const b64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+    const result = await window.aiModel.generateContent([
+        SCAN_PROMPT,
+        { inlineData: { mimeType: 'image/jpeg', data: b64Data } }
+    ]);
+    return result.response.text();
 }
 
 async function scanLabel(file){
     const base64=await imageToBase64Scan(file,2500);
-    const r=await _groqRequest(base64);
-    if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
-    const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
+    const content=await _aiRequest(base64);
+    if(!content)throw new Error('Keine Antwort');
     let data;try{data=JSON.parse(content);}catch{const mt=content.match(_jsonBlockRe);if(mt)data=JSON.parse(mt[1]);else throw new Error('JSON-Parse-Fehler');}
     if(data.datum){data.datum=normalizeDatum(data.datum);}
     const isXOFertig=data.labelTyp==='XO Fertigware';
