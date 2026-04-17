@@ -290,14 +290,32 @@ for(const[_,cat] of Object.entries(WAREHOUSE_ZONES)) for(const[zone,count] of Ob
 // ============================================================
 const _errorMap = Object.freeze({'auth/invalid-email':'Ungültiger Benutzername','auth/user-not-found':'Benutzer nicht gefunden','auth/wrong-password':'Falsches Passwort','auth/invalid-credential':'Falscher Benutzername oder Passwort','auth/too-many-requests':'Zu viele Versuche. Bitte warten.'});
 
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+let _idleTimer = null;
+function _resetIdleTimer(){
+    if(_idleTimer) clearTimeout(_idleTimer);
+    if(!auth.currentUser) return;
+    _idleTimer = setTimeout(() => {
+        if(auth.currentUser){
+            auth.signOut();
+            alert('Automatisch abgemeldet nach 5 Minuten Inaktivität.');
+        }
+    }, IDLE_TIMEOUT_MS);
+}
+['click','touchstart','keydown','input','change'].forEach(ev =>
+    document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true})
+);
+
 auth.onAuthStateChanged(user => {
     if(user){
         $('loginView').style.display='none';
         $('appView').style.display='flex';
         $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
+        _resetIdleTimer();
     } else {
         $('appView').style.display='none';
         $('loginView').style.display='flex';
+        if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
     }
 });
 
