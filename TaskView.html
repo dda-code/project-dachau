@@ -435,6 +435,16 @@ body {
   word-break: break-word;
 }
 .personal-todo-text.checked { text-decoration: line-through; color: var(--text3); }
+.personal-todo-text[contenteditable="true"] {
+  cursor: text; outline: none; border-radius: 4px;
+  padding: 2px 6px; margin: -2px -6px;
+  transition: background .1s, box-shadow .1s;
+}
+.personal-todo-text[contenteditable="true"]:hover { background: rgba(79,110,247,.06); }
+.personal-todo-text[contenteditable="true"]:focus {
+  background: var(--bg); box-shadow: 0 0 0 1.5px var(--accent);
+  text-decoration: none; color: var(--text);
+}
 .personal-todo-date {
   width: 38px; flex-shrink: 0; padding: 4px 0; border: none; background: none;
   font-size: 12px; color: var(--accent); text-align: center; cursor: pointer;
@@ -1200,6 +1210,18 @@ function removePersonalTodo(idx){
   savePersonalTodos();
   render();
 }
+var _personalTodoEditing=false;
+function savePersonalTodoText(idx,el){
+  _personalTodoEditing=false;
+  if(idx<0||idx>=personalTodos.length||!el) return;
+  var newText=(el.textContent||'').replace(/\s+/g,' ').trim();
+  var oldText=personalTodos[idx].text;
+  if(newText===oldText){ el.textContent=oldText; return; }
+  if(!newText){ el.textContent=oldText; return; }
+  personalTodos[idx].text=newText;
+  el.textContent=newText;
+  savePersonalTodos();
+}
 function fmtDateShortTodo(dStr){
   if(!dStr) return '';
   var p=dStr.split('-');
@@ -1251,7 +1273,7 @@ function renderPersonalTodoSection(){
       h+='<div class="personal-todo-item" data-idx="'+i+'">';
       h+='<span class="personal-todo-drag" data-drag="true">&#x2630;</span>';
       h+='<button class="personal-todo-check'+(t.done?' checked':'')+'" onclick="togglePersonalTodo('+i+')">'+(t.done?'&#x2713;':'')+'</button>';
-      h+='<span class="personal-todo-text'+(t.done?' checked':'')+'">'+esc(t.text)+'</span>';
+      h+='<span class="personal-todo-text'+(t.done?' checked':'')+'" contenteditable="true" spellcheck="false" data-idx="'+i+'" onfocus="_personalTodoEditing=true" onblur="savePersonalTodoText('+i+',this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}else if(event.key===\'Escape\'){event.preventDefault();this.textContent=personalTodos['+i+'].text;this.blur();}">'+esc(t.text)+'</span>';
       h+='<div class="personal-todo-date-wrap">';
       h+='<span class="personal-todo-date-label'+(dateLabel?'':' empty')+'" onclick="this.nextElementSibling.showPicker?this.nextElementSibling.showPicker():this.nextElementSibling.focus()">'+(dateLabel||'&#x1F4C5;')+'</span>';
       h+='<input type="date" class="personal-todo-date" value="'+(t.date||'')+'" onchange="setPersonalTodoDate('+i+',this.value)" style="position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer">';
@@ -1770,6 +1792,7 @@ function firebaseStart(){
     tasks=d.tasks;
     if(d.todos) taskTodos=d.todos;
     if(d.personalTodos&&currentUser) personalTodos=d.personalTodos[currentUser]||[];
+    if(_personalTodoEditing){ markConnected(); return; }
     render(); markConnected();
   },function(err){console.warn('Snapshot error:',err);});
 
