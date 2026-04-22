@@ -853,11 +853,12 @@ function render() {
   var vacations = tasks.filter(function(t){ return t.type==='urlaub'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
   var meetings = tasks.filter(function(t){ return t.type==='meeting'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
   function canSeeOutlookEvent(t){
-    if(currentUser && currentUser.toLowerCase()==='admin') return true;
+    // Regel: Jeder User sieht NUR die Outlook-Termine, die sein eigener
+    // Sync-Tray hochgeladen hat (ownerEmail === seine Email). Keine weiteren
+    // Ausnahmen — weder Admin-Bypass noch Attendee-Fallback. Damit werden
+    // Dubletten zwischen verschiedenen syncenden Usern automatisch vermieden.
     if(!currentUserEmail) return false;
-    if(t.ownerEmail && t.ownerEmail===currentUserEmail) return true;
-    if(Array.isArray(t.attendees) && t.attendees.indexOf(currentUserEmail)!==-1) return true;
-    return false;
+    return t.ownerEmail === currentUserEmail;
   }
   // Outlook-Termine aus tasks: nur anzeigen wenn User berechtigt ist
   var filteredMeetings = meetings.filter(function(t){
