@@ -856,6 +856,7 @@ function render() {
     if(currentUser && currentUser.toLowerCase()==='admin') return true;
     if(!currentUserEmail) return false;
     if(t.ownerEmail && t.ownerEmail===currentUserEmail) return true;
+    if(Array.isArray(t.attendees) && t.attendees.indexOf(currentUserEmail)!==-1) return true;
     return false;
   }
   // Outlook-Termine aus tasks: nur anzeigen wenn User berechtigt ist
