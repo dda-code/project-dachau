@@ -135,20 +135,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         </div>
     </header>
 
-    <!-- STEP 0: Modus wählen -->
-    <div id="step0" class="step active">
-        <div class="scan-area">
-            <p class="scan-instruction" style="margin-bottom:8px">Was möchtest du scannen?</p>
-            <button class="btn btn-primary mode-btn" data-mode="lager" style="background:#4361ee;font-size:1.15rem;padding:18px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px;line-height:1.3;flex-direction:column;gap:4px"><span>📦 Lagerware</span><span style="font-size:0.85rem;font-weight:400;opacity:0.9">(Einlagerung)</span></button>
-            <button class="btn btn-success mode-btn" data-mode="fertigware" style="font-size:1.15rem;padding:18px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px;line-height:1.3;flex-direction:column;gap:4px"><span>✅ XO-Ends</span><span style="font-size:0.85rem;font-weight:400;opacity:0.9">(produzierte Paletten)</span></button>
-            <button class="btn mode-btn" data-mode="bunker" style="background:#f59e0b;color:white;font-size:1.15rem;padding:18px;border-radius:12px;width:100%;max-width:300px;line-height:1.3;flex-direction:column;gap:4px"><span>🏭 Frame Spritzguss</span><span style="font-size:0.85rem;font-weight:400;opacity:0.9">(produzierte Paletten)</span></button>
-        </div>
-    </div>
-
     <!-- STEP 1: Foto aufnehmen -->
-    <div id="step1" class="step">
+    <div id="step1" class="step active">
         <div class="scan-area">
-            <button type="button" class="btn btn-secondary" onclick="goToStep0()" style="align-self:flex-start;padding:8px 14px;font-size:0.9rem">&larr; Zur&uuml;ck zur Auswahl</button>
             <div class="scan-icon">&#128247;</div>
             <p class="scan-instruction">Fotografiere das Palettenlabel oder gib die Daten manuell ein.</p>
             <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
@@ -177,7 +166,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div id="fieldsContainer"></div>
         </div>
         <div style="display:flex;gap:10px;">
-            <button class="btn btn-secondary" onclick="goToStep0()">Abbrechen</button>
+            <button class="btn btn-secondary" onclick="goToStep1()">Abbrechen</button>
             <button class="btn btn-primary" id="toStep3Btn">Weiter</button>
         </div>
     </div>
@@ -208,7 +197,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="success-icon">&#9989;</div>
             <div class="success-text">Erfolgreich eingelagert!</div>
             <div class="success-sub" id="successDetail"></div>
-            <button class="btn btn-primary" onclick="goToStep0()">N&auml;chste Palette</button>
+            <button class="btn btn-primary" onclick="goToStep1()">N&auml;chste Palette</button>
         </div>
     </div>
 
@@ -230,7 +219,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <button class="btn btn-primary" id="manualSubmitBtn" style="margin-top:14px">Weiter</button>
             </div>
         </div>
-        <button class="btn btn-secondary" style="margin-top:10px" onclick="goToStep0()">Abbrechen</button>
+        <button class="btn btn-secondary" style="margin-top:10px" onclick="goToStep1()">Abbrechen</button>
     </div>
 </div>
 
@@ -291,16 +280,7 @@ const WAREHOUSE_ZONES = Object.freeze({
 });
 const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
 function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
-const ARTIKEL_NUMMERN = Object.freeze([
-    // Frame (12xxxx) — F-Konv-Nummern aus artikelliste_all.json
-    '120001','120002','120004','120005','120006','120007','120008','120009','120010','120011',
-    '120014','120015','120016','120018','120022','120023','120024','120025','120026','120027','120028','120030',
-    // Innerslider (18xxxx)
-    '180001','180005','180006','180007','180008',
-    // Outerslider (19xxxx)
-    '190001','190002','190003','190004','190005','190006','190007','190008','190009',
-    '190011','190012','190013','190014','190015','190016','190017','190024','190032','190033'
-]);
+const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032','190033']);
 const GRANULATE_SLOT_COUNT = 25;
 const _zoneSlotMap = {};
 for(const[_,cat] of Object.entries(WAREHOUSE_ZONES)) for(const[zone,count] of Object.entries(cat.zones)) _zoneSlotMap[zone]=count;
@@ -332,7 +312,6 @@ auth.onAuthStateChanged(user => {
         $('appView').style.display='flex';
         $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
         _resetIdleTimer();
-        if(typeof goToStep0==='function')goToStep0();
     } else {
         $('appView').style.display='none';
         $('loginView').style.display='flex';
@@ -368,7 +347,6 @@ const INBOUND_FIELDS_XO_HALB=[
     {key:'datum',label:'Produktionsdatum'},
     {key:'uhrzeit',label:'Uhrzeit'},
     {key:'orderNr',label:'Order Number'},
-    {key:'schicht',label:'Shift'},
     {key:'palettenNr',label:'Pallet Number'},
     {key:'internalBarcode',label:'Internal Barcode'}
 ];
@@ -407,39 +385,18 @@ const SCAN_PROMPT=`Du bist ein OCR-Spezialist. Lies JEDES einzelne Textfeld auf 
 
 LABEL-TYPEN:
 TYP 1: "XO Fertigware" — XO-Logo + "Beverage Can Ends". Article Number im Format XO-XXX-XXXXXZ (z.B. XO-202-2046G). WICHTIG: Dieses Label hat ZWEI getrennte Mengenfelder nebeneinander: "QTY/Pallet" (linke Spalte, große Zahl z.B. 71280) und "QTY/Sleeve" (rechte Spalte, kleinere Zahl z.B. 198). Lies BEIDE Werte SEPARAT und EXAKT ab. Verwechsle sie NICHT!
-TYP 2: "XO Halbfabrikate" — XO-Logo + Überschrift "Frame" (intern produziertes Spritzguss-Label). Enthält Felder: Production Date, Time, Order Number, Shift, Article Number, Pallet Number, Internal Barcode. Article Number ist eine 6-stellige Zahl beginnend mit 12, 18 oder 19 (z.B. 120030).
+TYP 2: "XO Halbfabrikate" — XO-Logo + "Frame". Article Number ist eine 6-stellige Zahl (z.B. 190009).
 TYP 3: "ALPLA Halbfabrikate" — ALPLA-Logo, tschechische Felder wie "Barva/Color", "Počet ks v balení". Artikelnr. ist 6-stellig (z.B. 190009).
 
 WICHTIGE REGELN:
 - Lies Zahlen EXAKT Ziffer für Ziffer ab. Verwechsle nicht 0/O, 1/l, 5/S, 8/B.
-
-== XO HALBFABRIKATE (Frame / Spritzguss-Label) ==
-- LAYOUT: Tabellarisches Label mit XO-Logo oben links und "Frame" als Überschrift. Darunter eine 2-spaltige Tabelle:
-    Zeile 1: "Production Date" | "Time"           → Werte z.B. "21.04.2026" | "07:49"
-    Zeile 2: "Order Number"    | "Shift"          → Werte z.B. "IO26-0001"  | "1"
-    Zeile 3: "Article Number"  | "Pallet Number"  → Werte z.B. "120030"     | "FR260001"
-  Darunter: "Internal Barcode"-Zeile mit einer zusammengesetzten Nummer + Barcode-Strichcode.
-- ARTIKELNUMMER bei XO Halbfabrikate: Steht direkt unter der Zelle "Article Number" (linke Spalte, dritte Datenzeile). Immer eine 6-stellige Zahl, beginnend mit "12" (Frame), "18" (Innerslider) oder "19" (Outerslider). NIE XO-Präfix, NIE Bindestriche. Beispielwerte: 120030, 120025, 180007, 190009, 190024.
-- PALETTENNUMMER bei XO Halbfabrikate: Format "FR26XXXX" (z.B. "FR260001"), steht unter "Pallet Number".
-- ORDER NUMBER bei XO Halbfabrikate: Format "IO26-XXXX" — beginnt IMMER mit den BUCHSTABEN "I" und "O" (Großbuchstaben, KEINE Ziffern 1/0), gefolgt von "26", Bindestrich und 4 Ziffern (z.B. "IO26-0001"). Das "I" ist der Buchstabe i (nicht die Ziffer 1), das "O" ist der Buchstabe o (nicht die Ziffer 0). Nicht mit der Pallet Number "FR26XXXX" verwechseln.
-- SHIFT bei XO Halbfabrikate: IMMER genau EINE Ziffer (1, 2 oder 3).
-- INTERNAL BARCODE bei XO Halbfabrikate: Format "<ArtikelNr>-<DDMMYYYY>-<HHMM>-<PalNr>", z.B. "120030-21042026-0749-FR260001". Lies den Klartext über dem Barcode exakt ab.
-- GEGENPROBE bei XO Halbfabrikate: Der Internal Barcode enthält ALLE Kernwerte redundant:
-    Segment 1 = Artikelnummer (6 Ziffern)
-    Segment 2 = Datum (DDMMYYYY)
-    Segment 3 = Uhrzeit (HHMM)
-    Segment 4 = Palettennummer (FR26XXXX)
-  Wenn der Wert in der Tabelle unklar ist, nimm den entsprechenden Wert aus dem Internal Barcode. Werte MÜSSEN zwischen Tabelle und Internal Barcode übereinstimmen — prüfe das IMMER.
-
-== ALPLA HALBFABRIKATE ==
-- ARTIKELNUMMER: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Gib IMMER die 6-stellige Nummer zurück.
-- RUNNING NUMBER (palettenNr): IMMER EXAKT 9 Ziffern (z.B. "006919624"). Lies alle 9 Ziffern sorgfältig ab, auch führende Nullen!
-- LOT-NR.: IMMER EXAKT 5 Ziffern (z.B. "36479"). Lies alle 5 Ziffern sorgfältig ab. Verwechsle keine Ziffern und kürze nicht ab.
-- SHIFT (schicht): IMMER EINE EINZELNE Ziffer (1, 2 oder 3). Keine Buchstaben.
-
-== ALLGEMEINE FELDER ==
-- SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor. Nur bei XO Fertigware und ALPLA Halbfabrikate.
-- Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024", "05.04.2024" oder "21.04.2026").
+- ARTIKELNUMMER bei ALPLA/XO Halbfabrikate: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Mögliche Nummern: 120025,120026,120027,120028,180006,180007,190009,190024,190032,190033. Gib IMMER die 6-stellige Nummer zurück.
+- SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor.
+- Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024" oder "05.04.2024").
+- Order Number hat typisch das Format "26-XXXX" oder "26-XXXX-PartX".
+- RUNNING NUMBER (palettenNr) bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 9 Ziffern (z.B. "006919624"). Lies alle 9 Ziffern sorgfältig ab, auch führende Nullen! Wenn die Nummer weniger als 9 Ziffern hat, prüfe ob du Ziffern übersehen hast.
+- LOT-NR. bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 5 Ziffern (z.B. "36479"). Lies alle 5 Ziffern sorgfältig ab. Verwechsle keine Ziffern und kürze nicht ab.
+- SHIFT (schicht) bei ALPLA Halbfabrikate: Dies ist IMMER eine EINZELNE Ziffer (z.B. "1", "2" oder "3"). Lies die Schichtnummer vom Label exakt ab. Es ist immer nur EINE Ziffer, keine Buchstaben.
 - Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
 
 BEISPIEL 1 — ALPLA Halbfabrikate:
@@ -448,8 +405,8 @@ BEISPIEL 1 — ALPLA Halbfabrikate:
 BEISPIEL 2 — XO Fertigware:
 {"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"02.04.2026","uhrzeit":"19:26","sscc":"34262503660026793","palettenNr":"C26-0338","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Monster","schicht":"2","gtin":"4262503660396","menge":"71280","mengePerSleeve":"198"}
 
-BEISPIEL 3 — XO Halbfabrikate (Frame/Spritzguss):
-{"labelTyp":"XO Halbfabrikate","artikelNr":"120030","datum":"21.04.2026","uhrzeit":"07:49","sscc":"","palettenNr":"FR260001","lotNr":"","orderNr":"IO26-0001","internalBarcode":"120030-21042026-0749-FR260001","kunde":"","schicht":"1","gtin":"","menge":"","mengePerSleeve":""}
+BEISPIEL 3 — XO Halbfabrikate:
+{"labelTyp":"XO Halbfabrikate","artikelNr":"190009","datum":"02.04.2024","uhrzeit":"08:15","sscc":"","palettenNr":"FR260001","lotNr":"","orderNr":"26-0012","internalBarcode":"INT-00123456","kunde":"","schicht":"B","gtin":"","menge":"","mengePerSleeve":""}
 
 Antworte NUR mit einem JSON-Objekt in exakt diesem Format (alle Felder müssen vorhanden sein):`;
 
@@ -527,37 +484,6 @@ async function scanLabel(file){
         if(xoMatch)data.artikelNr='XO-'+xoMatch[1]+'-'+xoMatch[2].toUpperCase();
     }
     if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');if(data.sscc.length<16)data.sscc='';}
-    // XO Halbfabrikate (Frame): Internal Barcode als Gegenprobe/Fallback verwenden
-    if(data.labelTyp==='XO Halbfabrikate'){
-        // Internal Barcode Format: <ArtikelNr>-<DDMMYYYY>-<HHMM>-<PalNr>
-        const ibMatch=(data.internalBarcode||'').trim().match(/^(\d{6})[\-\s]*(\d{8})[\-\s]*(\d{4})[\-\s]*(FR\d{6})$/i);
-        if(ibMatch){
-            const [,ibArt,ibDate,ibTime,ibPal]=ibMatch;
-            // Artikelnr: falls Tabelle nicht zu gültigem Wert führt, aus Barcode übernehmen
-            const tblArt=(data.artikelNr||'').replace(/[\s\-]/g,'');
-            if(ARTIKEL_NUMMERN.includes(ibArt) && (!ARTIKEL_NUMMERN.includes(tblArt))){
-                data.artikelNr=ibArt;
-            }
-            // Datum: DDMMYYYY → DD.MM.YYYY, falls Tabelle ungültig
-            if(!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum||'')){
-                data.datum=ibDate.slice(0,2)+'.'+ibDate.slice(2,4)+'.'+ibDate.slice(4,8);
-            }
-            // Uhrzeit: HHMM → HH:MM, falls Tabelle ungültig
-            if(!/^\d{1,2}:\d{2}/.test(data.uhrzeit||'')){
-                data.uhrzeit=ibTime.slice(0,2)+':'+ibTime.slice(2,4);
-            }
-            // Palettennr: Barcode-Wert bevorzugen falls Tabelle abweicht
-            if(!/^FR\d{6}$/i.test((data.palettenNr||'').trim())){
-                data.palettenNr=ibPal.toUpperCase();
-            }
-        }
-        // Schicht auf einzelne Ziffer normalisieren
-        if(data.schicht){
-            const digits=String(data.schicht).replace(/\D/g,'');
-            data.schicht=digits.length>=1?digits.charAt(0):'FEHLER';
-            if(!/^[1-3]$/.test(data.schicht))data.schicht='FEHLER';
-        }
-    }
     // ALPLA Halbfabrikate: Running Number (palettenNr) normalisieren auf 9 Ziffern
     if(data.labelTyp==='ALPLA Halbfabrikate'){
         if(data.palettenNr){
@@ -586,7 +512,7 @@ async function scanLabel(file){
     if(!data.uhrzeit||!/^\d{1,2}:\d{2}/.test(data.uhrzeit))data.uhrzeit='FEHLER';
     const _checkFields=isXOFertig
         ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
-        :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode','schicht']
+        :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode']
         :['sscc','palettenNr','lotNr','schicht'];
     for(const k of _checkFields){if(!data[k])data[k]='FEHLER';}
     return {data, base64};
@@ -705,16 +631,6 @@ function showStep(id){
     $(id).classList.add('active');
 }
 
-let currentMode='lager'; // 'lager' | 'fertigware' | 'bunker'
-function goToStep0(){
-    inboundData=null; currentLabelTyp=null;
-    $('progressArea').style.display='none';
-    $('progressFill').style.width='0%';
-    $('previewImg').style.display='none';
-    const h=document.querySelector('.app-header h1');
-    if(h)h.textContent='Lager-Scanner';
-    showStep('step0');
-}
 function goToStep1(){
     inboundData=null; currentLabelTyp=null;
     $('progressArea').style.display='none';
@@ -722,17 +638,6 @@ function goToStep1(){
     $('previewImg').style.display='none';
     showStep('step1');
 }
-// Mode-Buttons in Step 0
-document.querySelectorAll('.mode-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-        currentMode=btn.dataset.mode||'lager';
-        // Anzeige anpassen
-        const title={lager:'Lager-Einlagerung',fertigware:'Fertigware-Scan',bunker:'XO Frame Einlagerung'}[currentMode];
-        const h=document.querySelector('.app-header h1');
-        if(h)h.textContent=title||'Lager-Scanner';
-        goToStep1();
-    });
-});
 
 function goToStep2(){
     showStep('step2');
@@ -854,29 +759,6 @@ $('toStep3Btn').addEventListener('click', async ()=>{
     if(!inboundData.artikelNr||inboundData.artikelNr==='FEHLER'){alert('Artikelnummer fehlt oder ungültig!');return;}
 
     $('toStep3Btn').disabled=true;
-    // Fertigware-Modus: Kein Stellplatz — direkt in fertigpaletten-Collection speichern
-    if(currentMode==='fertigware'){
-        try {
-            const docId=inboundData.sscc||inboundData.palettenNr||('pal_'+Date.now());
-            await db.collection('fertigpaletten').doc(docId).set({
-                ...inboundData,
-                scanMode:'fertigware',
-                scannedAt:firebase.firestore.FieldValue.serverTimestamp(),
-                scannedBy:getCurrentUsername(),
-                status:'fertig',
-                position:'',
-                gesperrt:false
-            });
-            $('successDetail').textContent=(inboundData.artikelNr||'')+' — Palette '+(inboundData.palettenNr||docId)+' erfasst';
-            scanHistory.unshift({time:new Date(),artikelNr:inboundData.artikelNr,position:'Fertigware'});
-            renderHistory();
-            showStep('step4');
-        } catch(e){
-            alert('Fehler beim Speichern: '+e.message);
-        }
-        $('toStep3Btn').disabled=false;
-        return;
-    }
     try {
         const occ=await getAllPositions();
         const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['K','H','G','F','E','D','C','B','A','V'];
