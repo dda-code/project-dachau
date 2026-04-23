@@ -1729,9 +1729,10 @@ $('createUserForm').addEventListener('submit',async e=>{
                 }
             }else{throw createErr;}
         }
-        // User schreibt sein eigenes Dokument (Firestore Rules: auth.uid == doc.id)
-        await _secondaryDb.collection('users').doc(uid).set({displayName:u,email:toEmail(u),role:r,disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+        // Secondary sofort ausloggen — danach schreibt der PRIMÄRE Admin das users/{uid}-Doc
+        // (Rules: nur isUserAdmin() darf users-Docs anlegen mit beliebiger Rolle).
         await _secondaryAuth.signOut();
+        await db.collection('users').doc(uid).set({displayName:u,email:toEmail(u),role:r,disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
         $('newUsername').value='';$('newPassword').value='';$('newRole').value='user';
         suc.textContent='Benutzer "'+u+'" erfolgreich angelegt!';suc.style.display='block';
         loadUserMgmt();
