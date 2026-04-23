@@ -8,7 +8,6 @@
     <meta name="theme-color" content="#4361ee">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="dns-prefetch" href="https://api.groq.com">
     <link rel="dns-prefetch" href="https://firestore.googleapis.com">
     <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -306,8 +305,19 @@ function _resetIdleTimer(){
     document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true})
 );
 
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async user => {
     if(user){
+        // Deaktivierte Konten sofort ausloggen — Rule im Firestore muss das zusätzlich blockieren.
+        try {
+            const uDoc = await db.collection('users').doc(user.uid).get();
+            if(uDoc.exists && uDoc.data().disabled === true){
+                await auth.signOut();
+                const err = $('loginError');
+                err.textContent = 'Konto deaktiviert. Bitte an Administrator wenden.';
+                err.style.display = 'block';
+                return;
+            }
+        } catch(e){ console.warn('users-Doc prüfen fehlgeschlagen:', e && e.message); }
         $('loginView').style.display='none';
         $('appView').style.display='flex';
         $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
@@ -566,6 +576,7 @@ const GRANULATE_ROW_SIZE=5;
 
 function renderMiniMap(occ, selectedPos){
     const c=$('warehouseMapContainer');
+    c._occSnapshot=occ; // aktuelle Belegung am Container cachen, damit der Listener Zugriff hat
     const mc=(pos)=>{
         if(!isValidPosition(pos)) return '';
         const pal=occ[pos];
@@ -602,12 +613,15 @@ function renderMiniMap(occ, selectedPos){
     }
     f+='</div>';
     c.innerHTML=h+g+f;
-    // Click on cell to select position
+    // Click on cell to select position — Listener nur einmal binden (sonst Memory-Leak)
+    if(c._clickBound) return;
+    c._clickBound = true;
     c.addEventListener('click', e=>{
         const cell=e.target.closest('.wh-minicell');
         if(!cell)return;
         const pos=cell.dataset.pos;
-        if(occ[pos])return; // occupied, can't select
+        const _occ=c._occSnapshot||{};
+        if(_occ[pos])return; // occupied, can't select
         $('positionSelect').value=pos;
         $('suggestedPos').textContent=pos;
         c.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
@@ -784,14 +798,17 @@ $('toStep3Btn').addEventListener('click', async ()=>{
         }
         sel.innerHTML='';sel.appendChild(frag);
         renderMiniMap(occ, fp);
-        // Sync dropdown → map highlight
-        sel.addEventListener('change',()=>{
-            const mapC=$('warehouseMapContainer');
-            mapC.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
-            const target=mapC.querySelector(`.wh-minicell[data-pos="${sel.value}"]`);
-            if(target)target.classList.add('selected');
-            $('suggestedPos').textContent=sel.value;
-        });
+        // Sync dropdown → map highlight — Listener nur einmal binden (sonst Memory-Leak)
+        if(!sel._changeBound){
+            sel._changeBound=true;
+            sel.addEventListener('change',()=>{
+                const mapC=$('warehouseMapContainer');
+                mapC.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
+                const target=mapC.querySelector(`.wh-minicell[data-pos="${sel.value}"]`);
+                if(target)target.classList.add('selected');
+                $('suggestedPos').textContent=sel.value;
+            });
+        }
         showStep('step3');
     } catch(e) {
         alert('Fehler beim Laden der Positionen: '+e.message);
@@ -802,7 +819,11 @@ $('toStep3Btn').addEventListener('click', async ()=>{
 // ============================================================
 // STEP 3: CONFIRM INBOUND
 // ============================================================
+let _confirmInboundInProgress=false;
 $('confirmBtn').addEventListener('click', async ()=>{
+    if(_confirmInboundInProgress) return;
+    _confirmInboundInProgress=true;
+    try{
     $('confirmBtn').disabled=true;
     const data={};
     ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');
@@ -857,11 +878,14 @@ $('confirmBtn').addEventListener('click', async ()=>{
         else if(data.artikelNr.startsWith('19'))data.menge='196.224';
     }
 
-    // Save to Firestore
+    // Atomares Write: Paletten-Doc + Protokoll + Log in einem Batch — alles oder nichts.
     try {
-        await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
-        await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
-        await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        const batch=db.batch();
+        batch.set(db.collection('paletten').doc(docId),{...data,position:pos,produktionsDatum:data.datum,einlagDatum:ts,qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
+        batch.set(db.collection('protokoll').doc(),{aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:ts,auslagDatum:null,ausgelagertVon:''});
+        batch.set(db.collection('log').doc(),{aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:ts});
+        await batch.commit();
 
         // Letzte Position merken für Smart-Vorschlag
         localStorage.setItem('lastStoredPosition', pos);
@@ -875,6 +899,7 @@ $('confirmBtn').addEventListener('click', async ()=>{
         alert('Fehler beim Speichern: '+e.message);
     }
     $('confirmBtn').disabled=false;
+    }finally{ _confirmInboundInProgress=false; }
 });
 
 // ============================================================
@@ -936,8 +961,10 @@ function renderHistory(){
     }).join('');
 }
 
-// Register Service Worker
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+// Register Service Worker (optional — Fehler nur loggen, nicht stumm schlucken)
+if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service-Worker-Registrierung fehlgeschlagen:', e && e.message));
+}
 </script>
 </body>
 </html>

@@ -64,6 +64,32 @@
 
   // (WebChannel-Warnungen bereits in früherem Block unterdrückt)
 </script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
+<script>
+  // App Check — gleicher reCAPTCHA-Enterprise-Key wie index.html / Lagerverwaltung.html
+  // Skip auf file:// (lokales Testen) — reCAPTCHA funktioniert da nicht.
+  // Erst nach DOMContentLoaded aktivieren, damit reCAPTCHA sein <div> ins Body einhängen kann.
+  (function(){
+    if(location.protocol === 'file:'){
+      console.log('AppCheck: auf file:// deaktiviert (nur für lokales Testen).');
+      return;
+    }
+    function initAppCheck(){
+      try {
+        firebase.appCheck().activate(
+          new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+          true
+        );
+      } catch(e){ console.warn('AppCheck init:', e && e.message); }
+    }
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', initAppCheck);
+    } else {
+      initAppCheck();
+    }
+  })();
+</script>
 <title>Technology – Gantt</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -82,8 +108,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh
 .btn:hover{background:var(--surface2);border-color:var(--accent)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 .btn.primary:hover{background:var(--accent2)}
-.btn.save-linked{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important}
-.btn.save-linked:hover{background:var(--accent2)!important}
 .btn.lnk-active{background:#f59e0b;border-color:#d97706;color:#fff}
 /* LINK MODE */
 body.link-mode #right{cursor:crosshair !important}
@@ -262,7 +286,6 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 @media print{#topbar .btn-group,#zoom-bar,#mbg{display:none!important}body{background:#fff;color:#111;height:auto;overflow:visible}#wrap{overflow:visible}#right,#tlist{overflow:visible}}
 #lock-banner{position:fixed;top:0;left:0;right:0;z-index:7000;background:#ef4444;color:#fff;font-size:13px;font-weight:600;text-align:center;padding:8px 16px;display:none;align-items:center;justify-content:center;gap:12px;font-family:var(--font)}
 body.firebase-readonly .btn.primary{opacity:.4;pointer-events:none}
-body.firebase-readonly #btn-save-main{opacity:.4;pointer-events:none}
 /* ── LOGIN OVERLAY ────────────────────────────────────────────────────────── */
 #login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#1a1d2e 0%,#2d3150 100%);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:var(--font)}
 #login-box{background:#fff;border-radius:16px;padding:40px 44px;width:360px;max-width:92vw;box-shadow:0 24px 80px rgba(0,0,0,.5);text-align:center}
@@ -277,7 +300,6 @@ body.firebase-readonly #btn-save-main{opacity:.4;pointer-events:none}
 /* ── USER MODE ────────────────────────────────────────────────────────────── */
 body.user-mode .btn.primary,
 body.user-mode #btn-link,
-body.user-mode #btn-save-main,
 body.user-mode #btn-save,
 body.user-mode .sub-add-btn,
 body.user-mode .drag-handle,
@@ -300,8 +322,6 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
 #role-badge.admin{background:#dcfce7;color:#166534}
 #role-badge.user{background:#dbeafe;color:#1e40af}
 /* ── PW MODAL ─────────────────────────────────────────────────────────────── */
-#pwbg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:none;align-items:center;justify-content:center}
-#pwmd{background:var(--bg2);border:1px solid var(--border);border-radius:10px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden}
 
 /* ═══════════════════════════════════════════════════════
    MOBILE RESPONSIVE — Basic Touch Optimizations
@@ -392,7 +412,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   }
 
   /* Modals vollständig responsiv */
-  #md, #mmbg > div, #umbg > div, #pwmd {
+  #md, #mmbg > div, #umbg > div {
     width: 96vw !important;
     max-width: 96vw !important;
     max-height: 88dvh !important;
@@ -434,7 +454,6 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
 
   #save-file-info { display: none !important; }
   #online-label   { display: none; }
-  #btn-disconnect { display: none !important; }
 
   .tname { font-size: 10px; }
   .tleft { padding: 0 4px; gap: 3px; }
@@ -490,7 +509,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
 }
 </style>
 </head>
-<body style="" class=""><div id="app-root">
+<body><div id="app-root">
 
 <!-- LOGIN OVERLAY -->
 <div id="login-overlay" style="display: flex;">
@@ -508,42 +527,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
 </div>
 
 
-<!-- PASSWORD CHANGE MODAL -->
-<div id="pwbg" onclick="closePW(event)" style="display: none; align-items: center; justify-content: center;">
-  <div id="pwmd" style="max-height:90vh;display:flex;flex-direction:column">
-    <div class="mh"><h2>👥 Benutzerverwaltung</h2><button onclick="closePW()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);line-height:1;padding:0 4px">×</button></div>
-    <div class="mb" style="overflow-y:auto">
-      <!-- Benutzerliste -->
-      <div id="user-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
-      <!-- Hinzufügen/Bearbeiten Formular -->
-      <div id="user-form" style="border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--surface)">
-        <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px" id="user-form-title">Neuer Benutzer</div>
-        <div class="fr" style="gap:8px">
-          <div class="field" style="flex:2"><label>Name</label><input type="text" id="uf-name" placeholder="z.B. Max Mustermann"></div>
-          <div class="field" style="flex:1">
-            <label>Rolle</label>
-            <select id="uf-role" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text1);font-family:var(--font);font-size:13px">
-              <option value="user" selected="selected">Benutzer (Nur lesen)</option>
-              <option value="admin">Admin (Bearbeiten)</option>
-            </select>
-          </div>
-        </div>
-        <div class="fr" style="gap:8px">
-          <div class="field" style="flex:1"><label id="uf-pw-lbl">Passwort</label><input type="password" id="uf-pw" placeholder="Passwort eingeben"></div>
-          <div class="field" style="flex:1"><label>Bestätigen</label><input type="password" id="uf-pw2" placeholder="Passwort bestätigen"></div>
-        </div>
-        <div id="uf-err" style="color:#ef4444;font-size:12px;margin-top:4px;display:none"></div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-          <button class="btn" id="uf-cancel" onclick="cancelUserEdit()" style="display: none;">Abbrechen</button>
-          <button class="btn primary" id="uf-save" onclick="saveUser()">+ Benutzer hinzufügen</button>
-        </div>
-      </div>
-    </div>
-    <div class="mf"><div style="flex:1"></div>
-      <button class="btn" onclick="closePW()">Schließen</button>
-    </div>
-  </div>
-</div>
+<!-- Benutzerverwaltung entfernt — zentrale Verwaltung erfolgt in Lagerverwaltung.html -->
 
 <div id="topbar">
   <div id="topbar-row1">
@@ -581,8 +565,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
     <div class="sep"></div>
     <div id="online-users"></div>
     <div class="sep"></div>
-    <span id="role-badge" class="admin">Admin</span>
-    <button class="btn" id="btn-pw" onclick="openPW()" title="Benutzer verwalten" style="">👥 Benutzer</button>
+    <span id="role-badge" class="user">—</span>
     <button class="btn" onclick="doLogout()" title="Abmelden" style="font-size:11px">Abmelden</button>
   </div>
   </div>
@@ -729,66 +712,8 @@ var ZL=[
 var zi=2;
 var DEFAULT_TASKS=[];
 
-// ── EMBEDDED STATE ───────────────────────────────────────
-// The two markers below are unique strings used as split points.
-// DO NOT rename them – saveState() splits the file on these exact strings.
-var __STATE_START__=''; // @@STATE_START@@
-var __SAVED_STATE__={"tasks":[],"nid":2,"zi":2,"collapsed":{},"auth":{"adminHash":"YWRtaW4xMjM=","userHash":"dXNlcjEyMw=="}};
-// @@STATE_END@@
-
-// ── Datei-Handle für direktes Überschreiben ──────────────────────────────────
-var _fileHandle = null;
-var _IDB_NAME = 'technology-filehandle', _IDB_STORE = 'handles', _IDB_KEY = 'main';
-var _idbConn = null;
-
-function getIDB(cb){
-  if(_idbConn){cb(_idbConn);return;}
-  var req = indexedDB.open(_IDB_NAME, 1);
-  req.onupgradeneeded = function(e){ e.target.result.createObjectStore(_IDB_STORE); };
-  req.onsuccess = function(e){ _idbConn = e.target.result; cb(_idbConn); };
-  req.onerror = function(){ cb(null); };
-}
-
-// IndexedDB: Save handle
-function idbSaveHandle(fh){
-  getIDB(function(db){
-    if(!db) return;
-    db.transaction(_IDB_STORE,'readwrite').objectStore(_IDB_STORE).put(fh, _IDB_KEY);
-  });
-}
-
-// IndexedDB: Delete handle
-function idbClearHandle(){
-  getIDB(function(db){
-    if(!db) return;
-    db.transaction(_IDB_STORE,'readwrite').objectStore(_IDB_STORE).delete(_IDB_KEY);
-  });
-}
-
-function buildSaveHtml(){
-  var _r=document.getElementById('right');
-  var state=JSON.stringify({tasks:tasks,nid:nid,zi:zi,collapsed:collapsed,colW:colW,scrollX:_r?_r.scrollLeft:0,scrollY:_r?_r.scrollTop:0,auth:AUTH,users:USERS});
-  var src=document.documentElement.outerHTML;
-  var A='// @@STATE_START@@',B='// @@STATE_END@@';
-  var i1=src.indexOf(A),i2=src.indexOf(B);
-  if(i1<0||i2<0){alert('Error: Marker not found.');return null;}
-  var before=src.slice(0,i1+A.length);
-  var after=src.slice(i2);
-  return '<!DOCTYPE html>\n'+before+'\nvar __SAVED_STATE__='+state+';\n'+after;
-}
-
-function writeToFile(html){
-  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  markSaving();
-  _fileHandle.createWritable()
-    .then(function(w){return w.write(blob).then(function(){return w;});})
-    .then(function(w){return w.close();})
-    .then(function(){markSaved();updateSaveUI();})
-    .catch(function(e){
-      console.error('Schreibfehler:',e);
-      markSaveError();
-    });
-}
+// Firestore ist die Single Source of Truth — keine lokale Datei-Speicherung mehr.
+// (Früher gab's __SAVED_STATE__/buildSaveHtml/dlAnker/loadState für HTML-Download + IndexedDB-FileHandle — entfernt.)
 
 // ── Firebase session + lock ──────────────────────────────────────────────────
 var _sessionId = Date.now().toString(36)+Math.random().toString(36).slice(2);
@@ -800,28 +725,32 @@ function saveState(){
   if(!_isEditor) return;
   markSaving();
   var _r=document.getElementById('right');
-  var state={tasks:tasks,nid:nid,zi:zi,collapsed:collapsed,colW:colW,scrollX:_r?_r.scrollLeft:0,scrollY:_r?_r.scrollTop:0,auth:AUTH,users:USERS,savedAt:new Date().toISOString()};
+  var state={tasks:tasks,nid:nid,zi:zi,collapsed:collapsed,colW:colW,scrollX:_r?_r.scrollLeft:0,scrollY:_r?_r.scrollTop:0,savedAt:new Date().toISOString()};
   GANTT_DOC.set(state)
     .then(function(){markSaved();})
     .catch(function(e){console.error('Save error:',e);markSaveError();});
 }
 
-// Lokales Backup
-function saveStateLocal(){
-  var html=buildSaveHtml();
-  if(html) dlAnker(html);
-}
+// Lock-Heartbeat: der Editor-Tab aktualisiert lockedAt alle 30s. Andere Clients
+// können ein "totes" Lock (> 2 Min kein Update) übernehmen falls der Editor-Tab abstürzt.
+var _lockHeartbeat = null;
+function _lockHeartbeatStop(){ if(_lockHeartbeat){ clearInterval(_lockHeartbeat); _lockHeartbeat=null; } }
 
 function acquireLock(){
-  return LOCK_DOC.set({sessionId:_sessionId,lockedAt:new Date().toISOString(),lockedBy:currentUser||'Admin'})
+  _lockHeartbeatStop();
+  return LOCK_DOC.set({sessionId:_sessionId,lockedAt:Date.now(),lockedBy:currentUser||'Admin'})
     .then(function(){
       _isEditor=true;
       document.body.classList.remove('firebase-readonly');
       document.getElementById('lock-banner').style.display='none';
+      _lockHeartbeat = setInterval(function(){
+        LOCK_DOC.update({lockedAt:Date.now()}).catch(function(){});
+      }, 30000);
     });
 }
 
 function releaseLock(){
+  _lockHeartbeatStop();
   LOCK_DOC.get().then(function(doc){
     if(doc.exists&&doc.data().sessionId===_sessionId) LOCK_DOC.delete();
   }).catch(function(){});
@@ -843,61 +772,6 @@ function markConnecting(){setStatus('#60a5fa','⟳ Verbinde…');}
 
 window.addEventListener('beforeunload',function(){releaseLock();unregisterPresence();});
 
-function updateSaveUI(){
-  var btn=document.getElementById('btn-save-main');
-  var info=document.getElementById('save-file-info');
-  var discBtn=document.getElementById('btn-disconnect');
-  if(!btn)return;
-  if(_fileHandle){
-    btn.title='Direkt speichern: '+_fileHandle.name+' (Strg+S)';
-    btn.classList.add('save-linked');
-    if(info){info.textContent=_fileHandle.name;info.style.display='inline';}
-    if(discBtn)discBtn.style.display='inline-flex';
-  } else {
-    btn.title='Speichern (Strg+S) — Speicherort wählen';
-    btn.classList.remove('save-linked');
-    if(info){info.textContent='';info.style.display='none';}
-    if(discBtn)discBtn.style.display='none';
-  }
-}
-
-// Ctrl+S Shortcut
-document.addEventListener('keydown',function(e){
-  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();saveStateLocal();}
-});
-
-function dlAnker(html){
-  // Encode als base64 data: URI — Claude-Sandbox fängt diesen Klick ab und löst Download aus
-  var encoded;
-  try {
-    encoded = 'data:text/html;base64,' + btoa(unescape(encodeURIComponent(html)));
-  } catch(e) {
-    encoded = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
-  }
-  var a=document.createElement('a');
-  a.href=encoded;
-  a.download='Technology_-_Gantt.html';
-  a.style.display='none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function(){document.body.removeChild(a);},500);
-  markSaved();
-}
-
-function loadState(){
-  if(__SAVED_STATE__&&__SAVED_STATE__.tasks&&__SAVED_STATE__.tasks.length){
-    tasks=__SAVED_STATE__.tasks;
-    nid=__SAVED_STATE__.nid||tasks.length+2;
-    zi=__SAVED_STATE__.zi||2;
-    collapsed=__SAVED_STATE__.collapsed||{};
-    colW=__SAVED_STATE__.colW||0;
-    scrollX=__SAVED_STATE__.scrollX||0;scrollY=__SAVED_STATE__.scrollY||0;
-    if(__SAVED_STATE__.auth&&__SAVED_STATE__.auth.adminHash){AUTH.adminHash=__SAVED_STATE__.auth.adminHash;AUTH.userHash=__SAVED_STATE__.auth.userHash;}
-    if(__SAVED_STATE__.users&&__SAVED_STATE__.users.length){USERS=__SAVED_STATE__.users;}
-    return true;
-  }
-  return false;
-}
 
 var tasks=DEFAULT_TASKS.slice();
 var nid=2,eid=null,sc=COLS[0];
@@ -1285,7 +1159,7 @@ function buildGrid(vrows){
         var mwr=mk('div','bwrap');
         mwr.dataset.id=t.id;
         mwr.style.cssText='left:'+(mso*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+mbw+'px;height:'+barH+'px';
-        mwr.innerHTML='<div class="bar meeting-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden"><span class="meeting-lbl">📅 '+t.name+'</span></div><span class="blbl-over">📅 '+t.name+'</span>';
+        mwr.innerHTML='<div class="bar meeting-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden"><span class="meeting-lbl">📅 '+_esc(t.name)+'</span></div><span class="blbl-over">📅 '+_esc(t.name)+'</span>';
         var mBarEl=mwr.firstChild;
         mBarEl.addEventListener('click',function(e){
           if(linkMode)return;if(currentRole==='admin')openEditMeeting(t.id);
@@ -1305,7 +1179,7 @@ function buildGrid(vrows){
         var uwr=mk('div','bwrap');
         uwr.dataset.id=t.id;
         uwr.style.cssText='left:'+(uso*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+ubw+'px;height:'+barH+'px';
-        uwr.innerHTML='<div class="bar urlaub-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden"><span class="urlaub-lbl">🏖 '+t.name+'</span></div><span class="blbl-over">🏖 '+t.name+'</span>';
+        uwr.innerHTML='<div class="bar urlaub-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden"><span class="urlaub-lbl">🏖 '+_esc(t.name)+'</span></div><span class="blbl-over">🏖 '+_esc(t.name)+'</span>';
         var uBarEl=uwr.firstChild;
         uBarEl.addEventListener('click',function(e){if(linkMode)return;openEditUrlaub(t.id);});
         uBarEl.addEventListener('mouseenter',function(e){showTT(t,e,true);});
@@ -1325,7 +1199,7 @@ function buildGrid(vrows){
     var wr=mk('div','bwrap');
     wr.dataset.id=t.id;
     wr.style.cssText='left:'+(so*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+bw+'px;height:'+barH+'px';
-    wr.innerHTML='<div class="'+barClass+'" style="'+barStyle+'"><span class="blbl">'+t.name+'</span><span class="bpct">'+pct+'%</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+t.name+'</span>';
+    wr.innerHTML='<div class="'+barClass+'" style="'+barStyle+'"><span class="blbl">'+_esc(t.name)+'</span><span class="bpct">'+pct+'%</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(t.name)+'</span>';
     var barEl=wr.firstChild;
     barEl.addEventListener('mouseenter',function(e){if(!linkMode&&!dragBar.active)showTT(t,e);});
     barEl.addEventListener('mouseleave',hideTT);
@@ -1374,7 +1248,7 @@ function buildGrid(vrows){
       var wr2=mk('div','bwrap extra-bar');
       wr2.dataset.id=t.id;
       wr2.style.cssText='left:'+(so2*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+bw2+'px;height:'+barH+'px';
-      wr2.innerHTML='<div class="bar" style="background:'+t.color+';background:repeating-linear-gradient(45deg,'+t.color+','+t.color+' 6px,rgba(255,255,255,.15) 6px,rgba(255,255,255,.15) 12px)"><div class="bfill" style="width:0%"></div><span class="blbl">'+t.name+'</span></div><span class="blbl-over">'+t.name+'</span>';
+      wr2.innerHTML='<div class="bar" style="background:'+_esc(t.color)+';background:repeating-linear-gradient(45deg,'+_esc(t.color)+','+_esc(t.color)+' 6px,rgba(255,255,255,.15) 6px,rgba(255,255,255,.15) 12px)"><div class="bfill" style="width:0%"></div><span class="blbl">'+_esc(t.name)+'</span></div><span class="blbl-over">'+_esc(t.name)+'</span>';
       wr2.firstChild.addEventListener('click',function(e){
         if(linkMode){handleLinkClick(t.id);return;}
         openEdit(t.id);
@@ -2490,7 +2364,7 @@ function openICSExport(){
       +' onmouseenter="this.style.background=\'var(--surface2)\'" onmouseleave="this.style.background=\'transparent\'">'
       +'<input type="checkbox" value="'+t.id+'" checked style="accent-color:var(--accent)">'
       +'<span style="width:10px;height:10px;border-radius:50%;background:'+(t.color||'var(--accent)')+';flex-shrink:0"></span>'
-      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+typeIcon+t.name+doneTag+pctTag+'</span>'
+      +'<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+typeIcon+_esc(t.name)+doneTag+pctTag+'</span>'
       +'<span style="color:var(--text3);font-size:10px;white-space:nowrap">'+t.start.slice(8,10)+'.'+t.start.slice(5,7)+' – '+t.end.slice(8,10)+'.'+t.end.slice(5,7)+'</span>'
       +'</label>';
   });
@@ -2835,19 +2709,29 @@ document.addEventListener('mousemove',function(e){
   _ttRAF=requestAnimationFrame(function(){_ttRAF=0;posTT(_e);});
 });
 // Init – restore embedded state if present
-// ── BENUTZERVERWALTUNG ───────────────────────────────────────────────────────
-// AUTH bleibt für Rückwärtskompatibilität mit gespeichertem State
-var AUTH={
-  adminHash:btoa('admin123'),
-  userHash:btoa('user123')
-};
-// Benutzer: [{name, hash, role}]  role = 'admin' | 'user'
-var USERS = [
-  {name:'Admin',    hash:btoa('admin123'), role:'admin'},
-  {name:'User',     hash:btoa('user123'),  role:'user'}
-];
+// ── HTML-Escape für Firestore-Daten in innerHTML ─────────────────────────────
+// Verhindert XSS durch manipulierte Task-/Meeting-/Urlaubsnamen.
+function _esc(s){
+  if(s==null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ── BENUTZERVERWALTUNG (Firebase Auth) ───────────────────────────────────────
+// Rolle wird ausschließlich aus users/{uid}.role im Firestore geladen.
+// Keine lokalen Passwörter/Hashes mehr. User-Mgmt zentral in Lagerverwaltung.html.
+var USERS = []; // {name, role} — Namen für Sichtbarkeits-Chips, nach Login geladen
 var currentRole = null;
 var currentUser = null;
+
+var EMAIL_DOMAIN = '@lager.local';
+function toEmail(u){ return u.trim().toLowerCase().replace(/\s+/g,'_')+EMAIL_DOMAIN; }
+function toUsername(e){ return e ? e.replace(EMAIL_DOMAIN,'') : ''; }
+
 function canSeeTask(t){
   if(!t.visibleTo||!t.visibleTo.length) return true;
   return t.visibleTo.indexOf(currentUser)!==-1;
@@ -2869,206 +2753,146 @@ function collectVisibleTo(){
   return active.length===total?null:active;
 }
 
-function simpleHash(str){
-  try{return btoa(unescape(encodeURIComponent(str)));}catch(e){return btoa(str);}
+// Lädt Benutzerliste aus Firestore — nur für Sichtbarkeits-Chips
+function loadUsersList(){
+  return firebase.firestore().collection('users').get().then(function(snap){
+    var list=[];
+    snap.forEach(function(d){
+      var u=d.data();
+      if(u&&u.displayName&&u.disabled!==true){
+        list.push({name:u.displayName, role:u.role||'user'});
+      }
+    });
+    USERS=list;
+  }).catch(function(e){ console.warn('Users-Liste konnte nicht geladen werden:', e && e.message); });
 }
 
+// ── Idle-Logout (5 Min) ──────────────────────────────────────────────────────
+var IDLE_TIMEOUT_MS = 5*60*1000;
+var _idleTimer = null;
+function _resetIdleTimer(){
+  if(_idleTimer) clearTimeout(_idleTimer);
+  if(!firebase.auth().currentUser) return;
+  _idleTimer = setTimeout(function(){
+    if(firebase.auth().currentUser){
+      firebase.auth().signOut();
+      alert('Automatisch abgemeldet nach 5 Minuten Inaktivität.');
+    }
+  }, IDLE_TIMEOUT_MS);
+}
+['click','touchstart','keydown','input','change'].forEach(function(ev){
+  document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true});
+});
+
+// ── Login / Logout ────────────────────────────────────────────────────────────
+function _loginError(msg){
+  var err=document.getElementById('login-err');
+  if(err){ err.textContent=msg||''; }
+  if(msg){ setTimeout(function(){ var e2=document.getElementById('login-err'); if(e2&&e2.textContent===msg) e2.textContent=''; }, 4000); }
+}
+var _AUTH_ERR_MAP = {
+  'auth/invalid-email':'Ungültiger Benutzername',
+  'auth/user-not-found':'Benutzer nicht gefunden',
+  'auth/wrong-password':'Falsches Passwort',
+  'auth/invalid-credential':'Falscher Benutzername oder Passwort',
+  'auth/too-many-requests':'Zu viele Versuche. Bitte warten.',
+  'auth/network-request-failed':'Keine Verbindung zum Server',
+  'auth/user-disabled':'Benutzer deaktiviert'
+};
+
 function doLogin(){
-  var pw=document.getElementById('login-pw').value;
   var name=document.getElementById('login-name').value.trim();
-  if(!pw||!name){
-    var err=document.getElementById('login-err');
-    err.textContent='Bitte Name und Passwort eingeben.';
-    setTimeout(function(){err.textContent='';},3000);
-    return;
-  }
-  var h=simpleHash(pw);
-  var user=USERS.find(function(u){return u.name.toLowerCase()===name.toLowerCase()&&u.hash===h;});
-  if(user){
-    currentRole=user.role;
-    currentUser=user.name;
-    try{localStorage.setItem('technology_auth_session',JSON.stringify({user:user.name,role:user.role,ts:Date.now()}));}catch(e){}
-    applyRole();
-    document.getElementById('login-overlay').style.display='none';
-    document.getElementById('wrap').style.visibility='visible';
-    setTimeout(scrollToToday,80);
-    document.getElementById('login-pw').value='';
-    document.getElementById('login-name').value='';
-  } else {
-    var err=document.getElementById('login-err');
-    err.textContent='Name oder Passwort falsch.';
-    document.getElementById('login-pw').select();
-    setTimeout(function(){err.textContent='';},3000);
-  }
+  var pw=document.getElementById('login-pw').value;
+  if(!name||!pw){ _loginError('Bitte Name und Passwort eingeben.'); return; }
+  _loginError('');
+  firebase.auth().signInWithEmailAndPassword(toEmail(name), pw)
+    .catch(function(e){
+      _loginError(_AUTH_ERR_MAP[e.code] || ('Fehler: '+e.code));
+      var pwEl=document.getElementById('login-pw'); if(pwEl) pwEl.select();
+    });
+}
+
+function doLogout(){
+  try{ unregisterPresence(); }catch(_){}
+  if(_unsubSessions){ try{_unsubSessions();}catch(_){} _unsubSessions=null; }
+  var el=document.getElementById('online-users'); if(el) el.innerHTML='';
+  if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
+  try{ releaseLock(); }catch(_){}
+  firebase.auth().signOut();
 }
 
 function applyRole(){
   var badge=document.getElementById('role-badge');
-  var pwBtn=document.getElementById('btn-pw');
-  var isMainAdmin=currentUser&&currentUser.toLowerCase()==='admin';
+  var label = (currentUser||'—') + (currentRole==='admin'?' · Admin':(currentRole==='qs'?' · QS':' · User'));
   if(currentRole==='admin'){
     document.body.classList.remove('user-mode');
-    badge.textContent=(currentUser||'Admin');badge.className='admin';
-    if(badge)badge.style.display='';
-    if(pwBtn)pwBtn.style.display=isMainAdmin?'':'none';
+    if(badge){ badge.textContent=label; badge.className='admin'; badge.style.display=''; }
   } else {
     document.body.classList.add('user-mode');
-    badge.textContent=(currentUser||'Nur lesen');badge.className='user';
-    if(badge)badge.style.display='';
-    if(pwBtn)pwBtn.style.display='none';
+    if(badge){ badge.textContent=label; badge.className='user'; badge.style.display=''; }
   }
-  // Firebase nach Login starten
   if(typeof firebaseStart==='function') firebaseStart();
 }
 
-function doLogout(){
-  unregisterPresence();
-  if(_unsubSessions){ _unsubSessions(); _unsubSessions=null; }
-  var el=document.getElementById('online-users'); if(el) el.innerHTML='';
-  currentRole=null;
-  currentUser=null;
-  try{localStorage.removeItem('technology_auth_session');}catch(e){}
-  _isEditor=false;
-  _firebaseStarted=false; // erlaubt firebaseStart() beim nächsten Login erneut zu laufen
-  document.getElementById('wrap').style.visibility='hidden';
-  releaseLock();
-  // USERS neu aus Firebase laden für nächsten Login
-  GANTT_DOC.get().then(function(doc){
-    if(doc.exists&&doc.data().users&&doc.data().users.length){
-      USERS=doc.data().users;
+// ── Auth State → UI ───────────────────────────────────────────────────────────
+// Rolle mit Retry holen — bei temporären Netzwerkfehlern nicht gleich ausloggen.
+function _fetchUserDocWithRetry(uid, maxAttempts, delayMs){
+  return new Promise(function(resolve,reject){
+    var attempt=0;
+    function tryOnce(){
+      attempt++;
+      firebase.firestore().collection('users').doc(uid).get()
+        .then(resolve)
+        .catch(function(e){
+          if(attempt>=maxAttempts) return reject(e);
+          setTimeout(tryOnce, delayMs*attempt); // linear backoff: 1x, 2x, 3x
+        });
     }
-  }).catch(function(){});
-  document.body.classList.remove('user-mode');
-  document.getElementById('login-overlay').style.display='flex';
-  document.getElementById('login-pw').value='';
-  document.getElementById('login-pw').focus();
-}
-
-
-// ── BENUTZERVERWALTUNG MODAL ─────────────────────────────────────────────────
-var _editUserIdx = null; // null = neu, number = index in USERS
-
-function openPW(){
-  if(!currentUser||currentUser.toLowerCase()!=='admin')return;
-  _editUserIdx=null;
-  renderUserList();
-  resetUserForm();
-  document.getElementById('pwbg').style.display='flex';
-}
-function closePW(e){
-  if(e&&e.target!==document.getElementById('pwbg'))return;
-  document.getElementById('pwbg').style.display='none';
-}
-function renderUserList(){
-  var ul=document.getElementById('user-list');
-  ul.innerHTML='';
-  if(!USERS.length){
-    ul.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">Keine Benutzer</div>';
-    return;
-  }
-  USERS.forEach(function(u,i){
-    var row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface)';
-    var isCurrentUser=(u.name.toLowerCase()===(currentUser||'').toLowerCase());
-    var roleColor=u.role==='admin'?'#4f6ef7':'#22c55e';
-    var roleBg=u.role==='admin'?'rgba(79,110,247,.12)':'rgba(34,197,94,.12)';
-    row.innerHTML=
-      '<div style="width:32px;height:32px;border-radius:50%;background:'+roleColor+';display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0">'+
-        u.name.charAt(0).toUpperCase()+
-      '</div>'+
-      '<div style="flex:1;min-width:0">'+
-        '<div style="font-weight:600;font-size:13px;color:var(--text1)">'+u.name+(isCurrentUser?' <span style="font-size:10px;color:var(--text3)">(du)</span>':'')+
-        '</div>'+
-        '<span style="font-size:11px;font-weight:600;padding:1px 7px;border-radius:8px;background:'+roleBg+';color:'+roleColor+'">'+
-          (u.role==='admin'?'Admin':'Benutzer')+
-        '</span>'+
-      '</div>'+
-      '<button class="btn" onclick="editUser('+i+')" style="padding:4px 10px;font-size:11px">✏ Bearb.</button>'+
-      (USERS.length>1&&!isCurrentUser?'<button class="btn" onclick="deleteUser('+i+')" style="padding:4px 10px;font-size:11px;color:#ef4444;border-color:#ef4444">✕</button>':'');
-    ul.appendChild(row);
+    tryOnce();
   });
 }
-function resetUserForm(){
-  _editUserIdx=null;
-  document.getElementById('uf-name').value='';
-  document.getElementById('uf-role').value='user';
-  document.getElementById('uf-pw').value='';
-  document.getElementById('uf-pw2').value='';
-  document.getElementById('uf-err').style.display='none';
-  document.getElementById('uf-pw-lbl').textContent='Passwort';
-  document.getElementById('uf-save').textContent='+ Benutzer hinzufügen';
-  document.getElementById('uf-cancel').style.display='none';
-  document.getElementById('user-form-title').textContent='Neuer Benutzer';
-}
-function editUser(idx){
-  _editUserIdx=idx;
-  var u=USERS[idx];
-  document.getElementById('uf-name').value=u.name;
-  document.getElementById('uf-role').value=u.role;
-  document.getElementById('uf-pw').value='';
-  document.getElementById('uf-pw2').value='';
-  document.getElementById('uf-pw-lbl').textContent='Neues Passwort (leer = unverändert)';
-  document.getElementById('uf-err').style.display='none';
-  document.getElementById('uf-save').textContent='Speichern';
-  document.getElementById('uf-cancel').style.display='';
-  document.getElementById('user-form-title').textContent='Benutzer bearbeiten';
-  document.getElementById('uf-name').focus();
-}
-function cancelUserEdit(){
-  resetUserForm();
-}
-function updateUsers(){
-  if(!_isEditor) return;
-  GANTT_DOC.update({users: USERS, savedAt: new Date().toISOString()})
-    .catch(function(){
-      // Fallback: doc existiert noch nicht, full set
-      saveState();
+
+firebase.auth().onAuthStateChanged(function(user){
+  if(user){
+    // Rolle strikt aus users/{uid} — niemals aus dem Client-State vertrauen. 3 Retry-Versuche.
+    _fetchUserDocWithRetry(user.uid, 3, 800).then(function(doc){
+      var role='user', disabled=false, displayName=user.displayName||toUsername(user.email);
+      if(doc.exists){
+        var d=doc.data()||{};
+        role = (d.role==='admin'||d.role==='qs') ? d.role : 'user';
+        disabled = d.disabled===true;
+        if(d.displayName) displayName=d.displayName;
+      }
+      if(disabled){
+        firebase.auth().signOut();
+        _loginError('Benutzer deaktiviert. Bitte Admin kontaktieren.');
+        return;
+      }
+      currentRole = role;
+      currentUser = displayName;
+      document.getElementById('login-overlay').style.display='none';
+      var wrap=document.getElementById('wrap'); if(wrap) wrap.style.visibility='visible';
+      var pw=document.getElementById('login-pw'); if(pw) pw.value='';
+      var nm=document.getElementById('login-name'); if(nm) nm.value='';
+      loadUsersList().then(function(){
+        applyRole();
+        _resetIdleTimer();
+        setTimeout(scrollToToday,80);
+      });
+    }).catch(function(e){
+      console.warn('Rollen-Abruf nach 3 Versuchen fehlgeschlagen:', e && e.message);
+      firebase.auth().signOut();
+      _loginError('Fehler beim Laden der Benutzer-Rolle. Bitte später erneut anmelden.');
     });
-}
-function saveUser(){
-  if(!currentUser||currentUser.toLowerCase()!=='admin')return;
-  var name=document.getElementById('uf-name').value.trim();
-  var role=document.getElementById('uf-role').value;
-  var pw=document.getElementById('uf-pw').value;
-  var pw2=document.getElementById('uf-pw2').value;
-  var errEl=document.getElementById('uf-err');
-  function showErr(msg){errEl.textContent=msg;errEl.style.display='';}
-  if(!name)return showErr('Please enter a name.');
-  // Check duplicate name (except when editing same user)
-  var dupIdx=USERS.findIndex(function(u,i){return u.name.toLowerCase()===name.toLowerCase()&&i!==_editUserIdx;});
-  if(dupIdx>=0)return showErr('Dieser Name ist bereits vergeben.');
-  if(_editUserIdx===null){
-    // New user – password required
-    if(!pw)return showErr('Bitte ein Enter password.');
-    if(pw!==pw2)return showErr('Passwörter stimmen nicht überein.');
-    USERS.push({name:name,hash:simpleHash(pw),role:role});
   } else {
-    // Edit existing
-    if(pw&&pw!==pw2)return showErr('Passwörter stimmen nicht überein.');
-    USERS[_editUserIdx].name=name;
-    USERS[_editUserIdx].role=role;
-    if(pw)USERS[_editUserIdx].hash=simpleHash(pw);
-    // Update currentUser display if editing self
-    if(_editUserIdx===USERS.findIndex(function(u){return u.name.toLowerCase()===(currentUser||'').toLowerCase();})){
-      currentUser=name;
-      var badge=document.getElementById('role-badge');
-      if(badge)badge.textContent=name;
-    }
+    currentRole=null; currentUser=null; USERS=[];
+    _isEditor=false; _firebaseStarted=false;
+    document.body.classList.remove('user-mode');
+    var wrap=document.getElementById('wrap'); if(wrap) wrap.style.visibility='hidden';
+    var ov=document.getElementById('login-overlay'); if(ov) ov.style.display='flex';
+    var pwEl=document.getElementById('login-pw'); if(pwEl){ pwEl.value=''; try{pwEl.focus();}catch(_){}}
   }
-  // Nur USERS-Feld in Firestore aktualisieren (kein Überschreiben anderer Felder)
-  updateUsers();
-  resetUserForm();
-  renderUserList();
-}
-function deleteUser(idx){
-  if(!currentUser||currentUser.toLowerCase()!=='admin')return;
-  if(USERS.length<=1)return alert('Es muss mindestens ein Benutzer vorhanden sein.');
-  var u=USERS[idx];
-  if(!confirm('Really delete user "'+u.name+'"?'))return;
-  USERS.splice(idx,1);
-  triggerSave();
-  renderUserList();
-}
+});
 // ── Firebase starten (nach Login) ────────────────────────────────────────────
 // ── ONLINE PRESENCE ─────────────────────────────────────────────────────────
 var _presenceTimer = null;
@@ -3165,8 +2989,6 @@ function firebaseStart(){
         _remoteUpdate=true;
         tasks=d.tasks;nid=d.nid||tasks.length+2;
         zi=d.zi||2;collapsed=d.collapsed||{};colW=d.colW||0;scrollX=d.scrollX||0;scrollY=d.scrollY||0;if(window._applyColW)window._applyColW();if(window._applyScroll)window._applyScroll();
-        if(d.auth&&d.auth.adminHash){AUTH.adminHash=d.auth.adminHash;AUTH.userHash=d.auth.userHash;}
-        if(d.users&&d.users.length){USERS=d.users;}
         document.getElementById('zoom-slider').value=zi+1;
         document.getElementById('zoom-label').textContent=ZL[zi][1];
         buildAll();
@@ -3198,7 +3020,6 @@ function firebaseStart(){
     _remoteUpdate=true;
     tasks=d.tasks;nid=d.nid||tasks.length+2;
     zi=d.zi||2;collapsed=d.collapsed||{};colW=d.colW||0;scrollX=d.scrollX||0;scrollY=d.scrollY||0;if(window._applyColW)window._applyColW();if(window._applyScroll)window._applyScroll();
-    if(d.users&&d.users.length){USERS=d.users;}
     document.getElementById('zoom-slider').value=zi+1;
     document.getElementById('zoom-label').textContent=ZL[zi][1];
     buildAll();
@@ -3206,16 +3027,24 @@ function firebaseStart(){
     setTimeout(function(){_remoteUpdate=false;markSaved();},800);
   },function(err){console.warn('Snapshot error:',err);});
 
-  // Lock-Listener
+  // Lock-Listener (mit Heartbeat-Erkennung: totes Lock nach 2 Min kann übernommen werden)
   window._unsubLock = LOCK_DOC.onSnapshot(function(doc){
     if(!doc.exists){
       document.getElementById('lock-banner').style.display='none';
       document.body.classList.remove('firebase-readonly');
       if(currentRole==='admin'&&!_isEditor) acquireLock().catch(function(){});
     } else if(doc.data().sessionId!==_sessionId){
+      var d=doc.data();
+      var lockedAt=typeof d.lockedAt==='number'?d.lockedAt:0;
+      var age=Date.now()-lockedAt;
+      if(age>120000 && currentRole==='admin'){
+        // Lock-Hang erkannt (> 2 Min kein Heartbeat) — übernehmen
+        acquireLock().catch(function(){});
+        return;
+      }
       _isEditor=false;
       document.body.classList.add('firebase-readonly');
-      var who=doc.data().lockedBy||'einem anderen Nutzer';
+      var who=d.lockedBy||'einem anderen Nutzer';
       document.getElementById('lock-msg').textContent='🔒 Wird gerade bearbeitet von '+who+' — Nur-Lese-Modus';
       document.getElementById('lock-banner').style.display='flex';
       markReadOnly();
@@ -3223,42 +3052,14 @@ function firebaseStart(){
   });
 }
 
-var _loaded=loadState();
+// Initial-Render mit leerem State — echte Daten kommen nach Login via firebaseStart() aus Firestore.
 document.getElementById('zoom-slider').value=zi+1;
 document.getElementById('zoom-label').textContent=ZL[zi][1];
 buildAll();
-if(_loaded)markSaved(); else markUnsaved();
+markUnsaved();
 
-// USERS aus Firebase laden BEVOR Login-Box erscheint
-(function(){
-  var loginShown = false;
-  function showLogin(){
-    if(loginShown) return;
-    loginShown = true;
-    document.getElementById('login-overlay').style.display='flex';
-    setTimeout(function(){var el=document.getElementById('login-pw');if(el)el.focus();},100);
-  }
-  // Timeout-Fallback: nach 3s immer anzeigen (falls Firebase nicht erreichbar)
-  var fallback = setTimeout(showLogin, 3000);
-  GANTT_DOC.get().then(function(doc){
-    clearTimeout(fallback);
-    if(doc.exists){
-      var d=doc.data();
-      if(d.users&&d.users.length){ USERS=d.users; }
-      if(d.tasks&&d.tasks.length){
-        tasks=d.tasks; nid=d.nid||tasks.length+2;
-        zi=d.zi||2; collapsed=d.collapsed||{};
-        document.getElementById('zoom-slider').value=zi+1;
-        document.getElementById('zoom-label').textContent=ZL[zi][1];
-        buildAll();
-      }
-    }
-    showLogin();
-  }).catch(function(){
-    clearTimeout(fallback);
-    showLogin();
-  });
-})();
+// Login-Overlay wird über firebase.auth().onAuthStateChanged gesteuert.
+// Keine USERS-Vorladung nötig — Rolle/Liste kommen nach dem Login aus users/{uid}.
 </script>
 
 

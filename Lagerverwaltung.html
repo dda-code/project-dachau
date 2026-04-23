@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firebaseinstallations.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com https://api.groq.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firebaseinstallations.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com https://firebaseappcheck.googleapis.com https://www.google.com; frame-src https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="no-referrer">
     <title>Lagerverwaltung Aumundswiese</title>
     <link rel="dns-prefetch" href="https://www.gstatic.com">
     <link rel="dns-prefetch" href="https://firestore.googleapis.com">
-    <link rel="dns-prefetch" href="https://api.groq.com">
     <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
     <style>
 /* ============================================================ */
@@ -393,10 +392,36 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 
 <!-- External Libraries -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+
+<!-- Gemini (Firebase AI) für OCR — ersetzt den alten Groq-Weg -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
+import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-ai.js";
+const firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+const aiApp = initializeApp(firebaseConfig, "aiApp");
+initializeAppCheck(aiApp, {
+    provider: new ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+    isTokenAutoRefreshEnabled: true
+});
+const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
+window.aiModel = getGenerativeModel(ai, {
+    model: "gemini-2.5-flash",
+    generationConfig: { responseMimeType: "application/json", temperature: 0 }
+});
+</script>
 
 <script>
 // ============================================================
@@ -427,30 +452,36 @@ let ARTIKEL_BEZEICHNUNG = {
     '180006':'Inner Slider Black','180007':'Inner Slider Natural',
     '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
 };
-// SICHERHEIT: Groq-API-Keys NIEMALS hardcoden. Keys werden pro Browser lokal gespeichert
-// (localStorage) und einmalig vom Nutzer beim ersten Scan-Versuch abgefragt.
-// Empfohlen: Langfristig einen Backend-Proxy implementieren, der Keys serverseitig hält.
-function _loadGroqKeys(){
-    try{const raw=localStorage.getItem('groqApiKeys');if(!raw)return[];const arr=JSON.parse(raw);return Array.isArray(arr)?arr.filter(k=>typeof k==='string'&&k.startsWith('gsk_')):[];}
-    catch(_){return[];}
-}
-function _saveGroqKeys(keys){try{localStorage.setItem('groqApiKeys',JSON.stringify(keys));}catch(_){}}
-let GROQ_API_KEYS = _loadGroqKeys();
-let _groqKeyIndex = 0;
-async function ensureGroqKey(){
-    if(GROQ_API_KEYS.length)return true;
-    const k=(window.prompt('Groq-API-Key eingeben (wird nur lokal im Browser gespeichert, beginnt mit "gsk_"):')||'').trim();
-    if(!k||!k.startsWith('gsk_')){alert('Ungültiger Key. Abbruch.');return false;}
-    GROQ_API_KEYS=[k];_saveGroqKeys(GROQ_API_KEYS);return true;
-}
-function getGroqKey(){ return GROQ_API_KEYS[_groqKeyIndex]||''; }
-function rotateGroqKey(){ if(!GROQ_API_KEYS.length)return; _groqKeyIndex = (_groqKeyIndex+1) % GROQ_API_KEYS.length; }
+// OCR läuft jetzt über Gemini Flash (Firebase AI) — siehe <script type="module"> oben.
+// Keine lokalen API-Keys mehr. Einmal alten Key aus localStorage entfernen (Altbestand):
+try{ localStorage.removeItem('groqApiKeys'); }catch(_){}
 const EMAIL_DOMAIN = '@lager.local';
 
 // ============================================================
 // FIREBASE INIT + AUTH
 // ============================================================
 firebase.initializeApp(firebaseConfig);
+// App Check für Auth/Firestore. Auf file:// (lokales Testen) überspringen —
+// reCAPTCHA Enterprise funktioniert dort nicht und würde bei Init crashen.
+(function(){
+  if(location.protocol === 'file:'){
+    console.log('AppCheck: auf file:// deaktiviert (nur für lokales Testen).');
+    return;
+  }
+  function initAppCheck(){
+    try {
+      firebase.appCheck().activate(
+        new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+        true
+      );
+    } catch(e){ console.warn('AppCheck init:', e && e.message); }
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initAppCheck);
+  } else {
+    initAppCheck();
+  }
+})();
 const auth = firebase.auth();
 const db = firebase.firestore();
 const _secondaryApp = firebase.initializeApp(firebaseConfig, 'UserMgmt');
@@ -497,13 +528,17 @@ auth.onAuthStateChanged(async user=>{
             console.warn('Rolle laden fehlgeschlagen:',e);
             currentUserRole='user';
         }
-        console.log('Auth: user='+uName+', email='+user.email+', uid='+user.uid+', role='+currentUserRole);
         const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='qs'?' (QS)':'');
         $('userEmail').textContent=uName+roleLabel;
         $('userMgmtBtn').style.display=isAdmin()?'inline-flex':'none';
         initApp();
     }
-    else{$('appView').style.display='none';$('loginView').style.display='flex';currentUserRole='user';$('userMgmtBtn').style.display='none';}
+    else{
+        // Logout: alle Firestore-Listener sauber abmelden, sonst Memory-Leak + unautorisierte Reads
+        try{ _realtimeUnsubs.forEach(u=>{try{u();}catch(_){}}); _realtimeUnsubs=[]; }catch(_){}
+        try{ if(_remoteScanUnsub){ _remoteScanUnsub(); _remoteScanUnsub=null; } }catch(_){}
+        $('appView').style.display='none';$('loginView').style.display='flex';currentUserRole='user';$('userMgmtBtn').style.display='none';
+    }
 });
 
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const u=$('username').value,p=$('password').value,err=$('loginError');err.style.display='none';try{await auth.signInWithEmailAndPassword(toEmail(u),p);}catch(e){err.textContent=translateError(e.code);err.style.display='block';}});
@@ -877,40 +912,20 @@ function normalizeDatum(s){
     return s;
 }
 
-async function _groqRequest(base64, retries=2){
-    const models=['meta-llama/llama-4-scout-17b-16e-instruct'];
-    const totalKeys=GROQ_API_KEYS.length;
-    for(let k=0;k<totalKeys;k++){
-        const currentKey=getGroqKey();
-        for(let m=0;m<models.length;m++){
-            for(let i=0;i<retries;i++){
-                const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Authorization':'Bearer '+currentKey,'Content-Type':'application/json'},body:JSON.stringify({model:models[m],messages:[{role:'user',content:[{type:'image_url',image_url:{url:base64}},{type:'text',text:SCAN_PROMPT}]}],response_format:{type:'json_object'},temperature:0})});
-                if(r.ok) return r;
-                if(r.status===429){
-                    const body=await r.text();
-                    const waitMatch=body.match(/try again in (\d+)m?([\d.]+)s/i);
-                    let waitSec=15*(i+1);
-                    if(waitMatch){waitSec=parseInt(waitMatch[1]||'0')*60+parseFloat(waitMatch[2]||'15');}
-                    if(waitSec>60){console.warn('Rate-Limit bei Key #'+(_groqKeyIndex+1)+': Wechsle Modell/Key...');break;}
-                    console.warn(`Rate-Limit (429) Key #${_groqKeyIndex+1}. Warte ${Math.ceil(waitSec)}s (Versuch ${i+1}/${retries})...`);
-                    await new Promise(ok=>setTimeout(ok,waitSec*1000));
-                    continue;
-                }
-                throw new Error('API-Fehler '+r.status+': '+await r.text());
-            }
-        }
-        rotateGroqKey();
-        console.log('Wechsle zu Groq Key #'+(_groqKeyIndex+1)+' ...');
-    }
-    throw new Error('Alle Groq API-Keys haben das Tages-Limit erreicht. Bitte warte bis morgen oder füge einen weiteren Key hinzu.');
+async function _aiRequest(base64){
+    if(!window.aiModel) throw new Error('KI-Modell noch nicht geladen — Seite neu laden');
+    const b64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+    const result = await window.aiModel.generateContent([
+        SCAN_PROMPT,
+        { inlineData: { mimeType: 'image/jpeg', data: b64Data } }
+    ]);
+    return result.response.text();
 }
 
 async function scanLabel(file){
-    if(!(await ensureGroqKey()))throw new Error('Kein Groq-API-Key konfiguriert.');
     const base64=await imageToBase64Scan(file,2500);
-    const r=await _groqRequest(base64);
-    if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
-    const res=await r.json(),content=res.choices?.[0]?.message?.content;if(!content)throw new Error('Keine Antwort');
+    const content=await _aiRequest(base64);
+    if(!content)throw new Error('Keine Antwort');
     let data;try{data=JSON.parse(content);}catch{const m=content.match(_jsonBlockRe);if(m)data=JSON.parse(m[1]);else throw new Error('JSON-Parse-Fehler');}
     if(data.datum){data.datum=normalizeDatum(data.datum);}
     const isXOFertig=data.labelTyp==='XO Fertigware';
@@ -920,10 +935,8 @@ async function scanLabel(file){
         // Normalisierung: Format XO-XXX-XXXXXX (z.B. XO-202-2046G)
         const xoMatch=data.artikelNr.match(/XO[\-\s]*(\d{2,4})[\-\s]*([A-Za-z0-9]{4,7})/i);
         if(xoMatch)data.artikelNr='XO-'+xoMatch[1]+'-'+xoMatch[2].toUpperCase();
-        console.log('XO Fertigware artikelNr nach Normalisierung:',data.artikelNr);
     }
-    console.log('SCAN RAW:',JSON.stringify(data));
-    if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');console.log('SSCC nach Bereinigung:',data.sscc,'Länge:',data.sscc.length);if(data.sscc.length<16)data.sscc='';}
+    if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');if(data.sscc.length<16)data.sscc='';}
     // ALPLA Halbfabrikate: Running Number (palettenNr) normalisieren auf 9 Ziffern
     if(data.labelTyp==='ALPLA Halbfabrikate'){
         if(data.palettenNr){
@@ -1162,7 +1175,12 @@ function showOccupiedWarning(pos, existingPal){
     });
 }
 
+var _inboundInProgress=false;
 async function confirmInbound(){
+    // Synchroner Doppelklick-Schutz (disabled-Flag allein reicht nicht — await-Lücken)
+    if(_inboundInProgress) return;
+    _inboundInProgress=true;
+    try{
     const fields=getInboundFields(currentLabelTyp);const data={};ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');fields.forEach(f=>{data[f.key]=document.getElementById('inbound-'+f.key)?.value.trim()||data[f.key]||'';});
     const ps=document.getElementById('positionSelect'),pos=ps.style.display!=='none'&&ps.value?ps.value:document.getElementById('suggestedPosition').textContent;
     const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
@@ -1198,12 +1216,18 @@ async function confirmInbound(){
         else if(data.artikelNr.startsWith('18'))data.menge='420.672';
         else if(data.artikelNr.startsWith('19'))data.menge='196.224';
     }
-    console.log('EINLAGERN data:',JSON.stringify(data));console.log('EINLAGERN menge:',data.menge,'artikelNr:',data.artikelNr,'docId:',docId);
-    try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
-    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
-    await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
-    localStorage.setItem('lastStoredPosition', pos);
-    renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();}catch(e){alert('Fehler: '+e.message);}
+    // Atomares Write: Paletten-Doc + Protokoll + Log in einem Batch — alles oder nichts.
+    try{
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        const batch=db.batch();
+        batch.set(db.collection('paletten').doc(docId),{...data,position:pos,produktionsDatum:data.datum,einlagDatum:ts,qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
+        batch.set(db.collection('protokoll').doc(),{aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:ts,auslagDatum:null,ausgelagertVon:''});
+        batch.set(db.collection('log').doc(),{aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:ts});
+        await batch.commit();
+        localStorage.setItem('lastStoredPosition', pos);
+        renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();
+    }catch(e){alert('Fehler: '+e.message);}
+    }finally{ _inboundInProgress=false; }
 }
 
 function resetInbound(){inboundData=null;currentLabelTyp=null;_currentScanDocId=null;document.getElementById('scanResultModal').style.display='none';['inboundStep3','inboundSuccess','inboundProgress','inboundPreview'].forEach(id=>{document.getElementById(id).style.display='none';});document.getElementById('positionSelect').style.display='none';document.getElementById('confirmInboundBtn').disabled=false;}
@@ -1211,7 +1235,7 @@ function resetInbound(){inboundData=null;currentLabelTyp=null;_currentScanDocId=
 // ============================================================
 // REMOTE SCAN LISTENER (PWA Scanner-App)
 // ============================================================
-let _remoteScanUnsub=null;
+var _remoteScanUnsub=null; // var wegen Hoisting — wird im onAuthStateChanged-Logout-Zweig referenziert
 let _currentScanDocId=null;
 
 function initRemoteScanListener(){
@@ -1313,7 +1337,11 @@ async function onArtikelSelect(){
     card.dataset.docId=p.id;card.dataset.paletteJson=JSON.stringify(p);rd.style.display='block';document.getElementById('confirmOutboundBtn').disabled=false;
 }
 
+var _outboundInProgress=false;
 async function confirmOutbound(){
+    if(_outboundInProgress) return;
+    _outboundInProgress=true;
+    try{
     const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;document.getElementById('confirmOutboundBtn').disabled=true;
     // FIFO-Sperre: Granulate Bodenpalette (GB) nur auslagern wenn Stapelplatz (GS) frei
     if(pd.position&&pd.position.startsWith('GB')){
@@ -1321,11 +1349,18 @@ async function confirmOutbound(){
         const stapelPos=gbToGs(nr);
         try{const occ=await getAllPositions();if(occ[stapelPos]){alert('FIFO-Sperre: Zuerst die gestapelte Palette auf '+stapelPos+' auslagern!');document.getElementById('confirmOutboundBtn').disabled=false;return;}}catch(e){console.warn('FIFO-Sperre Prüfung fehlgeschlagen:',e);}
     }
-    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
-    try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
-    try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.warn(e);}
+    // Atomares Write: Protokoll + Paletten-Löschung + Log in einem Batch — alles oder nichts.
+    try{
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        const batch=db.batch();
+        batch.set(db.collection('protokoll').doc(),{aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:ts,ausgelagertVon:getCurrentUsername()});
+        batch.delete(db.collection('paletten').doc(docId));
+        batch.set(db.collection('log').doc(),{aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:ts});
+        await batch.commit();
+    }catch(e){alert('Fehler Auslagerung: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     document.getElementById('outboundResult').style.display='none';const sd=document.getElementById('outboundSuccess');sd.innerHTML=`<p class="success-msg">Palette entnommen von Stellplatz <strong>${_esc(pd.position)}</strong></p>`;sd.style.display='block';
     setTimeout(()=>{sd.style.display='none';document.getElementById('outboundArtikel').value='';document.getElementById('confirmOutboundBtn').disabled=false;},3000);
+    }finally{ _outboundInProgress=false; }
 }
 
 async function loadProtokoll(){
@@ -1638,7 +1673,6 @@ async function loadUserMgmt(){
     if(cur&&!rows.find(r=>r.uid===curUid)){
         rows.push({uid:curUid,displayName:cur.displayName||toUsername(cur.email),email:cur.email,role:currentUserRole,disabled:false});
     }
-    console.log('UserMgmt: '+rows.length+' Benutzer geladen',rows.map(r=>r.displayName));
     rows.sort((a,b)=>(a.displayName||'').localeCompare(b.displayName||''));
     $('userMgmtBody').innerHTML=rows.map(u=>{
         const isSelf=u.uid===curUid;
@@ -1666,6 +1700,11 @@ $('createUserForm').addEventListener('submit',async e=>{
     err.style.display='none';suc.style.display='none';
     const u=$('newUsername').value.trim(),p=$('newPassword').value,r=$('newRole').value;
     if(!_validUserRe.test(u)){err.textContent='Nur Buchstaben, Zahlen, Punkt, Bindestrich, Unterstrich';err.style.display='block';return;}
+    // Passwort-Policy: min. 12 Zeichen, mind. 1 Ziffer, mind. 1 Sonderzeichen (nicht Buchstabe/Ziffer)
+    if(p.length<12 || !/\d/.test(p) || !/[^A-Za-z0-9]/.test(p)){
+        err.textContent='Passwort muss mindestens 12 Zeichen lang sein und eine Ziffer + ein Sonderzeichen enthalten.';
+        err.style.display='block';return;
+    }
     try{
         let uid;
         try{
@@ -1695,14 +1734,20 @@ $('createUserForm').addEventListener('submit',async e=>{
     }catch(ex){err.textContent=translateError(ex.code);err.style.display='block';}
 });
 
+// Selbstschutz: aktiver Admin darf sich NICHT selbst degradieren/deaktivieren/löschen.
+// (Letzter Schutz gegen Aussperrung — server-seitig in Firestore-Rules zusätzlich enforct.)
+function _isSelf(uid){ return auth.currentUser && auth.currentUser.uid===uid; }
+
 async function changeUserRole(uid,newRole){
     if(!isAdmin())return;
+    if(_isSelf(uid)){alert('Du kannst deine eigene Rolle nicht ändern. Bitte einen anderen Admin bitten.');return;}
     try{await db.collection('users').doc(uid).update({role:newRole});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
 async function deactivateUser(uid,name){
     if(!isAdmin())return;
+    if(_isSelf(uid)){alert('Du kannst dich nicht selbst deaktivieren.');return;}
     if(!confirm('Benutzer "'+name+'" wirklich deaktivieren?\n\nDer Benutzer kann sich danach nicht mehr anmelden. Über "Aktivieren" kann das rückgängig gemacht werden.'))return;
     try{await db.collection('users').doc(uid).update({disabled:true});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
@@ -1716,6 +1761,7 @@ async function reactivateUser(uid){
 
 async function deleteUser(uid,name){
     if(!isAdmin())return;
+    if(_isSelf(uid)){alert('Du kannst dein eigenes Konto nicht löschen.');return;}
     if(!confirm('Benutzer "'+name+'" wirklich ENDGÜLTIG löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden. Der Firestore-Eintrag wird gelöscht.\n\nHinweis: Der Firebase Auth-Eintrag muss ggf. manuell in der Firebase Console entfernt werden.'))return;
     try{await db.collection('users').doc(uid).delete();loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
