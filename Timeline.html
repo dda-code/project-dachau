@@ -1139,7 +1139,7 @@ function buildGrid(vrows){
         mwr.innerHTML='<div class="bar meeting-bar" style="width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden"><span class="meeting-lbl">📅 '+_esc(t.name)+'</span></div><span class="blbl-over">📅 '+_esc(t.name)+'</span>';
         var mBarEl=mwr.firstChild;
         mBarEl.addEventListener('click',function(e){
-          if(linkMode)return;if(currentRole==='admin')openEditMeeting(t.id);
+          if(linkMode)return;if(_canEdit())openEditMeeting(t.id);
         });
         mBarEl.addEventListener('mouseenter',function(e){showTT(t,e,true);});
         mBarEl.addEventListener('mouseleave',hideTT);
@@ -1211,7 +1211,7 @@ function buildGrid(vrows){
         var line=mk('div','milestone-line');
         line.style.cssText='position:absolute;left:0;top:18px;bottom:0;width:2px;background:'+(msOverdue?'#ef4444':'#f59e0b')+';border-radius:1px;transform:translateX(-50%)';
         dm.appendChild(line);dm.appendChild(flag);
-        dm.addEventListener('click',function(e){e.stopPropagation();if(currentRole==='admin') openEdit(t.id);});
+        dm.addEventListener('click',function(e){e.stopPropagation();if(_canEdit()) openEdit(t.id);});
         barFrag.appendChild(dm);
       }
     }
@@ -1293,7 +1293,7 @@ var _lastDragOverRow=null;
 function attachDragHandlers(rowEl,taskId){
   rowEl.draggable=true;rowEl.dataset.taskId=taskId;
   rowEl.addEventListener('dragstart',function(e){
-    if(currentRole!=='admin'){e.preventDefault();return;}
+    if(!_canEdit()){e.preventDefault();return;}
     e.stopPropagation();e.dataTransfer.effectAllowed='move';
     e.dataTransfer.setData('text/plain',String(taskId));
     setTimeout(function(){rowEl.classList.add('dragging-row');},0);
@@ -1393,7 +1393,7 @@ function buildLeft(vrows){
       mDateLbl.style.cssText='font-size:10px;color:#4c1d95;background:#ede9fe;border-radius:8px;padding:1px 6px;flex-shrink:0';
       row2.appendChild(mDateLbl);
       attachDragHandlers(row2,t.id);
-      row2.addEventListener('click',function(){if(currentRole==='admin')openEditMeeting(t.id);});
+      row2.addEventListener('click',function(){if(_canEdit())openEditMeeting(t.id);});
       var eyeM=mk('span','eye-btn'+(t.hidden?' is-hidden':''));
       eyeM.textContent=t.hidden?'🙈':'👁';eyeM.title=t.hidden?'Show':'Hide';
       eyeM.addEventListener('click',function(e){e.stopPropagation();toggleHide(t.id);});
@@ -1418,7 +1418,7 @@ function buildLeft(vrows){
       dateLbl.style.cssText='font-size:10px;color:#b45309;background:#fef3c7;border-radius:8px;padding:1px 6px;flex-shrink:0';
       row2.appendChild(dateLbl);
       attachDragHandlers(row2,t.id);
-      row2.addEventListener('click',function(){if(currentRole==='admin')openEditUrlaub(t.id);});
+      row2.addEventListener('click',function(){if(_canEdit())openEditUrlaub(t.id);});
       var eyeU=mk('span','eye-btn'+(t.hidden?' is-hidden':''));
       eyeU.textContent=t.hidden?'🙈':'👁';eyeU.title=t.hidden?'Show':'Hide';
       eyeU.addEventListener('click',function(e){e.stopPropagation();toggleHide(t.id);});
@@ -1483,7 +1483,7 @@ function buildLeft(vrows){
     attachDragHandlers(row2,t.id);
 
     row2.addEventListener('click',function(){
-      if(currentRole==='admin')openEdit(t.id);
+      if(_canEdit())openEdit(t.id);
     });
     var eye=mk('span','eye-btn'+(t.hidden?' is-hidden':''));
     eye.textContent=t.hidden?'🙈':'👁';eye.title=t.hidden?'Show':'Hide';
@@ -2526,6 +2526,8 @@ var currentUser = null;
 var EMAIL_DOMAIN = '@lager.local';
 function toEmail(u){ return u.trim().toLowerCase().replace(/\s+/g,'_')+EMAIL_DOMAIN; }
 function toUsername(e){ return e ? e.replace(EMAIL_DOMAIN,'') : ''; }
+// Editier-Rechte: Admin UND Manager dürfen Gantt bearbeiten.
+function _canEdit(){ return currentRole==='admin' || currentRole==='manager'; }
 
 // ── Idle-Logout (5 Min) ──────────────────────────────────────────────────────
 var IDLE_TIMEOUT_MS = 5*60*1000;
@@ -2583,8 +2585,14 @@ function doLogout(){
 
 function applyRole(){
   var badge=document.getElementById('role-badge');
-  var label = (currentUser||'—') + (currentRole==='admin'?' · Admin':(currentRole==='qs'?' · QS':' · User'));
-  if(currentRole==='admin'){
+  // Manager hat dieselben Rechte wie Admin (Edit), wird aber als "Manager" angezeigt.
+  var isEditor = _canEdit();
+  var roleLabel = currentRole==='admin' ? ' · Admin'
+                : currentRole==='manager' ? ' · Manager'
+                : currentRole==='qs' ? ' · QS'
+                : ' · User';
+  var label = (currentUser||'—') + roleLabel;
+  if(isEditor){
     document.body.classList.remove('user-mode');
     if(badge){ badge.textContent=label; badge.className='admin'; badge.style.display=''; }
   } else {
@@ -2619,13 +2627,19 @@ firebase.auth().onAuthStateChanged(function(user){
       var role='user', disabled=false, displayName=user.displayName||toUsername(user.email);
       if(doc.exists){
         var d=doc.data()||{};
-        role = (d.role==='admin'||d.role==='qs') ? d.role : 'user';
+        role = (d.role==='admin'||d.role==='manager'||d.role==='qs') ? d.role : 'user';
         disabled = d.disabled===true;
         if(d.displayName) displayName=d.displayName;
       }
       if(disabled){
         firebase.auth().signOut();
         _loginError('Benutzer deaktiviert. Bitte Admin kontaktieren.');
+        return;
+      }
+      // Zugriffs-Schutz: Nur QS und Admin dürfen Timeline sehen. "user"-Rolle wird abgewiesen.
+      if(role === 'user'){
+        firebase.auth().signOut();
+        _loginError('Kein Zugriff auf Timeline mit deiner Rolle. Bitte Admin fragen.');
         return;
       }
       currentRole = role;
@@ -2757,7 +2771,7 @@ function firebaseStart(){
       }
     }
     // Sperre: Admin übernimmt immer, User bekommt Nur-Lese
-    if(currentRole==='admin'){
+    if(_canEdit()){
       acquireLock().then(function(){markCloud();}).catch(function(e){
         console.error('Lock error:',e);markCloud();
       });
@@ -2793,12 +2807,12 @@ function firebaseStart(){
     if(!doc.exists){
       document.getElementById('lock-banner').style.display='none';
       document.body.classList.remove('firebase-readonly');
-      if(currentRole==='admin'&&!_isEditor) acquireLock().catch(function(){});
+      if(_canEdit()&&!_isEditor) acquireLock().catch(function(){});
     } else if(doc.data().sessionId!==_sessionId){
       var d=doc.data();
       var lockedAt=typeof d.lockedAt==='number'?d.lockedAt:0;
       var age=Date.now()-lockedAt;
-      if(age>120000 && currentRole==='admin'){
+      if(age>120000 && _canEdit()){
         // Lock-Hang erkannt (> 2 Min kein Heartbeat) — übernehmen
         acquireLock().catch(function(){});
         return;

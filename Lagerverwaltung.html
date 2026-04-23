@@ -503,6 +503,8 @@ function logout(){auth.signOut().catch(e=>console.warn('Logout-Fehler:',e));}
 let currentUserRole='user';
 // Manager hat dieselben Rechte wie Admin — wird in isAdmin() mit eingeschlossen.
 function isAdmin(){return currentUserRole==='admin'||currentUserRole==='manager';}
+// ABER: User-Management (Benutzer anlegen/ändern/löschen) nur für ECHTE Admins.
+function isUserAdmin(){return currentUserRole==='admin';}
 function isQS(){return currentUserRole==='qs';}
 function canManageQS(){return isAdmin()||isQS();}
 function canDeletePalette(){return isAdmin()||isQS()||getCurrentUsername().toLowerCase()==='lager';}
@@ -531,7 +533,7 @@ auth.onAuthStateChanged(async user=>{
         }
         const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='manager'?' (Manager)':(currentUserRole==='qs'?' (QS)':''));
         $('userEmail').textContent=uName+roleLabel;
-        $('userMgmtBtn').style.display=isAdmin()?'inline-flex':'none';
+        $('userMgmtBtn').style.display=isUserAdmin()?'inline-flex':'none';
         initApp();
     }
     else{
@@ -1658,7 +1660,7 @@ function exportInventory(){const t=document.querySelector('#view-inventory .data
 // ============================================================
 // USER MANAGEMENT (Admin only)
 // ============================================================
-function openUserMgmt(){if(!isAdmin())return;$('userMgmtModal').style.display='flex';loadUserMgmt();}
+function openUserMgmt(){if(!isUserAdmin())return;$('userMgmtModal').style.display='flex';loadUserMgmt();}
 function closeUserMgmt(){$('userMgmtModal').style.display='none';}
 $('userMgmtModal').addEventListener('click',e=>{if(e.target===$('userMgmtModal'))closeUserMgmt();});
 
@@ -1699,6 +1701,7 @@ $('createUserForm').addEventListener('submit',async e=>{
     e.preventDefault();
     const err=$('createUserError'),suc=$('createUserSuccess');
     err.style.display='none';suc.style.display='none';
+    if(!isUserAdmin()){err.textContent='Nur Admins dürfen Benutzer anlegen.';err.style.display='block';return;}
     const u=$('newUsername').value.trim(),p=$('newPassword').value,r=$('newRole').value;
     if(!_validUserRe.test(u)){err.textContent='Nur Buchstaben, Zahlen, Punkt, Bindestrich, Unterstrich';err.style.display='block';return;}
     // Passwort-Policy: min. 12 Zeichen, mind. 1 Ziffer, mind. 1 Sonderzeichen (nicht Buchstabe/Ziffer)
@@ -1740,14 +1743,14 @@ $('createUserForm').addEventListener('submit',async e=>{
 function _isSelf(uid){ return auth.currentUser && auth.currentUser.uid===uid; }
 
 async function changeUserRole(uid,newRole){
-    if(!isAdmin())return;
+    if(!isUserAdmin())return;
     if(_isSelf(uid)){alert('Du kannst deine eigene Rolle nicht ändern. Bitte einen anderen Admin bitten.');return;}
     try{await db.collection('users').doc(uid).update({role:newRole});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
 async function deactivateUser(uid,name){
-    if(!isAdmin())return;
+    if(!isUserAdmin())return;
     if(_isSelf(uid)){alert('Du kannst dich nicht selbst deaktivieren.');return;}
     if(!confirm('Benutzer "'+name+'" wirklich deaktivieren?\n\nDer Benutzer kann sich danach nicht mehr anmelden. Über "Aktivieren" kann das rückgängig gemacht werden.'))return;
     try{await db.collection('users').doc(uid).update({disabled:true});loadUserMgmt();}
@@ -1755,13 +1758,13 @@ async function deactivateUser(uid,name){
 }
 
 async function reactivateUser(uid){
-    if(!isAdmin())return;
+    if(!isUserAdmin())return;
     try{await db.collection('users').doc(uid).update({disabled:false});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
 async function deleteUser(uid,name){
-    if(!isAdmin())return;
+    if(!isUserAdmin())return;
     if(_isSelf(uid)){alert('Du kannst dein eigenes Konto nicht löschen.');return;}
     if(!confirm('Benutzer "'+name+'" wirklich ENDGÜLTIG löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden. Der Firestore-Eintrag wird gelöscht.\n\nHinweis: Der Firebase Auth-Eintrag muss ggf. manuell in der Firebase Console entfernt werden.'))return;
     try{await db.collection('users').doc(uid).delete();loadUserMgmt();}
