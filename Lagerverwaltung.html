@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firebaseinstallations.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com https://api.groq.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="no-referrer">
     <title>Lagerverwaltung Aumundswiese</title>
     <link rel="dns-prefetch" href="https://www.gstatic.com">
     <link rel="dns-prefetch" href="https://firestore.googleapis.com">
@@ -377,7 +380,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <form id="createUserForm" style="margin-top:10px">
                 <div class="form-grid">
                     <div class="form-group"><label for="newUsername">Benutzername</label><input type="text" id="newUsername" required placeholder="z.B. max" autocapitalize="off" spellcheck="false"></div>
-                    <div class="form-group"><label for="newPassword">Passwort</label><input type="password" id="newPassword" required minlength="6" placeholder="Min. 6 Zeichen"></div>
+                    <div class="form-group"><label for="newPassword">Passwort</label><input type="password" id="newPassword" required minlength="12" placeholder="Min. 12 Zeichen, Zahl + Sonderzeichen"></div>
                 </div>
                 <div class="form-group"><label for="newRole">Rolle</label><select id="newRole" class="form-select"><option value="user">User</option><option value="qs">QS</option><option value="admin">Admin</option></select></div>
                 <button type="submit" class="btn btn-success btn-full" style="margin-top:8px">Benutzer anlegen</button>
@@ -424,14 +427,24 @@ let ARTIKEL_BEZEICHNUNG = {
     '180006':'Inner Slider Black','180007':'Inner Slider Natural',
     '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
 };
-const GROQ_API_KEYS = [
-    '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',
-    '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'
-];
+// SICHERHEIT: Groq-API-Keys NIEMALS hardcoden. Keys werden pro Browser lokal gespeichert
+// (localStorage) und einmalig vom Nutzer beim ersten Scan-Versuch abgefragt.
+// Empfohlen: Langfristig einen Backend-Proxy implementieren, der Keys serverseitig hält.
+function _loadGroqKeys(){
+    try{const raw=localStorage.getItem('groqApiKeys');if(!raw)return[];const arr=JSON.parse(raw);return Array.isArray(arr)?arr.filter(k=>typeof k==='string'&&k.startsWith('gsk_')):[];}
+    catch(_){return[];}
+}
+function _saveGroqKeys(keys){try{localStorage.setItem('groqApiKeys',JSON.stringify(keys));}catch(_){}}
+let GROQ_API_KEYS = _loadGroqKeys();
 let _groqKeyIndex = 0;
-function getGroqKey(){ return GROQ_API_KEYS[_groqKeyIndex]; }
-function rotateGroqKey(){ _groqKeyIndex = (_groqKeyIndex+1) % GROQ_API_KEYS.length; console.log('Groq Key gewechselt auf Key #'+(_groqKeyIndex+1)); }
-const GROQ_API_KEY = GROQ_API_KEYS[0];
+async function ensureGroqKey(){
+    if(GROQ_API_KEYS.length)return true;
+    const k=(window.prompt('Groq-API-Key eingeben (wird nur lokal im Browser gespeichert, beginnt mit "gsk_"):')||'').trim();
+    if(!k||!k.startsWith('gsk_')){alert('Ungültiger Key. Abbruch.');return false;}
+    GROQ_API_KEYS=[k];_saveGroqKeys(GROQ_API_KEYS);return true;
+}
+function getGroqKey(){ return GROQ_API_KEYS[_groqKeyIndex]||''; }
+function rotateGroqKey(){ if(!GROQ_API_KEYS.length)return; _groqKeyIndex = (_groqKeyIndex+1) % GROQ_API_KEYS.length; }
 const EMAIL_DOMAIN = '@lager.local';
 
 // ============================================================
@@ -444,60 +457,11 @@ const _secondaryApp = firebase.initializeApp(firebaseConfig, 'UserMgmt');
 const _secondaryAuth = _secondaryApp.auth();
 const _secondaryDb = _secondaryApp.firestore();
 
-// Bootstrap: Admin-Account anlegen falls nicht vorhanden
-(async function bootstrapAdmin(){
-    const adminEmail='admin'+EMAIL_DOMAIN, adminPw='BguVP071';
-    try{
-        await _secondaryAuth.signInWithEmailAndPassword(adminEmail,adminPw);
-        // Login klappt → Admin existiert mit korrektem Passwort
-        // Sicherstellen, dass Firestore-Doc mit role:admin existiert
-        const u=_secondaryAuth.currentUser;
-        const doc=await _secondaryDb.collection('users').doc(u.uid).get();
-        if(!doc.exists){await _secondaryDb.collection('users').doc(u.uid).set({displayName:'admin',email:adminEmail,role:'admin',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
-        else if(doc.data().role!=='admin'){await _secondaryDb.collection('users').doc(u.uid).update({role:'admin'});}
-        await _secondaryAuth.signOut();
-        console.log('Admin-Account verifiziert.');
-    }catch(e){
-        console.log('Admin-Bootstrap Fehler:',e.code);
-        try{await _secondaryAuth.signOut();}catch(_){}
-        if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'){
-            try{
-                const c=await _secondaryAuth.createUserWithEmailAndPassword(adminEmail,adminPw);
-                await c.user.updateProfile({displayName:'admin'});
-                await _secondaryDb.collection('users').doc(c.user.uid).set({displayName:'admin',email:adminEmail,role:'admin',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-                await _secondaryAuth.signOut();
-                console.log('Admin-Account erstellt.');
-            }catch(ce){
-                console.warn('Admin-Bootstrap Erstellung fehlgeschlagen:',ce.code,ce.message);
-            }
-        }
-    }
-})();
-
-// Bootstrap: QS-Account anlegen falls nicht vorhanden
-(async function bootstrapQS(){
-    const qsEmail='qs'+EMAIL_DOMAIN, qsPw='xoqs-2026';
-    try{
-        await _secondaryAuth.signInWithEmailAndPassword(qsEmail,qsPw);
-        const u=_secondaryAuth.currentUser;
-        const doc=await _secondaryDb.collection('users').doc(u.uid).get();
-        if(!doc.exists){await _secondaryDb.collection('users').doc(u.uid).set({displayName:'qs',email:qsEmail,role:'qs',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
-        else if(doc.data().role!=='qs'){await _secondaryDb.collection('users').doc(u.uid).update({role:'qs'});}
-        await _secondaryAuth.signOut();
-        console.log('QS-Account verifiziert.');
-    }catch(e){
-        try{await _secondaryAuth.signOut();}catch(_){}
-        if(e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'){
-            try{
-                const c=await _secondaryAuth.createUserWithEmailAndPassword(qsEmail,qsPw);
-                await c.user.updateProfile({displayName:'qs'});
-                await _secondaryDb.collection('users').doc(c.user.uid).set({displayName:'qs',email:qsEmail,role:'qs',disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-                await _secondaryAuth.signOut();
-                console.log('QS-Account erstellt.');
-            }catch(ce){console.warn('QS-Bootstrap fehlgeschlagen:',ce.code,ce.message);}
-        }
-    }
-})();
+// SICHERHEIT: Die Admin-/QS-Bootstrap-IIFEs wurden entfernt.
+// Hardcoded Credentials im Client-Quelltext wären für jeden lesbar.
+// Admin- und QS-Konten werden EINMALIG manuell in der Firebase Console angelegt
+// und ihre Rolle per Admin-SDK / Console im "users/{uid}"-Dokument gesetzt.
+// Siehe SECURITY.md neben dieser HTML-Datei für die Setup-Anleitung.
 
 const _wsRe=/\s+/g;
 const _validUserRe=/^[a-zA-Z0-9_.-]+$/;
@@ -516,26 +480,22 @@ auth.onAuthStateChanged(async user=>{
     if(user){
         $('loginView').style.display='none';$('appView').style.display='block';
         const uName=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
-        // Load or create user doc in Firestore
-        const isAdminEmail=user.email&&user.email.toLowerCase()==='admin'+EMAIL_DOMAIN;
-        const isQSEmail=user.email&&user.email.toLowerCase()==='qs'+EMAIL_DOMAIN;
+        // SICHERHEIT: Rollen-Promotion anhand der E-Mail wurde entfernt — sonst könnte
+        // ein Angreifer durch reines Einloggen admin werden. Rolle wird AUSSCHLIESSLICH
+        // aus dem vom Server/Admin gesetzten users/{uid}.role gelesen, nie hier geschrieben.
         try{
             const uDoc=await db.collection('users').doc(user.uid).get();
             if(uDoc.exists){
                 const ud=uDoc.data();
                 if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
-                currentUserRole=ud.role||'user';
-                if(isAdminEmail&&currentUserRole!=='admin'){await db.collection('users').doc(user.uid).update({role:'admin'});currentUserRole='admin';}
-                if(isQSEmail&&currentUserRole!=='qs'){await db.collection('users').doc(user.uid).update({role:'qs'});currentUserRole='qs';}
-            }
-            else{
-                const role=isAdminEmail?'admin':(isQSEmail?'qs':'user');
-                await db.collection('users').doc(user.uid).set({displayName:uName,email:user.email,role:role,disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-                currentUserRole=role;
+                currentUserRole=(ud.role==='admin'||ud.role==='qs')?ud.role:'user';
+            }else{
+                // Kein User-Dokument: default 'user'. Admins legen via Benutzerverwaltung an.
+                currentUserRole='user';
             }
         }catch(e){
             console.warn('Rolle laden fehlgeschlagen:',e);
-            currentUserRole=isAdminEmail?'admin':(isQSEmail?'qs':'user');
+            currentUserRole='user';
         }
         console.log('Auth: user='+uName+', email='+user.email+', uid='+user.uid+', role='+currentUserRole);
         const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='qs'?' (QS)':'');
@@ -623,9 +583,9 @@ async function loadArtikelstamm(){
     }
     rows.sort((a,b)=>a.nr.localeCompare(b.nr));
     const fmt=d=>d?d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'-';
-    const delBtn=nr=>editable?`<button class="btn btn-danger btn-sm" data-del-artikel="${nr}">L&ouml;schen</button>`:'';
+    const delBtn=nr=>editable?`<button class="btn btn-danger btn-sm" data-del-artikel="${_esc(nr)}">L&ouml;schen</button>`:'';
     document.getElementById('artikelstammBody').innerHTML=rows.length?rows.map(r=>
-        `<tr><td style="font-weight:700">${r.nr}</td><td>${_escAttr(r.bez)}</td><td>${_escAttr(r.von)}</td><td>${fmt(r.am)}</td>${editable?'<td>'+delBtn(r.nr)+'</td>':''}</tr>`
+        `<tr><td style="font-weight:700">${_esc(r.nr)}</td><td>${_esc(r.bez)}</td><td>${_esc(r.von)}</td><td>${_esc(fmt(r.am))}</td>${editable?'<td>'+delBtn(r.nr)+'</td>':''}</tr>`
     ).join(''):'<tr><td colspan="5" class="info-msg">Keine Artikel vorhanden</td></tr>';
     // Event-Listener fuer Loeschen
     if(editable){
@@ -725,7 +685,7 @@ async function loadDashboard(){
     document.getElementById('dashGranBelegt').textContent=gran;document.getElementById('dashGranTotal').textContent=_grT;
     document.getElementById('dashTotalPaletten').textContent=paletten.length;
     renderWarehouseMap();
-    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${ARTIKEL_BEZEICHNUNG[nr]||'-'}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
+    const _rowHtml=(nr,d)=>`<tr><td>${_esc(nr)}</td><td>${_esc(ARTIKEL_BEZEICHNUNG[nr]||'-')}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
     document.getElementById('dashArtikelBody').innerHTML=ARTIKEL_NUMMERN.filter(nr=>!nr.startsWith('XO')).map(nr=>{const d=artikelMap[nr]||{count:0,menge:0,mengeFrei:0,mengeGesperrt:0};return _rowHtml(nr,d);}).join('');
     const fertigNrs=Object.keys(fertigMap).sort();
     document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="6" class="info-msg">Keine Fertigware eingelagert</td></tr>';
@@ -785,7 +745,7 @@ function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new 
 // ============================================================
 let _lastPositions=null;
 async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (K — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GB / GS)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');}
-function _renderCell(p,i,o,showField){if(!isValidPosition(p))return '';const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
+function _renderCell(p,i,o,showField){if(!isValidPosition(p))return '';const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';const sp=_esc(p),sat=_esc(at);return`<div class="wh-cell ${cl}" title="${sp}${pal?' — '+sat:' — Frei'}" data-pos="${sp}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${sat}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
 function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr'));parts.push('</div></div>');return parts.join('');}
 function rgr(o){const parts=[];
@@ -815,19 +775,33 @@ async function showPosDetail(pos){
             ?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'
             :'<span style="color:#10b981;font-weight:700">Freigegeben</span>';
         const sperrgrundHtml=pal.gesperrt&&pal.sperrgrund?`<div class="palette-row"><span class="palette-label">Sperrgrund:</span><span style="color:#ef4444">${_escAttr(pal.sperrgrund)}</span></div>`:'';
-        const docId=_escAttr(pal.sscc||pal.id);
+        const rawDocId=pal.sscc||pal.id;
+        const safeDocId=_esc(rawDocId);
+        const safePos=_esc(pos);
         let qsBtn='';
         if(canManageQS()){
             if(pal.gesperrt){
-                qsBtn=`<button class="btn btn-success btn-full" style="margin-top:12px" onclick="toggleGesperrt('${docId}',false,'${_escAttr(pos)}')">Palette freigeben</button>`;
+                qsBtn=`<button class="btn btn-success btn-full" style="margin-top:12px" data-qs-toggle="release" data-doc-id="${safeDocId}" data-pos="${safePos}">Palette freigeben</button>`;
             }else{
-                qsBtn=`<div style="margin-top:12px"><div class="form-group"><label>Sperrgrund (optional)</label><input type="text" id="posDetailSperrgrund" placeholder="z.B. Qualitätsprüfung, Reklamation..." style="font-size:0.9rem"></div><button class="btn btn-danger btn-full" onclick="toggleGesperrt('${docId}',true,'${_escAttr(pos)}',document.getElementById('posDetailSperrgrund').value)">Palette sperren</button></div>`;
+                qsBtn=`<div style="margin-top:12px"><div class="form-group"><label>Sperrgrund (optional)</label><input type="text" id="posDetailSperrgrund" placeholder="z.B. Qualitätsprüfung, Reklamation..." style="font-size:0.9rem"></div><button class="btn btn-danger btn-full" data-qs-toggle="block" data-doc-id="${safeDocId}" data-pos="${safePos}">Palette sperren</button></div>`;
             }
         }
-        b.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">SSCC:</span><span>${pal.sscc||''}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${pal.artikelNr}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${pal.produktionsDatum||'-'}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${pal.menge||'-'}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${formatTimestamp(pal.einlagDatum)}</span></div><div class="palette-row"><span class="palette-label">Status:</span>${statusHtml}</div>${sperrgrundHtml}</div>${qsBtn}`;
+        b.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">SSCC:</span><span>${_esc(pal.sscc||'')}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${_esc(pal.artikelNr)}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${_esc(pal.produktionsDatum||'-')}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${_esc(pal.menge||'-')}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${_esc(formatTimestamp(pal.einlagDatum))}</span></div><div class="palette-row"><span class="palette-label">Status:</span>${statusHtml}</div>${sperrgrundHtml}</div>${qsBtn}`;
     }
     document.getElementById('posDetailModal').style.display='flex';
     document.getElementById('posDetailClose').onclick=()=>{document.getElementById('posDetailModal').style.display='none';};
+    // Event-Delegation für QS-Buttons (ersetzt unsichere inline-onclick)
+    b.querySelectorAll('[data-qs-toggle]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+            const docId=btn.dataset.docId,p=btn.dataset.pos,action=btn.dataset.qsToggle;
+            if(action==='block'){
+                const sperrgrund=document.getElementById('posDetailSperrgrund')?.value||'';
+                toggleGesperrt(docId,true,p,sperrgrund);
+            }else{
+                toggleGesperrt(docId,false,p);
+            }
+        });
+    });
 }
 async function _logGesperrt(docId,newVal,sperrgrund){
     const snap=await db.collection('paletten').doc(docId).get();const pd=snap.exists?snap.data():{};
@@ -932,6 +906,7 @@ async function _groqRequest(base64, retries=2){
 }
 
 async function scanLabel(file){
+    if(!(await ensureGroqKey()))throw new Error('Kein Groq-API-Key konfiguriert.');
     const base64=await imageToBase64Scan(file,2500);
     const r=await _groqRequest(base64);
     if(!r.ok)throw new Error('API-Fehler '+r.status+': '+await r.text());
@@ -998,7 +973,12 @@ function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=
 // ============================================================
 // INBOUND
 // ============================================================
-function _escAttr(s){return s?s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'):''}
+// Striktes HTML-Escape für ALLE Kontexte (Textknoten UND Attribute, single- wie double-quoted)
+// Deckt: & < > " ' ` / =  ab. Nicht-Strings werden sicher zu String gewandelt.
+const _HTML_ESC_MAP={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;','/':'&#47;','=':'&#61;'};
+function _esc(s){if(s==null)return'';return String(s).replace(/[&<>"'`\/=]/g,ch=>_HTML_ESC_MAP[ch]);}
+// Rückwärts-Alias (wird im Altbestand verwendet) — jetzt ebenfalls strikt.
+function _escAttr(s){return _esc(s);}
 const INBOUND_FIELDS_BASE=[
     {key:'labelTyp',label:'Label-Typ',readonly:true},
     {key:'artikelNr',label:'Artikelnummer'},
@@ -1329,7 +1309,7 @@ async function onArtikelSelect(){
     if(!pal.length){ed.innerHTML='<p class="info-msg">Alle Paletten dieses Artikels sind gesperrt (QS).</p>';ed.style.display='block';return;}
     pal.forEach(p=>p._sortKey=parseProdDatum(p.produktionsDatum||p.datum||'').getTime());pal.sort((a,b)=>a._sortKey-b._sortKey);
     const p=pal[0],card=document.getElementById('outboundCard');
-    card.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">Typ:</span><span>${p.labelTyp||'-'}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${p.artikelNr}</span></div><div class="palette-row"><span class="palette-label">SSCC / Barcode:</span><span>${p.sscc||p.internalBarcode||p.palettenNr||p.id}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${p.produktionsDatum||'-'}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${p.menge||'-'}</span></div><div class="palette-row"><span class="palette-label">Stellplatz:</span><span class="position-badge">${p.position}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${formatTimestamp(p.einlagDatum)}</span></div><div class="palette-row"><span class="palette-label">Eingelagert von:</span><span>${p.eingelagertVon||'-'}</span></div></div>`;
+    card.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">Typ:</span><span>${_esc(p.labelTyp||'-')}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${_esc(p.artikelNr)}</span></div><div class="palette-row"><span class="palette-label">SSCC / Barcode:</span><span>${_esc(p.sscc||p.internalBarcode||p.palettenNr||p.id)}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${_esc(p.produktionsDatum||'-')}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${_esc(p.menge||'-')}</span></div><div class="palette-row"><span class="palette-label">Stellplatz:</span><span class="position-badge">${_esc(p.position)}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${_esc(formatTimestamp(p.einlagDatum))}</span></div><div class="palette-row"><span class="palette-label">Eingelagert von:</span><span>${_esc(p.eingelagertVon||'-')}</span></div></div>`;
     card.dataset.docId=p.id;card.dataset.paletteJson=JSON.stringify(p);rd.style.display='block';document.getElementById('confirmOutboundBtn').disabled=false;
 }
 
@@ -1344,7 +1324,7 @@ async function confirmOutbound(){
     try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.warn(e);}
-    document.getElementById('outboundResult').style.display='none';const sd=document.getElementById('outboundSuccess');sd.innerHTML=`<p class="success-msg">Palette entnommen von Stellplatz <strong>${pd.position}</strong></p>`;sd.style.display='block';
+    document.getElementById('outboundResult').style.display='none';const sd=document.getElementById('outboundSuccess');sd.innerHTML=`<p class="success-msg">Palette entnommen von Stellplatz <strong>${_esc(pd.position)}</strong></p>`;sd.style.display='block';
     setTimeout(()=>{sd.style.display='none';document.getElementById('outboundArtikel').value='';document.getElementById('confirmOutboundBtn').disabled=false;},3000);
 }
 
@@ -1358,7 +1338,7 @@ async function loadProtokoll(){
     document.getElementById('protokollBody').innerHTML=rows.map(p=>{
         const aktionHtml=p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.labelTyp||'-'))));
         const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
-        return`<tr><td>${aktionHtml}</td><td>${_formatDDMMYYYYHHMM(_aktionTs(p))}</td><td>${_aktionUser(p)}</td><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${p.sscc||p.internalBarcode||'-'}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td>${p.position||'-'}</td><td>${statusHtml}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_escAttr(p.id)}">Löschen</button>`:''}</td></tr>`;
+        return`<tr><td>${aktionHtml}</td><td>${_esc(_formatDDMMYYYYHHMM(_aktionTs(p)))}</td><td>${_esc(_aktionUser(p))}</td><td>${_esc(p.labelTyp||'-')}</td><td>${_esc(p.artikelNr||'-')}</td><td>${_esc(p.sscc||p.internalBarcode||'-')}</td><td>${_esc(p.palettenNr||'-')}</td><td>${_esc(p.produktionsDatum||'-')}</td><td>${_esc(p.menge||'-')}</td><td>${_esc(p.lotNr||'-')}</td><td>${_esc(p.orderNr||'-')}</td><td>${_esc(p.kunde||'-')}</td><td>${_esc(p.schicht||'-')}</td><td>${_esc(p.gtin||'-')}</td><td>${_esc(p.position||'-')}</td><td>${statusHtml}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_esc(p.id)}">Löschen</button>`:''}</td></tr>`;
     }).join('')||'<tr><td colspan="17" class="info-msg">Noch keine Protokolleinträge</td></tr>';
 }
 document.getElementById('protokollBody').addEventListener('click',e=>{const btn=e.target.closest('[data-delete-protokoll]');if(btn)deleteProtokollEntry(btn.dataset.deleteProtokoll);});
@@ -1570,7 +1550,7 @@ function renderInvTable(){
             :`<button class="btn btn-danger btn-sm" data-qs-id="${_escAttr(p.id)}" data-qs-val="true">Sperren</button>`):'';
         const editBtn=isAdmin()?`<button class="btn btn-sm btn-secondary" data-edit-id="${_escAttr(p.id)}" style="margin-left:4px">Bearbeiten</button>`:'';
         const delBtn=canDeletePalette()?`<button class="btn btn-danger btn-sm" data-delete-id="${_escAttr(p.id)}" style="margin-left:4px">Löschen</button>`:'';
-        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td style="white-space:nowrap">${qsBtn}${editBtn}${delBtn}</td></tr>`;
+        return`<tr><td>${_esc(p.labelTyp||'-')}</td><td>${_esc(p.artikelNr||'-')}</td><td>${_esc(ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-')}</td><td>${_esc(idf(p))}</td><td>${_esc(p.palettenNr||'-')}</td><td>${_esc(p.produktionsDatum||'-')}</td><td>${_esc(p.uhrzeit||'-')}</td><td>${_esc(p.menge||'-')}</td><td>${_esc(p.lotNr||'-')}</td><td>${_esc(p.orderNr||'-')}</td><td>${_esc(p.kunde||'-')}</td><td>${_esc(p.schicht||'-')}</td><td>${_esc(p.gtin||'-')}</td><td><span class="position-badge">${_esc(p.position||'-')}</span></td><td>${statusHtml}</td><td>${_esc(formatTimestamp(p.einlagDatum))}</td><td style="white-space:nowrap">${qsBtn}${editBtn}${delBtn}</td></tr>`;
     }).join('')||'<tr><td colspan="17" class="info-msg">Keine Paletten im Lager</td></tr>';
 }
 async function toggleInvGesperrt(docId,newVal){
@@ -1663,14 +1643,21 @@ async function loadUserMgmt(){
     $('userMgmtBody').innerHTML=rows.map(u=>{
         const isSelf=u.uid===curUid;
         const statusTxt=u.disabled?'<span style="color:#ef4444;font-weight:600">Deaktiviert</span>':'<span style="color:#10b981;font-weight:600">Aktiv</span>';
+        const safeUid=_esc(u.uid);
         const roleSelect=isSelf?`<span style="font-weight:600">${u.role==='admin'?'Admin':(u.role==='qs'?'QS':'User')}</span>`
-            :`<select class="form-select" style="padding:4px 8px;font-size:0.82rem;width:auto" onchange="changeUserRole('${_escAttr(u.uid)}',this.value)"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="qs"${u.role==='qs'?' selected':''}>QS</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select>`;
+            :`<select class="form-select" data-role-uid="${safeUid}" style="padding:4px 8px;font-size:0.82rem;width:auto"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="qs"${u.role==='qs'?' selected':''}>QS</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select>`;
         const actions=isSelf?'<span style="color:#94a3b8;font-size:0.8rem">Eigenes Konto</span>'
             :(u.disabled
-                ?`<button class="btn btn-success btn-sm" onclick="reactivateUser('${_escAttr(u.uid)}')">Aktivieren</button> <button class="btn btn-danger btn-sm" onclick="deleteUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Löschen</button>`
-                :`<button class="btn btn-danger btn-sm" onclick="deactivateUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Deaktivieren</button> <button class="btn btn-danger btn-sm" style="background:#991b1b" onclick="deleteUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Löschen</button>`);
-        return`<tr><td>${u.displayName||'-'}</td><td>${roleSelect}</td><td>${statusTxt}</td><td>${actions}</td></tr>`;
+                ?`<button class="btn btn-success btn-sm" data-reactivate-uid="${safeUid}">Aktivieren</button> <button class="btn btn-danger btn-sm" data-delete-uid="${safeUid}" data-user-name="${_esc(u.displayName||'')}">Löschen</button>`
+                :`<button class="btn btn-danger btn-sm" data-deactivate-uid="${safeUid}" data-user-name="${_esc(u.displayName||'')}">Deaktivieren</button> <button class="btn btn-danger btn-sm" style="background:#991b1b" data-delete-uid="${safeUid}" data-user-name="${_esc(u.displayName||'')}">Löschen</button>`);
+        return`<tr><td>${_esc(u.displayName||'-')}</td><td>${roleSelect}</td><td>${statusTxt}</td><td>${actions}</td></tr>`;
     }).join('')||'<tr><td colspan="4" class="info-msg">Keine Benutzer</td></tr>';
+    // Event-Delegation (ersetzt unsichere onclick-Strings mit interpolierten User-Daten)
+    const tbody=$('userMgmtBody');
+    tbody.querySelectorAll('[data-role-uid]').forEach(sel=>sel.addEventListener('change',e=>changeUserRole(sel.dataset.roleUid,sel.value)));
+    tbody.querySelectorAll('[data-reactivate-uid]').forEach(b=>b.addEventListener('click',()=>reactivateUser(b.dataset.reactivateUid)));
+    tbody.querySelectorAll('[data-deactivate-uid]').forEach(b=>b.addEventListener('click',()=>deactivateUser(b.dataset.deactivateUid,b.dataset.userName||'')));
+    tbody.querySelectorAll('[data-delete-uid]').forEach(b=>b.addEventListener('click',()=>deleteUser(b.dataset.deleteUid,b.dataset.userName||'')));
 }
 
 $('createUserForm').addEventListener('submit',async e=>{
