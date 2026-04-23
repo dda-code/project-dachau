@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lager-Scanner</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4361ee">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="dns-prefetch" href="https://api.groq.com">
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+    <style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; min-height: 100dvh; }
+
+/* Login */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; background: linear-gradient(135deg, #4361ee 0%, #7c3aed 100%); }
+.login-card { background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); width: 100%; max-width: 380px; margin: 20px; }
+.login-card h1 { text-align: center; font-size: 1.5rem; margin-bottom: 2px; }
+.login-card .subtitle { text-align: center; color: #94a3b8; margin-bottom: 24px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+.form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; background: white; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: #4361ee; box-shadow: 0 0 0 3px rgba(67,97,238,0.1); }
+.btn { padding: 12px 22px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; transition: transform 0.15s, box-shadow 0.15s; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn-primary { background: #4361ee; color: white; }
+.btn-success { background: #10b981; color: white; }
+.btn-secondary { background: #e2e8f0; color: #475569; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-sm { padding: 8px 14px; font-size: 0.85rem; }
+.error-msg { color: #ef4444; font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
+
+/* App */
+.app-page { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.app-header { background: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+.app-header h1 { font-size: 1.1rem; }
+.app-header .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #64748b; }
+.logout-btn { background: none; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; color: #475569; }
+
+/* Steps */
+.step { display: none; padding: 20px; }
+.step.active { display: block; }
+.step-header { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #1a1a2e; }
+.step-sub { color: #64748b; font-size: 0.9rem; margin-bottom: 16px; }
+
+/* Scan area */
+.scan-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 16px; }
+.scan-icon { font-size: 4rem; opacity: 0.3; }
+.scan-instruction { text-align: center; color: #64748b; font-size: 0.95rem; max-width: 300px; }
+.capture-btn { padding: 18px 40px; font-size: 1.15rem; border-radius: 50px; box-shadow: 0 4px 16px rgba(67,97,238,0.3); }
+.capture-btn:active { box-shadow: 0 2px 8px rgba(67,97,238,0.2); }
+.manual-btn { padding: 12px 30px; font-size: 0.95rem; border-radius: 50px; }
+
+/* Preview */
+.preview-img { width: 100%; max-width: 400px; border-radius: 12px; border: 2px solid #e2e8f0; margin-bottom: 14px; }
+.field-error input { color: #ef4444; font-weight: 800; border-color: #ef4444; }
+
+/* Progress */
+.progress-bar { width: 100%; max-width: 400px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.progress-fill { height: 100%; background: #4361ee; border-radius: 3px; transition: width 0.3s; width: 0%; }
+.progress-text { font-size: 0.9rem; color: #4361ee; font-weight: 600; text-align: center; }
+
+/* Position */
+.suggested-pos { background: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 14px; }
+.suggested-pos .label { font-size: 0.85rem; color: #64748b; margin-bottom: 4px; }
+.suggested-pos .pos { font-size: 1.8rem; font-weight: 800; color: #10b981; }
+
+/* Card */
+.card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 14px; }
+
+/* Success */
+.success-screen { text-align: center; padding: 40px 20px; }
+.success-icon { font-size: 4rem; color: #10b981; margin-bottom: 12px; }
+.success-text { font-size: 1.2rem; font-weight: 700; color: #10b981; margin-bottom: 6px; }
+.success-sub { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+
+/* Mini Warehouse Map */
+.wh-map { margin-top: 12px; }
+.wh-map-title { font-size: 0.9rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.wh-section { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; margin-bottom: 10px; overflow-x: auto; }
+.wh-section-label { font-weight: 800; font-size: 0.9rem; color: #334155; margin-bottom: 8px; padding: 6px 10px; background: #f1f5f9; border-radius: 5px; }
+.wh-vert-row { display: flex; gap: 2px; overflow-x: auto; }
+.wh-vert-zone { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 20px; }
+.wh-vert-lbl { font-weight: 900; font-size: 0.8rem; color: #4361ee; background: #eef2ff; border-radius: 3px; padding: 2px 0; text-align: center; width: 100%; margin-bottom: 3px; }
+.wh-vert-cells { display: flex; flex-direction: column; gap: 2px; width: 100%; }
+.wh-floor-row { display: flex; align-items: center; gap: 3px; margin-bottom: 3px; }
+.wh-floor-lbl { width: 28px; font-weight: 900; font-size: 0.8rem; color: #4361ee; text-align: center; background: #eef2ff; border-radius: 3px; padding: 2px 0; flex-shrink: 0; }
+.wh-floor-cells { display: flex; gap: 2px; flex: 1; }
+.wh-minicell { flex: 1; height: 18px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.1s; min-width: 0; }
+.wh-minicell:active { transform: scale(1.3); }
+.wh-minicell.free { background: #d1fae5; border-color: #a7f3d0; }
+.wh-minicell.occ { background: #fef3c7; border-color: #fde68a; }
+.wh-minicell.blocked { background: #fee2e2; border-color: #fca5a5; }
+.wh-minicell.selected { background: #4361ee; border-color: #3b54d4; box-shadow: 0 0 0 2px rgba(67,97,238,0.4); }
+.wh-gran-row { margin-bottom: 6px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 5px; background: #fafbfc; }
+.wh-gran-label { font-weight: 700; font-size: 0.8rem; color: #334155; text-align: center; margin-bottom: 3px; }
+
+/* History */
+.history-section { padding: 0 20px 20px; }
+.history-title { font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.history-item { background: white; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.history-time { color: #94a3b8; font-size: 0.8rem; }
+
+/* Overlay */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.overlay-card { background: white; border-radius: 14px; padding: 28px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView" class="login-page">
+    <div class="login-card">
+        <h1>Lager-Scanner</h1>
+        <p class="subtitle">Einlagerung per Smartphone</p>
+        <form id="loginForm">
+            <div class="form-group"><label for="username">Benutzername</label><input type="text" id="username" required placeholder="Benutzername" autocapitalize="off" autocomplete="username"></div>
+            <div class="form-group"><label for="password">Passwort</label><input type="password" id="password" required placeholder="Passwort" autocomplete="current-password"></div>
+            <button type="submit" class="btn btn-primary">Anmelden</button>
+            <p class="error-msg" id="loginError"></p>
+        </form>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="appView" class="app-page">
+    <header class="app-header">
+        <h1>Lager-Scanner</h1>
+        <div class="user-info">
+            <span id="userDisplay"></span>
+            <button class="logout-btn" onclick="logout()">Abmelden</button>
+        </div>
+    </header>
+
+    <!-- STEP 0: Modus wählen -->
+    <div id="step0" class="step active">
+        <div class="scan-area">
+            <p class="scan-instruction" style="margin-bottom:8px">Was möchtest du scannen?</p>
+            <button class="btn btn-primary mode-btn" data-mode="lager" style="background:#4361ee;font-size:1.15rem;padding:18px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px;line-height:1.3;flex-direction:column;gap:4px"><span>📦 Lagerware</span><span style="font-size:0.85rem;font-weight:400;opacity:0.9">(Einlagerung)</span></button>
+            <button class="btn btn-success mode-btn" data-mode="fertigware" style="font-size:1.15rem;padding:18px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px;line-height:1.3;flex-direction:column;gap:4px"><span>✅ XO-Ends</span><span style="font-size:0.85rem;font-weight:400;opacity:0.9">(produzierte Paletten)</span></button>
+            <button class="btn mode-btn" data-mode="bunker" style="background:#f59e0b;color:white;font-size:1.15rem;padding:18px;border-radius:12px;width:100%;max-width:300px;line-height:1.3;flex-direction:column;gap:4px"><span>🏭 Frame Spritzguss</span><span style="font-size:0.85rem;font-weight:400;opacity:0.9">(produzierte Paletten)</span></button>
+        </div>
+    </div>
+
+    <!-- STEP 1: Foto aufnehmen -->
+    <div id="step1" class="step">
+        <div class="scan-area">
+            <button type="button" class="btn btn-secondary" onclick="goToStep0()" style="align-self:flex-start;padding:8px 14px;font-size:0.9rem">&larr; Zur&uuml;ck zur Auswahl</button>
+            <div class="scan-icon">&#128247;</div>
+            <p class="scan-instruction">Fotografiere das Palettenlabel oder gib die Daten manuell ein.</p>
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+            <button class="btn btn-primary capture-btn" id="captureBtn">&#128247; Foto aufnehmen</button>
+            <button class="btn btn-secondary manual-btn" id="manualBtn">Manuell eingeben</button>
+
+            <!-- Progress (shown during scan) -->
+            <div id="progressArea" style="display:none; width:100%; max-width:400px; text-align:center;">
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                <div class="progress-text" id="progressText">Label wird analysiert...</div>
+            </div>
+        </div>
+
+        <div class="history-section" id="historySection" style="display:none">
+            <div class="history-title">Letzte Einlagerungen</div>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <!-- STEP 2: Felder bearbeiten -->
+    <div id="step2" class="step">
+        <div class="step-header">Erkannte Daten</div>
+        <div class="step-sub">Felder pr&uuml;fen und ggf. korrigieren. Rot markierte Felder konnten nicht erkannt werden.</div>
+        <img id="previewImg" class="preview-img" style="display:none" alt="Label-Vorschau">
+        <div class="card">
+            <div id="fieldsContainer"></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" onclick="goToStep0()">Abbrechen</button>
+            <button class="btn btn-primary" id="toStep3Btn">Weiter</button>
+        </div>
+    </div>
+
+    <!-- STEP 3: Position w&auml;hlen -->
+    <div id="step3" class="step">
+        <div class="step-header">Lagerplatz w&auml;hlen</div>
+        <div class="suggested-pos">
+            <div class="label">Vorgeschlagener Platz</div>
+            <div class="pos" id="suggestedPos">-</div>
+        </div>
+        <div class="card">
+            <div class="form-group">
+                <label>Position &auml;ndern:</label>
+                <select id="positionSelect"></select>
+            </div>
+        </div>
+        <div class="wh-map" id="warehouseMapContainer"></div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn btn-secondary" onclick="goToStep2()">Zur&uuml;ck</button>
+            <button class="btn btn-success" id="confirmBtn">Einlagern</button>
+        </div>
+    </div>
+
+    <!-- STEP 4: Erfolg -->
+    <div id="step4" class="step">
+        <div class="success-screen">
+            <div class="success-icon">&#9989;</div>
+            <div class="success-text">Erfolgreich eingelagert!</div>
+            <div class="success-sub" id="successDetail"></div>
+            <button class="btn btn-primary" onclick="goToStep0()">N&auml;chste Palette</button>
+        </div>
+    </div>
+
+    <!-- STEP: Manual entry -->
+    <div id="stepManual" class="step">
+        <div class="step-header">Manuelle Eingabe</div>
+        <div class="card">
+            <div class="form-group">
+                <label>Label-Typ:</label>
+                <select id="manualTypSelect">
+                    <option value="">-- Typ w&auml;hlen --</option>
+                    <option value="ALPLA Halbfabrikate">ALPLA Halbfabrikate</option>
+                    <option value="XO Halbfabrikate">XO Halbfabrikate</option>
+                    <option value="XO Fertigware">XO Fertigware</option>
+                </select>
+            </div>
+            <div id="manualFieldsContainer" style="display:none">
+                <div id="manualFields"></div>
+                <button class="btn btn-primary" id="manualSubmitBtn" style="margin-top:14px">Weiter</button>
+            </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:10px" onclick="goToStep0()">Abbrechen</button>
+    </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
+import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-ai.js";
+const firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+const aiApp = initializeApp(firebaseConfig, "aiApp");
+initializeAppCheck(aiApp, {
+    provider: new ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+    isTokenAutoRefreshEnabled: true
+});
+const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
+window.aiModel = getGenerativeModel(ai, {
+    model: "gemini-2.5-flash",
+    generationConfig: { responseMimeType: "application/json", temperature: 0 }
+});
+</script>
+<script>
+// ============================================================
+// CONFIG & CONSTANTS
+// ============================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+const EMAIL_DOMAIN = '@lager.local';
+firebase.initializeApp(firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+    true
+);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const $ = id => document.getElementById(id);
+
+const WAREHOUSE_ZONES = Object.freeze({
+    halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
+    granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
+    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
+});
+const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
+function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
+const ARTIKEL_NUMMERN = Object.freeze([
+    // Frame (12xxxx) — F-Konv-Nummern aus artikelliste_all.json
+    '120001','120002','120004','120005','120006','120007','120008','120009','120010','120011',
+    '120014','120015','120016','120018','120022','120023','120024','120025','120026','120027','120028','120030',
+    // Innerslider (18xxxx)
+    '180001','180005','180006','180007','180008',
+    // Outerslider (19xxxx)
+    '190001','190002','190003','190004','190005','190006','190007','190008','190009',
+    '190011','190012','190013','190014','190015','190016','190017','190024','190032','190033'
+]);
+const GRANULATE_SLOT_COUNT = 25;
+const _zoneSlotMap = {};
+for(const[_,cat] of Object.entries(WAREHOUSE_ZONES)) for(const[zone,count] of Object.entries(cat.zones)) _zoneSlotMap[zone]=count;
+
+// ============================================================
+// AUTH
+// ============================================================
+const _errorMap = Object.freeze({'auth/invalid-email':'Ungültiger Benutzername','auth/user-not-found':'Benutzer nicht gefunden','auth/wrong-password':'Falsches Passwort','auth/invalid-credential':'Falscher Benutzername oder Passwort','auth/too-many-requests':'Zu viele Versuche. Bitte warten.'});
+
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+let _idleTimer = null;
+function _resetIdleTimer(){
+    if(_idleTimer) clearTimeout(_idleTimer);
+    if(!auth.currentUser) return;
+    _idleTimer = setTimeout(() => {
+        if(auth.currentUser){
+            auth.signOut();
+            alert('Automatisch abgemeldet nach 5 Minuten Inaktivität.');
+        }
+    }, IDLE_TIMEOUT_MS);
+}
+['click','touchstart','keydown','input','change'].forEach(ev =>
+    document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true})
+);
+
+auth.onAuthStateChanged(user => {
+    if(user){
+        $('loginView').style.display='none';
+        $('appView').style.display='flex';
+        $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
+        _resetIdleTimer();
+        if(typeof goToStep0==='function')goToStep0();
+    } else {
+        $('appView').style.display='none';
+        $('loginView').style.display='flex';
+        if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
+    }
+});
+
+$('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const u=$('username').value.trim(), p=$('password').value, err=$('loginError');
+    err.style.display='none';
+    const email=u.toLowerCase().replace(/\s+/g,'_')+EMAIL_DOMAIN;
+    try { await auth.signInWithEmailAndPassword(email,p); }
+    catch(ex) { err.textContent=_errorMap[ex.code]||'Fehler: '+ex.code; err.style.display='block'; }
+});
+
+function logout(){ auth.signOut(); }
+function getCurrentUsername(){ const u=auth.currentUser; if(!u)return''; return u.displayName||u.email.replace(EMAIL_DOMAIN,''); }
+
+// ============================================================
+// FIELD DEFINITIONS
+// ============================================================
+const INBOUND_FIELDS_BASE=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Artikelnummer'},
+    {key:'datum',label:'Produktionsdatum'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'sscc',label:'SSCC'}
+];
+const INBOUND_FIELDS_XO_HALB=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Artikelnummer'},
+    {key:'datum',label:'Produktionsdatum'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'orderNr',label:'Order Number'},
+    {key:'schicht',label:'Shift'},
+    {key:'palettenNr',label:'Pallet Number'},
+    {key:'internalBarcode',label:'Internal Barcode'}
+];
+const INBOUND_FIELDS_XO_FERTIG=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Article Number'},
+    {key:'datum',label:'Production Date'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'sscc',label:'SSCC'},
+    {key:'menge',label:'QTY/Pallet'},
+    {key:'mengePerSleeve',label:'QTY/Sleeve'},
+    {key:'palettenNr',label:'Pallet Number'},
+    {key:'kunde',label:'Customer'},
+    {key:'orderNr',label:'Order Number'},
+    {key:'schicht',label:'Shift'},
+    {key:'gtin',label:'GTIN'}
+];
+const INBOUND_FIELDS_ALPLA=[
+    ...INBOUND_FIELDS_BASE,
+    {key:'palettenNr',label:'Running Number'},
+    {key:'lotNr',label:'Lot Number'},
+    {key:'schicht',label:'Shift'}
+];
+function getInboundFields(typ){
+    if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;
+    if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;
+    if(typ==='XO Fertigware')return INBOUND_FIELDS_XO_FERTIG;
+    return INBOUND_FIELDS_BASE;
+}
+const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','mengePerSleeve','palettenNr','lotNr','orderNr','internalBarcode','kunde','schicht','gtin'];
+
+// ============================================================
+// SCAN PROMPT & OCR
+// ============================================================
+const SCAN_PROMPT=`Du bist ein OCR-Spezialist. Lies JEDES einzelne Textfeld auf dem Paletten-Label EXAKT ab. Erfinde KEINE Werte — lies nur was gedruckt steht. Achte besonders auf korrekte Ziffernfolgen.
+
+LABEL-TYPEN:
+TYP 1: "XO Fertigware" — XO-Logo + "Beverage Can Ends". Article Number im Format XO-XXX-XXXXXZ (z.B. XO-202-2046G). WICHTIG: Dieses Label hat ZWEI getrennte Mengenfelder nebeneinander: "QTY/Pallet" (linke Spalte, große Zahl z.B. 71280) und "QTY/Sleeve" (rechte Spalte, kleinere Zahl z.B. 198). Lies BEIDE Werte SEPARAT und EXAKT ab. Verwechsle sie NICHT!
+TYP 2: "XO Halbfabrikate" — XO-Logo + Überschrift "Frame" (intern produziertes Spritzguss-Label). Enthält Felder: Production Date, Time, Order Number, Shift, Article Number, Pallet Number, Internal Barcode. Article Number ist eine 6-stellige Zahl beginnend mit 12, 18 oder 19 (z.B. 120030).
+TYP 3: "ALPLA Halbfabrikate" — ALPLA-Logo, tschechische Felder wie "Barva/Color", "Počet ks v balení". Artikelnr. ist 6-stellig (z.B. 190009).
+
+WICHTIGE REGELN:
+- Lies Zahlen EXAKT Ziffer für Ziffer ab. Verwechsle nicht 0/O, 1/l, 5/S, 8/B.
+
+== XO HALBFABRIKATE (Frame / Spritzguss-Label) ==
+- LAYOUT: Tabellarisches Label mit XO-Logo oben links und "Frame" als Überschrift. Darunter eine 2-spaltige Tabelle:
+    Zeile 1: "Production Date" | "Time"           → Werte z.B. "21.04.2026" | "07:49"
+    Zeile 2: "Order Number"    | "Shift"          → Werte z.B. "IO26-0001"  | "1"
+    Zeile 3: "Article Number"  | "Pallet Number"  → Werte z.B. "120030"     | "FR260001"
+  Darunter: "Internal Barcode"-Zeile mit einer zusammengesetzten Nummer + Barcode-Strichcode.
+- ARTIKELNUMMER bei XO Halbfabrikate: Steht direkt unter der Zelle "Article Number" (linke Spalte, dritte Datenzeile). Immer eine 6-stellige Zahl, beginnend mit "12" (Frame), "18" (Innerslider) oder "19" (Outerslider). NIE XO-Präfix, NIE Bindestriche. Beispielwerte: 120030, 120025, 180007, 190009, 190024.
+- PALETTENNUMMER bei XO Halbfabrikate: Format "FR26XXXX" (z.B. "FR260001"), steht unter "Pallet Number".
+- ORDER NUMBER bei XO Halbfabrikate: Format "IO26-XXXX" — beginnt IMMER mit den BUCHSTABEN "I" und "O" (Großbuchstaben, KEINE Ziffern 1/0), gefolgt von "26", Bindestrich und 4 Ziffern (z.B. "IO26-0001"). Das "I" ist der Buchstabe i (nicht die Ziffer 1), das "O" ist der Buchstabe o (nicht die Ziffer 0). Nicht mit der Pallet Number "FR26XXXX" verwechseln.
+- SHIFT bei XO Halbfabrikate: IMMER genau EINE Ziffer (1, 2 oder 3).
+- INTERNAL BARCODE bei XO Halbfabrikate: Format "<ArtikelNr>-<DDMMYYYY>-<HHMM>-<PalNr>", z.B. "120030-21042026-0749-FR260001". Lies den Klartext über dem Barcode exakt ab.
+- GEGENPROBE bei XO Halbfabrikate: Der Internal Barcode enthält ALLE Kernwerte redundant:
+    Segment 1 = Artikelnummer (6 Ziffern)
+    Segment 2 = Datum (DDMMYYYY)
+    Segment 3 = Uhrzeit (HHMM)
+    Segment 4 = Palettennummer (FR26XXXX)
+  Wenn der Wert in der Tabelle unklar ist, nimm den entsprechenden Wert aus dem Internal Barcode. Werte MÜSSEN zwischen Tabelle und Internal Barcode übereinstimmen — prüfe das IMMER.
+
+== ALPLA HALBFABRIKATE ==
+- ARTIKELNUMMER: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Gib IMMER die 6-stellige Nummer zurück.
+- RUNNING NUMBER (palettenNr): IMMER EXAKT 9 Ziffern (z.B. "006919624"). Lies alle 9 Ziffern sorgfältig ab, auch führende Nullen!
+- LOT-NR.: IMMER EXAKT 5 Ziffern (z.B. "36479"). Lies alle 5 Ziffern sorgfältig ab. Verwechsle keine Ziffern und kürze nicht ab.
+- SHIFT (schicht): IMMER EINE EINZELNE Ziffer (1, 2 oder 3). Keine Buchstaben.
+
+== ALLGEMEINE FELDER ==
+- SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor. Nur bei XO Fertigware und ALPLA Halbfabrikate.
+- Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024", "05.04.2024" oder "21.04.2026").
+- Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
+
+BEISPIEL 1 — ALPLA Halbfabrikate:
+{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"1","gtin":"","menge":"196224","mengePerSleeve":""}
+
+BEISPIEL 2 — XO Fertigware:
+{"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"02.04.2026","uhrzeit":"19:26","sscc":"34262503660026793","palettenNr":"C26-0338","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Monster","schicht":"2","gtin":"4262503660396","menge":"71280","mengePerSleeve":"198"}
+
+BEISPIEL 3 — XO Halbfabrikate (Frame/Spritzguss):
+{"labelTyp":"XO Halbfabrikate","artikelNr":"120030","datum":"21.04.2026","uhrzeit":"07:49","sscc":"","palettenNr":"FR260001","lotNr":"","orderNr":"IO26-0001","internalBarcode":"120030-21042026-0749-FR260001","kunde":"","schicht":"1","gtin":"","menge":"","mengePerSleeve":""}
+
+Antworte NUR mit einem JSON-Objekt in exakt diesem Format (alle Felder müssen vorhanden sein):`;
+
+const _jsonBlockRe=/```(?:json)?\s*([\s\S]*?)```/;
+
+function _normalizeArtikelNr(nr){
+    if(!nr)return nr;
+    // XO-Artikelnummern (Fertigware) nicht normalisieren — Format beibehalten
+    if(nr.trim().toUpperCase().startsWith('XO'))return nr.trim();
+    nr=nr.replace(/[\s\-]/g,'').replace(/[Oo]/g,'0');
+    const exact=ARTIKEL_NUMMERN.find(a=>nr.startsWith(a));
+    if(exact)return exact;
+    const digits=nr.replace(/\D/g,'');
+    if(digits.length===6&&ARTIKEL_NUMMERN.includes(digits))return digits;
+    if(digits.length>=4){const suffix=digits.slice(-4);const endMatch=ARTIKEL_NUMMERN.find(a=>a.endsWith(suffix));if(endMatch)return endMatch;}
+    const prefix=digits.slice(0,2);
+    const candidates=ARTIKEL_NUMMERN.filter(a=>a.startsWith(prefix));
+    if(candidates.length===1)return candidates[0];
+    if(candidates.length>1){
+        let best=candidates[0],bestLen=0;
+        for(const c of candidates){let i=0;while(i<c.length&&i<digits.length&&c[i]===digits[i])i++;if(i>bestLen){bestLen=i;best=c;}}
+        return best;
+    }
+    if(/^(12|18|19)\d+/.test(digits))return digits.slice(0,6);
+    return nr;
+}
+
+function normalizeDatum(s){
+    if(!s)return s;
+    s=s.trim().replace(/\s+\d{1,2}:\d{2}(:\d{2})?$/,'');
+    let d,m,y;
+    let match=s.match(/^(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})/);
+    if(match){y=match[1];m=match[2];d=match[3];}
+    if(!y){match=s.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})/);if(match){m=match[1];d=match[2];y=match[3];}}
+    if(!y){match=s.match(/^(\d{1,2})[\.\-](\d{1,2})[\.\-](\d{4})/);if(match){d=match[1];m=match[2];y=match[3];}}
+    if(!y){match=s.match(/^(\d{1,2})\.?\s*([A-Za-zäöü]+)\s*(\d{4})/);if(match){
+        d=match[1];y=match[3];
+        const months={jan:'01',feb:'02',mar:'03',mär:'03',apr:'04',may:'05',mai:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',okt:'10',nov:'11',dec:'12',dez:'12'};
+        m=months[match[2].toLowerCase().slice(0,3)]||'01';
+    }}
+    if(d&&m&&y)return String(d).padStart(2,'0')+'.'+String(m).padStart(2,'0')+'.'+y;
+    return s;
+}
+
+function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(objUrl);const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}c.width=w;c.height=h;const ctx=c.getContext('2d');
+    ctx.filter='contrast(1.3) brightness(1.05)';
+    ctx.drawImage(img,0,0,w,h);ctx.filter='none';
+    const tc=document.createElement('canvas');tc.width=w;tc.height=h;const tctx=tc.getContext('2d');tctx.filter='blur(1px)';tctx.drawImage(c,0,0);tctx.filter='none';
+    const orig=ctx.getImageData(0,0,w,h);const blurred=tctx.getImageData(0,0,w,h);
+    for(let i=0;i<orig.data.length;i+=4){for(let ch=0;ch<3;ch++){orig.data[i+ch]=Math.min(255,Math.max(0,Math.round(orig.data[i+ch]*1.4-blurred.data[i+ch]*0.4)));}}
+    ctx.putImageData(orig,0,0);tc.width=0;tc.height=0;
+    const result=c.toDataURL('image/jpeg',0.92);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
+
+async function _aiRequest(base64){
+    if(!window.aiModel) throw new Error('KI-Modell noch nicht geladen — Seite neu laden');
+    const b64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+    const result = await window.aiModel.generateContent([
+        SCAN_PROMPT,
+        { inlineData: { mimeType: 'image/jpeg', data: b64Data } }
+    ]);
+    return result.response.text();
+}
+
+async function scanLabel(file){
+    const base64=await imageToBase64Scan(file,2500);
+    const content=await _aiRequest(base64);
+    if(!content)throw new Error('Keine Antwort');
+    let data;try{data=JSON.parse(content);}catch{const mt=content.match(_jsonBlockRe);if(mt)data=JSON.parse(mt[1]);else throw new Error('JSON-Parse-Fehler');}
+    if(data.datum){data.datum=normalizeDatum(data.datum);}
+    const isXOFertig=data.labelTyp==='XO Fertigware';
+    if(data.artikelNr&&!isXOFertig){data.artikelNr=data.artikelNr.replace(/[\s\-]/g,'');data.artikelNr=_normalizeArtikelNr(data.artikelNr);}
+    if(data.artikelNr&&isXOFertig){
+        data.artikelNr=data.artikelNr.trim();
+        const xoMatch=data.artikelNr.match(/XO[\-\s]*(\d{2,4})[\-\s]*([A-Za-z0-9]{4,7})/i);
+        if(xoMatch)data.artikelNr='XO-'+xoMatch[1]+'-'+xoMatch[2].toUpperCase();
+    }
+    if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');if(data.sscc.length<16)data.sscc='';}
+    // XO Halbfabrikate (Frame): Internal Barcode als Gegenprobe/Fallback verwenden
+    if(data.labelTyp==='XO Halbfabrikate'){
+        // Internal Barcode Format: <ArtikelNr>-<DDMMYYYY>-<HHMM>-<PalNr>
+        const ibMatch=(data.internalBarcode||'').trim().match(/^(\d{6})[\-\s]*(\d{8})[\-\s]*(\d{4})[\-\s]*(FR\d{6})$/i);
+        if(ibMatch){
+            const [,ibArt,ibDate,ibTime,ibPal]=ibMatch;
+            // Artikelnr: falls Tabelle nicht zu gültigem Wert führt, aus Barcode übernehmen
+            const tblArt=(data.artikelNr||'').replace(/[\s\-]/g,'');
+            if(ARTIKEL_NUMMERN.includes(ibArt) && (!ARTIKEL_NUMMERN.includes(tblArt))){
+                data.artikelNr=ibArt;
+            }
+            // Datum: DDMMYYYY → DD.MM.YYYY, falls Tabelle ungültig
+            if(!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum||'')){
+                data.datum=ibDate.slice(0,2)+'.'+ibDate.slice(2,4)+'.'+ibDate.slice(4,8);
+            }
+            // Uhrzeit: HHMM → HH:MM, falls Tabelle ungültig
+            if(!/^\d{1,2}:\d{2}/.test(data.uhrzeit||'')){
+                data.uhrzeit=ibTime.slice(0,2)+':'+ibTime.slice(2,4);
+            }
+            // Palettennr: Barcode-Wert bevorzugen falls Tabelle abweicht
+            if(!/^FR\d{6}$/i.test((data.palettenNr||'').trim())){
+                data.palettenNr=ibPal.toUpperCase();
+            }
+        }
+        // Schicht auf einzelne Ziffer normalisieren
+        if(data.schicht){
+            const digits=String(data.schicht).replace(/\D/g,'');
+            data.schicht=digits.length>=1?digits.charAt(0):'FEHLER';
+            if(!/^[1-3]$/.test(data.schicht))data.schicht='FEHLER';
+        }
+    }
+    // ALPLA Halbfabrikate: Running Number (palettenNr) normalisieren auf 9 Ziffern
+    if(data.labelTyp==='ALPLA Halbfabrikate'){
+        if(data.palettenNr){
+            data.palettenNr=data.palettenNr.replace(/\D/g,'');
+            if(data.palettenNr.length>0&&data.palettenNr.length<9)data.palettenNr=data.palettenNr.padStart(9,'0');
+            if(data.palettenNr.length>9)data.palettenNr=data.palettenNr.slice(-9);
+            if(!/^\d{9}$/.test(data.palettenNr))data.palettenNr='FEHLER';
+        }
+        // Lot-Nr. normalisieren auf 5 Ziffern
+        if(data.lotNr){
+            data.lotNr=data.lotNr.replace(/\D/g,'');
+            if(data.lotNr.length>0&&data.lotNr.length<5)data.lotNr=data.lotNr.padStart(5,'0');
+            if(data.lotNr.length>5)data.lotNr=data.lotNr.slice(-5);
+            if(!/^\d{5}$/.test(data.lotNr))data.lotNr='FEHLER';
+        }
+        // Shift normalisieren auf einzelne Ziffer
+        if(data.schicht){
+            const digits=data.schicht.replace(/\D/g,'');
+            data.schicht=digits.length>=1?digits.charAt(0):'FEHLER';
+            if(!/^\d$/.test(data.schicht))data.schicht='FEHLER';
+        }
+    }
+    if(isXOFertig){if(!data.artikelNr||!/^XO-\d+-[A-Za-z0-9]+$/.test(data.artikelNr))data.artikelNr='FEHLER';}
+    else{if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';}
+    if(!data.datum||!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum))data.datum='FEHLER';
+    if(!data.uhrzeit||!/^\d{1,2}:\d{2}/.test(data.uhrzeit))data.uhrzeit='FEHLER';
+    const _checkFields=isXOFertig
+        ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
+        :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode','schicht']
+        :['sscc','palettenNr','lotNr','schicht'];
+    for(const k of _checkFields){if(!data[k])data[k]='FEHLER';}
+    return {data, base64};
+}
+
+// ============================================================
+// POSITION LOGIC
+// ============================================================
+async function getAllPositions(){
+    const s=await db.collection('paletten').get();
+    const o={};
+    s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
+    return o;
+}
+
+function findFreePosition(occ,zo){
+    // Smart-Vorschlag: nächsten freien Platz nach der letzten Einlagerung vorschlagen
+    const lastPos=localStorage.getItem('lastStoredPosition');
+    if(lastPos){
+        const m=lastPos.match(/^([A-Z]+)(\d+)$/);
+        if(m){
+            const lastZone=m[1], lastNum=parseInt(m[2]);
+            const maxSlot=_zoneSlotMap[lastZone];
+            if(maxSlot && zo.includes(lastZone)){
+                for(let i=lastNum+1;i<=maxSlot;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+                for(let i=1;i<=lastNum;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+            }
+        }
+    }
+    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))return p;}}return null;
+}
+
+function findFreeGranulatePosition(occ){
+    for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;if(!occ[p])return p;}
+    for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pb='GB'+i,ps='GS'+i;if(occ[pb]&&!occ[ps])return ps;}
+    return null;
+}
+
+function gsToGb(nr){return 'GB'+nr;}
+
+const _deDateRe=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/;
+const _usDateRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDateRe);if(de)return new Date(+de[3],+de[2]-1,+de[1]);const us=s.match(_usDateRe);if(us)return new Date(+us[3],+us[1]-1,+us[2]);const d=new Date(s);return isNaN(d)?new Date(9999,0):d;}
+
+// ============================================================
+// MINI WAREHOUSE MAP
+// ============================================================
+const HALBFABRIKATE_ZONES=Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>({zone,slots}));
+const FERTIGWARE_ZONES=Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>({zone,slots}));
+const GRANULATE_ROW_SIZE=5;
+
+function renderMiniMap(occ, selectedPos){
+    const c=$('warehouseMapContainer');
+    const mc=(pos)=>{
+        if(!isValidPosition(pos)) return '';
+        const pal=occ[pos];
+        const cls=pos===selectedPos?'selected':pal?(pal.gesperrt?'blocked':'occ'):'free';
+        return `<div class="wh-minicell ${cls}" data-pos="${pos}" title="${pos}${pal?' — belegt':' — frei'}"></div>`;
+    };
+    // Halbfabrikate
+    let h='<div class="wh-section"><div class="wh-section-label">Halbfabrikate (K — V)</div><div class="wh-vert-row">';
+    for(const z of HALBFABRIKATE_ZONES){
+        h+=`<div class="wh-vert-zone"><div class="wh-vert-lbl">${z.zone}</div><div class="wh-vert-cells">`;
+        for(let i=1;i<=z.slots;i++) h+=mc(z.zone+i);
+        h+='</div></div>';
+    }
+    h+='</div></div>';
+    // Granulate
+    let g='<div class="wh-section"><div class="wh-section-label">Granulate (GB / GS)</div>';
+    const rows=GRANULATE_SLOT_COUNT/GRANULATE_ROW_SIZE;
+    for(let r=0;r<rows;r++){
+        const start=r*GRANULATE_ROW_SIZE+1, end=start+GRANULATE_ROW_SIZE-1;
+        g+=`<div class="wh-gran-row"><div class="wh-gran-label">Reihe ${r+1}</div>`;
+        g+=`<div class="wh-floor-row"><div class="wh-floor-lbl">GB</div><div class="wh-floor-cells">`;
+        for(let i=start;i<=end;i++) g+=mc('GB'+i);
+        g+=`</div></div><div class="wh-floor-row"><div class="wh-floor-lbl">GS</div><div class="wh-floor-cells">`;
+        for(let i=start;i<=end;i++) g+=mc('GS'+i);
+        g+='</div></div></div>';
+    }
+    g+='</div>';
+    // Fertigware
+    let f='<div class="wh-section"><div class="wh-section-label">Fertigware (M — U)</div>';
+    for(const z of FERTIGWARE_ZONES){
+        f+=`<div class="wh-floor-row"><div class="wh-floor-lbl">${z.zone}</div><div class="wh-floor-cells">`;
+        for(let i=1;i<=z.slots;i++) f+=mc(z.zone+i);
+        f+='</div></div>';
+    }
+    f+='</div>';
+    c.innerHTML=h+g+f;
+    // Click on cell to select position
+    c.addEventListener('click', e=>{
+        const cell=e.target.closest('.wh-minicell');
+        if(!cell)return;
+        const pos=cell.dataset.pos;
+        if(occ[pos])return; // occupied, can't select
+        $('positionSelect').value=pos;
+        $('suggestedPos').textContent=pos;
+        c.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
+        cell.classList.add('selected');
+    });
+}
+
+// ============================================================
+// APP STATE
+// ============================================================
+let inboundData=null, currentLabelTyp=null;
+const scanHistory=[];
+
+function _escAttr(s){return s?s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'):''}
+
+// ============================================================
+// STEP NAVIGATION
+// ============================================================
+function showStep(id){
+    document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+    $(id).classList.add('active');
+}
+
+let currentMode='lager'; // 'lager' | 'fertigware' | 'bunker'
+function goToStep0(){
+    inboundData=null; currentLabelTyp=null;
+    $('progressArea').style.display='none';
+    $('progressFill').style.width='0%';
+    $('previewImg').style.display='none';
+    const h=document.querySelector('.app-header h1');
+    if(h)h.textContent='Lager-Scanner';
+    showStep('step0');
+}
+function goToStep1(){
+    inboundData=null; currentLabelTyp=null;
+    $('progressArea').style.display='none';
+    $('progressFill').style.width='0%';
+    $('previewImg').style.display='none';
+    showStep('step1');
+}
+// Mode-Buttons in Step 0
+document.querySelectorAll('.mode-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        currentMode=btn.dataset.mode||'lager';
+        // Anzeige anpassen
+        const title={lager:'Lager-Einlagerung',fertigware:'Fertigware-Scan',bunker:'XO Frame Einlagerung'}[currentMode];
+        const h=document.querySelector('.app-header h1');
+        if(h)h.textContent=title||'Lager-Scanner';
+        goToStep1();
+    });
+});
+
+function goToStep2(){
+    showStep('step2');
+}
+
+// ============================================================
+// STEP 1: CAPTURE / MANUAL
+// ============================================================
+const cameraInput=$('cameraInput');
+$('captureBtn').addEventListener('click',()=>cameraInput.click());
+$('manualBtn').addEventListener('click',()=>{
+    $('manualTypSelect').value='';
+    $('manualFieldsContainer').style.display='none';
+    showStep('stepManual');
+});
+
+cameraInput.addEventListener('change',()=>{
+    if(cameraInput.files.length) processPhoto(cameraInput.files[0]);
+    cameraInput.value='';
+});
+
+async function processPhoto(file){
+    $('progressArea').style.display='block';
+    $('progressFill').style.width='20%';
+    $('progressText').textContent='Label wird analysiert...';
+    $('captureBtn').style.display='none';
+    $('manualBtn').style.display='none';
+    document.querySelector('.scan-icon').style.display='none';
+    document.querySelector('.scan-instruction').style.display='none';
+
+    try {
+        $('progressFill').style.width='50%';
+        const result = await scanLabel(file);
+        inboundData = result.data;
+        currentLabelTyp = inboundData.labelTyp || 'ALPLA Halbfabrikate';
+
+        // Show preview image
+        const preview=$('previewImg');
+        if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);
+        preview._objUrl=URL.createObjectURL(file);
+        preview.src=preview._objUrl;
+        preview.style.display='block';
+
+        // Render fields
+        renderFields();
+        $('progressFill').style.width='100%';
+        $('progressText').textContent='Fertig!';
+
+        // Restore buttons for next time
+        $('captureBtn').style.display='inline-flex';
+        $('manualBtn').style.display='inline-flex';
+        document.querySelector('.scan-icon').style.display='block';
+        document.querySelector('.scan-instruction').style.display='block';
+
+        showStep('step2');
+    } catch(err) {
+        $('progressText').textContent='Fehler: '+err.message;
+        $('progressFill').style.width='0%';
+        // Restore buttons
+        setTimeout(()=>{
+            $('captureBtn').style.display='inline-flex';
+            $('manualBtn').style.display='inline-flex';
+            document.querySelector('.scan-icon').style.display='block';
+            document.querySelector('.scan-instruction').style.display='block';
+        },3000);
+    }
+}
+
+function renderFields(){
+    const fields=getInboundFields(currentLabelTyp);
+    $('fieldsContainer').innerHTML=fields.map(f=>{
+        const val=inboundData[f.key]||'';
+        const isErr=val==='FEHLER';
+        const errClass=isErr?' field-error':'';
+        const roAttr=f.readonly?' readonly':'';
+        const roStyle=f.readonly?' style="background:#f1f5f9;font-weight:700"':'';
+        return `<div class="form-group${errClass}"><label>${f.label}</label><input type="text" id="field-${f.key}" value="${_escAttr(val)}"${roAttr}${roStyle}></div>`;
+    }).join('');
+}
+
+// ============================================================
+// MANUAL ENTRY
+// ============================================================
+$('manualTypSelect').addEventListener('change',()=>{
+    const typ=$('manualTypSelect').value;
+    if(!typ){$('manualFieldsContainer').style.display='none';return;}
+    const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
+    $('manualFields').innerHTML=fields.map(f=>
+        `<div class="form-group"><label>${f.label}</label><input type="text" id="manual-${f.key}" placeholder="${f.label}"></div>`
+    ).join('');
+    $('manualFieldsContainer').style.display='block';
+});
+
+$('manualSubmitBtn').addEventListener('click',()=>{
+    const typ=$('manualTypSelect').value;
+    if(!typ){alert('Bitte Label-Typ auswählen!');return;}
+    const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
+    const data={labelTyp:typ};
+    ALL_STORE_KEYS.forEach(k=>data[k]=data[k]||'');
+    fields.forEach(f=>{data[f.key]=document.getElementById('manual-'+f.key)?.value.trim()||'';});
+    if(!data.artikelNr){alert('Artikelnummer muss ausgefüllt werden!');return;}
+    inboundData=data;
+    currentLabelTyp=typ;
+    $('previewImg').style.display='none';
+    renderFields();
+    showStep('step2');
+});
+
+// ============================================================
+// STEP 2 → STEP 3: Position
+// ============================================================
+$('toStep3Btn').addEventListener('click', async ()=>{
+    // Read field values back into inboundData
+    const fields=getInboundFields(currentLabelTyp);
+    fields.forEach(f=>{
+        const el=document.getElementById('field-'+f.key);
+        if(el) inboundData[f.key]=el.value.trim();
+    });
+    if(!inboundData.artikelNr||inboundData.artikelNr==='FEHLER'){alert('Artikelnummer fehlt oder ungültig!');return;}
+
+    $('toStep3Btn').disabled=true;
+    // Fertigware-Modus: Kein Stellplatz — direkt in fertigpaletten-Collection speichern
+    if(currentMode==='fertigware'){
+        try {
+            const docId=inboundData.sscc||inboundData.palettenNr||('pal_'+Date.now());
+            await db.collection('fertigpaletten').doc(docId).set({
+                ...inboundData,
+                scanMode:'fertigware',
+                scannedAt:firebase.firestore.FieldValue.serverTimestamp(),
+                scannedBy:getCurrentUsername(),
+                status:'fertig',
+                position:'',
+                gesperrt:false
+            });
+            $('successDetail').textContent=(inboundData.artikelNr||'')+' — Palette '+(inboundData.palettenNr||docId)+' erfasst';
+            scanHistory.unshift({time:new Date(),artikelNr:inboundData.artikelNr,position:'Fertigware'});
+            renderHistory();
+            showStep('step4');
+        } catch(e){
+            alert('Fehler beim Speichern: '+e.message);
+        }
+        $('toStep3Btn').disabled=false;
+        return;
+    }
+    try {
+        const occ=await getAllPositions();
+        const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['K','H','G','F','E','D','C','B','A','V'];
+        const fp=findFreePosition(occ,zo);
+        $('suggestedPos').textContent=fp||'Kein Platz frei!';
+
+        // Populate dropdown – alle Plätze anzeigen, belegte markiert aber wählbar
+        const sel=$('positionSelect');
+        sel._occSnapshot=occ; // Belegung merken für spätere Warnung
+        const frag=document.createDocumentFragment();
+        for(const[ck,cat] of Object.entries(WAREHOUSE_ZONES)){
+            if(ck==='granulate'){
+                const og=document.createElement('optgroup');og.label=cat.label;
+                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
+                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const ps='GS'+i;const o=document.createElement('option');o.value=ps;o.textContent=occ[ps]?'\u26a0\ufe0f '+ps+' (belegt)':ps;if(occ[ps])o.style.color='#dc2626';if(ps===fp)o.selected=true;og.appendChild(o);}
+                frag.appendChild(og);
+            } else {
+                const og=document.createElement('optgroup');og.label=cat.label;
+                for(const[z,cnt] of Object.entries(cat.zones)){
+                    for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}}
+                frag.appendChild(og);
+            }
+        }
+        sel.innerHTML='';sel.appendChild(frag);
+        renderMiniMap(occ, fp);
+        // Sync dropdown → map highlight
+        sel.addEventListener('change',()=>{
+            const mapC=$('warehouseMapContainer');
+            mapC.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
+            const target=mapC.querySelector(`.wh-minicell[data-pos="${sel.value}"]`);
+            if(target)target.classList.add('selected');
+            $('suggestedPos').textContent=sel.value;
+        });
+        showStep('step3');
+    } catch(e) {
+        alert('Fehler beim Laden der Positionen: '+e.message);
+    }
+    $('toStep3Btn').disabled=false;
+});
+
+// ============================================================
+// STEP 3: CONFIRM INBOUND
+// ============================================================
+$('confirmBtn').addEventListener('click', async ()=>{
+    $('confirmBtn').disabled=true;
+    const data={};
+    ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');
+    const fields=getInboundFields(currentLabelTyp);
+    fields.forEach(f=>{
+        const el=document.getElementById('field-'+f.key);
+        if(el) data[f.key]=el.value.trim()||data[f.key]||'';
+    });
+
+    const sel=$('positionSelect');
+    const pos=sel.value||$('suggestedPos').textContent;
+    const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
+
+    if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');$('confirmBtn').disabled=false;return;}
+    if(!pos||pos==='Kein Platz frei!'){alert('Kein Stellplatz!');$('confirmBtn').disabled=false;return;}
+
+    // Duplikat-Prüfung
+    try {
+        const existing=await db.collection('paletten').doc(docId).get();
+        if(existing.exists){
+            const ep=existing.data();
+            const proceed=await showDuplicateWarning(docId,ep.position||'?');
+            if(!proceed){$('confirmBtn').disabled=false;return;}
+        }
+    } catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
+
+    // Prüfung ob Stellplatz bereits belegt
+    try {
+        const occSnap=sel._occSnapshot||await getAllPositions();
+        if(occSnap[pos]){
+            const proceed=await showOccupiedWarning(pos, occSnap[pos]);
+            if(!proceed){$('confirmBtn').disabled=false;return;}
+        }
+    } catch(e){console.warn('Belegungsprüfung fehlgeschlagen:',e);}
+
+    // FIFO-Prüfung für Granulate
+    if(pos.startsWith('GS')){
+        const nr=parseInt(pos.replace('GS',''),10);
+        const bodenPos=gsToGb(nr);
+        try {
+            const occ=await getAllPositions();const bodenPal=occ[bodenPos];
+            if(!bodenPal){alert('Fehler: Bodenplatz '+bodenPos+' ist leer! Zuerst den unteren Platz belegen.');$('confirmBtn').disabled=false;return;}
+            const neuDatum=parseProdDatum(data.datum||'');const bodenDatum=parseProdDatum(bodenPal.produktionsDatum||bodenPal.datum||'');
+            if(neuDatum.getTime()>bodenDatum.getTime()){alert('FIFO-Verstoß: Die gestapelte Palette (Prod.-Datum: '+(data.datum||'?')+') muss älter sein als die Bodenpalette (Prod.-Datum: '+(bodenPal.produktionsDatum||bodenPal.datum||'?')+').');$('confirmBtn').disabled=false;return;}
+        } catch(e){console.warn('FIFO-Prüfung fehlgeschlagen:',e);}
+    }
+
+    // Auto-Menge für Halbfabrikate
+    if(!data.artikelNr.startsWith('XO')){
+        if(data.artikelNr.startsWith('12'))data.menge='92.400';
+        else if(data.artikelNr.startsWith('18'))data.menge='420.672';
+        else if(data.artikelNr.startsWith('19'))data.menge='196.224';
+    }
+
+    // Save to Firestore
+    try {
+        await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
+        await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
+        await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+
+        // Letzte Position merken für Smart-Vorschlag
+        localStorage.setItem('lastStoredPosition', pos);
+
+        // Success
+        $('successDetail').textContent=data.artikelNr+' auf '+pos;
+        scanHistory.unshift({time:new Date(),artikelNr:data.artikelNr,position:pos});
+        renderHistory();
+        showStep('step4');
+    } catch(e) {
+        alert('Fehler beim Speichern: '+e.message);
+    }
+    $('confirmBtn').disabled=false;
+});
+
+// ============================================================
+// DUPLICATE WARNING
+// ============================================================
+function showDuplicateWarning(docId,position){
+    return new Promise(resolve=>{
+        const overlay=document.createElement('div');
+        overlay.className='overlay';
+        overlay.innerHTML=`<div class="overlay-card">
+            <div style="font-size:3.5rem;color:#ef4444;line-height:1;margin-bottom:10px;">&#9888;</div>
+            <p style="color:#ef4444;font-weight:800;font-size:1.1rem;margin-bottom:14px;">Palette bereits eingelagert!</p>
+            <p style="color:#ef4444;font-weight:700;font-size:0.9rem;margin-bottom:20px;">(<strong>${_escAttr(docId)}</strong>) auf Stellplatz <strong>${_escAttr(position)}</strong></p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:20px;">Trotzdem einlagern und bestehenden Eintrag &uuml;berschreiben?</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger btn-sm" id="_dupOk">Trotzdem einlagern</button>
+                <button class="btn btn-secondary btn-sm" id="_dupCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_dupOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
+        overlay.querySelector('#_dupCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
+    });
+}
+
+function showOccupiedWarning(pos, existingPal){
+    return new Promise(resolve=>{
+        const art=existingPal.artikelNr||'?';
+        const datum=existingPal.produktionsDatum||existingPal.datum||'?';
+        const overlay=document.createElement('div');
+        overlay.className='overlay';
+        overlay.innerHTML=`<div class="overlay-card">
+            <div style="font-size:3.5rem;color:#f59e0b;line-height:1;margin-bottom:10px;">&#9888;</div>
+            <p style="color:#f59e0b;font-weight:800;font-size:1.1rem;margin-bottom:14px;">Stellplatz ${_escAttr(pos)} ist bereits belegt!</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:6px;">Aktuelle Palette auf diesem Platz:</p>
+            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:4px;">Artikel: ${_escAttr(art)}</p>
+            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:20px;">Datum: ${_escAttr(datum)}</p>
+            <p style="color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:20px;">Die bestehende Palette wird &uuml;berschrieben!</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger btn-sm" id="_occOk">Trotzdem belegen</button>
+                <button class="btn btn-secondary btn-sm" id="_occCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_occOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
+        overlay.querySelector('#_occCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
+    });
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory(){
+    if(!scanHistory.length){$('historySection').style.display='none';return;}
+    $('historySection').style.display='block';
+    $('historyList').innerHTML=scanHistory.slice(0,10).map(h=>{
+        const ts=h.time.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        return `<div class="history-item"><span><strong>${_escAttr(h.artikelNr)}</strong> &rarr; ${_escAttr(h.position)}</span><span class="history-time">${ts}</span></div>`;
+    }).join('');
+}
+
+// Register Service Worker
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>
