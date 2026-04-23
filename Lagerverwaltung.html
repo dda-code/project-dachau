@@ -381,7 +381,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                     <div class="form-group"><label for="newUsername">Benutzername</label><input type="text" id="newUsername" required placeholder="z.B. max" autocapitalize="off" spellcheck="false"></div>
                     <div class="form-group"><label for="newPassword">Passwort</label><input type="password" id="newPassword" required minlength="12" placeholder="Min. 12 Zeichen, Zahl + Sonderzeichen"></div>
                 </div>
-                <div class="form-group"><label for="newRole">Rolle</label><select id="newRole" class="form-select"><option value="user">User</option><option value="qs">QS</option><option value="admin">Admin</option></select></div>
+                <div class="form-group"><label for="newRole">Rolle</label><select id="newRole" class="form-select"><option value="user">User</option><option value="qs">QS</option><option value="manager">Manager</option><option value="admin">Admin</option></select></div>
                 <button type="submit" class="btn btn-success btn-full" style="margin-top:8px">Benutzer anlegen</button>
                 <p class="error-msg" id="createUserError" style="display:none"></p>
                 <p class="success-msg" id="createUserSuccess" style="display:none"></p>
@@ -501,7 +501,8 @@ function toUsername(e){return e?e.replace(EMAIL_DOMAIN,''):'';}
 function getCurrentUsername(){const u=auth.currentUser;if(!u)return'';return u.displayName||toUsername(u.email);}
 function logout(){auth.signOut().catch(e=>console.warn('Logout-Fehler:',e));}
 let currentUserRole='user';
-function isAdmin(){return currentUserRole==='admin';}
+// Manager hat dieselben Rechte wie Admin — wird in isAdmin() mit eingeschlossen.
+function isAdmin(){return currentUserRole==='admin'||currentUserRole==='manager';}
 function isQS(){return currentUserRole==='qs';}
 function canManageQS(){return isAdmin()||isQS();}
 function canDeletePalette(){return isAdmin()||isQS()||getCurrentUsername().toLowerCase()==='lager';}
@@ -519,7 +520,7 @@ auth.onAuthStateChanged(async user=>{
             if(uDoc.exists){
                 const ud=uDoc.data();
                 if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
-                currentUserRole=(ud.role==='admin'||ud.role==='qs')?ud.role:'user';
+                currentUserRole=(ud.role==='admin'||ud.role==='manager'||ud.role==='qs')?ud.role:'user';
             }else{
                 // Kein User-Dokument: default 'user'. Admins legen via Benutzerverwaltung an.
                 currentUserRole='user';
@@ -528,7 +529,7 @@ auth.onAuthStateChanged(async user=>{
             console.warn('Rolle laden fehlgeschlagen:',e);
             currentUserRole='user';
         }
-        const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='qs'?' (QS)':'');
+        const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='manager'?' (Manager)':(currentUserRole==='qs'?' (QS)':''));
         $('userEmail').textContent=uName+roleLabel;
         $('userMgmtBtn').style.display=isAdmin()?'inline-flex':'none';
         initApp();
@@ -1678,8 +1679,8 @@ async function loadUserMgmt(){
         const isSelf=u.uid===curUid;
         const statusTxt=u.disabled?'<span style="color:#ef4444;font-weight:600">Deaktiviert</span>':'<span style="color:#10b981;font-weight:600">Aktiv</span>';
         const safeUid=_esc(u.uid);
-        const roleSelect=isSelf?`<span style="font-weight:600">${u.role==='admin'?'Admin':(u.role==='qs'?'QS':'User')}</span>`
-            :`<select class="form-select" data-role-uid="${safeUid}" style="padding:4px 8px;font-size:0.82rem;width:auto"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="qs"${u.role==='qs'?' selected':''}>QS</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select>`;
+        const roleSelect=isSelf?`<span style="font-weight:600">${u.role==='admin'?'Admin':(u.role==='manager'?'Manager':(u.role==='qs'?'QS':'User'))}</span>`
+            :`<select class="form-select" data-role-uid="${safeUid}" style="padding:4px 8px;font-size:0.82rem;width:auto"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="qs"${u.role==='qs'?' selected':''}>QS</option><option value="manager"${u.role==='manager'?' selected':''}>Manager</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select>`;
         const actions=isSelf?'<span style="color:#94a3b8;font-size:0.8rem">Eigenes Konto</span>'
             :(u.disabled
                 ?`<button class="btn btn-success btn-sm" data-reactivate-uid="${safeUid}">Aktivieren</button> <button class="btn btn-danger btn-sm" data-delete-uid="${safeUid}" data-user-name="${_esc(u.displayName||'')}">Löschen</button>`
