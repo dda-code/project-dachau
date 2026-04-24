@@ -21,18 +21,30 @@
   });
 
   // ── App Check (reCAPTCHA Enterprise) ──
-  // MUSS vor firebase.firestore() und firebase.auth() initialisiert werden,
-  // sonst gehen die ersten Requests ohne App-Check-Token raus und werden bei
-  // aktiver Enforcement abgelehnt. Site-Key ist oeffentlich (liegt per Design
-  // im Client-Source) — die Gegenprobe laeuft serverseitig gegen Firebase.
-  // isTokenAutoRefreshEnabled=true: SDK erneuert den Token ~alle 30 Min von
-  // selbst, damit langlebige Sessions nicht plötzlich 403 bekommen.
-  firebase.appCheck().activate(
-    new firebase.appCheck.ReCaptchaEnterpriseProvider(
-      '6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'
-    ),
-    true
-  );
+  // activate() MUSS nach DOMContentLoaded laufen — die reCAPTCHA-Enterprise-
+  // Library injiziert ein Badge-Element in document.body; läuft unser Script
+  // im <head>, existiert body noch nicht und die Library wirft
+  // "Cannot read properties of null (reading 'appendChild')".
+  //
+  // Firestore/Auth-Setup darf weiter synchron laufen (brauchen kein DOM);
+  // die ersten echten Requests kommen sowieso erst nach onAuthStateChanged,
+  // also lange nach DOMContentLoaded — der App-Check-Token ist bis dahin da.
+  // isTokenAutoRefreshEnabled=true: SDK erneuert den Token ~alle 30 Min.
+  window.addEventListener('DOMContentLoaded', function(){
+    try {
+      firebase.appCheck().activate(
+        new firebase.appCheck.ReCaptchaEnterpriseProvider(
+          '6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'
+        ),
+        true
+      );
+    } catch (e) {
+      // Beim "Nicht durchsetzen"-Modus in Firebase App Check ist ein
+      // fehlschlagender activate() nicht fatal — Requests gehen trotzdem
+      // durch. Loggen und weitermachen, damit die App nicht blockiert.
+      console.warn('App Check activate fehlgeschlagen:', e);
+    }
+  });
 
   var db = firebase.firestore();
   db.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, useFetchStreams: false, merge: true });
