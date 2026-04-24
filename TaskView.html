@@ -1471,7 +1471,9 @@ var _deleteTaskId=null;
 function askDelete(id,name){
   _deleteTaskId=id;
   var childCount=tasks.filter(function(t){return t.parentId===id;}).length;
-  var msg='Die Aufgabe <strong>„'+name+'"</strong> wird unwiderruflich gelöscht.';
+  // esc(): Name wird via innerHTML injiziert; ohne esc liefert ein Task-Name
+  // wie `<img src=x onerror=...>` Stored-XSS im Auth-Kontext des aktuellen Users.
+  var msg='Die Aufgabe <strong>„'+esc(name)+'"</strong> wird unwiderruflich gelöscht.';
   if(childCount>0) msg+='<br><br>⚠ Inklusive <strong>'+childCount+' Unteraufgabe'+(childCount>1?'n':'')+'</strong>.';
   document.getElementById('confirmText').innerHTML=msg;
   document.getElementById('confirmModalBg').classList.add('open');
@@ -1553,7 +1555,11 @@ function saveMeeting(){
 
 function askDeleteMeeting(id,name){
   _deleteMeetingId=id;
-  document.getElementById('confirmText').innerHTML='Das Meeting <strong>„'+name+'"</strong> wird unwiderruflich gelöscht.';
+  // esc(): Outlook-Subject wird via innerHTML injiziert. Angreifer mit Invite-
+  // Recht (z.B. externe Meeting-Einladung mit maliciöser Subject-Zeile) könnte
+  // sonst Stored-XSS im Auth-Kontext des Users triggern, sobald dieser das
+  // Meeting in TaskView öffnet und auf "Löschen" klickt.
+  document.getElementById('confirmText').innerHTML='Das Meeting <strong>„'+esc(name)+'"</strong> wird unwiderruflich gelöscht.';
   document.getElementById('confirmModalBg').classList.add('open');
 }
 
