@@ -38,6 +38,10 @@
 //# sourceMappingURL=firebase-firestore-compat.js.map
 
 </script>
+<!-- Auth + AppCheck VOR der Firebase-Init geladen, damit firebase.appCheck vorhanden ist,
+     bevor firebase.firestore() Requests sendet. -->
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
@@ -48,6 +52,16 @@
     appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
   };
   firebase.initializeApp(firebaseConfig);
+  // AppCheck SOFORT — VOR firebase.firestore()/auth() — damit alle Requests Token tragen.
+  // Auf file:// (lokales Testen) überspringen: reCAPTCHA Enterprise funktioniert dort nicht.
+  if(location.protocol !== 'file:'){
+    try {
+      firebase.appCheck().activate(
+        new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+        true
+      );
+    } catch(e){ console.warn('AppCheck init:', e && e.message); }
+  }
   // Long Polling: settings MUST be called before any other Firestore operations
   var db = firebase.firestore();
   db.settings({
@@ -63,32 +77,6 @@
   var SESSIONS_COL = db.collection('technology-sessions');
 
   // (WebChannel-Warnungen bereits in früherem Block unterdrückt)
-</script>
-<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
-<script>
-  // App Check — gleicher reCAPTCHA-Enterprise-Key wie index.html / Lagerverwaltung.html
-  // Skip auf file:// (lokales Testen) — reCAPTCHA funktioniert da nicht.
-  // Erst nach DOMContentLoaded aktivieren, damit reCAPTCHA sein <div> ins Body einhängen kann.
-  (function(){
-    if(location.protocol === 'file:'){
-      console.log('AppCheck: auf file:// deaktiviert (nur für lokales Testen).');
-      return;
-    }
-    function initAppCheck(){
-      try {
-        firebase.appCheck().activate(
-          new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
-          true
-        );
-      } catch(e){ console.warn('AppCheck init:', e && e.message); }
-    }
-    if(document.readyState === 'loading'){
-      document.addEventListener('DOMContentLoaded', initAppCheck);
-    } else {
-      initAppCheck();
-    }
-  })();
 </script>
 <title>Technology – Gantt</title>
 <style>

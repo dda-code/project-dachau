@@ -264,10 +264,16 @@ const firebaseConfig = {
 };
 const EMAIL_DOMAIN = '@lager.local';
 firebase.initializeApp(firebaseConfig);
-firebase.appCheck().activate(
-    new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
-    true
-);
+// AppCheck SOFORT aktivieren — VOR firebase.auth()/firestore(), damit alle Requests Token tragen.
+// Auf file:// (lokales Testen) überspringen, da reCAPTCHA Enterprise dort nicht funktioniert.
+if(location.protocol !== 'file:'){
+    try {
+        firebase.appCheck().activate(
+            new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+            true
+        );
+    } catch(e){ console.warn('AppCheck init:', e && e.message); }
+}
 const auth = firebase.auth();
 const db = firebase.firestore();
 const $ = id => document.getElementById(id);
@@ -305,6 +311,10 @@ function _resetIdleTimer(){
     document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true})
 );
 
+// _cachedDisplayName wird bei onAuthStateChanged aus users/{uid}.displayName gesetzt —
+// autoritative Quelle, die die Firestore-Rules für Audit-Log-Checks verwenden.
+let _cachedDisplayName = '';
+
 auth.onAuthStateChanged(async user => {
     if(user){
         // Deaktivierte Konten sofort ausloggen — Rule im Firestore muss das zusätzlich blockieren.
@@ -317,12 +327,17 @@ auth.onAuthStateChanged(async user => {
                 err.style.display = 'block';
                 return;
             }
-        } catch(e){ console.warn('users-Doc prüfen fehlgeschlagen:', e && e.message); }
+            _cachedDisplayName = (uDoc.exists && uDoc.data().displayName) || user.displayName || '';
+        } catch(e){
+            console.warn('users-Doc prüfen fehlgeschlagen:', e && e.message);
+            _cachedDisplayName = user.displayName || '';
+        }
         $('loginView').style.display='none';
         $('appView').style.display='flex';
-        $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
+        $('userDisplay').textContent=_cachedDisplayName||user.email.replace(EMAIL_DOMAIN,'');
         _resetIdleTimer();
     } else {
+        _cachedDisplayName = '';
         $('appView').style.display='none';
         $('loginView').style.display='flex';
         if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
@@ -339,7 +354,16 @@ $('loginForm').addEventListener('submit', async e => {
 });
 
 function logout(){ auth.signOut(); }
-function getCurrentUsername(){ const u=auth.currentUser; if(!u)return''; return u.displayName||u.email.replace(EMAIL_DOMAIN,''); }
+// Firestore-Cache hat Priorität vor Auth-displayName — wegen möglicher Kapitalisierungs-
+// unterschiede (z.B. "Manager" vs "manager"), die sonst an der Audit-Log-Rule scheitern würden.
+function getCurrentUsername(){
+    const u=auth.currentUser;
+    if(!u)return'';
+    if(_cachedDisplayName)return _cachedDisplayName;
+    if(u.displayName)return u.displayName;
+    console.error('getCurrentUsername: displayName nicht gesetzt — Writes werden an Rules fehlschlagen.');
+    return '';
+}
 
 // ============================================================
 // FIELD DEFINITIONS

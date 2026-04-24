@@ -461,30 +461,29 @@ const EMAIL_DOMAIN = '@lager.local';
 // FIREBASE INIT + AUTH
 // ============================================================
 firebase.initializeApp(firebaseConfig);
-// App Check für Auth/Firestore. Auf file:// (lokales Testen) überspringen —
-// reCAPTCHA Enterprise funktioniert dort nicht und würde bei Init crashen.
-(function(){
-  if(location.protocol === 'file:'){
-    console.log('AppCheck: auf file:// deaktiviert (nur für lokales Testen).');
-    return;
-  }
-  function initAppCheck(){
-    try {
-      firebase.appCheck().activate(
-        new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
-        true
-      );
-    } catch(e){ console.warn('AppCheck init:', e && e.message); }
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initAppCheck);
-  } else {
-    initAppCheck();
-  }
-})();
+// AppCheck SOFORT — VOR firebase.auth()/firestore() — damit alle Requests AppCheck-Token tragen.
+// Auf file:// (lokales Testen) überspringen: reCAPTCHA Enterprise funktioniert dort nicht.
+if(location.protocol !== 'file:'){
+  try {
+    firebase.appCheck().activate(
+      new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+      true
+    );
+  } catch(e){ console.warn('AppCheck init:', e && e.message); }
+}
 const auth = firebase.auth();
 const db = firebase.firestore();
+// Secondary App (für User-Anlage durch Admin) — AppCheck separat aktivieren,
+// sonst würden createUserWithEmailAndPassword-Calls ohne Token gesendet.
 const _secondaryApp = firebase.initializeApp(firebaseConfig, 'UserMgmt');
+if(location.protocol !== 'file:'){
+  try {
+    _secondaryApp.appCheck().activate(
+      new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+      true
+    );
+  } catch(e){ console.warn('AppCheck secondary init:', e && e.message); }
+}
 const _secondaryAuth = _secondaryApp.auth();
 const _secondaryDb = _secondaryApp.firestore();
 
@@ -498,7 +497,20 @@ const _wsRe=/\s+/g;
 const _validUserRe=/^[a-zA-Z0-9_.-]+$/;
 function toEmail(u){return u.trim().toLowerCase().replace(_wsRe,'_')+EMAIL_DOMAIN;}
 function toUsername(e){return e?e.replace(EMAIL_DOMAIN,''):'';}
-function getCurrentUsername(){const u=auth.currentUser;if(!u)return'';return u.displayName||toUsername(u.email);}
+// _cachedDisplayName wird bei onAuthStateChanged aus users/{uid}.displayName gesetzt —
+// das ist die AUTORITATIVE Quelle, die die Firestore-Rules für Audit-Log-Checks nutzen.
+// Fallback auf email.replace() wurde entfernt, weil das bei displayName-Kapitalisierung
+// (z.B. "Manager" vs "manager") zu Rule-Mismatches führen würde.
+let _cachedDisplayName='';
+function getCurrentUsername(){
+  const u=auth.currentUser;
+  if(!u)return'';
+  // Priorität: Firestore-Cache > Firebase-Auth-displayName > leer (mit Warnung)
+  if(_cachedDisplayName)return _cachedDisplayName;
+  if(u.displayName)return u.displayName;
+  console.error('getCurrentUsername: displayName nicht gesetzt — Writes werden an Rules fehlschlagen. User-Doc in Firestore prüfen.');
+  return '';
+}
 function logout(){auth.signOut().catch(e=>console.warn('Logout-Fehler:',e));}
 let currentUserRole='user';
 // Manager hat dieselben Rechte wie Admin — wird in isAdmin() mit eingeschlossen.
@@ -523,13 +535,17 @@ auth.onAuthStateChanged(async user=>{
                 const ud=uDoc.data();
                 if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
                 currentUserRole=(ud.role==='admin'||ud.role==='manager'||ud.role==='qs')?ud.role:'user';
+                // displayName aus Firestore als autoritative Quelle cachen — matcht die Rule
+                _cachedDisplayName = ud.displayName || user.displayName || '';
             }else{
                 // Kein User-Dokument: default 'user'. Admins legen via Benutzerverwaltung an.
                 currentUserRole='user';
+                _cachedDisplayName = user.displayName || '';
             }
         }catch(e){
             console.warn('Rolle laden fehlgeschlagen:',e);
             currentUserRole='user';
+            _cachedDisplayName = user.displayName || '';
         }
         const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='manager'?' (Manager)':(currentUserRole==='qs'?' (QS)':''));
         $('userEmail').textContent=uName+roleLabel;
@@ -540,7 +556,7 @@ auth.onAuthStateChanged(async user=>{
         // Logout: alle Firestore-Listener sauber abmelden, sonst Memory-Leak + unautorisierte Reads
         try{ _realtimeUnsubs.forEach(u=>{try{u();}catch(_){}}); _realtimeUnsubs=[]; }catch(_){}
         try{ if(_remoteScanUnsub){ _remoteScanUnsub(); _remoteScanUnsub=null; } }catch(_){}
-        $('appView').style.display='none';$('loginView').style.display='flex';currentUserRole='user';$('userMgmtBtn').style.display='none';
+        $('appView').style.display='none';$('loginView').style.display='flex';currentUserRole='user';_cachedDisplayName='';$('userMgmtBtn').style.display='none';
     }
 });
 
