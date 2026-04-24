@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Technology – Kalender</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
@@ -18,6 +19,21 @@
     messagingSenderId: "231877107728",
     appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
   });
+
+  // ── App Check (reCAPTCHA Enterprise) ──
+  // MUSS vor firebase.firestore() und firebase.auth() initialisiert werden,
+  // sonst gehen die ersten Requests ohne App-Check-Token raus und werden bei
+  // aktiver Enforcement abgelehnt. Site-Key ist oeffentlich (liegt per Design
+  // im Client-Source) — die Gegenprobe laeuft serverseitig gegen Firebase.
+  // isTokenAutoRefreshEnabled=true: SDK erneuert den Token ~alle 30 Min von
+  // selbst, damit langlebige Sessions nicht plötzlich 403 bekommen.
+  firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider(
+      '6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'
+    ),
+    true
+  );
+
   var db = firebase.firestore();
   db.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, useFetchStreams: false, merge: true });
   firebase.firestore.setLogLevel('silent');
