@@ -49,10 +49,9 @@
     projectId: "project-dachau",
     storageBucket: "project-dachau.firebasestorage.app",
     messagingSenderId: "231877107728",
-    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95",
-    automaticDataCollectionEnabled: true
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
   };
-  firebase.initializeApp(firebaseConfig);
+  firebase.initializeApp(firebaseConfig, { automaticDataCollectionEnabled: true });
   // AppCheck — reCAPTCHA Enterprise injiziert <script> in document.body,
   // daher erst nach window.load aktivieren (DOMContentLoaded reicht nicht immer auf GitHub Pages).
   // Auf file:// (lokales Testen) überspringen.

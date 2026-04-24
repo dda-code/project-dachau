@@ -52,16 +52,25 @@
     messagingSenderId: "231877107728",
     appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
   };
-  firebase.initializeApp(firebaseConfig);
-  // AppCheck SOFORT — VOR firebase.firestore()/auth() — damit alle Requests Token tragen.
-  // Auf file:// (lokales Testen) überspringen: reCAPTCHA Enterprise funktioniert dort nicht.
+  firebase.initializeApp(firebaseConfig, { automaticDataCollectionEnabled: true });
+  // AppCheck — reCAPTCHA Enterprise injiziert <script> in document.body,
+  // daher erst nach window.load aktivieren (DOMContentLoaded reicht nicht immer auf GitHub Pages,
+  // sonst "Cannot read properties of null (reading 'appendChild')" → App-Check-Token fehlt → Enforcement blockt Auth/Firestore).
+  // Auf file:// (lokales Testen) überspringen.
   if(location.protocol !== 'file:'){
-    try {
-      firebase.appCheck().activate(
-        new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
-        true
-      );
-    } catch(e){ console.warn('AppCheck init:', e && e.message); }
+    var _activateAppCheck = function(){
+      try {
+        firebase.appCheck().activate(
+          new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+          true
+        );
+      } catch(e){ console.warn('AppCheck init:', e && e.message); }
+    };
+    if(document.readyState === 'complete'){
+      _activateAppCheck();
+    } else {
+      window.addEventListener('load', _activateAppCheck, {once:true});
+    }
   }
   // Long Polling: settings MUST be called before any other Firestore operations
   var db = firebase.firestore();
