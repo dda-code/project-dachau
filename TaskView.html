@@ -1,0 +1,1902 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Technology – Kalender</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+  });
+  var db = firebase.firestore();
+  db.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, useFetchStreams: false, merge: true });
+  firebase.firestore.setLogLevel('silent');
+  var GANTT_DOC = db.collection('technology').doc('state');
+</script>
+<style>
+:root {
+  --bg: #f5f6fa;
+  --bg2: #ffffff;
+  --text: #1a1d2e;
+  --text2: #64748b;
+  --text3: #94a3b8;
+  --border: #e2e8f0;
+  --accent: #4f6ef7;
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --shadow: 0 1px 3px rgba(0,0,0,.08);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --col-w: calc(100% / 5);
+}
+@media(prefers-color-scheme:dark){
+  :root {
+    --bg: #0f1117; --bg2: #1a1d2e; --text: #e8eaf0;
+    --text2: #94a3b8; --text3: #64748b; --border: #2a2d3e;
+    --shadow: 0 1px 3px rgba(0,0,0,.3);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { zoom: var(--ui-scale, 1); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100dvh; -webkit-tap-highlight-color: transparent;
+  padding-bottom: calc(20px + var(--safe-bottom));
+  overflow-x: hidden;
+}
+
+/* ── Header ── */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg2);
+  padding: calc(8px + var(--safe-top)) 12px 0;
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.header-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 8px;
+}
+.logo {
+  height: 40px; width: auto; flex-shrink: 0;
+}
+.header h1 { font-size: 22px; font-weight: 700; flex: 1; }
+.status-dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  background: var(--text3); transition: background .3s;
+}
+.status-dot.connected { background: var(--green); }
+.status-dot.error { background: var(--red); }
+.btn-icon {
+  background: none; border: none; font-size: 22px; cursor: pointer;
+  color: var(--text2); padding: 4px; border-radius: 8px;
+  min-width: 36px; min-height: 36px;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-icon:active { background: var(--border); }
+
+/* ── Week Nav ── */
+.week-nav {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  margin-bottom: 8px;
+}
+.week-nav .btn-icon { font-size: 22px; min-width: 32px; min-height: 32px; }
+.kw-label { font-size: 19px; font-weight: 700; color: var(--accent); min-width: 60px; text-align: center; }
+.kw-dates { font-size: 13px; color: var(--text2); text-align: center; }
+.btn-today {
+  font-size: 13px; font-weight: 600; padding: 4px 10px;
+  border-radius: 14px; border: 1px solid var(--accent);
+  background: none; color: var(--accent); cursor: pointer; min-height: 28px;
+}
+.btn-today:active { background: var(--accent); color: #fff; }
+.btn-today.hidden { visibility: hidden; }
+
+/* ── Day Header Grid ── */
+.day-header-row {
+  display: flex; align-items: stretch;
+  border-top: 1px solid var(--border);
+}
+.day-hdr-cell {
+  flex: 1; text-align: center; padding: 6px 0 4px;
+  border-left: 2px solid var(--text3);
+  font-size: 13px; line-height: 1.3;
+}
+.day-hdr-cell:first-child { border-left: none; }
+.day-hdr-cell .dn { font-weight: 700; text-transform: uppercase; color: var(--text2); }
+.day-hdr-cell .dd { font-size: 14px; font-weight: 600; color: var(--text); }
+.day-hdr-cell.today { background: var(--accent); }
+.day-hdr-cell.today .dn, .day-hdr-cell.today .dd { color: #fff; }
+.day-hdr-cell.weekend .dn, .day-hdr-cell.weekend .dd { color: var(--text3); }
+.day-hdr-cell.holiday { background: rgba(239,68,68,.10); }
+.day-hdr-cell.holiday .dn, .day-hdr-cell.holiday .dd { color: var(--red); }
+.day-hdr-cell.holiday .hol-name { font-size: 10px; color: var(--red); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+.day-cell.holiday-col { background: rgba(239,68,68,.05); }
+
+/* ── Gantt Rows ── */
+.gantt-body { padding-bottom: 40px; }
+.gantt-group {
+  border-bottom: 3px solid var(--border); cursor: pointer;
+}
+.gantt-group:active { background: rgba(79,110,247,.04); }
+.gantt-label-row {
+  padding: 6px 8px 2px; font-size: 14px; font-weight: 600;
+  color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gantt-label-row.child-label { padding-left: 20px; font-size: 13px; font-weight: 500; }
+.gantt-row {
+  display: flex; position: relative;
+  min-height: 26px;
+}
+.gantt-row.child-row .task-bar { opacity: .75; }
+.day-cells {
+  flex: 1; display: flex; position: relative;
+  overflow: visible;
+}
+.day-cell {
+  flex: 1; border-left: 2px solid var(--text3);
+  min-height: 100%;
+}
+.day-cell:first-child { border-left: none; }
+.day-cell.today-col { background: rgba(79,110,247,.06); }
+.day-cell.weekend-col { background: rgba(0,0,0,.02); }
+@media(prefers-color-scheme:dark){
+  .day-cell.today-col { background: rgba(79,110,247,.1); }
+  .day-cell.weekend-col { background: rgba(255,255,255,.02); }
+}
+
+/* ── Task Bar with label inside ── */
+.task-bar {
+  position: absolute; top: 2px; bottom: 2px;
+  border-radius: 4px; min-width: 6px;
+  z-index: 2; display: flex; align-items: center;
+  overflow: hidden;
+}
+.task-bar.done-bar { opacity: .4; }
+.bar-time {
+  position: relative; z-index: 3; color: #fff; font-size: 10px;
+  font-weight: 600; padding: 0 4px; white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0,0,0,.3);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bar-bg {
+  position: absolute; inset: 0; border-radius: 4px;
+  overflow: hidden;
+}
+.bar-progress {
+  height: 100%; border-radius: 4px;
+  background: rgba(255,255,255,.25);
+}
+.milestone-diamond {
+  position: absolute; top: 50%; width: 10px; height: 10px;
+  background: var(--amber); transform: translate(-50%, -50%) rotate(45deg);
+  z-index: 3; border: 1px solid rgba(0,0,0,.15);
+}
+/* Extra period bar (no label) */
+.task-bar-extra {
+  position: absolute; top: 2px; bottom: 2px;
+  border-radius: 4px; min-width: 6px;
+  z-index: 1; opacity: .45;
+}
+
+/* ── Section Headers ── */
+.section-row {
+  display: flex; align-items: center;
+  background: var(--bg); padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text3); gap: 6px;
+  position: sticky; top: 0; z-index: 5;
+}
+.section-icon { font-size: 16px; }
+.section-count {
+  background: var(--border); border-radius: 8px; padding: 1px 6px;
+  font-size: 12px;
+}
+/* ── Shared utility classes ── */
+.fab-menu-btn {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  border-radius: 12px; border: none; color: #fff; font-size: 16px;
+  font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  font-family: inherit;
+}
+.badge-meeting {
+  font-size: 12px; font-weight: 600; background: #8b5cf6; color: #fff;
+  border-radius: 4px; padding: 2px 6px; white-space: nowrap;
+}
+.modal-heading { display: flex; align-items: center; gap: 8px; }
+.field-row { display: flex; gap: 8px; }
+.field-half { flex: 1; }
+.empty-message { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 16px; }
+.error-message { color: var(--red); font-size: 17px; text-align: center; padding: 20px; }
+.btn-retry {
+  margin-top: 12px; padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--red); background: none; color: var(--red); cursor: pointer;
+}
+
+/* ── Detail Modal ── */
+.modal-bg {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.4); backdrop-filter: blur(4px);
+  align-items: flex-start; justify-content: center;
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: var(--bg2); border-radius: 0 0 20px 20px;
+  width: 100%; max-width: 500px; max-height: 85dvh;
+  padding: 16px 20px calc(16px + var(--safe-bottom));
+  overflow-y: auto; animation: slideDown .25s ease;
+}
+@media(max-width:600px){
+  .modal, .add-modal {
+    max-width: 100%; max-height: 100dvh; border-radius: 0; height: 100dvh;
+  }
+}
+@keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+.modal-handle {
+  width: 36px; height: 4px; border-radius: 2px; background: var(--border);
+  margin: 0 auto 14px;
+}
+.modal h2 { font-size: 20px; margin-bottom: 10px; line-height: 1.3; }
+.modal-row {
+  display: flex; justify-content: space-between; padding: 7px 0;
+  border-bottom: 1px solid var(--border); font-size: 16px;
+}
+.modal-row:last-child { border-bottom: none; }
+.modal-label { color: var(--text2); }
+.modal-val { font-weight: 500; text-align: right; }
+.modal-progress { margin-top: 10px; }
+.modal-progress-bar {
+  height: 6px; background: var(--border); border-radius: 3px;
+  overflow: hidden; margin-top: 4px;
+}
+.modal-progress-fill { height: 100%; border-radius: 3px; }
+.badge {
+  font-size: 12px; font-weight: 600; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+}
+.badge.overdue { background: #fef2f2; color: var(--red); }
+.badge.active { background: #eff6ff; color: var(--accent); }
+.badge.done { background: #f0fdf4; color: var(--green); }
+.badge.planned { background: #f8fafc; color: var(--text3); }
+@media(prefers-color-scheme:dark){
+  .badge.overdue { background: #3b1419; }
+  .badge.active { background: #1a2240; }
+  .badge.done { background: #132a1a; }
+  .badge.planned { background: #1e2030; }
+}
+/* ── Delete Button in Detail Modal ── */
+.btn-delete {
+  display: block; width: 100%; margin-top: 16px; padding: 12px;
+  background: none; border: 1.5px solid var(--red); border-radius: 8px;
+  color: var(--red); font-size: 17px; font-weight: 600; cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: background .15s, color .15s;
+}
+.btn-delete:hover { background: var(--red); color: #fff; }
+.btn-delete:active { background: #dc2626; color: #fff; }
+/* ── Confirm Modal ── */
+#confirmModalBg {
+  display: none; position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+#confirmModalBg.open { display: flex; }
+.confirm-modal {
+  background: var(--bg2); border-radius: 16px;
+  width: 92%; max-width: 360px; padding: 24px 20px;
+  text-align: center; animation: fadeIn .15s ease;
+  box-shadow: 0 16px 48px rgba(0,0,0,.25);
+}
+@keyframes fadeIn { from { opacity:0; transform:scale(.95); } to { opacity:1; transform:scale(1); } }
+.confirm-modal h3 { font-size: 19px; margin-bottom: 6px; }
+.confirm-modal p { font-size: 16px; color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 8px; }
+.confirm-actions button {
+  flex: 1; padding: 12px; border: none; border-radius: 8px;
+  font-size: 17px; font-weight: 600; cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 44px;
+}
+.btn-confirm-del { background: var(--red); color: #fff; }
+.btn-confirm-del:active { background: #dc2626; }
+.btn-confirm-cancel { background: var(--border); color: var(--text); }
+.btn-confirm-cancel:active { background: #cbd5e1; }
+
+/* ── To-Do Section in Detail Modal ── */
+.todo-section { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1.5px solid var(--border); }
+.todo-section h3 { font-size: 20px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+.todo-list { display: flex; flex-direction: column; gap: 6px; }
+.todo-item { display: flex; gap: 6px; align-items: center; }
+.todo-num { width: 28px; flex-shrink: 0; font-size: 15px; font-weight: 700; color: var(--text3); text-align: center; line-height: 48px; }
+.todo-item textarea { flex: 1; min-width: 0; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 17px; min-height: 48px; background: var(--bg2); color: var(--text); resize: none; overflow: hidden; font-family: inherit; line-height: 1.4; field-sizing: content; }
+.todo-item input:focus, .todo-item textarea:focus { border-color: var(--accent); outline: none; }
+.todo-del { width: 32px; height: 32px; flex-shrink: 0; border: none; background: none; color: var(--red); font-size: 18px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+.todo-del:active { background: rgba(239,68,68,.1); }
+.todo-add { width: 100%; margin-top: 8px; padding: 10px; border: 1.5px dashed var(--border); border-radius: 8px; background: none; color: var(--accent); font-size: 14px; font-weight: 600; cursor: pointer; }
+.todo-add:active { background: rgba(79,110,247,.06); }
+.visibility-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vis-chip { padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; background: none; color: var(--text2); transition: all .15s; }
+.vis-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.vis-chip:active { opacity: .7; }
+.todo-dot { position: absolute; top: 0; left: 2px; bottom: 0; z-index: 4; display: flex; align-items: center; font-size: 14px; line-height: 1; color: var(--red); filter: drop-shadow(0 0 1px rgba(0,0,0,.3)); }
+@media(max-width:600px){
+  .todo-num { width: 24px; font-size: 14px; }
+  .todo-item textarea { font-size: 16px; }
+}
+
+/* ── FAB (Floating Action Button) ── */
+.fab {
+  position: fixed; bottom: calc(24px + var(--safe-bottom)); right: 20px;
+  width: 52px; height: 52px; border-radius: 50%; border: none;
+  background: var(--accent); color: #fff; font-size: 34px; line-height: 1;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(79,110,247,.4);
+  z-index: 50; display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, box-shadow .15s;
+}
+.fab:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(79,110,247,.5); }
+.fab:active { transform: scale(.95); }
+
+/* ── Add-Task Modal ── */
+#addModalBg {
+  display: none; position: fixed; inset: 0; z-index: 210;
+  background: rgba(0,0,0,.4); backdrop-filter: blur(4px);
+  align-items: flex-start; justify-content: center;
+}
+#addModalBg.open { display: flex; }
+.add-modal {
+  background: var(--bg2); border-radius: 0 0 20px 20px;
+  width: 100%; max-width: 500px; max-height: 85dvh;
+  padding: 16px 20px calc(16px + var(--safe-bottom));
+  overflow-y: auto; animation: slideDown .25s ease;
+}
+.add-modal h2 { font-size: 20px; margin-bottom: 14px; }
+.add-field { margin-bottom: 14px; }
+.add-field label { display: block; font-size: 16px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
+.add-field input, .add-field select {
+  width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 19px; outline: none; background: var(--bg);
+  color: var(--text); transition: border .15s; min-height: 48px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-appearance: none; appearance: none;
+}
+.add-field input:focus, .add-field select:focus { border-color: var(--accent); }
+.add-actions { display: flex; gap: 10px; margin-top: 20px; }
+.add-actions button {
+  flex: 1; padding: 14px; border: none; border-radius: 10px;
+  font-size: 18px; font-weight: 600; cursor: pointer; min-height: 48px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.btn-save { background: var(--accent); color: #fff; }
+.btn-save:hover { background: #3b5de7; }
+.btn-save:active { background: #3b5de7; }
+.btn-cancel { background: var(--border); color: var(--text); }
+.btn-cancel:hover { background: #cbd5e1; }
+.btn-cancel:active { background: #cbd5e1; }
+.add-error { color: var(--red); font-size: 14px; margin-top: 6px; display: none; }
+
+/* ── Personal To-Do Liste ── */
+.personal-todo-section {
+  border-bottom: 3px solid var(--border);
+}
+.personal-todo-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg);
+  font-size: 13px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text3); gap: 6px;
+  cursor: pointer; user-select: none;
+}
+.personal-todo-header:active { background: rgba(79,110,247,.04); }
+.personal-todo-header .section-icon { font-size: 16px; }
+.personal-todo-header .section-left { display: flex; align-items: center; gap: 6px; }
+.personal-todo-chevron {
+  font-size: 16px; color: var(--text3); transition: transform .2s ease;
+  display: flex; align-items: center;
+}
+.personal-todo-chevron.open { transform: rotate(90deg); }
+.personal-todo-body { display: none; }
+.personal-todo-body.open { display: block; border-top: 1px solid var(--border); }
+.personal-todo-items { padding: 6px 10px 2px; }
+.personal-todo-item {
+  display: flex; align-items: center; gap: 8px; padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s, opacity .15s;
+}
+.personal-todo-item:last-child { border-bottom: none; }
+.personal-todo-item.dragging { opacity: .3; }
+.personal-todo-item.drag-over { background: rgba(79,110,247,.08); }
+.personal-todo-drag {
+  width: 24px; flex-shrink: 0; cursor: grab; color: var(--text3);
+  font-size: 18px; display: flex; align-items: center; justify-content: center;
+  touch-action: none; user-select: none;
+}
+.personal-todo-drag:active { cursor: grabbing; }
+.personal-todo-check {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 6px;
+  border: 2px solid var(--border); background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--green); transition: all .15s;
+}
+.personal-todo-check.checked {
+  background: var(--green); border-color: var(--green); color: #fff;
+}
+.personal-todo-text {
+  flex: 1; font-size: 15px; color: var(--text); line-height: 1.4;
+  word-break: break-word;
+}
+.personal-todo-text.checked { text-decoration: line-through; color: var(--text3); }
+.personal-todo-text[contenteditable="true"] {
+  cursor: text; outline: none; border-radius: 4px;
+  padding: 2px 6px; margin: -2px -6px;
+  transition: background .1s, box-shadow .1s;
+}
+.personal-todo-text[contenteditable="true"]:hover { background: rgba(79,110,247,.06); }
+.personal-todo-text[contenteditable="true"]:focus {
+  background: var(--bg); box-shadow: 0 0 0 1.5px var(--accent);
+  text-decoration: none; color: var(--text);
+}
+.personal-todo-date {
+  width: 38px; flex-shrink: 0; padding: 4px 0; border: none; background: none;
+  font-size: 12px; color: var(--accent); text-align: center; cursor: pointer;
+  font-family: inherit; outline: none; font-weight: 600;
+}
+.personal-todo-date::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; width: 100%; height: 100%; cursor: pointer; }
+.personal-todo-date-wrap {
+  position: relative; flex-shrink: 0; width: 38px; display: flex; align-items: center; justify-content: center;
+}
+.personal-todo-date-label {
+  font-size: 11px; font-weight: 600; color: var(--accent); cursor: pointer;
+  white-space: nowrap; text-align: center; line-height: 1;
+}
+.personal-todo-date-label.empty { color: var(--text3); font-size: 16px; }
+.personal-todo-del {
+  width: 28px; height: 28px; flex-shrink: 0; border: none; background: none;
+  color: var(--text3); font-size: 16px; cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.personal-todo-del:hover { color: var(--red); background: rgba(239,68,68,.08); }
+.personal-todo-del:active { background: rgba(239,68,68,.15); }
+.personal-todo-add-row {
+  display: flex; gap: 8px; padding: 6px 10px 8px; align-items: center;
+}
+.personal-todo-input {
+  flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 15px; background: var(--bg); color: var(--text); outline: none;
+  font-family: inherit; min-height: 38px;
+}
+.personal-todo-input:focus { border-color: var(--accent); }
+.personal-todo-add-btn {
+  padding: 8px 14px; border: none; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 14px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; min-height: 38px;
+  font-family: inherit;
+}
+.personal-todo-add-btn:active { background: #3b5de7; }
+.personal-todo-empty {
+  padding: 12px 10px; color: var(--text3); font-size: 14px; text-align: center;
+}
+
+/* ── Loading ── */
+.loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 60px 20px; color: var(--text2);
+}
+.loader {
+  width: 32px; height: 32px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .7s linear infinite; margin-bottom: 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Login Overlay ── */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #1a1d2e 0%, #2d3150 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+#login-box {
+  background: #fff; border-radius: 16px; padding: 40px 44px;
+  width: 360px; max-width: 92vw;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5); text-align: center;
+}
+#login-box h2 { font-size: 24px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+#login-box p { font-size: 16px; color: var(--text2); margin-bottom: 28px; }
+#login-box input {
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+  border-radius: 8px; font-size: 17px; outline: none;
+  transition: border .15s; margin-bottom: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+#login-box input:focus { border-color: var(--accent); }
+#login-box button {
+  width: 100%; padding: 11px; background: var(--accent); color: #fff;
+  border: none; border-radius: 8px; font-size: 17px; font-weight: 600;
+  cursor: pointer; transition: background .15s;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+#login-box button:hover { background: #3b5de7; }
+#login-err { color: #ef4444; font-size: 14px; margin-top: -6px; margin-bottom: 10px; min-height: 16px; }
+#login-logo { width: 132px; height: auto; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; }
+
+/* ── Responsive ── */
+@media(max-width:380px){
+  #login-box { padding: 28px 24px; }
+  #login-logo img { width: 90px !important; }
+  #login-box h2 { font-size: 22px !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="login-overlay" style="display:none">
+  <div id="login-box">
+    <div id="login-logo">
+      <img src="data:image/png;base64,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" alt="XO Logo" style="width:132px;height:auto;">
+    </div>
+    <h2>Technology</h2>
+    <p>Bitte anmelden</p>
+    <input type="email" id="login-email" placeholder="E-Mail" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()" style="margin-bottom:8px">
+    <input type="password" id="login-pw" placeholder="Passwort" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="login-err"></div>
+    <button onclick="doLogin()">Anmelden</button>
+  </div>
+</div>
+
+<div class="header" style="display:none" id="mainHeader">
+  <div class="header-top">
+    <img class="logo" src="data:image/png;base64,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" alt="XO®">
+    <h1>Technology</h1>
+    <span id="userDisplay" style="font-size:13px;color:var(--text2);font-weight:600;white-space:nowrap;"></span>
+    <div class="status-dot" id="statusDot"></div>
+    <button class="btn-icon" onclick="doRefresh()">&#x21bb;</button>
+    <button class="btn-icon" onclick="doLogout()" title="Abmelden">&#x23FB;</button>
+  </div>
+  <div class="week-nav">
+    <button class="btn-icon" onclick="changeWeek(-1)">&#x276E;</button>
+    <div>
+      <div class="kw-label" id="kwLabel"></div>
+      <div class="kw-dates" id="kwDates"></div>
+    </div>
+    <button class="btn-icon" onclick="changeWeek(1)">&#x276F;</button>
+    <button class="btn-today" id="btnToday" onclick="goToday()">Heute</button>
+  </div>
+  <div class="day-header-row" id="dayHeaderRow"></div>
+</div>
+
+<div id="loadingArea" class="loading">
+  <div class="loader"></div>
+  <span>Lade Aufgaben...</span>
+</div>
+
+<div class="gantt-body" id="ganttBody" style="display:none"></div>
+
+<!-- FAB Button + Menu -->
+<div id="fabMenu" style="display:none;position:fixed;bottom:calc(84px + var(--safe-bottom));right:20px;z-index:51;flex-direction:column;gap:8px;align-items:flex-end">
+  <button onclick="closeFabMenu();openAddTask()" class="fab-menu-btn" style="background:var(--accent)">Neue Aufgabe</button>
+</div>
+<button class="fab" id="addTaskBtn" onclick="toggleFabMenu()" title="Neu erstellen">+</button>
+<script>
+function toggleFabMenu(){
+  var m=document.getElementById('fabMenu');
+  if(m.style.display==='flex'){closeFabMenu();}
+  else{m.style.display='flex';}
+}
+function closeFabMenu(){document.getElementById('fabMenu').style.display='none';}
+document.addEventListener('click',function(e){
+  var fab=document.getElementById('addTaskBtn');
+  var menu=document.getElementById('fabMenu');
+  if(!fab.contains(e.target)&&!menu.contains(e.target))closeFabMenu();
+});
+</script>
+
+<!-- Add-Task Modal -->
+<div id="addModalBg" onclick="if(event.target===this)closeAddModal()">
+  <div class="add-modal">
+    <div class="modal-handle"></div>
+    <h2>Neue Aufgabe</h2>
+    <div class="add-field">
+      <label>Name</label>
+      <input type="text" id="addName" placeholder="Aufgabenname eingeben">
+    </div>
+    <div class="add-field">
+      <label>Übergeordnete Aufgabe</label>
+      <select id="addParent"></select>
+    </div>
+    <div class="add-field">
+      <label>Beginn</label>
+      <input type="date" id="addStart">
+    </div>
+    <div class="add-field">
+      <label>Ende</label>
+      <input type="date" id="addEnd">
+    </div>
+    <div id="addVisibility"></div>
+    <div class="add-error" id="addError"></div>
+    <div class="add-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Abbrechen</button>
+      <button class="btn-save" onclick="saveNewTask()">Erstellen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal"><div class="modal-handle"></div><div id="modalContent"></div></div>
+</div>
+
+<!-- Confirm Delete Modal -->
+<div id="confirmModalBg" onclick="if(event.target===this)closeConfirm()">
+  <div class="confirm-modal">
+    <h3>Aufgabe löschen?</h3>
+    <p id="confirmText"></p>
+    <div class="confirm-actions">
+      <button class="btn-confirm-cancel" onclick="closeConfirm()">Abbrechen</button>
+      <button class="btn-confirm-del" onclick="if(_deleteMeetingId){confirmDeleteMeeting();}else{confirmDelete();}">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var tasks = [];
+var outlookEvents = [];
+var OUTLOOK_COL = db.collection('outlook_events');
+var _unsubGantt = null;
+var _unsubOutlook = null;
+var taskTodos = {};
+var today = new Date();
+var todayStr = today.toISOString().slice(0,10);
+var currentMonday = getMonday(today);
+var DN = ['MO','DI','MI','DO','FR','SA','SO'];
+var MN = ['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+function getMonday(d) {
+  var dt = new Date(d); var day = dt.getDay();
+  dt.setDate(dt.getDate() + ((day===0?-6:1)-day));
+  dt.setHours(0,0,0,0); return dt;
+}
+function getISOWeek(d) {
+  var dt = new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  var dayNum = dt.getUTCDay()||7;
+  dt.setUTCDate(dt.getUTCDate()+4-dayNum);
+  var ys = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+  return Math.ceil((((dt-ys)/86400000)+1)/7);
+}
+function pad(n){ return n<10?'0'+n:''+n; }
+function toStr(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function addDays(d,n){ var r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function fmtDate(d){
+  if(!d) return '';
+  if(typeof d==='string'){ var p=d.split('-'); return p[2]+'.'+p[1]+'.'+p[0]; }
+  return pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear();
+}
+function fmtDateShort(d){ return d.getDate()+'. '+MN[d.getMonth()]; }
+function esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// ── BAVARIAN HOLIDAYS 2026–2028 ──────────────────────
+function easterDate(y){
+  var a=y%19,b=Math.floor(y/100),c=y%100;
+  var d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  var g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+  var i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+  var m=Math.floor((a+11*h+22*l)/451);
+  var mo=Math.floor((h+l-7*m+114)/31),dy=(h+l-7*m+114)%31+1;
+  return new Date(y,mo-1,dy);
+}
+function fmtD(d){var mm=('0'+(d.getMonth()+1)).slice(-2),dd=('0'+d.getDate()).slice(-2);return d.getFullYear()+'-'+mm+'-'+dd;}
+function buildHolidays(){
+  var h={};
+  function addH(key,name){ h[key]=h[key]?h[key]+' / '+name:name; }
+  [2026,2027,2028].forEach(function(y){
+    var e=easterDate(y);
+    addH(y+'-01-01','Neujahr');
+    addH(y+'-01-06','Heilige Drei Könige');
+    addH(y+'-05-01','Tag der Arbeit');
+    addH(y+'-08-15','Mariä Himmelfahrt');
+    addH(y+'-10-03','Tag der Deutschen Einheit');
+    addH(y+'-11-01','Allerheiligen');
+    addH(y+'-12-25','1. Weihnachtsfeiertag');
+    addH(y+'-12-26','2. Weihnachtsfeiertag');
+    addH(fmtD(addDays(e,-2)),'Karfreitag');
+    addH(fmtD(e),'Ostersonntag');
+    addH(fmtD(addDays(e,1)),'Ostermontag');
+    addH(fmtD(addDays(e,39)),'Christi Himmelfahrt');
+    addH(fmtD(addDays(e,49)),'Pfingstsonntag');
+    addH(fmtD(addDays(e,50)),'Pfingstmontag');
+    addH(fmtD(addDays(e,60)),'Corpus Christi');
+    addH(y+'-10-31','Reformationstag');
+  });
+  return h;
+}
+var HOLIDAYS = buildHolidays();
+
+function getStatus(t) {
+  if(t.done||(t.progress||0)>=100) return 'done';
+  if(!t.done&&t.end<todayStr&&(t.progress||0)<100) return 'overdue';
+  if((t.progress||0)>0&&t.start<=todayStr) return 'active';
+  if(t.start>todayStr) return 'planned';
+  return 'active';
+}
+function statusLabel(s){
+  return {done:'Erledigt',overdue:'Uberfällig',active:'In Arbeit',planned:'Geplant'}[s]||s;
+}
+
+function changeWeek(dir){ currentMonday=addDays(currentMonday,dir*7); render(); }
+function goToday(){ currentMonday=getMonday(today); render(); }
+
+// ── Does task overlap with a given day range (Mon-Sun)? ──
+function taskInWeek(t, monStr, sunStr) {
+  if(t.hidden) return false;
+  // Urlaub: check urlaubPeriods, not the overall start/end
+  if(t.type==='urlaub' && t.urlaubPeriods && t.urlaubPeriods.length){
+    for(var i=0;i<t.urlaubPeriods.length;i++){
+      var up=t.urlaubPeriods[i];
+      if(up.start<=sunStr && up.end>=monStr) return true;
+    }
+    return false;
+  }
+  if(t.start<=sunStr && t.end>=monStr) return true;
+  if(t.extraPeriods&&t.extraPeriods.length){
+    for(var i=0;i<t.extraPeriods.length;i++){
+      var ep=t.extraPeriods[i];
+      if(ep.start<=sunStr && ep.end>=monStr) return true;
+    }
+  }
+  return false;
+}
+
+// ── Calculate bar position (left%, width%) within the 7-day grid ──
+function barPos(startStr, endStr, monStr, sunStr) {
+  var monD = new Date(monStr), friD = addDays(new Date(monStr), 4);
+  var s = new Date(startStr), e = new Date(endStr);
+  // Clamp to Mon-Fri boundaries
+  if(s < monD) s = monD;
+  if(e > friD) e = friD;
+  var dayStart = Math.round((s - monD) / 86400000);
+  var dayEnd = Math.round((e - monD) / 86400000);
+  if(dayStart > 4) dayStart = 4;
+  if(dayEnd > 4) dayEnd = 4;
+  var left = (dayStart / 5) * 100;
+  var width = ((dayEnd - dayStart + 1) / 5) * 100;
+  return { left: left, width: width };
+}
+
+function render() {
+  var kw = getISOWeek(currentMonday);
+  var friday = addDays(currentMonday, 4);
+  var sunday = addDays(currentMonday, 6);
+  var monStr = toStr(currentMonday), sunStr = toStr(sunday);
+
+  document.getElementById('kwLabel').textContent = 'KW ' + kw;
+  document.getElementById('kwDates').textContent = fmtDateShort(currentMonday) + ' – ' + fmtDateShort(friday) + ' ' + currentMonday.getFullYear();
+
+  var todayMonday = getMonday(today);
+  document.getElementById('btnToday').className = 'btn-today' + (currentMonday.getTime()===todayMonday.getTime()?' hidden':'');
+
+  // Day header
+  var dhHtml = '';
+  for(var d=0;d<5;d++){
+    var dd = addDays(currentMonday, d);
+    var dStr = toStr(dd);
+    var cls = 'day-hdr-cell';
+    var holName = HOLIDAYS[dStr] || '';
+    if(dStr===todayStr) cls += ' today';
+    else if(holName) cls += ' holiday';
+    dhHtml += '<div class="'+cls+'"><div class="dn">'+DN[d]+'</div><div class="dd">'+dd.getDate()+'</div>'+(holName?'<div class="hol-name">'+esc(holName)+'</div>':'')+'</div>';
+  }
+  document.getElementById('dayHeaderRow').innerHTML = dhHtml;
+
+  // Build ordered rows matching Gantt file order (root tasks in array order, children nested)
+  var childrenOf = {};
+  tasks.forEach(function(t){
+    if(t.parentId){
+      if(!childrenOf[t.parentId]) childrenOf[t.parentId] = [];
+      childrenOf[t.parentId].push(t);
+    }
+  });
+
+  function addChildren(parentId, depth, list){
+    var ch = childrenOf[parentId];
+    if(!ch) return;
+    ch.forEach(function(t){
+      if(t.hidden) return;
+      if(t.type==='urlaub'||t.type==='meeting') return;
+      var matches = !!t.showInTaskView && canSeeTask(t);
+      if(matches && taskInWeek(t, monStr, sunStr)){
+        list.push({task:t, depth:0});
+      }
+      // Always recurse to find matching descendants
+      addChildren(t.id, depth+1, list);
+    });
+  }
+
+  // Helper: does a task have any matching descendants in this week? (recursive)
+  function hasMatchingDescendant(parentId){
+    var ch = childrenOf[parentId];
+    if(!ch) return false;
+    return ch.some(function(c){
+      if(c.hidden) return false;
+      if(c.showInTaskView && canSeeTask(c)){
+        if(taskInWeek(c, monStr, sunStr)) return true;
+      }
+      return hasMatchingDescendant(c.id);
+    });
+  }
+
+  var orderedNormal = [];
+  // Root tasks in original array order
+  tasks.forEach(function(t){
+    if(t.parentId) return;
+    if(t.hidden) return;
+    if(t.type==='urlaub'||t.type==='meeting') return;
+    var rootMatches = !!t.showInTaskView && canSeeTask(t);
+    if(rootMatches && taskInWeek(t, monStr, sunStr)){
+      orderedNormal.push({task:t, depth:0});
+    }
+    // Always recurse to find matching descendants
+    addChildren(t.id, 1, orderedNormal);
+  });
+
+  var vacations = tasks.filter(function(t){ return t.type==='urlaub'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
+  var meetings = tasks.filter(function(t){ return t.type==='meeting'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
+  function canSeeOutlookEvent(t){
+    if(currentUser && currentUser.toLowerCase()==='admin') return true;
+    if(!currentUserEmail) return false;
+    if(t.ownerEmail && t.ownerEmail===currentUserEmail) return true;
+    return false;
+  }
+  // Outlook-Termine aus tasks: nur anzeigen wenn User berechtigt ist
+  var filteredMeetings = meetings.filter(function(t){
+    if(t.source==='outlook') return canSeeOutlookEvent(t);
+    return true;
+  });
+  var outlookInWeek = outlookEvents.filter(function(t){
+    if(!taskInWeek(t, monStr, sunStr)) return false;
+    return canSeeOutlookEvent(t);
+  });
+  var allMeetings = filteredMeetings.concat(outlookInWeek);
+  allMeetings.sort(function(a,b){
+    if(a.start!==b.start) return a.start<b.start?-1:1;
+    if(a.startTime&&b.startTime&&a.startTime!==b.startTime) return a.startTime<b.startTime?-1:1;
+    return 0;
+  });
+
+  var html = '';
+
+  // ── Persönliche To-Do Liste (ganz oben) ──
+  if(currentUser){
+    html += renderPersonalTodoSection();
+  }
+
+  // ── Personal todos mit Datum als virtuelle Aufgaben sammeln ──
+  var personalInWeek = [];
+  if(currentUser){
+    personalTodos.forEach(function(pt,idx){
+      if(!pt.date||pt.done) return;
+      if(pt.date>=monStr&&pt.date<=sunStr){
+        personalInWeek.push({
+          id:'_ptodo_'+idx,
+          name:pt.text,
+          start:pt.date,
+          end:pt.date,
+          progress:0,
+          done:false,
+          type:'personal_todo',
+          _ptodoIdx:idx
+        });
+      }
+    });
+  }
+
+  // ── Normal tasks ──
+  var totalAufgaben = orderedNormal.length + personalInWeek.length;
+  if(totalAufgaben){
+    html += '<div class="section-row"><span class="section-icon">&#9654;</span>Aufgaben<span class="section-count">'+totalAufgaben+'</span></div>';
+    orderedNormal.forEach(function(item){ html += renderRow(item.task, monStr, sunStr, item.depth > 0); });
+    personalInWeek.forEach(function(pt){ html += renderRow(pt, monStr, sunStr, false); });
+  }
+
+  // ── Vacations ──
+  if(vacations.length){
+    html += '<div class="section-row"><span class="section-icon">&#127958;</span>Urlaub<span class="section-count">'+vacations.length+'</span></div>';
+    vacations.forEach(function(t){ html += renderRow(t, monStr, sunStr, false); });
+  }
+
+  // ── Meetings (manuell + Outlook) ──
+  if(allMeetings.length){
+    html += '<div class="section-row"><span class="section-icon">&#128197;</span>Meetings<span class="section-count">'+allMeetings.length+'</span></div>';
+    allMeetings.forEach(function(t){ html += renderRow(t, monStr, sunStr, false); });
+  }
+
+  if(!html) html = '<div class="empty-message">Keine Aufgaben in dieser Woche.</div>';
+  document.getElementById('ganttBody').innerHTML = html;
+  document.getElementById('ganttBody').style.display = 'block';
+  document.getElementById('loadingArea').style.display = 'none';
+
+}
+
+function renderRow(t, monStr, sunStr, isChild) {
+  var s = getStatus(t);
+  var isPrivate = t.visibleTo && t.visibleTo.length>0 && t.visibleTo.filter(function(v,i,a){return a.indexOf(v)===i;}).length<ALL_USERS_DISPLAY.length;
+  var color = t.type==='personal_todo' ? '#f59e0b' : t.type==='urlaub' ? '#f59e0b' : t.source==='outlook' ? '#8b5cf6' : isPrivate ? 'rgba(245,158,11,0.5)' : '#60a5fa';
+  var pct = t.progress || 0;
+  var name = esc(t.name || '');
+  var childCls = isChild ? ' child-row' : '';
+
+  var labelCls = isChild ? ' child-label' : '';
+  var childCls2 = isChild ? ' child-row' : '';
+
+  var clickAction = t.type==='personal_todo' ? 'openPersonalTodoFromBar('+t._ptodoIdx+')' : 'showDetail('+(typeof t.id==='string' ? "'"+t.id.replace(/'/g,"\\'")+"'" : t.id)+')';
+  var h = '<div class="gantt-group" onclick="'+clickAction+'">';
+
+  // Label row
+  var timeLabel = (t.source==='outlook'&&t.startTime) ? esc(t.startTime)+(t.endTime?' – '+esc(t.endTime):'') : '';
+  h += '<div class="gantt-label-row'+labelCls+'">'+name+'</div>';
+
+  // Bar row
+  h += '<div class="gantt-row'+childCls2+'">';
+  h += '<div class="day-cells">';
+  for(var d=0;d<5;d++){
+    var dStr = toStr(addDays(new Date(monStr),d));
+    var cls = 'day-cell';
+    if(dStr===todayStr) cls += ' today-col';
+    else if(HOLIDAYS[dStr]) cls += ' holiday-col';
+    h += '<div class="'+cls+'"></div>';
+  }
+
+  // Bars
+  var doneCls = s==='done'?' done-bar':'';
+  if(t.type==='urlaub' && t.urlaubPeriods && t.urlaubPeriods.length){
+    t.urlaubPeriods.forEach(function(up){
+      if(up.start<=sunStr && up.end>=monStr){
+        var ubp = barPos(up.start, up.end, monStr, sunStr);
+        h += '<div class="task-bar" style="left:'+ubp.left+'%;width:'+ubp.width+'%">';
+        h += '<div class="bar-bg" style="background:'+color+'"></div>';
+        h += '</div>';
+      }
+    });
+  } else {
+    var bp = barPos(t.start, t.end, monStr, sunStr);
+    h += '<div class="task-bar'+doneCls+'" style="left:'+bp.left+'%;width:'+bp.width+'%">';
+    h += '<div class="bar-bg" style="background:'+color+'">';
+    if(pct>0 && pct<100){
+      h += '<div class="bar-progress" style="width:'+pct+'%"></div>';
+    }
+    h += '</div>';
+    if(timeLabel) h += '<span class="bar-time">'+timeLabel+'</span>';
+    if(taskTodos[t.id]&&taskTodos[t.id].length) h += '<div class="todo-dot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12l2 2 4-4"/><path d="M9 17h6"/></svg></div>';
+    h += '</div>';
+
+    if(t.extraPeriods&&t.extraPeriods.length){
+      t.extraPeriods.forEach(function(ep){
+        if(ep.start<=sunStr && ep.end>=monStr){
+          var ebp = barPos(ep.start, ep.end, monStr, sunStr);
+          h += '<div class="task-bar-extra" style="left:'+ebp.left+'%;width:'+ebp.width+'%;background:'+color+'"></div>';
+        }
+      });
+    }
+  }
+
+  h += '</div>'; // day-cells
+  h += '</div>'; // gantt-row
+  h += '</div>'; // gantt-group
+  return h;
+}
+
+// ── Detail / Edit Modal ──
+var _editTaskId=null;
+function showDetail(id) {
+  var t=null;
+  for(var i=0;i<tasks.length;i++){if(tasks[i].id===id){t=tasks[i];break;}}
+  if(!t){for(var i=0;i<outlookEvents.length;i++){if(outlookEvents[i].id===id){t=outlookEvents[i];break;}}}
+  if(!t) return;
+
+  // Outlook-Termine: editierbare Ansicht
+  if(t.source==='outlook'){
+    _editMeetingId=t.id;
+    var h=todoSectionHtml();
+    h+='<h2 class="modal-heading">Meeting bearbeiten</h2>';
+    h+='<div class="add-field"><label>Name</label>';
+    h+='<input type="text" id="editMeetingName" value="'+esc(t.name||'')+'"></div>';
+    h+='<div class="add-field"><label>Beginn (Datum)</label>';
+    h+='<input type="date" id="editMeetingStart" value="'+(t.start||'')+'"></div>';
+    h+='<div class="add-field"><label>Ende (Datum)</label>';
+    h+='<input type="date" id="editMeetingEnd" value="'+(t.end||t.start||'')+'"></div>';
+    h+='<div class="field-row">';
+    h+='<div class="add-field field-half"><label>Startzeit</label>';
+    h+='<input type="time" id="editMeetingStartTime" value="'+(t.startTime||'')+'"></div>';
+    h+='<div class="add-field field-half"><label>Endzeit</label>';
+    h+='<input type="time" id="editMeetingEndTime" value="'+(t.endTime||'')+'"></div>';
+    h+='</div>';
+    h+='<div class="add-field"><label>Organisator</label>';
+    h+='<input type="text" id="editMeetingOrganizer" value="'+esc(t.organizer||'')+'"></div>';
+    h+='<div class="add-error" id="editMeetingError"></div>';
+    h+='<div class="add-actions">';
+    h+='<button class="btn-cancel" onclick="closeModal()">Abbrechen</button>';
+    h+='<button class="btn-save" onclick="saveMeeting()">Speichern</button>';
+    h+='</div>';
+    h+='<button class="btn-delete" id="btnDelMeeting">Meeting löschen</button>';
+    document.getElementById('modalContent').innerHTML=h;
+    document.getElementById('btnDelMeeting').addEventListener('click',function(){askDeleteMeeting(_editMeetingId,document.getElementById('editMeetingName').value);});
+    _currentTodoTaskId=t.id;
+    loadTodos(t.id,renderTodoList);
+    document.getElementById('modalBg').classList.add('open');
+    return;
+  }
+
+  _editTaskId=id;
+  var pct=t.progress||0;
+
+  var h=todoSectionHtml();
+  h+='<h2>Aufgabe bearbeiten</h2>';
+
+  // Name
+  h+='<div class="add-field"><label>Name</label>';
+  h+='<input type="text" id="editName" value="'+esc(t.name||'')+'"></div>';
+
+  // Parent
+  h+='<div class="add-field"><label>Übergeordnete Aufgabe</label>';
+  h+='<select id="editParent"><option value="">— Keine (Hauptaufgabe) —</option>';
+  tasks.forEach(function(p){
+    if(p.parentId||p.hidden||p.type==='urlaub'||p.type==='meeting'||p.id===id) return;
+    h+='<option value="'+p.id+'"'+(t.parentId===p.id?' selected':'')+'>'+esc(p.name)+'</option>';
+  });
+  h+='</select></div>';
+
+  // Start
+  h+='<div class="add-field"><label>Beginn</label>';
+  h+='<input type="date" id="editStart" value="'+(t.start||'')+'"></div>';
+
+  // End
+  h+='<div class="add-field"><label>Ende</label>';
+  h+='<input type="date" id="editEnd" value="'+(t.end||'')+'"></div>';
+
+  // Progress
+  if(t.type!=='urlaub'&&t.type!=='meeting'){
+    h+='<div class="add-field"><label>Fortschritt ('+pct+'%)</label>';
+    h+='<input type="range" id="editProgress" min="0" max="100" value="'+pct+'" style="min-height:auto;padding:0" oninput="this.previousElementSibling.textContent=\'Fortschritt (\'+this.value+\'%)\'"></div>';
+  }
+
+  // Done checkbox
+  h+='<div class="add-field" style="display:flex;align-items:center;gap:10px">';
+  h+='<input type="checkbox" id="editDone" style="width:20px;height:20px;min-height:auto;padding:0;accent-color:var(--green)"'+(t.done?' checked':'')+'>';
+  h+='<label style="margin:0" for="editDone">Erledigt</label></div>';
+
+  // Sichtbarkeit
+  h+=visibilityChipsHtml(t.visibleTo);
+
+  // Error
+  h+='<div class="add-error" id="editError"></div>';
+
+  // Action buttons
+  h+='<div class="add-actions">';
+  h+='<button class="btn-cancel" onclick="closeModal()">Abbrechen</button>';
+  h+='<button class="btn-save" onclick="saveEditTask()">Speichern</button>';
+  h+='</div>';
+
+  // Delete button
+  h+='<button class="btn-delete" onclick="askDelete('+t.id+',\''+esc(t.name).replace(/'/g,"\\'")+'\')">Aufgabe löschen</button>';
+
+  document.getElementById('modalContent').innerHTML=h;
+  _currentTodoTaskId=id;
+  loadTodos(id,renderTodoList);
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(){ _editTaskId=null; document.getElementById('modalBg').classList.remove('open'); }
+
+// ── TO-DO FUNKTIONEN (gespeichert in technology/state.todos) ──
+function loadAllTodos(){
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists)return;
+    var d=doc.data();
+    taskTodos=d.todos||{};
+    render();
+  }).catch(function(e){console.warn('Todos laden fehlgeschlagen:',e);});
+}
+function loadTodos(taskId,cb){
+  var id=String(taskId);
+  cb(taskTodos[id]||[]);
+}
+function saveTodos(taskId,items){
+  var id=String(taskId);
+  items=items.filter(function(it){return it.text.trim()||it.date;});
+  if(!items.length){ delete taskTodos[id]; } else { taskTodos[id]=items; }
+  var update={};
+  update['todos.'+id]=items.length?items:firebase.firestore.FieldValue.delete();
+  GANTT_DOC.update(update).catch(function(e){console.warn('Todos speichern fehlgeschlagen:',e);});
+  render();
+}
+
+// ── TO-DO UI FUNKTIONEN ──
+var _currentTodoTaskId=null;
+function renderTodoList(items){
+  var el=document.getElementById('todoList');
+  if(!el)return;
+  var h='';
+  items.forEach(function(it,i){
+    h+='<div class="todo-item">';
+    h+='<span class="todo-num">'+(i+1)+'.</span>';
+    h+='<textarea placeholder="Beschreibung" rows="1">'+esc(it.text||'')+'</textarea>';
+    h+='<button class="todo-del" onclick="removeTodoRow('+i+')" title="Entfernen">&#x2715;</button>';
+    h+='</div>';
+  });
+  el.innerHTML=h;
+}
+function addTodoRow(){
+  var el=document.getElementById('todoList');
+  if(!el)return;
+  var d=document.createElement('div');d.className='todo-item';
+  var num=el.querySelectorAll('.todo-item').length+1;
+  d.innerHTML='<span class="todo-num">'+num+'.</span>'
+    +'<textarea placeholder="Beschreibung" rows="1"></textarea>'
+    +'<button class="todo-del" onclick="removeTodoRow(-1,this)" title="Entfernen">&#x2715;</button>';
+  el.appendChild(d);
+  d.querySelector('textarea').focus();
+}
+function removeTodoRow(idx,btn){
+  var el=document.getElementById('todoList');
+  if(!el)return;
+  if(btn){btn.parentElement.remove();return;}
+  var rows=el.querySelectorAll('.todo-item');
+  if(rows[idx])rows[idx].remove();
+}
+function collectTodoItems(){
+  var el=document.getElementById('todoList');
+  if(!el)return [];
+  var items=[];
+  el.querySelectorAll('.todo-item').forEach(function(row){
+    var textArea=row.querySelector('textarea');
+    var text=textArea?textArea.value:'';
+    if(text.trim()) items.push({text:text});
+  });
+  return items;
+}
+function todoSectionHtml(){
+  return '<div class="todo-section"><h3>To-Do Liste</h3>'
+    +'<div class="todo-list" id="todoList"></div>'
+    +'<button class="todo-add" onclick="addTodoRow()">+ To-Do</button></div>';
+}
+
+// ── PERSÖNLICHE TO-DO LISTE (pro Nutzer) ──
+var personalTodos = [];
+function loadPersonalTodos(){
+  if(!currentUser) return;
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var d=doc.data();
+    var all=d.personalTodos||{};
+    personalTodos=all[currentUser]||[];
+    render();
+  }).catch(function(e){console.warn('Persönliche Todos laden fehlgeschlagen:',e);});
+}
+function savePersonalTodos(){
+  if(!currentUser) return;
+  var update={};
+  update['personalTodos.'+currentUser]=personalTodos.length?personalTodos:firebase.firestore.FieldValue.delete();
+  GANTT_DOC.update(update).catch(function(e){console.warn('Persönliche Todos speichern fehlgeschlagen:',e);});
+}
+function addPersonalTodo(){
+  var input=document.getElementById('personalTodoInput');
+  if(!input) return;
+  var text=input.value.trim();
+  if(!text) return;
+  personalTodos.push({text:text,done:false,createdAt:new Date().toISOString()});
+  input.value='';
+  savePersonalTodos();
+  render();
+}
+function togglePersonalTodo(idx){
+  if(idx<0||idx>=personalTodos.length) return;
+  personalTodos[idx].done=!personalTodos[idx].done;
+  savePersonalTodos();
+  render();
+}
+function removePersonalTodo(idx){
+  if(idx<0||idx>=personalTodos.length) return;
+  personalTodos.splice(idx,1);
+  savePersonalTodos();
+  render();
+}
+var _personalTodoEditing=false;
+function savePersonalTodoText(idx,el){
+  _personalTodoEditing=false;
+  if(idx<0||idx>=personalTodos.length||!el) return;
+  var newText=(el.textContent||'').replace(/\s+/g,' ').trim();
+  var oldText=personalTodos[idx].text;
+  if(newText===oldText){ el.textContent=oldText; return; }
+  if(!newText){ el.textContent=oldText; return; }
+  personalTodos[idx].text=newText;
+  el.textContent=newText;
+  savePersonalTodos();
+}
+function fmtDateShortTodo(dStr){
+  if(!dStr) return '';
+  var p=dStr.split('-');
+  return parseInt(p[2])+'.'+parseInt(p[1])+'.';
+}
+function openPersonalTodoFromBar(idx){
+  if(!_personalTodoOpen){
+    _personalTodoOpen=true;
+    var body=document.getElementById('personalTodoBody');
+    var chevron=document.getElementById('personalTodoChevron');
+    if(body) body.classList.add('open');
+    if(chevron) chevron.classList.add('open');
+  }
+  setTimeout(function(){
+    var items=document.querySelectorAll('.personal-todo-item[data-idx="'+idx+'"]');
+    if(items.length) items[0].scrollIntoView({behavior:'smooth',block:'center'});
+  },150);
+}
+function setPersonalTodoDate(idx,val){
+  if(idx<0||idx>=personalTodos.length) return;
+  personalTodos[idx].date=val||null;
+  savePersonalTodos();
+  render();
+}
+var _personalTodoOpen = false;
+function togglePersonalTodoSection(){
+  _personalTodoOpen = !_personalTodoOpen;
+  var body = document.getElementById('personalTodoBody');
+  var chevron = document.getElementById('personalTodoChevron');
+  if(body) body.classList.toggle('open', _personalTodoOpen);
+  if(chevron) chevron.classList.toggle('open', _personalTodoOpen);
+  if(_personalTodoOpen){
+    setTimeout(function(){ var inp=document.getElementById('personalTodoInput'); if(inp) inp.focus(); },100);
+  }
+}
+function renderPersonalTodoSection(){
+  var openCount=personalTodos.filter(function(t){return !t.done;}).length;
+  var totalCount=personalTodos.length;
+  var h='<div class="personal-todo-section">';
+  h+='<div class="personal-todo-header" onclick="togglePersonalTodoSection()">';
+  h+='<div class="section-left"><span class="section-icon">&#9997;</span>To-Do Liste<span class="section-count">'+openCount+(totalCount>openCount?' / '+totalCount:'')+'</span></div>';
+  h+='<span class="personal-todo-chevron'+(_personalTodoOpen?' open':'')+'" id="personalTodoChevron">&#x276F;</span>';
+  h+='</div>';
+  h+='<div class="personal-todo-body'+(_personalTodoOpen?' open':'')+'" id="personalTodoBody">';
+  if(personalTodos.length){
+    h+='<div class="personal-todo-items" id="personalTodoItems">';
+    personalTodos.forEach(function(t,i){
+      var dateLabel=t.date?fmtDateShortTodo(t.date):'';
+      h+='<div class="personal-todo-item" data-idx="'+i+'">';
+      h+='<span class="personal-todo-drag" data-drag="true">&#x2630;</span>';
+      h+='<button class="personal-todo-check'+(t.done?' checked':'')+'" onclick="togglePersonalTodo('+i+')">'+(t.done?'&#x2713;':'')+'</button>';
+      h+='<span class="personal-todo-text'+(t.done?' checked':'')+'" contenteditable="true" spellcheck="false" data-idx="'+i+'" onfocus="_personalTodoEditing=true" onblur="savePersonalTodoText('+i+',this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}else if(event.key===\'Escape\'){event.preventDefault();this.textContent=personalTodos['+i+'].text;this.blur();}">'+esc(t.text)+'</span>';
+      h+='<div class="personal-todo-date-wrap">';
+      h+='<span class="personal-todo-date-label'+(dateLabel?'':' empty')+'" onclick="this.nextElementSibling.showPicker?this.nextElementSibling.showPicker():this.nextElementSibling.focus()">'+(dateLabel||'&#x1F4C5;')+'</span>';
+      h+='<input type="date" class="personal-todo-date" value="'+(t.date||'')+'" onchange="setPersonalTodoDate('+i+',this.value)" style="position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer">';
+      h+='</div>';
+      h+='<button class="personal-todo-del" onclick="removePersonalTodo('+i+')" title="Entfernen">&#x2715;</button>';
+      h+='</div>';
+    });
+    h+='</div>';
+  } else {
+    h+='<div class="personal-todo-empty">Keine Eintr\u00e4ge \u2013 f\u00fcge deinen ersten Punkt hinzu.</div>';
+  }
+  h+='<div class="personal-todo-add-row">';
+  h+='<input type="text" class="personal-todo-input" id="personalTodoInput" placeholder="Neuen Punkt hinzuf\u00fcgen..." onkeydown="if(event.key===\'Enter\')addPersonalTodo()">';
+  h+='<button class="personal-todo-add-btn" onclick="addPersonalTodo()">+</button>';
+  h+='</div>';
+  h+='</div>';
+  h+='</div>';
+  return h;
+}
+
+// ── Drag & Drop für persönliche To-Do Liste ──
+(function(){
+  var dragIdx=null, overIdx=null, container=null;
+
+  function getItemFromEvent(e){
+    var el=e.target.closest('.personal-todo-item');
+    if(!el) return null;
+    return {el:el, idx:parseInt(el.getAttribute('data-idx'))};
+  }
+
+  function clearDragClasses(){
+    if(!container) return;
+    container.querySelectorAll('.personal-todo-item').forEach(function(el){
+      el.classList.remove('dragging','drag-over');
+    });
+  }
+
+  function doReorder(fromIdx, toIdx){
+    if(fromIdx===toIdx||fromIdx<0||toIdx<0) return;
+    if(fromIdx>=personalTodos.length||toIdx>=personalTodos.length) return;
+    var item=personalTodos.splice(fromIdx,1)[0];
+    personalTodos.splice(toIdx,0,item);
+    savePersonalTodos();
+    render();
+  }
+
+  // ── Mouse drag ──
+  document.addEventListener('mousedown',function(e){
+    if(!e.target.closest('[data-drag]')) return;
+    var item=getItemFromEvent(e);
+    if(!item) return;
+    e.preventDefault();
+    dragIdx=item.idx;
+    container=document.getElementById('personalTodoItems');
+    item.el.classList.add('dragging');
+  });
+
+  document.addEventListener('mousemove',function(e){
+    if(dragIdx===null||!container) return;
+    var items=container.querySelectorAll('.personal-todo-item');
+    items.forEach(function(el){
+      el.classList.remove('drag-over');
+      var rect=el.getBoundingClientRect();
+      var midY=rect.top+rect.height/2;
+      if(e.clientY>=rect.top&&e.clientY<=rect.bottom){
+        var idx=parseInt(el.getAttribute('data-idx'));
+        if(idx!==dragIdx){
+          el.classList.add('drag-over');
+          overIdx=idx;
+        }
+      }
+    });
+  });
+
+  document.addEventListener('mouseup',function(){
+    if(dragIdx===null) return;
+    if(overIdx!==null&&overIdx!==dragIdx) doReorder(dragIdx,overIdx);
+    clearDragClasses();
+    dragIdx=null; overIdx=null; container=null;
+  });
+
+  // ── Touch drag ──
+  var touchStartY=0, touchItem=null;
+  document.addEventListener('touchstart',function(e){
+    var drag=e.target.closest('[data-drag]');
+    if(!drag) return;
+    var item=getItemFromEvent(e);
+    if(!item) return;
+    dragIdx=item.idx;
+    touchItem=item.el;
+    container=document.getElementById('personalTodoItems');
+    touchStartY=e.touches[0].clientY;
+    item.el.classList.add('dragging');
+  },{passive:true});
+
+  document.addEventListener('touchmove',function(e){
+    if(dragIdx===null||!container) return;
+    var ty=e.touches[0].clientY;
+    var items=container.querySelectorAll('.personal-todo-item');
+    overIdx=null;
+    items.forEach(function(el){
+      el.classList.remove('drag-over');
+      var rect=el.getBoundingClientRect();
+      if(ty>=rect.top&&ty<=rect.bottom){
+        var idx=parseInt(el.getAttribute('data-idx'));
+        if(idx!==dragIdx){
+          el.classList.add('drag-over');
+          overIdx=idx;
+        }
+      }
+    });
+  },{passive:true});
+
+  document.addEventListener('touchend',function(){
+    if(dragIdx===null) return;
+    if(overIdx!==null&&overIdx!==dragIdx) doReorder(dragIdx,overIdx);
+    clearDragClasses();
+    dragIdx=null; overIdx=null; container=null; touchItem=null;
+  });
+})();
+
+// ── Sichtbarkeit pro User ──
+function visibilityChipsHtml(selectedUsers){
+  var allSelected=!selectedUsers||!selectedUsers.length;
+  var h='<div class="add-field"><label>Sichtbar f\u00fcr</label><div class="visibility-chips" id="visChips">';
+  ALL_USERS_DISPLAY.forEach(function(u){
+    var active=allSelected||(selectedUsers&&selectedUsers.indexOf(u.name)!==-1);
+    h+='<button type="button" class="vis-chip'+(active?' active':'')+'" onclick="this.classList.toggle(\'active\')" data-user="'+esc(u.name)+'">'+esc(u.name)+'</button>';
+  });
+  h+='</div></div>';
+  return h;
+}
+function collectVisibleTo(){
+  var chips=document.querySelectorAll('#visChips .vis-chip');
+  var active=[];var total=0;
+  chips.forEach(function(c){total++;if(c.classList.contains('active'))active.push(c.getAttribute('data-user'));});
+  return active.length===total?null:active;
+}
+function canSeeTask(t){
+  if(!t.visibleTo||!t.visibleTo.length) return true;
+  return t.visibleTo.indexOf(currentUser)!==-1;
+}
+
+// ── Save Edit ──
+function saveEditTask(){
+  if(!_editTaskId) return;
+  var name=document.getElementById('editName').value.trim();
+  var parentId=document.getElementById('editParent').value;
+  var start=document.getElementById('editStart').value;
+  var end=document.getElementById('editEnd').value;
+  var progressEl=document.getElementById('editProgress');
+  var progress=progressEl?parseInt(progressEl.value):0;
+  var done=document.getElementById('editDone').checked;
+  var errEl=document.getElementById('editError');
+
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start||!end){errEl.textContent='Bitte Beginn und Ende angeben.';errEl.style.display='block';return;}
+  if(end<start){errEl.textContent='Ende darf nicht vor Beginn liegen.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+  var visibleTo=collectVisibleTo();
+
+  var editId=_editTaskId;
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var state=doc.data();
+    if(!state.tasks) return;
+    for(var i=0;i<state.tasks.length;i++){
+      if(state.tasks[i].id===editId){
+        state.tasks[i].name=name;
+        state.tasks[i].start=start;
+        state.tasks[i].end=end;
+        state.tasks[i].parentId=parentId?parseInt(parentId):null;
+        state.tasks[i].progress=progress;
+        state.tasks[i].done=done;
+        state.tasks[i].visibleTo=visibleTo;
+        break;
+      }
+    }
+    state.savedAt=new Date().toISOString();
+    // To-Dos direkt im State speichern
+    var todoItems=collectTodoItems().filter(function(it){return it.text.trim()||it.date;});
+    if(!state.todos) state.todos={};
+    if(todoItems.length) state.todos[String(editId)]=todoItems; else delete state.todos[String(editId)];
+    taskTodos=state.todos;
+    return GANTT_DOC.set(state);
+  }).then(function(){
+    closeModal();
+  }).catch(function(e){
+    console.error('Edit error:',e);
+    errEl.textContent='Fehler beim Speichern: '+e.message;
+    errEl.style.display='block';
+  });
+}
+
+// ── Delete Task ──
+var _deleteTaskId=null;
+function askDelete(id,name){
+  _deleteTaskId=id;
+  var childCount=tasks.filter(function(t){return t.parentId===id;}).length;
+  var msg='Die Aufgabe <strong>„'+name+'"</strong> wird unwiderruflich gelöscht.';
+  if(childCount>0) msg+='<br><br>⚠ Inklusive <strong>'+childCount+' Unteraufgabe'+(childCount>1?'n':'')+'</strong>.';
+  document.getElementById('confirmText').innerHTML=msg;
+  document.getElementById('confirmModalBg').classList.add('open');
+}
+function closeConfirm(){
+  _deleteTaskId=null;
+  document.getElementById('confirmModalBg').classList.remove('open');
+}
+function confirmDelete(){
+  if(!_deleteTaskId) return;
+  var delId=_deleteTaskId;
+  closeConfirm();
+  closeModal();
+
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var state=doc.data();
+    if(!state.tasks) return;
+    // Collect IDs to delete (task + all descendants)
+    var idsToDelete={};
+    idsToDelete[delId]=true;
+    var changed=true;
+    while(changed){
+      changed=false;
+      state.tasks.forEach(function(t){
+        if(t.parentId&&idsToDelete[t.parentId]&&!idsToDelete[t.id]){
+          idsToDelete[t.id]=true;
+          changed=true;
+        }
+      });
+    }
+    state.tasks=state.tasks.filter(function(t){return !idsToDelete[t.id];});
+    // Todos der gelöschten Tasks entfernen
+    if(state.todos){Object.keys(idsToDelete).forEach(function(id){delete state.todos[String(id)];});taskTodos=state.todos;}
+    state.savedAt=new Date().toISOString();
+    return GANTT_DOC.set(state);
+  }).catch(function(e){
+    console.error('Delete error:',e);
+  });
+}
+
+// ── Meeting Edit/Delete/Create (Firestore outlook_events) ──
+var _editMeetingId=null;
+var _deleteMeetingId=null;
+
+function saveMeeting(){
+  if(!_editMeetingId) return;
+  var name=document.getElementById('editMeetingName').value.trim();
+  var start=document.getElementById('editMeetingStart').value;
+  var end=document.getElementById('editMeetingEnd').value;
+  var startTime=document.getElementById('editMeetingStartTime').value;
+  var endTime=document.getElementById('editMeetingEndTime').value;
+  var organizer=document.getElementById('editMeetingOrganizer').value.trim();
+  var errEl=document.getElementById('editMeetingError');
+
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start){errEl.textContent='Bitte ein Startdatum angeben.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  var docId=_editMeetingId.replace('outlook_','');
+  var meetingId=_editMeetingId;
+  OUTLOOK_COL.doc(docId).set({
+    name: name,
+    start: start,
+    end: end||start,
+    startTime: startTime||'',
+    endTime: endTime||'',
+    organizer: organizer,
+    type: 'meeting',
+    source: 'outlook'
+  },{merge:true}).then(function(){
+    saveTodos(meetingId,collectTodoItems());
+    closeModal();
+  }).catch(function(e){
+    errEl.textContent='Fehler: '+e.message;
+    errEl.style.display='block';
+  });
+}
+
+function askDeleteMeeting(id,name){
+  _deleteMeetingId=id;
+  document.getElementById('confirmText').innerHTML='Das Meeting <strong>„'+name+'"</strong> wird unwiderruflich gelöscht.';
+  document.getElementById('confirmModalBg').classList.add('open');
+}
+
+function confirmDeleteMeeting(){
+  if(!_deleteMeetingId) return;
+  var docId=_deleteMeetingId.replace('outlook_','');
+  _deleteMeetingId=null;
+  document.getElementById('confirmModalBg').classList.remove('open');
+  closeModal();
+  // Markiere als gelöscht statt zu löschen (verhindert dass Apps Script es wieder anlegt)
+  OUTLOOK_COL.doc(docId).set({
+    deleted: true,
+    name: '',
+    start: '',
+    end: '',
+    type: 'meeting',
+    source: 'outlook'
+  },{merge:true}).catch(function(e){console.error('Delete meeting error:',e);});
+}
+
+function openAddMeeting(){
+  var todayD=new Date();
+  var h='<h2 class="modal-heading">Neues Meeting<span class="badge-meeting">Meeting</span></h2>';
+  h+='<div class="add-field"><label>Name</label>';
+  h+='<input type="text" id="editMeetingName" placeholder="Meetingname eingeben"></div>';
+  h+='<div class="add-field"><label>Beginn (Datum)</label>';
+  h+='<input type="date" id="editMeetingStart" value="'+toStr(todayD)+'"></div>';
+  h+='<div class="add-field"><label>Ende (Datum)</label>';
+  h+='<input type="date" id="editMeetingEnd" value="'+toStr(todayD)+'"></div>';
+  h+='<div class="field-row">';
+  h+='<div class="add-field field-half"><label>Startzeit</label>';
+  h+='<input type="time" id="editMeetingStartTime" value="09:00"></div>';
+  h+='<div class="add-field field-half"><label>Endzeit</label>';
+  h+='<input type="time" id="editMeetingEndTime" value="10:00"></div>';
+  h+='</div>';
+  h+='<div class="add-field"><label>Organisator</label>';
+  h+='<input type="text" id="editMeetingOrganizer" placeholder="optional"></div>';
+  h+='<div class="add-error" id="editMeetingError"></div>';
+  h+='<div class="add-actions">';
+  h+='<button class="btn-cancel" onclick="closeModal()">Abbrechen</button>';
+  h+='<button class="btn-save" onclick="saveNewMeeting()">Erstellen</button>';
+  h+='</div>';
+  document.getElementById('modalContent').innerHTML=h;
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(function(){document.getElementById('editMeetingName').focus();},300);
+}
+
+function saveNewMeeting(){
+  var name=document.getElementById('editMeetingName').value.trim();
+  var start=document.getElementById('editMeetingStart').value;
+  var end=document.getElementById('editMeetingEnd').value;
+  var startTime=document.getElementById('editMeetingStartTime').value;
+  var endTime=document.getElementById('editMeetingEndTime').value;
+  var organizer=document.getElementById('editMeetingOrganizer').value.trim();
+  var errEl=document.getElementById('editMeetingError');
+
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start){errEl.textContent='Bitte ein Startdatum angeben.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+
+  var docId='manual_'+Date.now();
+  // ownerEmail setzen, damit Firestore-Rules writeIsOwner()-Check besteht.
+  // Ohne das Feld lehnt die Regel den Create ab.
+  OUTLOOK_COL.doc(docId).set({
+    name: name,
+    start: start,
+    end: end||start,
+    startTime: startTime||'',
+    endTime: endTime||'',
+    organizer: organizer,
+    ownerEmail: currentUserEmail||'',
+    type: 'meeting',
+    source: 'outlook'
+  }).then(function(){
+    closeModal();
+  }).catch(function(e){
+    errEl.textContent='Fehler: '+e.message;
+    errEl.style.display='block';
+  });
+}
+
+// ── Add Task ──
+function openAddTask(){
+  // Populate parent dropdown
+  var sel=document.getElementById('addParent');
+  sel.innerHTML='<option value="">— Keine (Hauptaufgabe) —</option>';
+  tasks.forEach(function(t){
+    if(t.parentId||t.hidden||t.type==='urlaub'||t.type==='meeting') return;
+    var o=document.createElement('option');
+    o.value=t.id;
+    o.textContent=t.name;
+    sel.appendChild(o);
+  });
+  // Default dates: today + 7 days
+  var todayD=new Date();
+  document.getElementById('addStart').value=toStr(todayD);
+  document.getElementById('addEnd').value=toStr(addDays(todayD,7));
+  document.getElementById('addName').value='';
+  document.getElementById('addVisibility').innerHTML=visibilityChipsHtml(null);
+  document.getElementById('addError').style.display='none';
+  document.getElementById('addModalBg').classList.add('open');
+  setTimeout(function(){document.getElementById('addName').focus();},300);
+}
+
+function closeAddModal(){
+  document.getElementById('addModalBg').classList.remove('open');
+}
+
+function saveNewTask(){
+  var name=document.getElementById('addName').value.trim();
+  var parentId=document.getElementById('addParent').value;
+  var start=document.getElementById('addStart').value;
+  var end=document.getElementById('addEnd').value;
+  var errEl=document.getElementById('addError');
+
+  // Validation
+  if(!name){errEl.textContent='Bitte einen Namen eingeben.';errEl.style.display='block';return;}
+  if(!start||!end){errEl.textContent='Bitte Beginn und Ende angeben.';errEl.style.display='block';return;}
+  if(end<start){errEl.textContent='Ende darf nicht vor Beginn liegen.';errEl.style.display='block';return;}
+  errEl.style.display='none';
+  var visibleTo=collectVisibleTo();
+
+  // Read fresh state from Firestore, add task, write back
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists){errEl.textContent='Fehler: Kein gespeicherter State gefunden.';errEl.style.display='block';return;}
+    var state=doc.data();
+    var nid=state.nid||state.tasks.length+2;
+    var newTask={
+      id:nid,
+      name:name,
+      start:start,
+      end:end,
+      progress:0,
+      color:'#4f6ef7',
+      deps:[],
+      parentId:parentId?parseInt(parentId):null,
+      extraPeriods:[],
+      milestone:null,
+      done:false,
+      showInTaskView:true,
+      visibleTo:visibleTo
+    };
+    state.tasks.push(newTask);
+    state.nid=nid+1;
+    state.savedAt=new Date().toISOString();
+    return GANTT_DOC.set(state);
+  }).then(function(){
+    closeAddModal();
+    // The onSnapshot listener will automatically pick up the change and re-render
+  }).catch(function(e){
+    console.error('Save error:',e);
+    errEl.textContent='Fehler beim Speichern: '+e.message;
+    errEl.style.display='block';
+  });
+}
+
+// ── Swipe ──
+(function(){
+  var sx=0,sy=0,sw=false;
+  var el=document.getElementById('ganttBody');
+  el.addEventListener('touchstart',function(e){sx=e.touches[0].clientX;sy=e.touches[0].clientY;sw=true;},{passive:true});
+  el.addEventListener('touchend',function(e){
+    if(!sw)return; sw=false;
+    var dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.5) changeWeek(dx<0?1:-1);
+  },{passive:true});
+})();
+
+// ── Firebase ──
+function markConnected(){ document.getElementById('statusDot').className='status-dot connected'; }
+function markError(){ document.getElementById('statusDot').className='status-dot error'; }
+function doRefresh(){
+  GANTT_DOC.get().then(function(doc){
+    if(doc.exists){var d=doc.data();if(d.tasks&&d.tasks.length){tasks=d.tasks;render();}}
+    markConnected();
+  }).catch(function(){markError();});
+}
+
+// ── BENUTZERVERWALTUNG (Firebase Auth) ──
+// E-Mail → Display-Name-Mapping: bewahrt die bestehende currentUser-Semantik
+// (Admin/FBR/YYA), ohne die bestehenden Firestore-Tasks mit visibleTo-Listen
+// und personalTodos-Keys umzubenennen. Neue User hier ergänzen.
+var EMAIL_DISPLAY = {
+  'dominik.dannenbauer@xolution.com': 'Admin',
+  'fabian.brummer@xolution.com': 'FBR',
+  'yusuf.yaman@xolution.com': 'YYA'
+};
+// Admin-Rolle: Hard-Allowlist auf Email-Basis. Muss mit der isOutlookAdmin()-
+// Regel in firestore.rules konsistent sein, sonst sieht der Admin im Client
+// weniger (oder mehr) als die DB erlaubt. Beim Ändern beide Stellen anfassen.
+var ADMIN_EMAILS = ['dominik.dannenbauer@xolution.com'];
+// Alle bekannten Display-Namen (fuer Sichtbarkeits-Chips und Privacy-Check).
+// Bleibt stabil an EMAIL_DISPLAY gekoppelt — neue User dort ergaenzen genuegt.
+var ALL_USERS_DISPLAY = (function(){
+  var arr=[];
+  for(var e in EMAIL_DISPLAY){ if(EMAIL_DISPLAY.hasOwnProperty(e)) arr.push({name: EMAIL_DISPLAY[e]}); }
+  return arr;
+})();
+
+var currentUser = null;
+var currentUserRole = null;
+var currentUserEmail = null;
+function updateUserDisplay(){
+  var el=document.getElementById('userDisplay');
+  if(el) el.textContent=currentUser?currentUser:'';
+}
+var _firebaseStarted = false;
+
+function doLogin(){
+  var email=(document.getElementById('login-email').value||'').trim().toLowerCase();
+  var pw=document.getElementById('login-pw').value;
+  var err=document.getElementById('login-err');
+  if(!email||!pw){
+    err.textContent='Bitte E-Mail und Passwort eingeben.';
+    setTimeout(function(){err.textContent='';},3000);
+    return;
+  }
+  err.textContent='';
+  firebase.auth().signInWithEmailAndPassword(email, pw).catch(function(e){
+    // Generisch halten (kein "User nicht gefunden" vs. "Passwort falsch"),
+    // um User-Enumeration über das Login zu vermeiden.
+    err.textContent='Anmeldung fehlgeschlagen.';
+    document.getElementById('login-pw').select();
+    setTimeout(function(){err.textContent='';},3000);
+  });
+}
+
+function firebaseStart(){
+  if(_firebaseStarted) return;
+  _firebaseStarted=true;
+
+  loadAllTodos();
+  GANTT_DOC.get().then(function(doc){
+    if(doc.exists){var d=doc.data();if(d.tasks&&d.tasks.length) tasks=d.tasks;if(d.personalTodos&&currentUser) personalTodos=d.personalTodos[currentUser]||[];}
+    render(); markConnected();
+  }).catch(function(e){
+    console.error('Firebase error:',e);
+    document.getElementById('loadingArea').innerHTML='<div class="error-message">&#x26A0; Verbindung fehlgeschlagen<br><button onclick="location.reload()" class="btn-retry">Erneut versuchen</button></div>';
+    markError();
+  });
+
+  _unsubGantt = GANTT_DOC.onSnapshot(function(doc){
+    if(!doc.exists)return;
+    var d=doc.data();if(!d||!d.tasks)return;
+    tasks=d.tasks;
+    if(d.todos) taskTodos=d.todos;
+    if(d.personalTodos&&currentUser) personalTodos=d.personalTodos[currentUser]||[];
+    if(_personalTodoEditing){ markConnected(); return; }
+    render(); markConnected();
+  },function(err){console.warn('Snapshot error:',err);});
+
+  // ── Outlook-Termine via outlook_sync.py (ol_* Dokumente) ──
+  // Firestore-Rules erlauben Reads nur auf Events mit matching ownerEmail;
+  // Admin (isOutlookAdmin in den Rules) liest alle. Client-Filter ist nötig,
+  // weil List-Queries auf nicht-matchende Docs einen permission-denied
+  // Snapshot-Error werfen und die Subscription killen.
+  var outlookQuery = (currentUserRole==='admin')
+    ? OUTLOOK_COL
+    : OUTLOOK_COL.where('ownerEmail','==',currentUserEmail);
+  _unsubOutlook = outlookQuery.onSnapshot(function(snap){
+    outlookEvents=[];
+    snap.forEach(function(doc){
+      var d=doc.data();
+      if(!doc.id.startsWith('ol_')) return;
+      if(d.deleted) return;
+      var att=Array.isArray(d.attendees)?d.attendees.map(function(a){return(a||'').toLowerCase();}):[];
+      outlookEvents.push({
+        id:'outlook_'+doc.id,
+        name:d.name||d.subject||'Outlook-Termin',
+        start:d.start||'',
+        end:d.end||d.start||'',
+        startTime:d.startTime||'',
+        endTime:d.endTime||'',
+        organizer:d.organizer||'',
+        attendees:att,
+        ownerEmail:(d.ownerEmail||'').toLowerCase(),
+        type:'meeting',
+        source:'outlook',
+        progress:0,
+        done:false
+      });
+    });
+    if(tasks.length>0) render();
+  },function(err){
+    console.warn('Outlook events nicht verfügbar:',err);
+  });
+}
+
+function showLogin(){
+  document.getElementById('login-overlay').style.display='flex';
+  setTimeout(function(){var el=document.getElementById('login-email');if(el)el.focus();},100);
+}
+
+function doLogout(){
+  // Der onAuthStateChanged-Handler unten räumt State/UI/Subscriptions auf —
+  // signOut() triggert ihn mit user==null. Nichts manuell unsubscribe-en,
+  // damit es nur eine Aufräum-Stelle gibt (verhindert doppeltes Unsub und
+  // inkonsistenten Zwischenzustand, falls signOut async zurueckkommt).
+  firebase.auth().signOut();
+}
+
+// ── Initialisierung: Firebase-Auth-Zustand beobachten ──
+// Kein manueller localStorage-Session-Cache mehr — Firebase Auth persistiert
+// den Login selbst (IndexedDB via Firebase SDK). onAuthStateChanged feuert
+// initial (Page-Load) und bei jedem Login/Logout, d.h. ist die einzige
+// Quelle der Wahrheit fuer currentUser/currentUserRole/currentUserEmail.
+firebase.auth().onAuthStateChanged(function(user){
+  if(user){
+    currentUserEmail=(user.email||'').toLowerCase();
+    currentUser=EMAIL_DISPLAY[currentUserEmail]||currentUserEmail.split('@')[0];
+    currentUserRole=(ADMIN_EMAILS.indexOf(currentUserEmail)>=0)?'admin':'user';
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('mainHeader').style.display='';
+    updateUserDisplay();
+    document.getElementById('login-pw').value='';
+    firebaseStart();
+  } else {
+    if(_unsubGantt){_unsubGantt();_unsubGantt=null;}
+    if(_unsubOutlook){_unsubOutlook();_unsubOutlook=null;}
+    currentUser=null;
+    currentUserRole=null;
+    currentUserEmail=null;
+    _firebaseStarted=false;
+    updateUserDisplay();
+    document.getElementById('mainHeader').style.display='none';
+    showLogin();
+    document.getElementById('login-pw').value='';
+  }
+});
+
+/* ── Dynamisches UI-Scaling: passt Schriftgroessen/Abstaende an Fensterbreite an ── */
+(function(){
+  var DESIGN_WIDTH = 520;   // Referenzbreite, bei der Scale = 1
+  var MIN_SCALE = 0.55;
+  var MAX_SCALE = 1.40;
+  function applyScale(){
+    var w = window.innerWidth || document.documentElement.clientWidth;
+    var s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, w / DESIGN_WIDTH));
+    document.documentElement.style.setProperty('--ui-scale', s.toFixed(3));
+  }
+  applyScale();
+  window.addEventListener('resize', applyScale);
+})();
+</script>
+</body>
+</html>
