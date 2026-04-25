@@ -50,6 +50,15 @@
   db.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, useFetchStreams: false, merge: true });
   firebase.firestore.setLogLevel('silent');
   var GANTT_DOC = db.collection('technology').doc('state');
+
+  // Auth-Persistenz explizit auf LOCAL (IndexedDB im Edge-Profil). Default
+  // ist zwar bereits LOCAL, aber wenn das Profil in einem flüchtigen Ordner
+  // liegt (z.B. altes %TEMP%) ist die Session beim nächsten Start weg.
+  // Mit der Tray-Variante PROFILE_DIR=%LOCALAPPDATA%\TaskView\edge-profile
+  // bleibt sie persistent.
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(e){
+    console.warn('Auth-Persistenz LOCAL fehlgeschlagen:', e);
+  });
 </script>
 <style>
 :root {
@@ -1139,10 +1148,16 @@ function loadTodos(taskId,cb){
 function saveTodos(taskId,items){
   var id=String(taskId);
   items=items.filter(function(it){return it.text.trim()||it.date;});
+  var prev=taskTodos[id];
   if(!items.length){ delete taskTodos[id]; } else { taskTodos[id]=items; }
   var update={};
   update['todos.'+id]=items.length?items:firebase.firestore.FieldValue.delete();
-  GANTT_DOC.update(update).catch(function(e){console.warn('Todos speichern fehlgeschlagen:',e);});
+  GANTT_DOC.update(update).catch(function(e){
+    console.warn('Todos speichern fehlgeschlagen:',e);
+    if(prev===undefined){ delete taskTodos[id]; } else { taskTodos[id]=prev; }
+    render();
+    _showToast('Speichern fehlgeschlagen: '+(e&&e.code?e.code:e&&e.message?e.message:'unbekannt'),'error');
+  });
   render();
 }
 
@@ -1196,6 +1211,29 @@ function todoSectionHtml(){
     +'<button class="todo-add" onclick="addTodoRow()">+ To-Do</button></div>';
 }
 
+// ── Toast für sichtbares Schreib-Feedback ──
+// Zeigt ein kurzes Banner unten auf dem Screen. Wird von savePersonalTodos
+// und saveTodos genutzt, damit Schreibfehler (permission-denied, App-Check,
+// offline) nicht mehr stillschweigend in console.warn versanden.
+function _showToast(text, kind){
+  var el=document.getElementById('appToast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='appToast';
+    el.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);'
+      +'padding:10px 16px;border-radius:8px;font-size:14px;font-weight:500;'
+      +'box-shadow:0 4px 12px rgba(0,0,0,.18);z-index:9999;max-width:90vw;'
+      +'opacity:0;transition:opacity .25s ease;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent=text;
+  el.style.background = (kind==='error') ? '#ef4444' : '#22c55e';
+  el.style.color='#fff';
+  el.style.opacity='1';
+  clearTimeout(el._hideT);
+  el._hideT=setTimeout(function(){el.style.opacity='0';}, kind==='error'?5000:2200);
+}
+
 // ── PERSÖNLICHE TO-DO LISTE (pro Nutzer) ──
 var personalTodos = [];
 function loadPersonalTodos(){
@@ -1208,32 +1246,50 @@ function loadPersonalTodos(){
     render();
   }).catch(function(e){console.warn('Persönliche Todos laden fehlgeschlagen:',e);});
 }
-function savePersonalTodos(){
+// savePersonalTodos persistiert die aktuelle personalTodos-Liste. rollback
+// ist eine Funktion, die die lokale Mutation rückgängig macht, wenn Firestore
+// den Write ablehnt — verhindert "wirkt gespeichert, ist aber nicht da"-Bugs
+// nach Reload (genau das Pattern, das nach PC-Neustart Daten verschwinden ließ).
+function savePersonalTodos(rollback){
   if(!currentUser) return;
   var update={};
   update['personalTodos.'+currentUser]=personalTodos.length?personalTodos:firebase.firestore.FieldValue.delete();
-  GANTT_DOC.update(update).catch(function(e){console.warn('Persönliche Todos speichern fehlgeschlagen:',e);});
+  GANTT_DOC.update(update).catch(function(e){
+    console.warn('Persönliche Todos speichern fehlgeschlagen:',e);
+    if(typeof rollback==='function'){ try{ rollback(); }catch(_){} render(); }
+    _showToast('Speichern fehlgeschlagen: '+(e&&e.code?e.code:e&&e.message?e.message:'unbekannt'),'error');
+  });
 }
 function addPersonalTodo(){
   var input=document.getElementById('personalTodoInput');
   if(!input) return;
   var text=input.value.trim();
   if(!text) return;
-  personalTodos.push({text:text,done:false,createdAt:new Date().toISOString()});
+  var entry={text:text,done:false,createdAt:new Date().toISOString()};
+  personalTodos.push(entry);
   input.value='';
-  savePersonalTodos();
+  savePersonalTodos(function(){
+    var i=personalTodos.indexOf(entry);
+    if(i>=0) personalTodos.splice(i,1);
+  });
   render();
 }
 function togglePersonalTodo(idx){
   if(idx<0||idx>=personalTodos.length) return;
   personalTodos[idx].done=!personalTodos[idx].done;
-  savePersonalTodos();
+  var snap=idx;
+  savePersonalTodos(function(){
+    if(snap<personalTodos.length) personalTodos[snap].done=!personalTodos[snap].done;
+  });
   render();
 }
 function removePersonalTodo(idx){
   if(idx<0||idx>=personalTodos.length) return;
-  personalTodos.splice(idx,1);
-  savePersonalTodos();
+  var removed=personalTodos.splice(idx,1)[0];
+  var at=idx;
+  savePersonalTodos(function(){
+    personalTodos.splice(Math.min(at,personalTodos.length),0,removed);
+  });
   render();
 }
 var _personalTodoEditing=false;
@@ -1246,7 +1302,10 @@ function savePersonalTodoText(idx,el){
   if(!newText){ el.textContent=oldText; return; }
   personalTodos[idx].text=newText;
   el.textContent=newText;
-  savePersonalTodos();
+  var snap=idx;
+  savePersonalTodos(function(){
+    if(snap<personalTodos.length) personalTodos[snap].text=oldText;
+  });
 }
 function fmtDateShortTodo(dStr){
   if(!dStr) return '';
@@ -1710,37 +1769,46 @@ function saveNewTask(){
   errEl.style.display='none';
   var visibleTo=collectVisibleTo();
 
-  // Read fresh state from Firestore, add task, write back
-  GANTT_DOC.get().then(function(doc){
-    if(!doc.exists){errEl.textContent='Fehler: Kein gespeicherter State gefunden.';errEl.style.display='block';return;}
-    var state=doc.data();
-    var nid=state.nid||state.tasks.length+2;
-    var newTask={
-      id:nid,
-      name:name,
-      start:start,
-      end:end,
-      progress:0,
-      color:'#4f6ef7',
-      deps:[],
-      parentId:parentId?parseInt(parentId):null,
-      extraPeriods:[],
-      milestone:null,
-      done:false,
-      showInTaskView:true,
-      visibleTo:visibleTo
-    };
-    state.tasks.push(newTask);
-    state.nid=nid+1;
-    state.savedAt=new Date().toISOString();
-    return GANTT_DOC.set(state);
+  // Atomare Transaction: read-modify-write in einem Schritt, damit
+  // parallele Schreibvorgänge (Technology.html, zweites TaskView-Fenster)
+  // nicht zwischen unserem get() und set() andere Felder überschreiben.
+  // Vorher: GANTT_DOC.set(state) ohne merge → Last-Write-Wins, riskanter
+  // Datenverlust bei gleichzeitigen Edits.
+  db.runTransaction(function(tx){
+    return tx.get(GANTT_DOC).then(function(doc){
+      if(!doc.exists) throw new Error('Kein gespeicherter State gefunden.');
+      var state=doc.data();
+      if(!Array.isArray(state.tasks)) state.tasks=[];
+      var nid=state.nid||state.tasks.length+2;
+      var newTask={
+        id:nid,
+        name:name,
+        start:start,
+        end:end,
+        progress:0,
+        color:'#4f6ef7',
+        deps:[],
+        parentId:parentId?parseInt(parentId):null,
+        extraPeriods:[],
+        milestone:null,
+        done:false,
+        showInTaskView:true,
+        visibleTo:visibleTo
+      };
+      state.tasks.push(newTask);
+      state.nid=nid+1;
+      state.savedAt=new Date().toISOString();
+      tx.set(GANTT_DOC, state);
+    });
   }).then(function(){
     closeAddModal();
+    _showToast('Aufgabe gespeichert','ok');
     // The onSnapshot listener will automatically pick up the change and re-render
   }).catch(function(e){
     console.error('Save error:',e);
-    errEl.textContent='Fehler beim Speichern: '+e.message;
+    errEl.textContent='Fehler beim Speichern: '+(e&&e.message?e.message:e);
     errEl.style.display='block';
+    _showToast('Aufgabe nicht gespeichert: '+(e&&e.code?e.code:e&&e.message?e.message:'unbekannt'),'error');
   });
 }
 
