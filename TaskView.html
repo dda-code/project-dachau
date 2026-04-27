@@ -1982,7 +1982,17 @@ function doLogout(){
 firebase.auth().onAuthStateChanged(function(user){
   if(user){
     currentUserEmail=(user.email||'').toLowerCase();
-    currentUser=EMAIL_DISPLAY[currentUserEmail]||currentUserEmail.split('@')[0];
+    // HARTE Allowlist: nur in EMAIL_DISPLAY gemappte Xolution-Emails dürfen TaskView öffnen.
+    if(!EMAIL_DISPLAY.hasOwnProperty(currentUserEmail)){
+      firebase.auth().signOut();
+      var errEl=document.getElementById('login-err');
+      if(errEl){
+        errEl.textContent='Kein Zugriff auf TaskView für diesen Account.';
+        setTimeout(function(){errEl.textContent='';},5000);
+      }
+      return;
+    }
+    currentUser=EMAIL_DISPLAY[currentUserEmail];
     currentUserRole=(ADMIN_EMAILS.indexOf(currentUserEmail)>=0)?'admin':'user';
     document.getElementById('login-overlay').style.display='none';
     document.getElementById('mainHeader').style.display='';

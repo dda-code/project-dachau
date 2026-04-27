@@ -515,7 +515,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
     </div>
     <h2>Technology</h2>
     <p>Bitte anmelden</p>
-    <input type="text" id="login-name" placeholder="Name" onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()" style="margin-bottom:8px">
+    <input type="email" id="login-name" placeholder="E-Mail (xolution.com)" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()" style="margin-bottom:8px">
     <input type="password" id="login-pw" placeholder="Passwort" onkeydown="if(event.key==='Enter')doLogin()">
     <div id="login-err"></div>
     <button onclick="doLogin()">Anmelden</button>
@@ -2746,8 +2746,16 @@ var currentRole = null;
 var currentUser = null;
 
 var EMAIL_DOMAIN = '@lager.local';
-function toEmail(u){ return u.trim().toLowerCase().replace(/\s+/g,'_')+EMAIL_DOMAIN; }
+// Login akzeptiert sowohl Emails (mit @) als auch Legacy-Usernames; bei letzteren
+// wird @lager.local angehängt. ALLOWED_EMAILS gated den Zugriff hart auf 3 Xolution-User.
+function toEmail(u){
+  var s=u.trim().toLowerCase();
+  if(s.indexOf('@')>=0)return s;
+  return s.replace(/\s+/g,'_')+EMAIL_DOMAIN;
+}
 function toUsername(e){ return e ? e.replace(EMAIL_DOMAIN,'') : ''; }
+var ALLOWED_EMAILS=['dominik.dannenbauer@xolution.com','fabian.brummer@xolution.com','yusuf.yaman@xolution.com'];
+function _emailAllowed(e){ return ALLOWED_EMAILS.indexOf((e||'').toLowerCase())>=0; }
 // Editier-Rechte: Admin UND Manager dürfen Gantt bearbeiten.
 function _canEdit(){ return currentRole==='admin' || currentRole==='manager'; }
 
@@ -2879,24 +2887,24 @@ function _fetchUserDocWithRetry(uid, maxAttempts, delayMs){
 
 firebase.auth().onAuthStateChanged(function(user){
   if(user){
-    // Rolle strikt aus users/{uid} — niemals aus dem Client-State vertrauen. 3 Retry-Versuche.
+    // HARTE Allowlist: nur diese 3 Xolution-Emails dürfen Technology öffnen.
+    if(!_emailAllowed(user.email)){
+      firebase.auth().signOut();
+      _loginError('Kein Zugriff auf Technology für diesen Account.');
+      return;
+    }
+    // Rolle aus users/{uid} (optional — Xolution-Emails haben evtl. keinen Doc).
     _fetchUserDocWithRetry(user.uid, 3, 800).then(function(doc){
-      var role='user', disabled=false, displayName=user.displayName||toUsername(user.email);
+      var role='admin', disabled=false, displayName=user.displayName||toUsername(user.email);
       if(doc.exists){
         var d=doc.data()||{};
-        role = (d.role==='admin'||d.role==='manager'||d.role==='qs') ? d.role : 'user';
+        role = (d.role==='admin'||d.role==='manager'||d.role==='qs'||d.role==='user') ? d.role : 'admin';
         disabled = d.disabled===true;
         if(d.displayName) displayName=d.displayName;
       }
       if(disabled){
         firebase.auth().signOut();
         _loginError('Benutzer deaktiviert. Bitte Admin kontaktieren.');
-        return;
-      }
-      // Zugriffs-Schutz: Nur QS und Admin dürfen Technology sehen. "user"-Rolle wird abgewiesen.
-      if(role === 'user'){
-        firebase.auth().signOut();
-        _loginError('Kein Zugriff auf Technology mit deiner Rolle. Bitte Admin fragen.');
         return;
       }
       currentRole = role;
@@ -2911,9 +2919,18 @@ firebase.auth().onAuthStateChanged(function(user){
         setTimeout(scrollToToday,80);
       });
     }).catch(function(e){
-      console.warn('Rollen-Abruf nach 3 Versuchen fehlgeschlagen:', e && e.message);
-      firebase.auth().signOut();
-      _loginError('Fehler beim Laden der Benutzer-Rolle. Bitte später erneut anmelden.');
+      // Xolution-Allowlist-User haben oft keinen /users/{uid}-Doc → Read schlägt fehl.
+      // Da Email schon allowlisted ist, fallback auf admin-Default.
+      console.warn('User-Doc nicht ladbar (Xolution-Email-Fallback aktiv):', e && e.message);
+      currentRole='admin';
+      currentUser=user.displayName||toUsername(user.email);
+      document.getElementById('login-overlay').style.display='none';
+      var wrap2=document.getElementById('wrap'); if(wrap2) wrap2.style.visibility='visible';
+      var pw=document.getElementById('login-pw'); if(pw) pw.value='';
+      var nm=document.getElementById('login-name'); if(nm) nm.value='';
+      applyRole();
+      _resetIdleTimer();
+      setTimeout(scrollToToday,80);
     });
   } else {
     currentRole=null; currentUser=null; USERS=[];

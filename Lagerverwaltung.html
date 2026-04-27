@@ -456,6 +456,9 @@ let ARTIKEL_BEZEICHNUNG = {
 // Keine lokalen API-Keys mehr. Einmal alten Key aus localStorage entfernen (Altbestand):
 try{ localStorage.removeItem('groqApiKeys'); }catch(_){}
 const EMAIL_DOMAIN = '@lager.local';
+// Super-Admin: hardcoded Email mit Vollzugriff (Bypass /users/{uid}-Rollensystem).
+// Muss konsistent mit isSuperAdmin() in den Firestore-Rules sein.
+const SUPER_ADMIN_EMAIL = 'dominik.dannenbauer@xolution.com';
 
 // ============================================================
 // FIREBASE INIT + AUTH
@@ -495,7 +498,12 @@ const _secondaryDb = _secondaryApp.firestore();
 
 const _wsRe=/\s+/g;
 const _validUserRe=/^[a-zA-Z0-9_.-]+$/;
-function toEmail(u){return u.trim().toLowerCase().replace(_wsRe,'_')+EMAIL_DOMAIN;}
+function toEmail(u){
+    const s=u.trim().toLowerCase();
+    if(s.indexOf('@')>=0)return s; // volle Email durchreichen
+    return s.replace(_wsRe,'_')+EMAIL_DOMAIN;
+}
+function isSuperAdminEmail(e){return (e||'').toLowerCase()===SUPER_ADMIN_EMAIL;}
 function toUsername(e){return e?e.replace(EMAIL_DOMAIN,''):'';}
 // _cachedDisplayName wird bei onAuthStateChanged aus users/{uid}.displayName gesetzt —
 // das ist die AUTORITATIVE Quelle, die die Firestore-Rules für Audit-Log-Checks nutzen.
@@ -526,26 +534,28 @@ auth.onAuthStateChanged(async user=>{
     if(user){
         $('loginView').style.display='none';$('appView').style.display='block';
         const uName=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
-        // SICHERHEIT: Rollen-Promotion anhand der E-Mail wurde entfernt — sonst könnte
-        // ein Angreifer durch reines Einloggen admin werden. Rolle wird AUSSCHLIESSLICH
-        // aus dem vom Server/Admin gesetzten users/{uid}.role gelesen, nie hier geschrieben.
-        try{
-            const uDoc=await db.collection('users').doc(user.uid).get();
-            if(uDoc.exists){
-                const ud=uDoc.data();
-                if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
-                currentUserRole=(ud.role==='admin'||ud.role==='manager'||ud.role==='qs')?ud.role:'user';
-                // displayName aus Firestore als autoritative Quelle cachen — matcht die Rule
-                _cachedDisplayName = ud.displayName || user.displayName || '';
-            }else{
-                // Kein User-Dokument: default 'user'. Admins legen via Benutzerverwaltung an.
+        // Super-Admin (hardcoded Email): immer admin, ohne /users/{uid}-Doc.
+        // Sonst Rolle aus Firestore-Doc users/{uid} (server-seitig validiert).
+        if(isSuperAdminEmail(user.email)){
+            currentUserRole='admin';
+            _cachedDisplayName='Admin';
+        } else {
+            try{
+                const uDoc=await db.collection('users').doc(user.uid).get();
+                if(uDoc.exists){
+                    const ud=uDoc.data();
+                    if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
+                    currentUserRole=(ud.role==='admin'||ud.role==='manager'||ud.role==='qs')?ud.role:'user';
+                    _cachedDisplayName = ud.displayName || user.displayName || '';
+                }else{
+                    currentUserRole='user';
+                    _cachedDisplayName = user.displayName || '';
+                }
+            }catch(e){
+                console.warn('Rolle laden fehlgeschlagen:',e);
                 currentUserRole='user';
                 _cachedDisplayName = user.displayName || '';
             }
-        }catch(e){
-            console.warn('Rolle laden fehlgeschlagen:',e);
-            currentUserRole='user';
-            _cachedDisplayName = user.displayName || '';
         }
         const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='manager'?' (Manager)':(currentUserRole==='qs'?' (QS)':''));
         $('userEmail').textContent=uName+roleLabel;

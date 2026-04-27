@@ -348,7 +348,9 @@ $('loginForm').addEventListener('submit', async e => {
     e.preventDefault();
     const u=$('username').value.trim(), p=$('password').value, err=$('loginError');
     err.style.display='none';
-    const email=u.toLowerCase().replace(/\s+/g,'_')+EMAIL_DOMAIN;
+    // Volle Email durchreichen (z.B. xolution.com) — sonst @lager.local anhängen
+    const lower=u.toLowerCase();
+    const email = lower.indexOf('@')>=0 ? lower : lower.replace(/\s+/g,'_')+EMAIL_DOMAIN;
     try { await auth.signInWithEmailAndPassword(email,p); }
     catch(ex) { err.textContent=_errorMap[ex.code]||'Fehler: '+ex.code; err.style.display='block'; }
 });
