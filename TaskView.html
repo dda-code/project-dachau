@@ -50,16 +50,6 @@
   db.settings({ experimentalForceLongPolling: true, experimentalAutoDetectLongPolling: false, useFetchStreams: false, merge: true });
   firebase.firestore.setLogLevel('silent');
   var GANTT_DOC = db.collection('technology').doc('state');
-  // Persoenliche To-Dos liegen pro User in /technology/personal__{email-local-part}.
-  // Dadurch kann der set(state)-Schreibpfad in Technology.html oder eine fremde
-  // TaskView-Session sie nicht mehr versehentlich ueberschreiben (frueher waren
-  // sie als personalTodos.{user} im geteilten /technology/state-Doc gespeichert
-  // und gingen bei jedem Technology-saveState-Wipe verloren).
-  function _emailSlug(e){ return (e||'').toLowerCase().split('@')[0]; }
-  function getPersonalDoc(){
-    if(!currentUserEmail) return null;
-    return db.collection('technology').doc('personal__' + _emailSlug(currentUserEmail));
-  }
 
   // Auth-Persistenz explizit auf LOCAL (IndexedDB im Edge-Profil). Default
   // ist zwar bereits LOCAL, aber wenn das Profil in einem flüchtigen Ordner
@@ -700,7 +690,6 @@ var tasks = [];
 var outlookEvents = [];
 var OUTLOOK_COL = db.collection('outlook_events');
 var _unsubGantt = null;
-var _unsubPersonal = null;
 var _unsubOutlook = null;
 var taskTodos = {};
 var today = new Date();
@@ -947,29 +936,12 @@ function render() {
     });
   }
 
-  // ── Normal tasks (sortiert nach Startdatum, Mo links → Fr rechts;
-  //    konsistent zu Meetings, die ebenfalls nach start/startTime sortiert
-  //    werden). Frühere Reihenfolge war Gantt-Array-Order und führte zu
-  //    "Mo, Mi, Mi, Mo, Mo-Mi, Mi" — visuell verwirrend. Personal-Todos mit
-  //    Datum werden in dieselbe Sortierung eingefügt, damit sie nicht als
-  //    Block ans Ende rutschen. ──
-  var combinedTasks = orderedNormal.map(function(item){
-    return { row: item.task, depth: item.depth, kind: 'task' };
-  }).concat(personalInWeek.map(function(pt){
-    return { row: pt, depth: 0, kind: 'ptodo' };
-  }));
-  combinedTasks.sort(function(a,b){
-    var sa = a.row.start || '';
-    var sb = b.row.start || '';
-    if(sa !== sb) return sa < sb ? -1 : 1;
-    var na = (a.row.name||'').toLowerCase();
-    var nb = (b.row.name||'').toLowerCase();
-    if(na !== nb) return na < nb ? -1 : 1;
-    return 0;
-  });
-  if(combinedTasks.length){
-    html += '<div class="section-row"><span class="section-icon">&#9654;</span>Aufgaben<span class="section-count">'+combinedTasks.length+'</span></div>';
-    combinedTasks.forEach(function(item){ html += renderRow(item.row, monStr, sunStr, item.depth > 0); });
+  // ── Normal tasks ──
+  var totalAufgaben = orderedNormal.length + personalInWeek.length;
+  if(totalAufgaben){
+    html += '<div class="section-row"><span class="section-icon">&#9654;</span>Aufgaben<span class="section-count">'+totalAufgaben+'</span></div>';
+    orderedNormal.forEach(function(item){ html += renderRow(item.task, monStr, sunStr, item.depth > 0); });
+    personalInWeek.forEach(function(pt){ html += renderRow(pt, monStr, sunStr, false); });
   }
 
   // ── Vacations ──
@@ -1265,15 +1237,12 @@ function _showToast(text, kind){
 // ── PERSÖNLICHE TO-DO LISTE (pro Nutzer) ──
 var personalTodos = [];
 function loadPersonalTodos(){
-  var pdoc = getPersonalDoc();
-  if(!pdoc) return;
-  pdoc.get().then(function(snap){
-    if(snap.exists){
-      var d=snap.data()||{};
-      personalTodos = Array.isArray(d.todos) ? d.todos : [];
-    } else {
-      personalTodos = [];
-    }
+  if(!currentUser) return;
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var d=doc.data();
+    var all=d.personalTodos||{};
+    personalTodos=all[currentUser]||[];
     render();
   }).catch(function(e){console.warn('Persönliche Todos laden fehlgeschlagen:',e);});
 }
@@ -1281,13 +1250,11 @@ function loadPersonalTodos(){
 // ist eine Funktion, die die lokale Mutation rückgängig macht, wenn Firestore
 // den Write ablehnt — verhindert "wirkt gespeichert, ist aber nicht da"-Bugs
 // nach Reload (genau das Pattern, das nach PC-Neustart Daten verschwinden ließ).
-// Schreibt jetzt in /technology/personal__{slug} statt in /technology/state —
-// Firestore-Rules erlauben Write nur dem Owner, Wipe durch Technology.html
-// oder andere Sessions ist damit physikalisch ausgeschlossen.
 function savePersonalTodos(rollback){
-  var pdoc = getPersonalDoc();
-  if(!pdoc) return;
-  pdoc.set({todos: personalTodos, updatedAt: new Date().toISOString()}, {merge: true}).catch(function(e){
+  if(!currentUser) return;
+  var update={};
+  update['personalTodos.'+currentUser]=personalTodos.length?personalTodos:firebase.firestore.FieldValue.delete();
+  GANTT_DOC.update(update).catch(function(e){
     console.warn('Persönliche Todos speichern fehlgeschlagen:',e);
     if(typeof rollback==='function'){ try{ rollback(); }catch(_){} render(); }
     _showToast('Speichern fehlgeschlagen: '+(e&&e.code?e.code:e&&e.message?e.message:'unbekannt'),'error');
@@ -1554,40 +1521,34 @@ function saveEditTask(){
   var visibleTo=collectVisibleTo();
 
   var editId=_editTaskId;
-  // runTransaction: read-modify-write atomar. Vorher GANTT_DOC.set(state) ohne
-  // merge → konkurrierende Writes (Technology-Editor, zweites TaskView-Fenster)
-  // konnten zwischen unserem get() und set() landen und wurden dann komplett
-  // ueberschrieben. Hat speziell personalTodos und Tasks anderer User gewipt.
-  db.runTransaction(function(tx){
-    return tx.get(GANTT_DOC).then(function(doc){
-      if(!doc.exists) throw new Error('Kein gespeicherter State gefunden.');
-      var state=doc.data();
-      if(!state.tasks) state.tasks=[];
-      for(var i=0;i<state.tasks.length;i++){
-        if(state.tasks[i].id===editId){
-          state.tasks[i].name=name;
-          state.tasks[i].start=start;
-          state.tasks[i].end=end;
-          state.tasks[i].parentId=parentId?parseInt(parentId):null;
-          state.tasks[i].progress=progress;
-          state.tasks[i].done=done;
-          state.tasks[i].visibleTo=visibleTo;
-          break;
-        }
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var state=doc.data();
+    if(!state.tasks) return;
+    for(var i=0;i<state.tasks.length;i++){
+      if(state.tasks[i].id===editId){
+        state.tasks[i].name=name;
+        state.tasks[i].start=start;
+        state.tasks[i].end=end;
+        state.tasks[i].parentId=parentId?parseInt(parentId):null;
+        state.tasks[i].progress=progress;
+        state.tasks[i].done=done;
+        state.tasks[i].visibleTo=visibleTo;
+        break;
       }
-      state.savedAt=new Date().toISOString();
-      // To-Dos direkt im State speichern
-      var todoItems=collectTodoItems().filter(function(it){return it.text.trim()||it.date;});
-      if(!state.todos) state.todos={};
-      if(todoItems.length) state.todos[String(editId)]=todoItems; else delete state.todos[String(editId)];
-      taskTodos=state.todos;
-      tx.set(GANTT_DOC, state);
-    });
+    }
+    state.savedAt=new Date().toISOString();
+    // To-Dos direkt im State speichern
+    var todoItems=collectTodoItems().filter(function(it){return it.text.trim()||it.date;});
+    if(!state.todos) state.todos={};
+    if(todoItems.length) state.todos[String(editId)]=todoItems; else delete state.todos[String(editId)];
+    taskTodos=state.todos;
+    return GANTT_DOC.set(state);
   }).then(function(){
     closeModal();
   }).catch(function(e){
     console.error('Edit error:',e);
-    errEl.textContent='Fehler beim Speichern: '+(e&&e.message?e.message:e);
+    errEl.textContent='Fehler beim Speichern: '+e.message;
     errEl.style.display='block';
   });
 }
@@ -1614,28 +1575,28 @@ function confirmDelete(){
   closeConfirm();
   closeModal();
 
-  db.runTransaction(function(tx){
-    return tx.get(GANTT_DOC).then(function(doc){
-      if(!doc.exists) throw new Error('Kein gespeicherter State gefunden.');
-      var state=doc.data();
-      if(!state.tasks) state.tasks=[];
-      var idsToDelete={};
-      idsToDelete[delId]=true;
-      var changed=true;
-      while(changed){
-        changed=false;
-        state.tasks.forEach(function(t){
-          if(t.parentId&&idsToDelete[t.parentId]&&!idsToDelete[t.id]){
-            idsToDelete[t.id]=true;
-            changed=true;
-          }
-        });
-      }
-      state.tasks=state.tasks.filter(function(t){return !idsToDelete[t.id];});
-      if(state.todos){Object.keys(idsToDelete).forEach(function(id){delete state.todos[String(id)];});taskTodos=state.todos;}
-      state.savedAt=new Date().toISOString();
-      tx.set(GANTT_DOC, state);
-    });
+  GANTT_DOC.get().then(function(doc){
+    if(!doc.exists) return;
+    var state=doc.data();
+    if(!state.tasks) return;
+    // Collect IDs to delete (task + all descendants)
+    var idsToDelete={};
+    idsToDelete[delId]=true;
+    var changed=true;
+    while(changed){
+      changed=false;
+      state.tasks.forEach(function(t){
+        if(t.parentId&&idsToDelete[t.parentId]&&!idsToDelete[t.id]){
+          idsToDelete[t.id]=true;
+          changed=true;
+        }
+      });
+    }
+    state.tasks=state.tasks.filter(function(t){return !idsToDelete[t.id];});
+    // Todos der gelöschten Tasks entfernen
+    if(state.todos){Object.keys(idsToDelete).forEach(function(id){delete state.todos[String(id)];});taskTodos=state.todos;}
+    state.savedAt=new Date().toISOString();
+    return GANTT_DOC.set(state);
   }).catch(function(e){
     console.error('Delete error:',e);
   });
@@ -1784,9 +1745,7 @@ function openAddTask(){
   document.getElementById('addStart').value=toStr(todayD);
   document.getElementById('addEnd').value=toStr(addDays(todayD,7));
   document.getElementById('addName').value='';
-  // Default: nur der anlegende User selbst — bewusste Owner-Isolation. Wer
-  // teilen will, schaltet FBR/YYA per Chip dazu. Frueher: null = "alle aktiv".
-  document.getElementById('addVisibility').innerHTML=visibilityChipsHtml(currentUser?[currentUser]:null);
+  document.getElementById('addVisibility').innerHTML=visibilityChipsHtml(null);
   document.getElementById('addError').style.display='none';
   document.getElementById('addModalBg').classList.add('open');
   setTimeout(function(){document.getElementById('addName').focus();},300);
@@ -1930,7 +1889,7 @@ function firebaseStart(){
 
   loadAllTodos();
   GANTT_DOC.get().then(function(doc){
-    if(doc.exists){var d=doc.data();if(d.tasks&&d.tasks.length) tasks=d.tasks;}
+    if(doc.exists){var d=doc.data();if(d.tasks&&d.tasks.length) tasks=d.tasks;if(d.personalTodos&&currentUser) personalTodos=d.personalTodos[currentUser]||[];}
     render(); markConnected();
   }).catch(function(e){
     console.error('Firebase error:',e);
@@ -1943,28 +1902,10 @@ function firebaseStart(){
     var d=doc.data();if(!d||!d.tasks)return;
     tasks=d.tasks;
     if(d.todos) taskTodos=d.todos;
-    // personalTodos werden NICHT mehr aus /technology/state gelesen — sie liegen
-    // jetzt in /technology/personal__{slug} und kommen ueber _unsubPersonal rein.
+    if(d.personalTodos&&currentUser) personalTodos=d.personalTodos[currentUser]||[];
     if(_personalTodoEditing){ markConnected(); return; }
     render(); markConnected();
   },function(err){console.warn('Snapshot error:',err);});
-
-  // Per-User-Subscription auf das eigene Personal-To-Do-Doc. Liefert sofort
-  // den aktuellen Stand und danach jeden Remote-Change (z.B. wenn man im
-  // zweiten Browser-Fenster speichert).
-  var pdoc = getPersonalDoc();
-  if(pdoc){
-    _unsubPersonal = pdoc.onSnapshot(function(snap){
-      if(snap.exists){
-        var d=snap.data()||{};
-        personalTodos = Array.isArray(d.todos) ? d.todos : [];
-      } else {
-        personalTodos = [];
-      }
-      if(_personalTodoEditing){ return; }
-      render();
-    },function(err){console.warn('Personal snapshot error:',err);});
-  }
 
   // ── Outlook-Termine via outlook_sync.py (ol_* Dokumente) ──
   // Firestore-Rules erlauben Reads nur auf Events mit matching ownerEmail;
@@ -1975,13 +1916,33 @@ function firebaseStart(){
     ? OUTLOOK_COL
     : OUTLOOK_COL.where('ownerEmail','==',currentUserEmail);
   _unsubOutlook = outlookQuery.onSnapshot(function(snap){
-    outlookEvents=[];
+    // Dedupe-Map: pro Meeting nur EIN Eintrag, auch wenn mehrere Per-User-
+    // ol_*-Dokumente in der Collection liegen (Admin-Sicht liest alle, weil
+    // die Rules Admin pauschal lesen lassen — siehe outlookQuery oben).
+    //
+    // eventKey-Kaskade:
+    //   1) globalId  — Outlook GlobalAppointmentID, identisch bei allen
+    //                  Teilnehmern eines Meetings. Wird seit dem Patch von
+    //                  outlook_sync.py geschrieben; alte Docs ohne globalId
+    //                  fallen auf (2) zurueck, bis sie nachgepflegt sind.
+    //   2) Composite — name|start|startTime|endTime|organizer. Pragmatisch,
+    //                  reicht in der Praxis (Konflikt nur wenn zwei echte
+    //                  verschiedene Meetings minutengleich ueber denselben
+    //                  Organizer laufen — dann waeren sie auch im Kalender
+    //                  visuell ununterscheidbar).
+    //
+    // Tie-Break wenn mehrere Docs denselben eventKey haben: bevorzuge das Doc,
+    // dessen ownerEmail dem aktuellen User entspricht — dann sieht ein
+    // eingeladener User SEINE Daten (z.B. eigene Antwort-Zeit), nicht die
+    // eines Kollegen. Fallback: erstes gesehenes Doc.
+    var seen = {};
     snap.forEach(function(doc){
-      var d=doc.data();
       if(!doc.id.startsWith('ol_')) return;
+      var d=doc.data();
       if(d.deleted) return;
       var att=Array.isArray(d.attendees)?d.attendees.map(function(a){return(a||'').toLowerCase();}):[];
-      outlookEvents.push({
+      var ownerEmail=(d.ownerEmail||'').toLowerCase();
+      var ev={
         id:'outlook_'+doc.id,
         name:d.name||d.subject||'Outlook-Termin',
         start:d.start||'',
@@ -1990,13 +1951,26 @@ function firebaseStart(){
         endTime:d.endTime||'',
         organizer:d.organizer||'',
         attendees:att,
-        ownerEmail:(d.ownerEmail||'').toLowerCase(),
+        ownerEmail:ownerEmail,
         type:'meeting',
         source:'outlook',
         progress:0,
         done:false
-      });
+      };
+      var eventKey = (d.globalId && String(d.globalId).trim())
+        ? 'g:'+String(d.globalId).trim()
+        : 'c:'+ev.name+'|'+ev.start+'|'+ev.startTime+'|'+ev.endTime+'|'+ev.organizer;
+      var prev = seen[eventKey];
+      if(!prev){
+        seen[eventKey] = ev;
+      } else {
+        var meEmail = (currentUserEmail||'').toLowerCase();
+        var prevIsMine = meEmail && prev.ownerEmail===meEmail;
+        var evIsMine   = meEmail && ev.ownerEmail===meEmail;
+        if(evIsMine && !prevIsMine) seen[eventKey] = ev;
+      }
     });
+    outlookEvents = Object.keys(seen).map(function(k){ return seen[k]; });
     if(tasks.length>0) render();
   },function(err){
     console.warn('Outlook events nicht verfügbar:',err);
@@ -2024,17 +1998,7 @@ function doLogout(){
 firebase.auth().onAuthStateChanged(function(user){
   if(user){
     currentUserEmail=(user.email||'').toLowerCase();
-    // HARTE Allowlist: nur in EMAIL_DISPLAY gemappte Xolution-Emails dürfen TaskView öffnen.
-    if(!EMAIL_DISPLAY.hasOwnProperty(currentUserEmail)){
-      firebase.auth().signOut();
-      var errEl=document.getElementById('login-err');
-      if(errEl){
-        errEl.textContent='Kein Zugriff auf TaskView für diesen Account.';
-        setTimeout(function(){errEl.textContent='';},5000);
-      }
-      return;
-    }
-    currentUser=EMAIL_DISPLAY[currentUserEmail];
+    currentUser=EMAIL_DISPLAY[currentUserEmail]||currentUserEmail.split('@')[0];
     currentUserRole=(ADMIN_EMAILS.indexOf(currentUserEmail)>=0)?'admin':'user';
     document.getElementById('login-overlay').style.display='none';
     document.getElementById('mainHeader').style.display='';
@@ -2044,8 +2008,6 @@ firebase.auth().onAuthStateChanged(function(user){
   } else {
     if(_unsubGantt){_unsubGantt();_unsubGantt=null;}
     if(_unsubOutlook){_unsubOutlook();_unsubOutlook=null;}
-    if(_unsubPersonal){_unsubPersonal();_unsubPersonal=null;}
-    personalTodos=[];
     currentUser=null;
     currentUserRole=null;
     currentUserEmail=null;
