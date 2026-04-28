@@ -273,6 +273,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <button class="btn btn-sm btn-secondary" id="protocolBtn" onclick="openProtocol()" style="display:none">Protocol</button>
         <button class="btn btn-sm btn-success" onclick="transferToProduktionsplan()">Transfer to Production Plan</button>
         <button class="btn btn-sm btn-warning" id="pendingTopBtn" onclick="openPendingModal()" style="display:none" title="Open approval requests">🔔 Open Requests <span id="pendingTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
+        <button class="btn btn-sm" id="myRejectedTopBtn" onclick="openMyRejectedModal()" style="display:none;background:#f97316;color:#fff;border-color:#ea580c" title="Your rejected requests">⚠ Rejected <span id="myRejectedTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <span id="userEmail" style="font-size:0.85rem;color:#475569"></span>
         <button class="btn btn-sm btn-secondary" onclick="doLogout()">Logout</button>
     </div>
@@ -514,6 +515,16 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
       <button class="btn btn-sm btn-secondary" onclick="closePendingModal()">Close</button>
     </div>
     <div class="modal-body" id="pendingModalBody" style="padding:16px"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="myRejectedModal" style="display:none;z-index:850" onclick="if(event.target===this)closeMyRejectedModal()">
+  <div class="modal-card" style="width:min(1200px,96%);max-height:92vh;overflow:auto">
+    <div class="modal-head">
+      <h2>Your Rejected Requests</h2>
+      <button class="btn btn-sm btn-secondary" onclick="closeMyRejectedModal()">Close</button>
+    </div>
+    <div class="modal-body" id="myRejectedModalBody" style="padding:16px"></div>
   </div>
 </div>
 
@@ -1009,12 +1020,16 @@ auth.onAuthStateChanged(async user=>{
     const pendBtn=$('pendingTabBtn');
     const pendTopBtn=$('pendingTopBtn');
     if(_pendingUnsub){ try{ _pendingUnsub(); }catch(_){} _pendingUnsub=null; }
+    if(_myRejectedUnsub){ try{ _myRejectedUnsub(); }catch(_){} _myRejectedUnsub=null; }
     if(currentCanApprove){
         if(pendBtn) pendBtn.style.display='';
         startPendingBadgeListener();
+        const myRejBtn=$('myRejectedTopBtn'); if(myRejBtn) myRejBtn.style.display='none';
     } else {
         if(pendBtn) pendBtn.style.display='none';
         if(pendTopBtn) pendTopBtn.style.display='none';
+        // Manager: nur ihre eigenen abgelehnten Requests anzeigen
+        startMyRejectedListener();
     }
     // Grid-Live-Listener für ALLE Rollen (Manager + Freigeber): pendant + sales_plan
     startGridLiveListeners();
@@ -2272,6 +2287,120 @@ function startPendingBadgeListener(){
     _pendingUnsub=()=>unsubs.forEach(u=>{ try{u();}catch(_){} });
 }
 
+// === Manager-side Rejected-Requests Listener ===
+let _myRejectedUnsub=null;
+function startMyRejectedListener(){
+    if(_myRejectedUnsub) try{ _myRejectedUnsub(); }catch(_){}
+    _myRejectedUnsub=null;
+    if(!currentUid) return;
+    const tabs=Object.keys(TAB_CONFIG);
+    let counts={};
+    const update=()=>{
+        const total=Object.values(counts).reduce((a,b)=>a+b,0);
+        const btn=$('myRejectedTopBtn');
+        const cnt=$('myRejectedTopCount');
+        if(btn){
+            if(!currentCanApprove && total>0){
+                btn.style.display='';
+                if(cnt) cnt.textContent=String(total);
+            } else {
+                btn.style.display='none';
+            }
+        }
+        const modal=$('myRejectedModal');
+        if(modal && modal.style.display!=='none') renderMyRejectedList();
+    };
+    const unsubs=tabs.map(t=>{
+        return db.collection(_pendingColForTab(t))
+            .where('status','==','rejected')
+            .where('requestedBy','==',currentUid)
+            .onSnapshot(snap=>{ counts[t]=snap.size; update(); }, err=>console.warn('myRejected listener:',err));
+    });
+    _myRejectedUnsub=()=>unsubs.forEach(u=>{ try{u();}catch(_){} });
+}
+
+async function openMyRejectedModal(){
+    $('myRejectedModal').style.display='flex';
+    await renderMyRejectedList();
+}
+function closeMyRejectedModal(){ $('myRejectedModal').style.display='none'; }
+
+async function renderMyRejectedList(){
+    const area=$('myRejectedModalBody');
+    if(!area) return;
+    area.innerHTML='<div class="loading">Loading…</div>';
+    try{
+        const tabs=Object.keys(TAB_CONFIG);
+        const all=[];
+        for(const t of tabs){
+            const snap=await db.collection(_pendingColForTab(t))
+                .where('status','==','rejected')
+                .where('requestedBy','==',currentUid).get();
+            snap.forEach(d=>all.push({id:d.id, tab:t, ...d.data()}));
+        }
+        all.sort((a,b)=>{
+            const ta=a.rejectedAt&&a.rejectedAt.toMillis?a.rejectedAt.toMillis():0;
+            const tb=b.rejectedAt&&b.rejectedAt.toMillis?b.rejectedAt.toMillis():0;
+            return tb-ta;
+        });
+        if(!all.length){
+            area.innerHTML='<div style="padding:24px;text-align:center;color:#64748b">No rejected requests.</div>';
+            return;
+        }
+        const fmtTs=ts=>{ try{ const d=ts&&ts.toDate?ts.toDate():null; return d?d.toLocaleString('de-DE'):'–'; }catch(_){ return '–'; } };
+        const fmtNum=v=>{ const s=String(v||'').replace(/[.\s]/g,'').replace(',','.'); const n=parseFloat(s); return isFinite(n)&&n!==0?n.toLocaleString('de-DE',{maximumFractionDigits:2}):''; };
+        const cellLabel=(label,value)=>`<div style="min-width:0"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;font-weight:600;white-space:nowrap">${escHtml(label)}</div><div style="font-size:0.92rem;color:#0f172a;font-weight:600;margin-top:2px;line-height:1.3;word-break:break-word;overflow-wrap:anywhere">${value||'–'}</div></div>`;
+        const cards=all.map(it=>{
+            const h=(it.payload&&it.payload.header)||{};
+            const tabBadge=`<span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;white-space:nowrap">${escHtml(TAB_CONFIG[it.tab]?.title||it.tab)}</span>`;
+            const rejByLabel=(it.rejectedByEmail||'').replace('@lager.local','');
+            const reason=it.rejectComment?`<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#991b1b;font-weight:700;margin-bottom:4px">Rejection reason</div><div style="font-size:0.9rem;color:#7f1d1d;white-space:pre-wrap">${escHtml(it.rejectComment)}</div></div>`:'<div style="margin-top:10px;font-size:0.85rem;color:#94a3b8;font-style:italic">No reason given.</div>';
+            return `<div style="background:#fff;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                        ${tabBadge}
+                        <strong style="font-size:1.05rem;color:#0f172a">SO ${escHtml(h.so||'–')}</strong>
+                        <span style="background:#dc2626;color:#fff;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">REJECTED</span>
+                    </div>
+                    <div style="font-size:0.78rem;color:#64748b;text-align:right">
+                        <div>by <strong>${escHtml(rejByLabel||'–')}</strong></div>
+                        <div style="white-space:nowrap">${fmtTs(it.rejectedAt)}</div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px">
+                    ${cellLabel('Article',escHtml(h.art))}
+                    ${cellLabel('PO #',escHtml(h.po))}
+                    ${cellLabel('Customer',escHtml(h.cust))}
+                    ${cellLabel('Start',escHtml(h.start))}
+                    ${cellLabel('End',escHtml(h.end))}
+                    ${cellLabel('Duration (days)',escHtml(h.days))}
+                    ${cellLabel('Pallets',escHtml(h.pal))}
+                    ${cellLabel('Quantity (pcs)',fmtNum(h.qty)||escHtml(h.qty))}
+                </div>
+                ${reason}
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+                    <button class="btn btn-sm btn-secondary" onclick="acknowledgeRejected('${escHtml(it.id)}','${escHtml(it.tab)}')" title="Acknowledge and remove this entry">✓ Acknowledge</button>
+                </div>
+            </div>`;
+        }).join('');
+        area.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h2 style="margin:0;font-size:1.15rem">Rejected Requests <span style="background:#dc2626;color:#fff;border-radius:12px;padding:2px 10px;font-size:0.85rem;margin-left:6px">${all.length}</span></h2></div>${cards}`;
+    }catch(e){
+        console.error('renderMyRejectedList:',e);
+        area.innerHTML='<div style="padding:16px;color:#dc2626">Error: '+escHtml(e.message)+'</div>';
+    }
+}
+
+async function acknowledgeRejected(id, tab){
+    if(!confirm('Acknowledge and remove this rejected request from the list?\nThis cannot be undone.')) return;
+    try{
+        await db.collection(_pendingColForTab(tab)).doc(id).delete();
+        await renderMyRejectedList();
+    }catch(e){
+        console.error('acknowledgeRejected:',e);
+        alert('Error: '+e.message);
+    }
+}
+
 async function renderPendingList(targetId){
     const area=$(targetId||'pendingArea');
     if(!area) return;
@@ -2356,12 +2485,13 @@ async function renderPendingList(targetId){
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px;margin-bottom:12px">
                     ${cellLabel('Article',escHtml(h.art))}
+                    ${cellLabel('PO #',escHtml(h.po))}
                     ${cellLabel('Customer',escHtml(h.cust))}
                     ${cellLabel('Start',escHtml(h.start))}
                     ${cellLabel('End',escHtml(h.end))}
                     ${cellLabel('Duration (days)',escHtml(h.days))}
                     ${cellLabel('Pallets',palDisp)}
-                    ${cellLabel('Quantity',qtyDisp)}
+                    ${cellLabel('Quantity (pcs)',qtyDisp)}
                     ${cellLabel('€/1000 pcs.',priceCell)}
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
