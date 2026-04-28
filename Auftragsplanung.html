@@ -549,6 +549,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <input id="pl_search" type="text" placeholder="Search (Customer, Article, Tier, Note, …)" style="flex:1;min-width:240px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem" oninput="renderPricelist()">
         <button class="btn btn-sm btn-primary" onclick="addPricelistRow()">+ New Customer</button>
+        <button class="btn btn-sm btn-secondary" onclick="importPricelistFromXlsx()" title="Replaces all entries with the Customer_Article_Price.xlsx seed (26 rows)">📥 Import from XLSX</button>
       </div>
       <div id="pl_status" style="font-size:0.78rem;color:#64748b;margin-bottom:8px;min-height:1.1em"></div>
       <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:8px">
@@ -2417,6 +2418,69 @@ async function populateCustomerDropdown(){
 
 // ---------- Pricelist ----------
 const PRICELIST_COL='customer_price_terms';
+// Seed-Daten aus Customer_Article_Price.xlsx (Stand 2026-04-28, 26 Einträge)
+const _PRICELIST_SEED=[
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1042",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1039",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-3027",articleStatus:"aktiv",dia:202,shell:"202 CDL+",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-3028",articleStatus:"aktiv",dia:202,shell:"202 CDL+",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7018",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7019",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7023",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2048",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2047",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-1037",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-1039",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2045",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"North America",customer:"ABI",type:"Brand",conversion:"No",articleNr:"XO-206-7020",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"Ball Mexico S de RL de CL",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"Yes",articleNr:"XO-202-2042",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ball EU",tier:"Tier 1",unitPrice:78.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"Yes",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:78.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7016",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7021",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7022",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"HCC Canning",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"HCC Canning",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Refresco",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Refresco",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"}
+];
+async function importPricelistFromXlsx(){
+    if(!currentCanApprove){ alert('Pricelist import is only allowed for Approvers/Admin.'); return; }
+    if(!confirm('Replace ALL '+(pricelistRows?.length||0)+' current pricelist entries with '+_PRICELIST_SEED.length+' seed rows from Customer_Article_Price.xlsx?\n\nThis cannot be undone.')) return;
+    const status=$('pl_status'); if(status){ status.textContent='Importing…'; status.style.color='#0284c7'; }
+    try{
+        // 1) Wipe
+        const existing=await db.collection(PRICELIST_COL).get();
+        let batch=db.batch(); let n=0;
+        for(const d of existing.docs){
+            batch.delete(d.ref);
+            if(++n%400===0){ await batch.commit(); batch=db.batch(); }
+        }
+        if(n%400!==0) await batch.commit();
+        // 2) Insert seed
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        const email=currentUserEmail||'import';
+        batch=db.batch(); n=0;
+        for(const r of _PRICELIST_SEED){
+            batch.set(db.collection(PRICELIST_COL).doc(), {...r, createdAt:ts, createdByEmail:email, updatedAt:ts, updatedByEmail:email});
+            if(++n%400===0){ await batch.commit(); batch=db.batch(); }
+        }
+        if(n%400!==0) await batch.commit();
+        // 3) Customer-Cache aktualisieren
+        const customers=[...new Set(_PRICELIST_SEED.map(r=>r.customer).filter(Boolean))].sort();
+        await db.collection('pricelist_meta').doc('customers').set({names:customers, updatedAt:ts, updatedByEmail:email});
+        // 4) Reload UI
+        await loadPricelist();
+        if(status){ status.textContent='✓ Imported '+_PRICELIST_SEED.length+' rows + '+customers.length+' customers'; status.style.color='#16a34a'; }
+    }catch(e){
+        console.error('importPricelistFromXlsx:',e);
+        if(status){ status.textContent='Error: '+e.message; status.style.color='#dc2626'; }
+        alert('Import failed: '+e.message);
+    }
+}
 const PRICELIST_FIELDS=['region','customer','type','conversion','articleNr','articleStatus','dia','shell','shellSupplier','tier','unitPrice','ccy','paymentTerm','note'];
 let pricelistRows=[];
 let _pricelistSaveTimer={};
