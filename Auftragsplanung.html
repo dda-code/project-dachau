@@ -329,7 +329,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         </label>
         <label>Customer <span style="color:#ef4444">*</span><select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
         <label>Start date<input id="o_start" type="date" class="ef"></label>
-        <label>Pick-up (Plan)<input id="o_pickup" type="date" class="ef"></label>
+        <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="o_pickup" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
         <div style="display:flex;flex-direction:column;gap:3px;grid-column:span 1">
             <span style="font-size:0.78rem;color:#475569;font-weight:600">Weekend &amp; Holiday Production</span>
             <div style="display:flex;gap:10px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;flex-wrap:wrap">
@@ -893,7 +893,7 @@ const SCHEMA=[
  {group:'KPI', sub:'Act', fields:['Output/d Pcs.','Output/d PAL'], rowClass:'row-act'},
  {group:'KPI', sub:'Plan/Act', fields:['GAP/d Pcs.','GAP/d PAL'], rowClass:'row-gap'},
  {group:'Cap', sub:'', fields:['Cap Plan/m','Cap Fcst Act/m'], rowClass:''},
- {group:'Production Plan', sub:'', fields:['SO #','PO #','Customer','Pick-up (Plan)','Total QTY','Art #','Status payment','Shell','Frame','IS','OS','Sleeve','TP','Laser Code','Qty','PAL','Logistic','Status Production','Comment'], rowClass:'row-prod'},
+ {group:'Production Plan', sub:'', fields:['SO #','PO #','Customer','Pick-Up (Deadline)','Total QTY','Art #','Status payment','Shell','Frame','IS','OS','Sleeve','TP','Laser Code','Qty','PAL','Logistic','Status Production','Comment'], rowClass:'row-prod'},
  {group:'Logistic Plan', sub:'Pick-up', fields:['Comment','Act','PAL','GAP (d)'], rowClass:''}
 ];
 
@@ -1554,7 +1554,8 @@ function renderGrid(){
                 html+=`<td class="lbl-group" rowspan="${fields.length}">${escHtml(block.group)}</td>`;
                 html+=`<td class="lbl-sub" rowspan="${fields.length}">${escHtml(block.sub||'')}</td>`;
             }
-            html+=`<td class="lbl-field">${escHtml(field)}</td>`;
+            const lblStyle=(block.group==='Production Plan' && field==='Pick-Up (Deadline)')?' style="color:#dc2626;font-weight:700"':'';
+            html+=`<td class="lbl-field"${lblStyle}>${escHtml(field)}</td>`;
             dates.forEach(d=>{
                 const iso=toIsoDate(d);
                 const dow=d.getDay();
@@ -1563,7 +1564,7 @@ function renderGrid(){
                 const val=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[key])||'';
                 const isArtNr=(currentTab==='assembly' && block.group==='Production Plan' && field==='Art #');
                 const isAutofill=(currentTab==='assembly' && block.group==='Production Plan' && ['Shell','Frame','IS','OS','Sleeve','TP','Laser Code'].includes(field));
-                const isPickup=(block.group==='Production Plan' && field==='Pick-up (Plan)');
+                const isPickup=(block.group==='Production Plan' && field==='Pick-Up (Deadline)');
                 const isQty=(block.group==='Production Plan' && field==='Qty');
                 const isPal=(currentTab==='assembly' && block.group==='Production Plan' && field==='PAL');
                 const isOutDay=(block.group==='KPI' && block.sub==='Plan' && field==='Output/d');
@@ -1761,9 +1762,11 @@ function renderGrid(){
                 } else if(pendingMeta){
                     // Pending-Tag → keine Inline-Edits, Wert nur als Anzeige
                     const dispCls='cell-day cell-display'+(isWe?' weekend':'')+(isHolidayDay?' holiday':'')+pendCls;
-                    html+=`<td class="${dispCls}"${pendAttr}${pendTitle}>${escHtml(displayVal)}</td>`;
+                    const pickStyle=isPickup?' style="color:#dc2626;font-weight:700"':'';
+                    html+=`<td class="${dispCls}"${pendAttr}${pendTitle}${pickStyle}>${escHtml(displayVal)}</td>`;
                 } else if(inpType==='date'){
-                    html+=`<td class="${tdCls}"><input type="date" data-date="${iso}" data-key="${key}"${extra} value="${escHtml(displayVal)}"></td>`;
+                    const dateStyle=isPickup?' style="color:#dc2626;font-weight:700"':'';
+                    html+=`<td class="${tdCls}"><input type="date" data-date="${iso}" data-key="${key}"${extra}${dateStyle} value="${escHtml(displayVal)}"></td>`;
                 } else {
                     html+=`<td class="${tdCls}"><textarea rows="1" data-date="${iso}" data-key="${key}"${listAttr}${extra}>${escHtml(displayVal)}</textarea></td>`;
                 }
@@ -2045,7 +2048,7 @@ function editOrder(so, iso){
     $('o_po').value=first.fields[fieldKey('Production Plan','','PO #')]||'';
     $('o_art').value=first.fields[fieldKey('Production Plan','','Art #')]||'';
     $('o_cust').value=first.fields[fieldKey('Production Plan','','Customer')]||'';
-    $('o_pickup').value=first.fields[fieldKey('Production Plan','','Pick-up (Plan)')]||'';
+    $('o_pickup').value=first.fields[fieldKey('Production Plan','','Pick-Up (Deadline)')]||'';
     $('o_start').value=first.iso;
     $('o_qty').value=totalQty?formatThousands(String(totalQty)):'';
     $('o_outday').value=outDay?formatThousands(String(outDay)):'';
@@ -3187,7 +3190,7 @@ function generateOrderPdf(payload, kind, meta){
         ['Customer', h.cust],
         ['Start date', h.start],
         ['End date', h.end],
-        ['Pick-up (Plan)', h.pickup],
+        ['Pick-Up (Deadline)', h.pickup],
         ['Quantity', fmtDe(h.qty)],
         ['Pallets', h.pal],
         ['Daily output', fmtDe(h.outday)],
@@ -3495,7 +3498,7 @@ function renderOrderGrid(){
     const pickupVal=$('o_pickup').value.trim();
     const autofill={};
     const setAF=(name,val)=>{ if(val!=='' && val!=null) autofill[fieldKey('Production Plan','',name)]=String(val); };
-    setAF('SO #',soVal); setAF('PO #',poVal); setAF('Customer',custVal); setAF('Art #',art); setAF('Pick-up (Plan)',pickupVal);
+    setAF('SO #',soVal); setAF('PO #',poVal); setAF('Customer',custVal); setAF('Art #',art); setAF('Pick-Up (Deadline)',pickupVal);
     if(row){
         setAF('Shell',formatShell(row));
         setAF('Frame',formatFrameK(row));
@@ -4363,7 +4366,7 @@ async function openOrdersManager(){
         const soKey=fieldKey('Production Plan','','SO #');
         const custKey=fieldKey('Production Plan','','Customer');
         const artKey=fieldKey('Production Plan','','Art #');
-        const pickKey=fieldKey('Production Plan','','Pick-up (Plan)');
+        const pickKey=fieldKey('Production Plan','','Pick-Up (Deadline)');
         const bySo={};
         snap.forEach(doc=>{
             const d=doc.data();
@@ -4701,6 +4704,7 @@ async function loadTransferCandidates(){
     const palKey=fieldKey('Production Plan','','PAL');
     const poKey=fieldKey('Production Plan','','PO #');
     const laserKey=fieldKey('Production Plan','','Laser Code');
+    const pickKey=fieldKey('Production Plan','','Pick-Up (Deadline)');
     const stKey=fieldKey('Production Plan','','Status Production');
     const snap=await db.collection(TAB_CONFIG.assembly.salesCol)
         .where('datum','>=',todayIso).where('datum','<=',toIso).get();
@@ -4728,6 +4732,7 @@ async function loadTransferCandidates(){
         o.art=o.firstFields[artKey]||'';
         o.poNr=o.firstFields[poKey]||'';
         o.laserCode=o.firstFields[laserKey]||'';
+        o.pickup=o.firstFields[pickKey]||'';
         // Filter: nur offen/in production — wenn ALLE Status abgeschlossen, ausblenden
         const onlyDone=o.statuses.size>0 && [...o.statuses].every(s=>{
             for(const d of DONE_STATI) if(s.startsWith(d)) return true;
@@ -4889,6 +4894,7 @@ function _buildProdDocFromOrder(order, isUpdate){
         'Sales Order XO': order.so||'',
         'veredelung': '',
         'Kunde': order.customer||'',
+        'Pick-Up Deadline': order.pickup||'',
         'Kundenreferenz': (String(ff[poKey]||'').trim())||'n/a',
         'Status Produktion': 'open',
         'Palettenformat': palFormat||'',

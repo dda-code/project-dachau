@@ -3391,6 +3391,26 @@ function _prodCompColor(val){
     return _PROD_FALLBACK_PALETTE[Math.abs(h)%_PROD_FALLBACK_PALETTE.length];
 }
 function _prodNum(v){if(v===''||v==null||isNaN(Number(v)))return _prodEsc(v);return Number(v).toLocaleString('de-DE');}
+function _prodFmtDate(iso){
+    // Akzeptiert YYYY-MM-DD oder DD.MM.YYYY und liefert DD.MM.YYYY
+    const s=String(iso||'').trim(); if(!s) return '';
+    const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(m) return m[3]+'.'+m[2]+'.'+m[1];
+    return s;
+}
+function _prodDaysUntil(iso){
+    const s=String(iso||'').trim(); if(!s) return NaN;
+    let d;
+    const m1=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const m2=s.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    if(m1) d=new Date(+m1[1], +m1[2]-1, +m1[3]);
+    else if(m2) d=new Date(+m2[3], +m2[2]-1, +m2[1]);
+    else d=new Date(s);
+    if(isNaN(d.getTime())) return NaN;
+    const now=new Date(); now.setHours(0,0,0,0);
+    d.setHours(0,0,0,0);
+    return Math.round((d.getTime()-now.getTime())/86400000);
+}
 // Neues Darstellungsformat für Komponenten-Felder:
 // Shell: "110046, 202 B64 silver" | Frame: "120027, Frame natural"
 // IS:    "180007, Inner-Slider natural" | OS: "190009, Outer-Slider black"
@@ -3489,6 +3509,8 @@ function renderProduktionsplan(){
         {l:'Sales Order XO',       fn:o=>_prodEsc(o['Sales Order XO'])},
         {l:'Veredelung',           fn:o=>_prodEsc(o['veredelung'])},
         {l:'Kunde',                fn:o=>_prodEsc(o['Kunde'])},
+        {l:'Pick-Up Deadline',     fn:o=>{const v=o['Pick-Up Deadline']||'';return v?'__STYLEcolor:#dc2626;font-weight:700__'+_prodFmtDate(v):'__STYLEcolor:#94a3b8__–';}},
+        {l:'Tage bis Pick-Up',     fn:o=>{const v=o['Pick-Up Deadline']||'';if(!v)return '__STYLEcolor:#94a3b8__–';const st=String(o['Status Produktion']||'').toLowerCase();const done=st.startsWith('done')||st.startsWith('fertig')||st.startsWith('cancel');const days=_prodDaysUntil(v);if(done)return '__STYLEcolor:#94a3b8__'+(days>=0?days+' d':Math.abs(days)+' d überzogen')+' (abgeschlossen)';if(days<0)return '__STYLEcolor:#dc2626;font-weight:700__⚠ '+Math.abs(days)+' d überzogen';if(days===0)return '__STYLEcolor:#dc2626;font-weight:700__heute fällig';return '__STYLEcolor:#16a34a;font-weight:700__'+days+' d verbleibend';}},
         {l:'Palettenformat',       fn:o=>_prodEsc(o['Palettenformat'])},
         {l:'Ends pro Palette',     fn:o=>_prodNum(o['Ends pro Palette']), num:true},
         {l:'Artikelnummer',        fn:o=>_prodEsc(o['Artikelnummer'])},
@@ -3660,6 +3682,7 @@ const _PROD_EDIT_FIELDS=[
     {k:'Sales Order XO',l:'Sales Order XO'},
     {k:'veredelung',l:'Veredelung'},
     {k:'Kunde',l:'Kunde'},
+    {k:'Pick-Up Deadline',l:'Pick-Up Deadline',readonly:true},
     {k:'Kundenreferenz',l:'Kundenreferenz'},
     {k:'Status Produktion',l:'Status Produktion',opts:['open','in production','done','cancelled / shifted','stopped - open']},
     {k:'Palettenformat',l:'Palettenformat',auto:true},
@@ -3959,18 +3982,21 @@ function openProdEdit(idx){
     const _renderRow=(f)=>{
         const v=o[f.k]==null?'':o[f.k];
         const id='prodEdit_'+f.k.replace(/[^a-z0-9]/gi,'_');
-        const inputStyle=(!isImported && (f.calc||f.auto))?'background:#f1f5f9;color:#475569;':'';
-        const title=isImported?'':(f.calc?' title="wird automatisch berechnet"':(f.auto?' title="wird aus Artikelstamm gefüllt"':''));
+        let inputStyle=(!isImported && (f.calc||f.auto))?'background:#f1f5f9;color:#475569;':'';
+        if(f.readonly) inputStyle+='background:#fef2f2;color:#dc2626;font-weight:700;cursor:not-allowed;';
+        let title=isImported?'':(f.calc?' title="wird automatisch berechnet"':(f.auto?' title="wird aus Artikelstamm gefüllt"':''));
+        if(f.readonly) title=' title="Vom Approver gesetzt – nicht änderbar"';
+        const roAttr=f.readonly?' readonly':'';
         let valueHtml;
         if(f.opts){
-            valueHtml='<select class="form-select prod-edit-input" id="'+id+'"'+(inputStyle?' style="'+inputStyle+'"':'')+title+'>'+
+            valueHtml='<select class="form-select prod-edit-input" id="'+id+'"'+(inputStyle?' style="'+inputStyle+'"':'')+title+(f.readonly?' disabled':'')+'>'+
                 f.opts.map(x=>'<option value="'+_prodEsc(x)+'"'+(String(v).toLowerCase().trim().startsWith(x.toLowerCase())?' selected':'')+'>'+_prodEsc(x)+'</option>').join('')+
                 '</select>';
         } else {
-            valueHtml='<input class="prod-edit-input" type="'+(f.num?'number':'text')+'" id="'+id+'" value="'+_prodEsc(v)+'"'+(inputStyle?' style="'+inputStyle+'"':'')+title+'>';
+            valueHtml='<input class="prod-edit-input" type="'+(f.num?'number':'text')+'" id="'+id+'" value="'+_prodEsc(v)+'"'+(inputStyle?' style="'+inputStyle+'"':'')+title+roAttr+'>';
         }
         const rs=rowStyle(f);
-        return '<tr'+(rs?' style="'+rs+'"':'')+'><th>'+_prodEsc(f.l)+'</th><td>'+valueHtml+'</td></tr>';
+        return '<tr'+(rs?' style="'+rs+'"':'')+'><th'+(f.readonly?' style="color:#dc2626"':'')+'>'+_prodEsc(f.l)+'</th><td>'+valueHtml+'</td></tr>';
     };
     // Zweispaltige Aufteilung: links Sales Order…Laser Code, rechts Anzahl Paletten…Zusatzpaletten
     const _splitIdx=_PROD_EDIT_FIELDS.findIndex(f=>f.k==='Anzahl Paletten');
