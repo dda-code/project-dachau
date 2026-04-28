@@ -1957,8 +1957,26 @@ function firebaseStart(){
         progress:0,
         done:false
       };
-      var gid = (d.globalId && String(d.globalId).trim()) ? String(d.globalId).trim() : '';
-      var compKey = ev.name+'|'+ev.start+'|'+ev.startTime+'|'+ev.endTime+'|'+ev.organizer;
+      // GlobalAppointmentID ist bei Serienterminen fuer ALLE Occurrences einer
+      // Recurrence identisch. Roher gid-Dedupe wuerde eine ganze Serie auf eine
+      // einzige Karte kollabieren. Deshalb start+startTime mit in den Key — so
+      // bleibt jede Occurrence eindeutig, dedupliziert aber weiterhin sauber
+      // ueber User-Grenzen (alle Teilnehmer sehen dieselbe gid+start-Zeit).
+      var rawGid = (d.globalId && String(d.globalId).trim()) ? String(d.globalId).trim() : '';
+      var gid = rawGid ? rawGid+'|'+ev.start+'|'+ev.startTime : '';
+      // Composite-Key BEWUSST ohne organizer. Outlook loest organizer pro
+      // User-Profil unterschiedlich auf ("Mustermann, Max" vs. "Max Mustermann"
+      // vs. SMTP); fuer Feiertage steht zudem der User selbst drin. Mit
+      // organizer im Key fielen User-Kopien desselben Meetings nicht zusammen.
+      // name|start|startTime|endTime ist eindeutig genug — zwei genuinely
+      // unterschiedliche Meetings minutengleich mit identischem Namen sind ein
+      // Edge-Case, den der User auch im Kalender nicht unterscheiden koennte.
+      // All-Day: end weglassen, da Outlook end fuer All-Day haeufig auf den
+      // Folgetag setzt und das je Profil schwankt.
+      var isAllDay = !ev.startTime && !ev.endTime;
+      var compKey = isAllDay
+        ? ev.name+'|'+ev.start+'|allday'
+        : ev.name+'|'+ev.start+'|'+ev.startTime+'|'+ev.endTime;
       var prev = (gid && byGlobal[gid]) || byComposite[compKey] || null;
 
       var chosen;
