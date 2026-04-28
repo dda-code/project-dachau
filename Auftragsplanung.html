@@ -242,7 +242,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
 <div id="loginView" class="login-page">
     <div class="login-container">
         <div class="login-card">
-            <img src="xo_logo.svg" alt="XO" style="height:48px;width:auto;display:block;margin:0 auto 10px" onerror="this.style.display='none'">
+            <img src="xo_logo.gif" alt="XO Logo" style="width:132px;height:auto;display:block;margin:0 auto 20px" onerror="this.style.display='none'">
             <h1>Order Planning</h1>
             <p class="subtitle">Aumundswiese</p>
             <form id="loginForm">
@@ -258,7 +258,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
 <div id="appView" style="display:none">
 <header class="topbar">
     <div class="topbar-left" style="display:flex;align-items:center;gap:12px">
-        <img src="xo_logo.svg" alt="XO" style="height:38px;width:auto;display:block" onerror="this.style.display='none'">
+        <img src="xo_logo.gif" alt="XO Logo" style="height:40px;width:auto;display:block" onerror="this.style.display='none'">
         <h1 style="margin:0">Order Planning</h1>
     </div>
     <div class="topbar-right">
@@ -3212,7 +3212,7 @@ let _xoLogoDataUrl=null;
             }catch(e){ console.warn('xo logo canvas:',e); }
         };
         img.onerror=()=>{ console.warn('xo logo load failed'); };
-        img.src='xo_logo.svg';
+        img.src='xo_logo.gif';
     }catch(e){ console.warn('xo logo preload:',e); }
 })();
 
