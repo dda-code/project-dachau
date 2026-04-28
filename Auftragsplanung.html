@@ -631,6 +631,18 @@ const _PFX_EXCLUDE=new Set([]); // Collections die NICHT geprefixed werden solle
         return _orig(COL_PREFIX+name);
     };
 })(db);
+// Helper: Rolle für V2-Sandbox setzen ohne in die Konsole zu tippen
+window.v2SetRole=function(role,canApprove){
+    if(role===null||role===''||role==='reset'){
+        localStorage.removeItem('V2_OVERRIDE_ROLE');
+        localStorage.removeItem('V2_OVERRIDE_CAN_APPROVE');
+        console.log('%c[V2-OVERRIDE] entfernt — jetzt Hard-Reload (Strg+Shift+R)','background:#0284c7;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700');
+        return;
+    }
+    localStorage.setItem('V2_OVERRIDE_ROLE',role);
+    if(canApprove!==undefined) localStorage.setItem('V2_OVERRIDE_CAN_APPROVE',String(!!canApprove));
+    console.log('%c[V2-OVERRIDE] role='+role+(canApprove!==undefined?(', canApprove='+!!canApprove):'')+'  — jetzt Hard-Reload (Strg+Shift+R)','background:#0284c7;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700');
+};
 if(COL_PREFIX){
     console.log('%c[V2-SANDBOX] Collection-Prefix aktiv: '+COL_PREFIX+'*  — KEINE Live-Daten!','background:#16a34a;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;font-size:13px');
     document.addEventListener('DOMContentLoaded',function(){
@@ -970,6 +982,16 @@ auth.onAuthStateChanged(async user=>{
             currentCanApprove=!!uData.canApprove;
         }catch(e){ console.warn('Rolle laden fehlgeschlagen',e); }
     }
+    // === V2-SANDBOX ROLE-OVERRIDE === (nur wenn localStorage gesetzt)
+    try{
+        const _ovR=localStorage.getItem('V2_OVERRIDE_ROLE');
+        const _ovC=localStorage.getItem('V2_OVERRIDE_CAN_APPROVE');
+        if(_ovR){
+            currentUserRole=_ovR;
+            if(_ovC!==null) currentCanApprove=(_ovC==='true');
+            console.log('%c[V2-OVERRIDE] role='+currentUserRole+', canApprove='+currentCanApprove+'  (v2SetRole(null) zum Zuruecksetzen)','background:#f59e0b;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700');
+        }
+    }catch(e){console.warn('Override-Read fehlgeschlagen:',e);}
     if(currentUserRole!=='admin' && currentUserRole!=='manager'){
         const err=document.getElementById('loginError');
         if(err){ err.textContent='No permission for Order Planning. Role: '+currentUserRole; err.style.display='block'; }

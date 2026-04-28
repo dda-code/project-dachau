@@ -1424,6 +1424,16 @@ const _PFX_EXCLUDE=new Set([]); // Collections die NICHT geprefixed werden solle
         };
     });
 })([db,_secondaryDb]);
+// Helper: Rolle für V2-Sandbox setzen ohne in die Konsole zu tippen
+window.v2SetRole=function(role){
+    if(role===null||role===''||role==='reset'){
+        localStorage.removeItem('V2_OVERRIDE_ROLE');
+        console.log('%c[V2-OVERRIDE] entfernt — jetzt Hard-Reload (Strg+Shift+R)','background:#0284c7;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700');
+        return;
+    }
+    localStorage.setItem('V2_OVERRIDE_ROLE',role);
+    console.log('%c[V2-OVERRIDE] role='+role+'  — jetzt Hard-Reload (Strg+Shift+R)','background:#0284c7;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700');
+};
 if(COL_PREFIX){
     console.log('%c[V2-SANDBOX] Collection-Prefix aktiv: '+COL_PREFIX+'*  — KEINE Live-Daten!','background:#16a34a;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;font-size:13px');
     document.addEventListener('DOMContentLoaded',function(){
@@ -1496,6 +1506,14 @@ auth.onAuthStateChanged(async user=>{
                 currentUserRole='user';
             }
         }
+        // === V2-SANDBOX ROLE-OVERRIDE === (nur wenn localStorage gesetzt)
+        try{
+            const _ovR=localStorage.getItem('V2_OVERRIDE_ROLE');
+            if(_ovR){
+                currentUserRole=_ovR;
+                console.log('%c[V2-OVERRIDE] role='+currentUserRole+'  (v2SetRole(null) zum Zuruecksetzen)','background:#f59e0b;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700');
+            }
+        }catch(e){console.warn('Override-Read fehlgeschlagen:',e);}
         console.log('Auth: user='+uName+', email='+user.email+', uid='+user.uid+', role='+currentUserRole);
         const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='manager'?' (Manager)':(currentUserRole==='qs'?' (QS)':''));
         $('userEmail').textContent=uName+roleLabel;
