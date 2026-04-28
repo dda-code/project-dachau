@@ -1920,22 +1920,22 @@ function firebaseStart(){
     // ol_*-Dokumente in der Collection liegen (Admin-Sicht liest alle, weil
     // die Rules Admin pauschal lesen lassen — siehe outlookQuery oben).
     //
-    // eventKey-Kaskade:
-    //   1) globalId  — Outlook GlobalAppointmentID, identisch bei allen
-    //                  Teilnehmern eines Meetings. Wird seit dem Patch von
-    //                  outlook_sync.py geschrieben; alte Docs ohne globalId
-    //                  fallen auf (2) zurueck, bis sie nachgepflegt sind.
-    //   2) Composite — name|start|startTime|endTime|organizer. Pragmatisch,
-    //                  reicht in der Praxis (Konflikt nur wenn zwei echte
-    //                  verschiedene Meetings minutengleich ueber denselben
-    //                  Organizer laufen — dann waeren sie auch im Kalender
-    //                  visuell ununterscheidbar).
+    // Dedupe-Strategie: jedes Event wird gleichzeitig unter ZWEI Keys
+    // indiziert — globalId (wenn vorhanden) UND Composite. Damit dedupliziert
+    // ein Doc-Paar auch dann, wenn nur EINE Seite globalId geschrieben hat
+    // (typisch: Mit-Teilnehmer hat noch eine alte outlook_sync.py-Version
+    // ohne globalId-Patch installiert; sein Doc kommt als globalId=undefined).
     //
-    // Tie-Break wenn mehrere Docs denselben eventKey haben: bevorzuge das Doc,
-    // dessen ownerEmail dem aktuellen User entspricht — dann sieht ein
-    // eingeladener User SEINE Daten (z.B. eigene Antwort-Zeit), nicht die
-    // eines Kollegen. Fallback: erstes gesehenes Doc.
-    var seen = {};
+    // Composite = name|start|startTime|endTime|organizer. Konflikt nur, wenn
+    // zwei echte verschiedene Meetings minutengleich ueber denselben Organizer
+    // laufen — dann waeren sie auch im Kalender visuell ununterscheidbar.
+    //
+    // Tie-Break: bevorzuge das Doc, dessen ownerEmail dem aktuellen User
+    // entspricht — dann sieht ein eingeladener User SEINE Daten (z.B. eigene
+    // Antwort-Zeit), nicht die eines Kollegen. Fallback: erstes gesehenes Doc.
+    var byGlobal = {};
+    var byComposite = {};
+    var meEmail = (currentUserEmail||'').toLowerCase();
     snap.forEach(function(doc){
       if(!doc.id.startsWith('ol_')) return;
       var d=doc.data();
@@ -1957,20 +1957,33 @@ function firebaseStart(){
         progress:0,
         done:false
       };
-      var eventKey = (d.globalId && String(d.globalId).trim())
-        ? 'g:'+String(d.globalId).trim()
-        : 'c:'+ev.name+'|'+ev.start+'|'+ev.startTime+'|'+ev.endTime+'|'+ev.organizer;
-      var prev = seen[eventKey];
+      var gid = (d.globalId && String(d.globalId).trim()) ? String(d.globalId).trim() : '';
+      var compKey = ev.name+'|'+ev.start+'|'+ev.startTime+'|'+ev.endTime+'|'+ev.organizer;
+      var prev = (gid && byGlobal[gid]) || byComposite[compKey] || null;
+
+      var chosen;
       if(!prev){
-        seen[eventKey] = ev;
+        chosen = ev;
       } else {
-        var meEmail = (currentUserEmail||'').toLowerCase();
         var prevIsMine = meEmail && prev.ownerEmail===meEmail;
         var evIsMine   = meEmail && ev.ownerEmail===meEmail;
-        if(evIsMine && !prevIsMine) seen[eventKey] = ev;
+        chosen = (evIsMine && !prevIsMine) ? ev : prev;
       }
+      // Beide Indizes auf den Gewinner zeigen lassen — ein spaeter eintreffendes
+      // Doc mit nur einer der beiden Schluesselformen findet so trotzdem den
+      // bestehenden Eintrag und dedupliziert.
+      byComposite[compKey] = chosen;
+      if(gid) byGlobal[gid] = chosen;
     });
-    outlookEvents = Object.keys(seen).map(function(k){ return seen[k]; });
+    // Aus byComposite den finalen Set ziehen — jeder reale Termin hat dort
+    // genau einen Eintrag (byGlobal kann denselben Eintrag mehrfach indizieren,
+    // wenn ein Termin sowohl per globalId als auch per Composite gefunden wurde).
+    var dedupSet = {};
+    Object.keys(byComposite).forEach(function(k){
+      var ev = byComposite[k];
+      dedupSet[ev.id] = ev;
+    });
+    outlookEvents = Object.keys(dedupSet).map(function(k){ return dedupSet[k]; });
     if(tasks.length>0) render();
   },function(err){
     console.warn('Outlook events nicht verfügbar:',err);
