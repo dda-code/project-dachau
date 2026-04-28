@@ -3509,8 +3509,22 @@ function renderProduktionsplan(){
         {l:'Sales Order XO',       fn:o=>_prodEsc(o['Sales Order XO'])},
         {l:'Veredelung',           fn:o=>_prodEsc(o['veredelung'])},
         {l:'Kunde',                fn:o=>_prodEsc(o['Kunde'])},
-        {l:'Pick-Up Deadline',     fn:o=>{const v=o['Pick-Up Deadline']||'';return v?'__STYLEcolor:#dc2626;font-weight:700__'+_prodFmtDate(v):'__STYLEcolor:#94a3b8__–';}},
-        {l:'Tage bis Pick-Up',     fn:o=>{const v=o['Pick-Up Deadline']||'';if(!v)return '__STYLEcolor:#94a3b8__–';const st=String(o['Status Produktion']||'').toLowerCase();const done=st.startsWith('done')||st.startsWith('fertig')||st.startsWith('cancel');const days=_prodDaysUntil(v);if(done)return '__STYLEcolor:#94a3b8__'+(days>=0?days+' d':Math.abs(days)+' d überzogen')+' (abgeschlossen)';if(days<0)return '__STYLEcolor:#dc2626;font-weight:700__⚠ '+Math.abs(days)+' d überzogen';if(days===0)return '__STYLEcolor:#dc2626;font-weight:700__heute fällig';return '__STYLEcolor:#16a34a;font-weight:700__'+days+' d verbleibend';}},
+        {l:'Pick-Up Deadline',     fn:o=>{const v=o['Pick-Up Deadline']||'';return v?'__STYLE style="color:#dc2626;font-weight:700"__'+_prodFmtDate(v):'__STYLE style="color:#94a3b8"__–';}},
+        {l:'Tage bis Pick-Up',     fn:o=>{
+            const v=o['Pick-Up Deadline']||'';
+            if(!v) return '__STYLE style="color:#94a3b8"__–';
+            const st=String(o['Status Produktion']||'').toLowerCase();
+            const done=st.startsWith('done')||st.startsWith('fertig')||st.startsWith('cancel');
+            const days=_prodDaysUntil(v);
+            // Anzeige: "X Tage" bzw. "X Tage überzogen" — Grün > 0, Rot ≤ 0
+            if(done){
+                const txt=(days>=0?days+' Tage':Math.abs(days)+' Tage überzogen')+' (abgeschlossen)';
+                return '__STYLE style="color:#94a3b8"__'+txt;
+            }
+            if(days>0)  return '__STYLE style="color:#16a34a;font-weight:700"__'+days+' Tage';
+            if(days===0)return '__STYLE style="color:#dc2626;font-weight:700"__heute fällig';
+            return '__STYLE style="color:#dc2626;font-weight:700"__⚠ '+Math.abs(days)+' Tage überzogen';
+        }},
         {l:'Palettenformat',       fn:o=>_prodEsc(o['Palettenformat'])},
         {l:'Ends pro Palette',     fn:o=>_prodNum(o['Ends pro Palette']), num:true},
         {l:'Artikelnummer',        fn:o=>_prodEsc(o['Artikelnummer'])},
