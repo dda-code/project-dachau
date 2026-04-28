@@ -318,7 +318,8 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
       <button class="btn btn-sm btn-secondary" onclick="closeOrderModal()">Close</button>
     </div>
     <div class="modal-body">
-      <div class="form-grid">
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <div class="form-grid" style="flex:1;min-width:0">
         <label>SO #<input id="o_so" type="text" class="ef"></label>
         <label>PO #<input id="o_po" type="text" class="ef"></label>
         <label>Art #
@@ -327,10 +328,10 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                 <button type="button" class="input-clear-btn" onclick="clearArtInput()" title="Clear input">×</button>
             </span>
         </label>
-        <label>Customer <span style="color:#ef4444">*</span><select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
+        <label>Customer<select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
         <label>Start date<input id="o_start" type="date" class="ef"></label>
         <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="o_pickup" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
-        <div style="display:flex;flex-direction:column;gap:3px;grid-column:span 1">
+        <div id="o_wknd_block" style="display:flex;flex-direction:column;gap:3px;grid-column:span 1">
             <span style="font-size:0.78rem;color:#475569;font-weight:600">Weekend &amp; Holiday Production</span>
             <div style="display:flex;gap:10px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;flex-wrap:wrap">
                 <label style="flex-direction:row;align-items:center;gap:5px;font-weight:500"><input type="checkbox" id="o_sat"> Saturday</label>
@@ -355,6 +356,11 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         </div>
         <label>Duration (days)<input id="o_days" type="text" class="cf" readonly></label>
         <label>End date<input id="o_end" type="text" class="cf" readonly></label>
+      </div>
+      <aside id="o_artInfo" style="width:300px;flex-shrink:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;font-size:0.82rem;line-height:1.45;align-self:stretch">
+        <div style="font-weight:700;color:#0f172a;margin-bottom:10px;font-size:0.85rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;padding-bottom:8px">Article Components</div>
+        <div id="o_artInfoBody" style="color:#64748b;font-style:italic">Select an article number to see its components.</div>
+      </aside>
       </div>
       <div id="o_calc" class="calc-row" style="display:none"></div>
 
@@ -542,6 +548,10 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
           <option value="all">All actions</option>
           <option value="approved">Only Approved</option>
           <option value="rejected">Only Rejected</option>
+          <option value="request_created">Only Requests created</option>
+          <option value="request_updated">Only Requests updated</option>
+          <option value="request_withdrawn">Only Requests withdrawn</option>
+          <option value="order_deleted">Only Orders deleted</option>
         </select>
       </div>
       <div id="proto_status" style="font-size:0.78rem;color:#64748b;margin-bottom:8px;min-height:1.1em"></div>
@@ -560,11 +570,11 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <input id="pl_search" type="text" placeholder="Search (Customer, Article, Tier, Note, …)" style="flex:1;min-width:240px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem" oninput="renderPricelist()">
         <button class="btn btn-sm btn-primary" onclick="addPricelistRow()">+ New Customer</button>
-        <button class="btn btn-sm btn-secondary" onclick="importPricelistFromXlsx()" title="Replaces all entries with the Customer_Article_Price.xlsx seed (26 rows)">📥 Import from XLSX</button>
       </div>
       <div id="pl_status" style="font-size:0.78rem;color:#64748b;margin-bottom:8px;min-height:1.1em"></div>
-      <div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:8px">
-        <table id="pl_table" style="width:100%;min-width:1700px;font-size:0.78rem;border-collapse:collapse;table-layout:fixed">
+      <div id="pl_scaler_wrap" style="overflow:hidden;border:1px solid #e2e8f0;border-radius:8px">
+        <div id="pl_scaler" style="transform-origin:top left;will-change:transform">
+        <table id="pl_table" style="width:1700px;font-size:0.78rem;border-collapse:collapse;table-layout:fixed">
           <colgroup>
             <col style="width:7%"><col style="width:9%"><col style="width:6%"><col style="width:6%"><col style="width:9%"><col style="width:7%"><col style="width:4%"><col style="width:7%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:4%"><col style="width:11%"><col style="width:9%"><col style="width:42px">
           </colgroup>
@@ -589,6 +599,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
           </thead>
           <tbody id="pl_tbody"><tr><td colspan="15" style="padding:18px;text-align:center;color:#64748b">Loading…</td></tr></tbody>
         </table>
+        </div><!-- /#pl_scaler -->
       </div>
     </div>
   </div>
@@ -2116,11 +2127,15 @@ function openOrderModal(){
         }
     }
     if(kpiBtn) kpiBtn.style.display = currentCanApprove ? '' : 'none';
+    // Manager: keine Eingaben zu Schichten/KPI/Wochenende — nur Approver dürfen das setzen
+    const wkndBlock=$('o_wknd_block');
+    if(wkndBlock) wkndBlock.style.display = currentCanApprove ? '' : 'none';
     const today=new Date();
     $('o_start').value=toIsoDate(today);
     prefillOutDayFromShiftPlan();
     $('o_calc').style.display='none';
     $('orderModal').classList.add('open');
+    _updateArtInfo();
     // Delegation: jeder Input im Modal triggert recalc (einmal binden)
     if(!openOrderModal._bound){
         openOrderModal._bound=true;
@@ -2156,6 +2171,7 @@ function openOrderModal(){
                 const qtyHas=parseThousands($('o_qty').value)>0;
                 if(palHas && !qtyHas) syncQtyFromPal();
                 else syncPalFromQty();
+                _updateArtInfo();
             }
             if(t.id && ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_start','o_pickup'].includes(t.id)){
                 triggerRecalc();
@@ -2255,6 +2271,7 @@ function applyOrderPayload(p){
     set('k_days',k.days); set('k_scrap',k.scrap); set('k_oee',k.oee);
     perDayShifts=p.perDayShifts?JSON.parse(JSON.stringify(p.perDayShifts)):{};
     orderGridData=p.gridData?JSON.parse(JSON.stringify(p.gridData)):{};
+    if(typeof _updateArtInfo==='function') _updateArtInfo();
 }
 
 function startPendingBadgeListener(){
@@ -2617,6 +2634,27 @@ async function importPricelistFromXlsx(){
 const PRICELIST_FIELDS=['region','customer','type','conversion','articleNr','articleStatus','dia','shell','shellSupplier','tier','unitPrice','ccy','paymentTerm','note'];
 let pricelistRows=[];
 let _pricelistSaveTimer={};
+// Dynamische Skalierung: passt die 1700px breite Pricelist-Tabelle in den verfügbaren Modal-Innenraum
+function _plFitScaler(){
+    const wrap=document.getElementById('pl_scaler_wrap');
+    const inner=document.getElementById('pl_scaler');
+    const table=document.getElementById('pl_table');
+    if(!wrap||!inner||!table) return;
+    const natural=table.offsetWidth||1700;
+    const avail=wrap.clientWidth;
+    if(avail<=0) return;
+    const scale=Math.min(1, avail/natural);
+    inner.style.transform='scale('+scale+')';
+    inner.style.width=natural+'px';
+    // Höhe des Wrappers an die skalierte Tabellen-Höhe anpassen, damit kein Leerraum unten entsteht
+    wrap.style.height=(table.scrollHeight*scale)+'px';
+}
+let _plResizeWired=false;
+function _plWireResize(){
+    if(_plResizeWired) return;
+    _plResizeWired=true;
+    window.addEventListener('resize', ()=>{ if(document.getElementById('pricelistModal')?.style.display==='flex') _plFitScaler(); });
+}
 async function openPricelist(){
     if(!currentCanApprove){ alert('Pricelist is only accessible to Approvers/Admin.'); return; }
     $('pricelistModal').style.display='flex';
@@ -2651,6 +2689,8 @@ function renderPricelist(){
     if(!rows.length){
         $('pl_tbody').innerHTML=`<tr><td colspan="15" style="padding:18px;text-align:center;color:#64748b">${q?'No matches for "'+escHtml(q)+'"':'No entries yet. Click „+ New Customer".'}</td></tr>`;
         $('pl_status').textContent=`${pricelistRows.length} entry/entries — all fields editable, save on cell blur.`;
+        requestAnimationFrame(()=>requestAnimationFrame(_plFitScaler));
+        _plWireResize();
         return;
     }
     const baseStyle="width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:4px;font-size:0.78rem;font-family:inherit;line-height:1.3;color:#1a1a2e;display:block";
@@ -2678,6 +2718,9 @@ function renderPricelist(){
     $('pl_status').textContent=`${rows.length} of ${pricelistRows.length} row(s) shown — all fields editable, auto-save on cell blur.`;
     // Initiales Auto-Grow für Textareas mit Mehrzeilen-Inhalt
     $('pl_tbody').querySelectorAll('textarea').forEach(_plAutoGrow);
+    // Skalierung an Modal-Breite anpassen (zwei Frames Verzögerung damit Layout final ist)
+    requestAnimationFrame(()=>requestAnimationFrame(_plFitScaler));
+    _plWireResize();
 }
 async function _savePricelistField(inputEl){
     const id=inputEl.dataset.id;
@@ -2766,7 +2809,13 @@ async function withdrawOwnPending(){
     if(!confirm('Really withdraw this request? Approvers will no longer see it.')) return;
     const id=_editingOwnPendingId, tab=currentTab;
     try{
+        // Snapshot vor dem Löschen, damit das Protokoll den Auftragsstand kennt
+        let pendDoc=null;
+        try{ const s=await db.collection(_pendingColForTab(tab)).doc(id).get(); pendDoc=s.exists?s.data():null; }catch(_){}
         await db.collection(_pendingColForTab(tab)).doc(id).delete();
+        // Protokoll-Eintrag für die Approver
+        try{ await _logProtocol('request_withdrawn', id, tab, pendDoc, ''); }
+        catch(e){ console.warn('protocol log (request_withdrawn):',e); }
         _editingOwnPendingId=null;
         showMsg('Request withdrawn.','success');
         closeOrderModal();
@@ -2991,10 +3040,17 @@ function renderProtocol(){
     const isAdmin=_apIsSuperAdmin(currentUserEmail);
     const cellLabel=(label,value)=>`<div style="min-width:0"><div style="font-size:0.66rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;font-weight:600;white-space:nowrap">${escHtml(label)}</div><div style="font-size:0.86rem;color:#0f172a;font-weight:600;margin-top:2px;line-height:1.3;word-break:break-word;overflow-wrap:anywhere">${value||'–'}</div></div>`;
     $('proto_list').innerHTML=rows.map(r=>{
-        const apr=r.action==='approved';
-        const badge=apr
-            ? '<span style="background:#10b981;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">✓ APPROVED</span>'
-            : '<span style="background:#ef4444;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">✗ REJECTED</span>';
+        const ACTION_BADGES={
+            approved:         {label:'✓ APPROVED',         bg:'#10b981'},
+            rejected:         {label:'✗ REJECTED',         bg:'#ef4444'},
+            request_created:  {label:'➕ REQUEST CREATED', bg:'#3b82f6'},
+            request_updated:  {label:'🔄 REQUEST UPDATED', bg:'#7c3aed'},
+            request_withdrawn:{label:'↩ REQUEST WITHDRAWN', bg:'#6b7280'},
+            order_deleted:    {label:'🗑 ORDER DELETED',    bg:'#b91c1c'}
+        };
+        const ab=ACTION_BADGES[r.action]||{label:String(r.action||'?').toUpperCase(),bg:'#64748b'};
+        const badge='<span style="background:'+ab.bg+';color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">'+ab.label+'</span>';
+        const isManagerAction=['request_created','request_updated','request_withdrawn','order_deleted'].includes(r.action);
         const reqEmail=String(r.requestedByEmail||'').replace('@lager.local','');
         const decEmail=String(r.decidedByEmail||'').replace('@lager.local','');
         const note=r.note?`<div style="margin-top:8px;padding:7px 10px;background:#fef3c7;border-radius:6px;font-size:0.8rem;color:#92400e"><strong>Note:</strong> ${escHtml(r.note)}</div>`:'';
@@ -3009,7 +3065,7 @@ function renderProtocol(){
                     <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700">${escHtml(TAB_CONFIG[r.tab]?.title||r.tab||'?')}</span>
                 </div>
                 <div style="font-size:0.76rem;color:#64748b;text-align:right">
-                    <div>Decision by <strong>${escHtml(decEmail)}</strong></div>
+                    <div>${isManagerAction?'Action by':'Decision by'} <strong>${escHtml(isManagerAction?reqEmail:decEmail)}</strong></div>
                     <div>${fmtTs(r.decidedAt)}</div>
                 </div>
             </div>
@@ -3026,7 +3082,7 @@ function renderProtocol(){
             ${note}
             <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;flex-wrap:wrap">
                 ${adminBtns}
-                <button class="btn btn-sm btn-primary" onclick="exportProtocolEntryPdf('${escHtml(r.id)}')">📄 PDF Export</button>
+                ${isManagerAction?'':`<button class="btn btn-sm btn-primary" onclick="exportProtocolEntryPdf('${escHtml(r.id)}')">📄 PDF Export</button>`}
             </div>
         </div>`;
     }).join('');
@@ -3799,6 +3855,37 @@ async function checkShiftPlanConflicts(seq){
     }catch(e){ console.warn('checkShiftPlanConflicts:',e); }
     return result;
 }
+// Aktualisiert das Komponenten-Info-Panel rechts neben den Order-Feldern
+function _updateArtInfo(){
+    const body=$('o_artInfoBody'); if(!body) return;
+    const art=String(($('o_art')?.value)||'').trim();
+    if(!art){ body.innerHTML='<span style="color:#64748b;font-style:italic">Select an article number to see its components.</span>'; return; }
+    const row=articleMapAssembly[art];
+    if(!row){ body.innerHTML='<span style="color:#dc2626;font-weight:600">Article '+escHtml(art)+' not found in master data.</span>'; return; }
+    // Verpackung: Beschreibung + Suffix + Stück/Palette
+    const verpDesc=String(row['Verpackung Beschreibung']||'').trim();
+    const verpSuf=String(row['Verpackung XO Nr.']||'').trim();
+    const verpEnds=endsForArtFallback(art);
+    const verpParts=[];
+    if(verpDesc) verpParts.push(verpDesc); else verpParts.push('Standard');
+    if(verpSuf && verpSuf!=='-') verpParts.push(verpSuf);
+    if(verpEnds>0) verpParts.push(Number(verpEnds).toLocaleString('de-DE'));
+    const verpStr=verpParts.join(', ');
+    const items=[
+        ['Shell',         formatShell(row)],
+        ['Frame',         formatFrameK(row)],
+        ['Inner-Slider',  formatInnerK(row)],
+        ['Outer-Slider',  formatOuterK(row)],
+        ['TP-Band',       formatTpK(row)],
+        ['Laser Code',    String(row['Laser Code Beschreibung']||'').trim()],
+        ['Verpackung',    verpStr]
+    ];
+    body.innerHTML=items.map(([lbl,val])=>{
+        const v=val||'<span style="color:#94a3b8">–</span>';
+        return '<div style="margin-bottom:8px"><div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:700">'+escHtml(lbl)+'</div><div style="color:#0f172a;font-weight:600;margin-top:2px;word-break:break-word">'+(val?escHtml(val):v)+'</div></div>';
+    }).join('');
+}
+
 async function saveOrder(mode){
     mode=mode||'direct';
     const start=$('o_start').value;
@@ -3829,9 +3916,16 @@ async function saveOrder(mode){
                 editingOrderSo:editingOrderSo||null,
                 payload
             });
-            try{ generateOrderPdf(payload,'request',{id:docRef.id, requestedByEmail:currentUserEmail}); }
-            catch(e){ console.warn('PDF-Erzeugung fehlgeschlagen:',e); }
-            showMsg(`Approval requested (ID: ${docRef.id.slice(0,6)}…). PDF downloaded.`,'success');
+            // PDF nur für Approver bei direkter Freigabe — Manager-Antrag erzeugt kein PDF
+            if(currentCanApprove){
+                try{ generateOrderPdf(payload,'request',{id:docRef.id, requestedByEmail:currentUserEmail}); }
+                catch(e){ console.warn('PDF-Erzeugung fehlgeschlagen:',e); }
+            }
+            // Manager-Aktion ins Protokoll der Approver schreiben
+            try{ await _logProtocol('request_created', docRef.id, currentTab,
+                {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:ts}, ''); }
+            catch(e){ console.warn('protocol log (request_created):',e); }
+            showMsg(`Approval requested (ID: ${docRef.id.slice(0,6)}…).`+(currentCanApprove?' PDF downloaded.':''),'success');
             closeOrderModal();
             await loadWeek(); // sofort grau-overlay im Kalender anzeigen
         }catch(e){
@@ -3865,8 +3959,15 @@ async function saveOrder(mode){
                 lastUpdatedAt: ts,
                 lastUpdatedByEmail: currentUserEmail
             });
-            try{ generateOrderPdf(payload,'request',{id,requestedByEmail:currentUserEmail,update:prevCount+1}); }
-            catch(e){ console.warn('PDF-Erzeugung fehlgeschlagen:',e); }
+            // PDF nur für Approver — Manager-Update erzeugt kein PDF
+            if(currentCanApprove){
+                try{ generateOrderPdf(payload,'request',{id,requestedByEmail:currentUserEmail,update:prevCount+1}); }
+                catch(e){ console.warn('PDF-Erzeugung fehlgeschlagen:',e); }
+            }
+            // Update ins Protokoll der Approver schreiben (mit Versionshinweis in der Note)
+            try{ await _logProtocol('request_updated', id, currentTab,
+                {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:old.requestedAt}, 'Version '+(prevCount+1)); }
+            catch(e){ console.warn('protocol log (request_updated):',e); }
             _editingOwnPendingId=null;
             showMsg(`Request updated (version ${prevCount+1}). Approvers see the new state immediately.`,'success');
             closeOrderModal();
@@ -4330,15 +4431,43 @@ async function deleteOrder(){
         const soKey=fieldKey('Production Plan','','SO #');
         const batch=db.batch();
         let count=0;
+        let deletedFields=null;     // Snapshot eines repräsentativen Tages für Protokoll
+        let firstIso=null, lastIso=null;
+        const matchingDocs=[];
         snap.forEach(doc=>{
             const d=doc.data();
             if(d.fields && d.fields[soKey]===so){
-                batch.delete(doc.ref);
-                count++;
+                matchingDocs.push({iso:d.datum, fields:d.fields, ref:doc.ref});
             }
         });
+        matchingDocs.sort((a,b)=>String(a.iso).localeCompare(String(b.iso)));
+        for(const m of matchingDocs){
+            batch.delete(m.ref);
+            count++;
+            if(!deletedFields) deletedFields=m.fields;
+            firstIso=firstIso||m.iso; lastIso=m.iso;
+        }
         if(count===0){ alert('Keine passenden Tage im Bereich gefunden.'); return; }
         await batch.commit();
+        // Protokoll-Eintrag
+        try{
+            const f=deletedFields||{};
+            const headerSnap={
+                so,
+                cust:f[fieldKey('Production Plan','','Customer')]||'',
+                art:f[fieldKey('Production Plan','','Art #')]||'',
+                po:f[fieldKey('Production Plan','','PO #')]||'',
+                qty:f[fieldKey('Production Plan','','Total QTY')]||'',
+                pal:f[fieldKey('Production Plan','','PAL')]||'',
+                pickup:f[fieldKey('Production Plan','','Pick-Up (Deadline)')]||'',
+                start:firstIso||'',
+                end:lastIso||'',
+                days:String(count)
+            };
+            await _logProtocol('order_deleted', null, currentTab,
+                {payload:{header:headerSnap}, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null},
+                count+' day(s) removed');
+        }catch(e){ console.warn('protocol log (order_deleted):',e); }
         showMsg(`Auftrag ${so} gelöscht (${count} Tag(e)).`,'success');
         editingOrderSo=null;
         closeOrderModal();
