@@ -242,6 +242,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
 <div id="loginView" class="login-page">
     <div class="login-container">
         <div class="login-card">
+            <img src="xo_logo.svg" alt="XO" style="height:48px;width:auto;display:block;margin:0 auto 10px" onerror="this.style.display='none'">
             <h1>Order Planning</h1>
             <p class="subtitle">Aumundswiese</p>
             <form id="loginForm">
@@ -256,8 +257,9 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
 
 <div id="appView" style="display:none">
 <header class="topbar">
-    <div class="topbar-left">
-        <h1>Order Planning</h1>
+    <div class="topbar-left" style="display:flex;align-items:center;gap:12px">
+        <img src="xo_logo.svg" alt="XO" style="height:38px;width:auto;display:block" onerror="this.style.display='none'">
+        <h1 style="margin:0">Order Planning</h1>
     </div>
     <div class="topbar-right">
         <div class="week-nav">
@@ -271,7 +273,6 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <button class="btn btn-sm btn-secondary" id="shiftPlannerBtn" onclick="openShiftPlanner()" style="display:none">Shift &amp; KPI Planning</button>
         <button class="btn btn-sm btn-secondary" id="pricelistBtn" onclick="openPricelist()" style="display:none">Pricelist</button>
         <button class="btn btn-sm btn-secondary" id="protocolBtn" onclick="openProtocol()" style="display:none">Protocol</button>
-        <button class="btn btn-sm btn-success" onclick="transferToProduktionsplan()">Transfer to Production Plan</button>
         <button class="btn btn-sm btn-warning" id="pendingTopBtn" onclick="openPendingModal()" style="display:none" title="Open approval requests">🔔 Open Requests <span id="pendingTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <button class="btn btn-sm" id="myRejectedTopBtn" onclick="openMyRejectedModal()" style="display:none;background:#f97316;color:#fff;border-color:#ea580c" title="Your rejected requests">⚠ Rejected <span id="myRejectedTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <span id="userEmail" style="font-size:0.85rem;color:#475569"></span>
@@ -571,12 +572,35 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <input id="pl_search" type="text" placeholder="Search (Customer, Article, Tier, Note, …)" style="flex:1;min-width:240px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem" oninput="renderPricelist()">
         <button class="btn btn-sm btn-primary" onclick="addPricelistRow()">+ New Customer</button>
       </div>
+      <div id="pl_filter_row" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;font-size:0.8rem">
+        <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">Region<select id="pl_f_region" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
+        <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">Customer<select id="pl_f_customer" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
+        <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">Type<select id="pl_f_type" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
+        <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">Status<select id="pl_f_articleStatus" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
+        <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">Tier<select id="pl_f_tier" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
+        <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">CCY<select id="pl_f_ccy" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
+        <button class="btn btn-sm btn-secondary" onclick="_plClearFilters()" style="padding:6px 10px;font-size:0.8rem" title="Clear all filters incl. search">✕ Clear filters</button>
+      </div>
       <div id="pl_status" style="font-size:0.78rem;color:#64748b;margin-bottom:8px;min-height:1.1em"></div>
       <div id="pl_scaler_wrap" style="overflow:hidden;border:1px solid #e2e8f0;border-radius:8px">
         <div id="pl_scaler" style="transform-origin:top left;will-change:transform">
         <table id="pl_table" style="width:1700px;font-size:0.78rem;border-collapse:collapse;table-layout:fixed">
           <colgroup>
-            <col style="width:7%"><col style="width:9%"><col style="width:6%"><col style="width:6%"><col style="width:9%"><col style="width:7%"><col style="width:4%"><col style="width:7%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:4%"><col style="width:11%"><col style="width:9%"><col style="width:42px">
+            <col style="width:110px"><!-- Region -->
+            <col style="width:130px"><!-- Customer -->
+            <col style="width:90px"><!-- Type -->
+            <col style="width:75px"><!-- Conversion -->
+            <col style="width:130px"><!-- Article Number -->
+            <col style="width:90px"><!-- Article Status -->
+            <col style="width:50px"><!-- Dia -->
+            <col style="width:110px"><!-- Shell -->
+            <col style="width:160px"><!-- Shell Supplier -->
+            <col style="width:100px"><!-- Tier -->
+            <col style="width:140px"><!-- Unit Price (€/1000 pcs.) -->
+            <col style="width:55px"><!-- CCY -->
+            <col style="width:200px"><!-- Payment Term -->
+            <col style="width:200px"><!-- Note -->
+            <col style="width:60px"><!-- Aktion -->
           </colgroup>
           <thead>
             <tr style="background:#f8fafc;text-align:left">
@@ -590,7 +614,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
               <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0">Shell</th>
               <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0">Shell Supplier</th>
               <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0">Tier</th>
-              <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap">Unit Price (€/1000 pcs.)</th>
+              <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0;text-align:right;line-height:1.25">Unit Price<br><span style="font-weight:500;color:#64748b">(€/1000 pcs.)</span></th>
               <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0">CCY</th>
               <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0">Payment Term</th>
               <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0">Note</th>
@@ -2683,11 +2707,37 @@ async function _syncPricelistCustomers(){
     }catch(e){ console.warn('syncPricelistCustomers:',e); }
 }
 function _plAutoGrow(el){ el.style.height='auto'; el.style.height=(el.scrollHeight)+'px'; }
+function _plPopulateFilterDropdowns(){
+    const FIELDS=['region','customer','type','articleStatus','tier','ccy'];
+    FIELDS.forEach(f=>{
+        const sel=document.getElementById('pl_f_'+f); if(!sel) return;
+        const cur=sel.value;
+        const uniq=[...new Set(pricelistRows.map(r=>String(r[f]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));
+        sel.innerHTML='<option value="">All</option>'+uniq.map(v=>`<option value="${escHtml(v)}"${v===cur?' selected':''}>${escHtml(v)}</option>`).join('');
+    });
+}
+function _plClearFilters(){
+    ['pl_search','pl_f_region','pl_f_customer','pl_f_type','pl_f_articleStatus','pl_f_tier','pl_f_ccy'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.value='';
+    });
+    renderPricelist();
+}
 function renderPricelist(){
+    _plPopulateFilterDropdowns();
     const q=($('pl_search')?.value||'').trim().toLowerCase();
-    const rows=q?pricelistRows.filter(r=>PRICELIST_FIELDS.some(f=>String(r[f]||'').toLowerCase().includes(q))):pricelistRows;
+    // Multi-Filter (AND-Verknüpfung): jede Dropdown muss matchen, wenn gesetzt
+    const FF=['region','customer','type','articleStatus','tier','ccy'];
+    const activeFilters={};
+    FF.forEach(f=>{
+        const v=document.getElementById('pl_f_'+f)?.value||'';
+        if(v) activeFilters[f]=v;
+    });
+    const matchesFilters=(r)=>Object.entries(activeFilters).every(([f,v])=>String(r[f]||'').trim()===v);
+    const matchesSearch=(r)=>!q || PRICELIST_FIELDS.some(f=>String(r[f]||'').toLowerCase().includes(q));
+    const rows=pricelistRows.filter(r=>matchesFilters(r) && matchesSearch(r));
     if(!rows.length){
-        $('pl_tbody').innerHTML=`<tr><td colspan="15" style="padding:18px;text-align:center;color:#64748b">${q?'No matches for "'+escHtml(q)+'"':'No entries yet. Click „+ New Customer".'}</td></tr>`;
+        const hasFilter=q||Object.keys(activeFilters).length;
+        $('pl_tbody').innerHTML=`<tr><td colspan="15" style="padding:18px;text-align:center;color:#64748b">${hasFilter?'No rows match the active search/filter combination.':'No entries yet. Click „+ New Customer".'}</td></tr>`;
         $('pl_status').textContent=`${pricelistRows.length} entry/entries — all fields editable, save on cell blur.`;
         requestAnimationFrame(()=>requestAnimationFrame(_plFitScaler));
         _plWireResize();
@@ -2715,7 +2765,9 @@ function renderPricelist(){
         <td style="padding:4px 4px;text-align:center;vertical-align:middle"><button class="btn btn-sm btn-danger" style="padding:3px 8px;font-size:0.75rem" onclick="deletePricelistRow('${escHtml(r.id)}')" title="Delete row">🗑</button></td>
     </tr>`).join('');
     $('pl_tbody').innerHTML=html;
-    $('pl_status').textContent=`${rows.length} of ${pricelistRows.length} row(s) shown — all fields editable, auto-save on cell blur.`;
+    const fCount=Object.keys(activeFilters).length;
+    const fInfo=fCount?` · ${fCount} filter${fCount>1?'s':''} active`:'';
+    $('pl_status').textContent=`${rows.length} of ${pricelistRows.length} row(s) shown${fInfo} — all fields editable, auto-save on cell blur.`;
     // Initiales Auto-Grow für Textareas mit Mehrzeilen-Inhalt
     $('pl_tbody').querySelectorAll('textarea').forEach(_plAutoGrow);
     // Skalierung an Modal-Breite anpassen (zwei Frames Verzögerung damit Layout final ist)
@@ -2938,9 +2990,13 @@ async function approvePendingInline(id, tab){
                 approvedPrice:{price:num, ccy}
             });
         }catch(e){ console.warn('PDF:',e); }
-        // 5) Pending-Doc löschen
+        // 5) Auto-Transfer in den Produktionsplan (nur Assembly)
+        let transferMsg='';
+        try{ transferMsg = await _autoTransferAfterApprove(finalPayload, gridData, tab); }
+        catch(e){ console.warn('Auto-Transfer to produktionsplan:',e); transferMsg=' (auto-transfer failed: '+e.message+')'; }
+        // 6) Pending-Doc löschen
         try{ await ref.delete(); }catch(e){ console.warn('Pending delete:',e); }
-        showMsg(`Order approved at ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000 pcs.`,'success');
+        showMsg(`Order approved at ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000 pcs.${transferMsg}`,'success');
         await loadWeek();
         renderPendingList('pendingModalBody');
     }catch(e){
@@ -3135,6 +3191,31 @@ async function deleteProtocolEntry(id){
 }
 
 // ---------- PDF ----------
+// XO Logo als PNG-DataURL für jsPDF (vorab beim Page-Load gerendert)
+let _xoLogoDataUrl=null;
+(function _preloadXoLogoForPdf(){
+    try{
+        const img=new Image();
+        img.crossOrigin='anonymous';
+        img.onload=()=>{
+            try{
+                const w=240, h=120;
+                const cv=document.createElement('canvas');
+                cv.width=w; cv.height=h;
+                const ctx=cv.getContext('2d');
+                ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,w,h);
+                // SVG-Aspect 480x240 → 2:1; rendere zentriert, max-fit
+                const ar=img.naturalWidth/img.naturalHeight || 2;
+                let dw=w, dh=w/ar; if(dh>h){ dh=h; dw=h*ar; }
+                ctx.drawImage(img, (w-dw)/2, (h-dh)/2, dw, dh);
+                _xoLogoDataUrl=cv.toDataURL('image/png');
+            }catch(e){ console.warn('xo logo canvas:',e); }
+        };
+        img.onerror=()=>{ console.warn('xo logo load failed'); };
+        img.src='xo_logo.svg';
+    }catch(e){ console.warn('xo logo preload:',e); }
+})();
+
 function generateOrderPdf(payload, kind, meta){
     if(!window.jspdf || !window.jspdf.jsPDF){ console.warn('jsPDF nicht geladen'); return; }
     const { jsPDF } = window.jspdf;
@@ -3148,7 +3229,6 @@ function generateOrderPdf(payload, kind, meta){
         request: {label:'REQUEST',   color:[249,115,22],   sectNo:'A.00'}
     }[kind]||{label:'REQUEST',color:[249,115,22],sectNo:'A.00'};
     const h=payload.header||{};
-    const k=payload.kpi||{};
     const tabTitle=TAB_CONFIG[payload.tab]?.title||payload.tab||'';
 
     // ---- Helpers ----
@@ -3162,18 +3242,24 @@ function generateOrderPdf(payload, kind, meta){
     };
     // ---- HEADER BAND ----
     setColor(C.bg,'fill'); doc.rect(0,0,PAGE_W,120,'F');
+    // XO Logo (oben links) – wenn beim Page-Load erfolgreich gerendert
+    let titleX=M;
+    if(_xoLogoDataUrl){
+        try{ doc.addImage(_xoLogoDataUrl, 'PNG', M, 24, 70, 35); titleX=M+82; }
+        catch(e){ console.warn('addImage logo:',e); }
+    }
     // Section number
     setColor(C.mid,'text');
     doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text(ACTION.sectNo, M, 38);
+    doc.text(ACTION.sectNo, titleX, 38);
     // Title
     setColor(C.charcoal,'text');
     doc.setFont('helvetica','bold'); doc.setFontSize(26);
-    doc.text('ORDER APPROVAL', M, 65);
+    doc.text('ORDER APPROVAL', titleX, 65);
     // Subtitle
     setColor(C.mid,'text');
     doc.setFont('helvetica','normal'); doc.setFontSize(10);
-    doc.text(`Area: ${tabTitle}  ·  SO ${h.so||'–'}  ·  Article ${h.art||'–'}`, M, 86);
+    doc.text(`Area: ${tabTitle}  ·  SO ${h.so||'–'}  ·  Article ${h.art||'–'}`, titleX, 86);
     // Status badge (oben rechts)
     const badgeW=140, badgeH=30, badgeX=PAGE_W-M-badgeW, badgeY=44;
     setColor(ACTION.color,'fill'); doc.roundedRect(badgeX,badgeY,badgeW,badgeH,4,4,'F');
@@ -3254,22 +3340,9 @@ function generateOrderPdf(payload, kind, meta){
         ['Weekend/Holiday', wEnde],
     ]);
 
-    // ---- 2. KPI ----
-    sectionHeader('02','KPI – PRODUCTION PARAMETERS');
-    kvGrid([
-        ['Cycle (s)', k.cycle],
-        ['Cav', k.cav],
-        ['hrs', k.hrs],
-        ['shift', k.shift],
-        ['days/m', k.days],
-        ['scrap (%)', k.scrap],
-        ['OEE (%)', k.oee],
-        ['Editing prev. SO #', payload.editingOrderSo||'–'],
-    ]);
-
-    // ---- 3. PRICE ----
+    // ---- 2. PRICE ----
     const sectionTitle3 = (kind==='approved' && payload.approvedPrice) ? 'CONFIRMED PRICE' : 'PRICE PER PRICELIST';
-    sectionHeader('03', sectionTitle3);
+    sectionHeader('02', sectionTitle3);
     const _normArt2=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
     const cust=String(h.cust||'').trim().toLowerCase();
     const orderArt=_normArt2(h.art);
@@ -3322,8 +3395,8 @@ function generateOrderPdf(payload, kind, meta){
         y+=18;
     }
 
-    // ---- 4. DAILY SCHEDULE ----
-    sectionHeader('04','DAILY SCHEDULE');
+    // ---- 3. DAILY SCHEDULE ----
+    sectionHeader('03','DAILY SCHEDULE');
     const qtyKey=fieldKey('Production Plan','','Qty');
     const palKey=fieldKey('Production Plan','','PAL');
     const gridRows=Object.keys(payload.gridData||{}).sort().map(iso=>{
@@ -3346,8 +3419,8 @@ function generateOrderPdf(payload, kind, meta){
         y=doc.lastAutoTable.finalY+18;
     }
 
-    // ---- 5. AUDIT TRAIL ----
-    sectionHeader('05','AUDIT TRAIL');
+    // ---- 4. AUDIT TRAIL ----
+    sectionHeader('04','AUDIT TRAIL');
     const fmtTs=ts=>{ try{ const d=ts?.toDate?ts.toDate():(ts instanceof Date?ts:(ts?new Date(ts):null)); return d?d.toLocaleString('de-DE'):'–'; }catch{ return '–'; } };
     const reqEmail=String(meta?.requestedByEmail||'').replace('@lager.local','')||'–';
     const decEmail=String(meta?.decidedByEmail||meta?.approvedByEmail||'').replace('@lager.local','')||'–';
@@ -4100,8 +4173,16 @@ async function saveOrder(mode){
             catch(e){ console.warn('Pending-Doc löschen fehlgeschlagen:',e); }
             _reviewingPendingId=null;
         }
-        const approvedSuffix=(mode==='approve')?' (freigegeben)':'';
-        showMsg(`Auftrag ${soVal||''} über ${days} Tag(e) gespeichert${approvedSuffix}.${shiftedInfo}`,'success');
+        // Auto-Transfer in den Produktionsplan bei Freigabe (Modus 'approve' oder 'direct')
+        let approveTransferMsg='';
+        if(mode==='approve' || mode==='direct'){
+            try{
+                const finalPayload=collectOrderPayload();
+                approveTransferMsg = await _autoTransferAfterApprove(finalPayload, finalPayload.gridData||orderGridData||{}, currentTab);
+            }catch(e){ console.warn('Auto-Transfer (saveOrder):',e); approveTransferMsg=' (auto-transfer failed: '+e.message+')'; }
+        }
+        const approvedSuffix=(mode==='approve' || mode==='direct')?' (freigegeben)':'';
+        showMsg(`Auftrag ${soVal||''} über ${days} Tag(e) gespeichert${approvedSuffix}.${shiftedInfo}${approveTransferMsg}`,'success');
         closeOrderModal();
         await loadWeek();
     }catch(e){
@@ -4872,6 +4953,46 @@ async function loadTransferCandidates(){
     });
     res.sort((a,b)=>a.startIso.localeCompare(b.startIso));
     return res;
+}
+
+// Auto-Transfer nach Freigabe — schreibt direkt in TAB_CONFIG.assembly.prodCol (= produktionsplan)
+// Re-Transfer-Erkennung: bei vorhandenem source/sourceSoNr-Match wird das bestehende Doc überschrieben.
+async function _autoTransferAfterApprove(payload, gridData, tab){
+    if(tab!=='assembly') return ''; // Frame-Tab aktuell nicht in den Lager-Produktionsplan integriert
+    const isos=Object.keys(gridData||{}).sort();
+    if(!isos.length) return '';
+    const qtyKey=fieldKey('Production Plan','','Qty');
+    const palKey=fieldKey('Production Plan','','PAL');
+    const _num=v=>parseFloat(String(v||'').replace(/\./g,'').replace(',','.'))||0;
+    const orderShape={
+        so: payload.header?.so||'',
+        customer: payload.header?.cust||'',
+        art: payload.header?.art||'',
+        pickup: payload.header?.pickup||'',
+        days: isos.map(iso=>({iso, fields:(gridData[iso]?.fields)||{}})),
+        sumQty: isos.reduce((s,iso)=>s+_num((gridData[iso]?.fields)?.[qtyKey]),0),
+        sumPal: isos.reduce((s,iso)=>s+_num((gridData[iso]?.fields)?.[palKey]),0),
+        daysCount: isos.length,
+        startIso: isos[0],
+        endIso: isos[isos.length-1],
+        firstFields: (gridData[isos[0]]?.fields)||{}
+    };
+    const already=await loadAlreadyTransferred();
+    const existing=already[orderShape.so];
+    const prodRef=existing
+        ? db.collection(TAB_CONFIG.assembly.prodCol).doc(existing.prodDocId)
+        : db.collection(TAB_CONFIG.assembly.prodCol).doc();
+    await prodRef.set(_buildProdDocFromOrder(orderShape, !!existing));
+    const ts=firebase.firestore.FieldValue.serverTimestamp();
+    let b=db.batch(), ops=0;
+    for(const iso of isos){
+        b.set(db.collection(TAB_CONFIG.assembly.salesCol).doc(iso),
+            { uebernommen:true, uebernommenAm:ts, uebernommenVon:currentUid, uebernommenAlsProd:prodRef.id },
+            {merge:true});
+        if(++ops>=400){ await b.commit(); b=db.batch(); ops=0; }
+    }
+    if(ops>0) await b.commit();
+    return existing ? ' → Production Plan updated.' : ' → Transferred to Production Plan.';
 }
 
 async function loadAlreadyTransferred(){
