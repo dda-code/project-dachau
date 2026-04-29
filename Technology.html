@@ -2759,9 +2759,38 @@ function _emailAllowed(e){ return ALLOWED_EMAILS.indexOf((e||'').toLowerCase())>
 // Editier-Rechte: Admin UND Manager dürfen Gantt bearbeiten.
 function _canEdit(){ return currentRole==='admin' || currentRole==='manager'; }
 
+// Build a set of identity aliases for the logged-in user so visibleTo matches
+// regardless of whether tasks were tagged with display name, email, or email prefix.
+function _currentUserAliases(){
+  var aliases=[];
+  if(currentUser) aliases.push(String(currentUser).toLowerCase());
+  try{
+    var u=firebase.auth().currentUser;
+    if(u){
+      if(u.displayName) aliases.push(String(u.displayName).toLowerCase());
+      if(u.email){
+        var em=String(u.email).toLowerCase();
+        aliases.push(em);
+        aliases.push(em.split('@')[0]);                    // local part
+        aliases.push(em.replace(/@[^@]+$/,''));            // local part (alt form)
+        aliases.push(em.replace(EMAIL_DOMAIN,''));         // toUsername equivalent
+      }
+    }
+  }catch(_){}
+  // Deduplicate + drop empties
+  var out={};
+  aliases.forEach(function(a){ if(a) out[a]=1; });
+  return Object.keys(out);
+}
 function canSeeTask(t){
   if(!t.visibleTo||!t.visibleTo.length) return true;
-  return t.visibleTo.indexOf(currentUser)!==-1;
+  var aliases=_currentUserAliases();
+  if(!aliases.length) return false;
+  for(var i=0;i<t.visibleTo.length;i++){
+    var v=String(t.visibleTo[i]||'').toLowerCase();
+    if(aliases.indexOf(v)!==-1) return true;
+  }
+  return false;
 }
 function buildVisChips(selectedUsers){
   var el=document.getElementById('visChips');if(!el)return;
