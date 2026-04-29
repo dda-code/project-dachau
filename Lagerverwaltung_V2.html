@@ -384,7 +384,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
    ============================================================ */
 .label-page-wrap { max-width:1400px; margin:24px auto; padding:0 20px; }
 .label-toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
-.label-split-right { overflow-x:auto; }
+.label-split-right { overflow:hidden; }
+/* Dynamische Skalierung: Label-Sheet wird via JS in den verfügbaren Container-Platz skaliert (kein Horizontal-Scroll) */
+.label-sheet { transform-origin: top center; }
 /* Nebeneinander ab 1200px (Boxen ~400 + Gap 20 + Label 650 + Padding ~40) */
 @media (min-width:1200px){ .label-split-layout { flex-wrap:nowrap !important; } }
 /* Auf sehr grossen Screens darf der Content breiter werden */
@@ -416,15 +418,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     font-weight: 400;
     color: #000;
 }
-/* Zeilenhöhen: +20% gegenüber Excel-Original (Excel-Werte × 1.2) */
-.lbl-r1  { height: 69.12pt;  } /* 57.6 × 1.2 */
+/* Zeilenhöhen: +20% gegenüber Excel-Original (Excel-Werte × 1.2); r1 zusätzlich +50% wegen größerem Logo */
+.lbl-r1  { height: 103.7pt;  } /* 57.6 × 1.2 × 1.5 (Logo +50%) */
 .lbl-r2  { height: 27.72pt;  } /* 23.1 × 1.2 */
 .lbl-r12 { height: 27.48pt;  } /* 22.9 × 1.2 */
 .lbl-r16 { height: 209.94pt; } /* 174.95 × 1.2 */
 
 /* Header-Zeile 1: Logo + Titel */
 .lbl-row-head td { padding: 0; }
-.lbl-logo-img { display:block; height: 57.6pt; width:auto; max-width:100%; padding: 2mm 4mm; box-sizing:border-box; }
+.lbl-logo-img { display:block; height: 86.4pt; width:auto; max-width:100%; padding: 2mm 4mm; box-sizing:border-box; } /* 57.6 × 1.5 */
 .lbl-title { font-size: 24pt; font-weight: 400; text-align: center; padding: 0 4mm; }
 
 /* graue Header-Zellen */
@@ -486,7 +488,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     font-size:18pt; line-height:1.1; font-weight:400; color:#000;
     font-family:"Calibri","Carlito","Segoe UI",Arial,sans-serif;
 }
-.sg-lbl-r1  { height:69.12pt; }
+.sg-lbl-r1  { height:103.7pt; } /* +50% wegen größerem Logo */
 .sg-lbl-r2  { height:27.72pt; }
 .sg-lbl-r10 { height:22.9pt; }
 .sg-lbl-row-head td { padding:0; }
@@ -710,23 +712,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <div id="labelPrinterInfo" style="font-size:0.8rem;color:#64748b;margin-bottom:10px;text-align:right"></div>
             <div class="label-split-layout" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
-              <div class="label-split-left" style="flex:1 1 720px;min-width:600px;max-width:920px;display:flex;flex-direction:column;gap:28px">
-                <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:28px 32px">
-                    <label for="labelOrderSelect" style="display:block;font-weight:700;color:#4361ee;margin-bottom:12px;font-size:1.8rem">Order Nummer auswählen:</label>
-                    <select id="labelOrderSelect" class="form-select" style="width:100%;font-size:2rem;padding:16px 18px" onchange="applyLabelOrder()">
+              <div class="label-split-left" style="flex:1 1 576px;min-width:480px;max-width:736px;display:flex;flex-direction:column;gap:22px">
+                <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:22px 26px">
+                    <label for="labelOrderSelect" style="display:block;font-weight:700;color:#4361ee;margin-bottom:10px;font-size:1.44rem">Order Nummer auswählen:</label>
+                    <select id="labelOrderSelect" class="form-select" style="width:100%;font-size:1.6rem;padding:13px 14px" onchange="applyLabelOrder()">
                         <option value="">— Auftrag aus Produktionsplan wählen —</option>
                     </select>
-                    <div id="labelOrderStatus" style="margin-top:12px;font-size:1.6rem;color:#4361ee;min-height:1.1em"></div>
+                    <div id="labelOrderStatus" style="margin-top:10px;font-size:1.28rem;color:#4361ee;min-height:1.1em"></div>
                 </div>
-                <div style="background:rgba(250,204,21,0.22);border:1px solid rgba(202,138,4,0.5);border-radius:12px;padding:28px 32px">
-                    <label for="labelPalNrInput" style="display:block;font-weight:700;color:#854d0e;margin-bottom:12px;font-size:1.8rem">Palettennummer eingeben:</label>
-                    <div style="display:flex;gap:16px;align-items:stretch">
+                <div style="background:rgba(250,204,21,0.22);border:1px solid rgba(202,138,4,0.5);border-radius:12px;padding:22px 26px">
+                    <label for="labelPalNrInput" style="display:block;font-weight:700;color:#854d0e;margin-bottom:10px;font-size:1.44rem">Palettennummer eingeben:</label>
+                    <div style="display:flex;gap:13px;align-items:stretch">
                         <div style="flex:1;display:flex;align-items:stretch;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;background:#fff">
-                            <span style="display:flex;align-items:center;padding:0 28px;background:#f1f5f9;color:#334155;font-weight:700;font-size:2rem;border-right:1px solid #cbd5e1;letter-spacing:0.3px">C26-</span>
-                            <input type="number" id="labelPalNrInput" min="1" max="9999" step="1" placeholder="z.B. 1" style="flex:1;border:none;outline:none;padding:20px 24px;font-size:2rem;min-width:0" oninput="_labelPalNrInputChanged()" onkeydown="if(event.key==='Enter'){event.preventDefault();applyLabelPalNr();}">
+                            <span style="display:flex;align-items:center;padding:0 22px;background:#f1f5f9;color:#334155;font-weight:700;font-size:1.6rem;border-right:1px solid #cbd5e1;letter-spacing:0.3px">C26-</span>
+                            <input type="number" id="labelPalNrInput" min="1" max="9999" step="1" placeholder="z.B. 1" style="flex:1;border:none;outline:none;padding:16px 19px;font-size:1.6rem;min-width:0" oninput="_labelPalNrInputChanged()" onkeydown="if(event.key==='Enter'){event.preventDefault();applyLabelPalNr();}">
                         </div>
                     </div>
-                    <div id="labelPalNrStatus" style="margin-top:12px;font-size:1.6rem;color:#854d0e;min-height:1.1em"></div>
+                    <div id="labelPalNrStatus" style="margin-top:10px;font-size:1.28rem;color:#854d0e;min-height:1.1em"></div>
                 </div>
                 <div id="lastPrintedBox" style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                     <span style="font-size:1.2rem">✅</span>
@@ -806,23 +808,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <span style="color:#64748b">Format: <b>100 × 150&nbsp;mm</b> · Zebra ZT231 (203&nbsp;dpi) · Druckertreiber-Papierformat auf „100&nbsp;x&nbsp;150&nbsp;mm" stellen (Randlos, Skalierung 100%).</span>
             </div>
             <div class="label-split-layout" style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
-              <div class="label-split-left" style="flex:1 1 720px;min-width:600px;max-width:920px;display:flex;flex-direction:column;gap:28px">
-                <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:28px 32px">
-                    <label for="sgLabelOrderSelect" style="display:block;font-weight:700;color:#4361ee;margin-bottom:12px;font-size:1.8rem">Order Nummer auswählen:</label>
-                    <select id="sgLabelOrderSelect" class="form-select" style="width:100%;font-size:2rem;padding:16px 18px" onchange="sg_applyLabelOrder()">
+              <div class="label-split-left" style="flex:1 1 576px;min-width:480px;max-width:736px;display:flex;flex-direction:column;gap:22px">
+                <div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:12px;padding:22px 26px">
+                    <label for="sgLabelOrderSelect" style="display:block;font-weight:700;color:#4361ee;margin-bottom:10px;font-size:1.44rem">Order Nummer auswählen:</label>
+                    <select id="sgLabelOrderSelect" class="form-select" style="width:100%;font-size:1.6rem;padding:13px 14px" onchange="sg_applyLabelOrder()">
                         <option value="">— Auftrag aus Produktionsplan wählen —</option>
                     </select>
-                    <div id="sgLabelOrderStatus" style="margin-top:12px;font-size:1.6rem;color:#4361ee;min-height:1.1em"></div>
+                    <div id="sgLabelOrderStatus" style="margin-top:10px;font-size:1.28rem;color:#4361ee;min-height:1.1em"></div>
                 </div>
-                <div style="background:rgba(250,204,21,0.22);border:1px solid rgba(202,138,4,0.5);border-radius:12px;padding:28px 32px">
-                    <label for="sgLabelPalNrInput" style="display:block;font-weight:700;color:#854d0e;margin-bottom:12px;font-size:1.8rem">Palettennummer eingeben:</label>
-                    <div style="display:flex;gap:16px;align-items:stretch">
+                <div style="background:rgba(250,204,21,0.22);border:1px solid rgba(202,138,4,0.5);border-radius:12px;padding:22px 26px">
+                    <label for="sgLabelPalNrInput" style="display:block;font-weight:700;color:#854d0e;margin-bottom:10px;font-size:1.44rem">Palettennummer eingeben:</label>
+                    <div style="display:flex;gap:13px;align-items:stretch">
                         <div style="flex:1;display:flex;align-items:stretch;border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;background:#fff">
-                            <span style="display:flex;align-items:center;padding:0 28px;background:#f1f5f9;color:#334155;font-weight:700;font-size:2rem;border-right:1px solid #cbd5e1;letter-spacing:0.3px">FR26</span>
-                            <input type="number" id="sgLabelPalNrInput" min="1" max="9999" step="1" placeholder="z.B. 23" style="flex:1;border:none;outline:none;padding:20px 24px;font-size:2rem;min-width:0" oninput="_sgLabelPalNrInputChanged()" onkeydown="if(event.key==='Enter'){event.preventDefault();sg_applyLabelPalNr();}">
+                            <span style="display:flex;align-items:center;padding:0 22px;background:#f1f5f9;color:#334155;font-weight:700;font-size:1.6rem;border-right:1px solid #cbd5e1;letter-spacing:0.3px">FR26</span>
+                            <input type="number" id="sgLabelPalNrInput" min="1" max="9999" step="1" placeholder="z.B. 23" style="flex:1;border:none;outline:none;padding:16px 19px;font-size:1.6rem;min-width:0" oninput="_sgLabelPalNrInputChanged()" onkeydown="if(event.key==='Enter'){event.preventDefault();sg_applyLabelPalNr();}">
                         </div>
                     </div>
-                    <div id="sgLabelPalNrStatus" style="margin-top:12px;font-size:1.6rem;color:#854d0e;min-height:1.1em"></div>
+                    <div id="sgLabelPalNrStatus" style="margin-top:10px;font-size:1.28rem;color:#854d0e;min-height:1.1em"></div>
                 </div>
                 <div id="sgLastPrintedBox" style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
                     <span style="font-size:1.2rem">✅</span>
@@ -4762,8 +4764,36 @@ document.querySelectorAll('.label-subtabs .tab[data-labelsub]').forEach(t=>{
             if(typeof _applyPrintPageStyleSg==='function')_applyPrintPageStyleSg();
             if(typeof _sgBpUpdateStatusUI==='function')_sgBpUpdateStatusUI();
         }
+        if(typeof _fitLabelSheets==='function') setTimeout(_fitLabelSheets,30);
     });
 });
+
+// Dynamisches Skalieren des Label-Sheets in den verfügbaren Container-Platz (kein Horizontal-Scroll mehr).
+function _fitLabelSheets(){
+    document.querySelectorAll('.label-split-right').forEach(rt=>{
+        const sheet=rt.querySelector('.label-sheet');
+        if(!sheet) return;
+        // Reset um echte natürliche Breite zu messen
+        sheet.style.transform='';
+        sheet.style.marginBottom='';
+        const containerWidth=rt.clientWidth;
+        const sheetWidth=sheet.offsetWidth;
+        if(!containerWidth || !sheetWidth) return;
+        if(containerWidth < sheetWidth){
+            const scale=Math.max(0.3, containerWidth/sheetWidth);
+            sheet.style.transform='scale('+scale+')';
+            sheet.style.marginBottom=(-sheet.offsetHeight*(1-scale))+'px';
+        }
+    });
+}
+window.addEventListener('resize', _fitLabelSheets);
+document.addEventListener('DOMContentLoaded',()=>setTimeout(_fitLabelSheets,80));
+window.addEventListener('load',()=>setTimeout(_fitLabelSheets,120));
+// Vor Druck Skalierung zurücksetzen, danach wieder anwenden
+window.addEventListener('beforeprint',()=>{
+    document.querySelectorAll('.label-sheet').forEach(s=>{ s.style.transform=''; s.style.marginBottom=''; });
+});
+window.addEventListener('afterprint',()=>setTimeout(_fitLabelSheets,30));
 
 // ============================================================
 // LABEL DRUCKEN — Dropdown, Barcode-Rendering, Druck-Trigger
@@ -5130,7 +5160,7 @@ function _applyPrintPageStyle(){
     @page { size: 100mm 150mm; margin: 2mm; }
     #labelPrintArea .label-sheet { width: 96mm !important; max-width: 96mm !important; border-width: 1px !important; }
     #labelPrintArea .lbl-tbl td { font-size: 11pt !important; padding: 0 2px !important; line-height: 1.05 !important; }
-    #labelPrintArea .lbl-r1  { height: 38pt !important; }
+    #labelPrintArea .lbl-r1  { height: 55pt !important; }
     #labelPrintArea .lbl-r2  { height: 15pt !important; }
     #labelPrintArea .lbl-r12 { height: 15pt !important; }
     #labelPrintArea .lbl-r16 { height: 117pt !important; }
@@ -5138,7 +5168,7 @@ function _applyPrintPageStyle(){
     #labelPrintArea .lbl-v-big { font-size: 13pt !important; }
     #labelPrintArea .lbl-v-gtin { font-size: 12pt !important; }
     #labelPrintArea .lbl-v-sscc { font-size: 10pt !important; }
-    #labelPrintArea .lbl-logo-img { height: 32pt !important; padding: 1mm 2mm !important; }
+    #labelPrintArea .lbl-logo-img { height: 48pt !important; padding: 1mm 2mm !important; }
     #labelPrintArea .lbl-bar { padding: 2mm 2mm !important; }
 }`;
         return;
@@ -5152,7 +5182,7 @@ function _applyPrintPageStyle(){
     @page { size: 100mm 100mm; margin: 2mm; }
     #labelPrintArea .label-sheet { width: 96mm !important; max-width: 96mm !important; border-width: 1px !important; }
     #labelPrintArea .lbl-tbl td { font-size: 8pt !important; padding: 0 2px !important; line-height: 1.0 !important; }
-    #labelPrintArea .lbl-r1  { height: 26pt !important; }
+    #labelPrintArea .lbl-r1  { height: 38pt !important; }
     #labelPrintArea .lbl-r2  { height: 11pt !important; }
     #labelPrintArea .lbl-r12 { height: 11pt !important; }
     #labelPrintArea .lbl-r16 { height: 70pt !important; }
@@ -5160,7 +5190,7 @@ function _applyPrintPageStyle(){
     #labelPrintArea .lbl-v-big { font-size: 10pt !important; }
     #labelPrintArea .lbl-v-gtin { font-size: 9pt !important; }
     #labelPrintArea .lbl-v-sscc { font-size: 7.5pt !important; }
-    #labelPrintArea .lbl-logo-img { height: 22pt !important; padding: 1mm 2mm !important; }
+    #labelPrintArea .lbl-logo-img { height: 33pt !important; padding: 1mm 2mm !important; }
     #labelPrintArea .lbl-bar { padding: 1mm 2mm !important; }
 }`;
         return;
