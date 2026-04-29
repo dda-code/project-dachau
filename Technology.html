@@ -723,7 +723,11 @@ function saveState(){
   markSaving();
   var _r=document.getElementById('right');
   var state={tasks:tasks,nid:nid,zi:zi,collapsed:collapsed,colW:colW,scrollX:_r?_r.scrollLeft:0,scrollY:_r?_r.scrollTop:0,savedAt:new Date().toISOString()};
-  GANTT_DOC.set(state)
+  // {merge:true}: verhindert dass TaskView-Felder (todos, personalTodos, lock)
+  // beim Speichern der Gantt-Daten weggewischt werden. Vorher: set(state) ohne
+  // merge → alle in TaskView angelegten persönlichen To-Dos weg, sobald jemand
+  // hier eine Checkbox klickte.
+  GANTT_DOC.set(state, {merge:true})
     .then(function(){markSaved();})
     .catch(function(e){console.error('Save error:',e);markSaveError();});
 }

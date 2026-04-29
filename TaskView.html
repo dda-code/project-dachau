@@ -1521,29 +1521,33 @@ function saveEditTask(){
   var visibleTo=collectVisibleTo();
 
   var editId=_editTaskId;
-  GANTT_DOC.get().then(function(doc){
-    if(!doc.exists) return;
-    var state=doc.data();
-    if(!state.tasks) return;
-    for(var i=0;i<state.tasks.length;i++){
-      if(state.tasks[i].id===editId){
-        state.tasks[i].name=name;
-        state.tasks[i].start=start;
-        state.tasks[i].end=end;
-        state.tasks[i].parentId=parentId?parseInt(parentId):null;
-        state.tasks[i].progress=progress;
-        state.tasks[i].done=done;
-        state.tasks[i].visibleTo=visibleTo;
-        break;
+  // Atomare Transaction: schützt vor Race mit Technology.html und parallelen
+  // TaskView-Edits. Vorher: get() + set() konnten dazwischen entstandene
+  // Schreibvorgänge überschreiben.
+  db.runTransaction(function(tx){
+    return tx.get(GANTT_DOC).then(function(doc){
+      if(!doc.exists) throw new Error('Kein gespeicherter State gefunden.');
+      var state=doc.data();
+      if(!state.tasks) throw new Error('State enthält keine Tasks.');
+      for(var i=0;i<state.tasks.length;i++){
+        if(state.tasks[i].id===editId){
+          state.tasks[i].name=name;
+          state.tasks[i].start=start;
+          state.tasks[i].end=end;
+          state.tasks[i].parentId=parentId?parseInt(parentId):null;
+          state.tasks[i].progress=progress;
+          state.tasks[i].done=done;
+          state.tasks[i].visibleTo=visibleTo;
+          break;
+        }
       }
-    }
-    state.savedAt=new Date().toISOString();
-    // To-Dos direkt im State speichern
-    var todoItems=collectTodoItems().filter(function(it){return it.text.trim()||it.date;});
-    if(!state.todos) state.todos={};
-    if(todoItems.length) state.todos[String(editId)]=todoItems; else delete state.todos[String(editId)];
-    taskTodos=state.todos;
-    return GANTT_DOC.set(state);
+      state.savedAt=new Date().toISOString();
+      var todoItems=collectTodoItems().filter(function(it){return it.text.trim()||it.date;});
+      if(!state.todos) state.todos={};
+      if(todoItems.length) state.todos[String(editId)]=todoItems; else delete state.todos[String(editId)];
+      taskTodos=state.todos;
+      tx.set(GANTT_DOC, state);
+    });
   }).then(function(){
     closeModal();
   }).catch(function(e){
@@ -1575,28 +1579,29 @@ function confirmDelete(){
   closeConfirm();
   closeModal();
 
-  GANTT_DOC.get().then(function(doc){
-    if(!doc.exists) return;
-    var state=doc.data();
-    if(!state.tasks) return;
-    // Collect IDs to delete (task + all descendants)
-    var idsToDelete={};
-    idsToDelete[delId]=true;
-    var changed=true;
-    while(changed){
-      changed=false;
-      state.tasks.forEach(function(t){
-        if(t.parentId&&idsToDelete[t.parentId]&&!idsToDelete[t.id]){
-          idsToDelete[t.id]=true;
-          changed=true;
-        }
-      });
-    }
-    state.tasks=state.tasks.filter(function(t){return !idsToDelete[t.id];});
-    // Todos der gelöschten Tasks entfernen
-    if(state.todos){Object.keys(idsToDelete).forEach(function(id){delete state.todos[String(id)];});taskTodos=state.todos;}
-    state.savedAt=new Date().toISOString();
-    return GANTT_DOC.set(state);
+  // Atomare Transaction analog editTask — verhindert Race mit Technology-Saves.
+  db.runTransaction(function(tx){
+    return tx.get(GANTT_DOC).then(function(doc){
+      if(!doc.exists) throw new Error('Kein gespeicherter State gefunden.');
+      var state=doc.data();
+      if(!state.tasks) throw new Error('State enthält keine Tasks.');
+      var idsToDelete={};
+      idsToDelete[delId]=true;
+      var changed=true;
+      while(changed){
+        changed=false;
+        state.tasks.forEach(function(t){
+          if(t.parentId&&idsToDelete[t.parentId]&&!idsToDelete[t.id]){
+            idsToDelete[t.id]=true;
+            changed=true;
+          }
+        });
+      }
+      state.tasks=state.tasks.filter(function(t){return !idsToDelete[t.id];});
+      if(state.todos){Object.keys(idsToDelete).forEach(function(id){delete state.todos[String(id)];});taskTodos=state.todos;}
+      state.savedAt=new Date().toISOString();
+      tx.set(GANTT_DOC, state);
+    });
   }).catch(function(e){
     console.error('Delete error:',e);
   });
