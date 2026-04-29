@@ -2784,7 +2784,11 @@ function _currentUserAliases(){
 }
 function canSeeTask(t){
   if(!t.visibleTo||!t.visibleTo.length) return true;
+  // Admins see everything regardless of visibleTo tagging.
+  if(currentRole==='admin') return true;
   var aliases=_currentUserAliases();
+  // Role-based tags ("Admin", "Manager", "QS", "User") match the user's role.
+  if(currentRole) aliases.push(String(currentRole).toLowerCase());
   if(!aliases.length) return false;
   for(var i=0;i<t.visibleTo.length;i++){
     var v=String(t.visibleTo[i]||'').toLowerCase();
