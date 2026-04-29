@@ -674,7 +674,8 @@ const db=firebase.firestore();
 // Schreibt/liest NICHT in die Live-Collections, sondern in v2_*-Spiegel.
 // Auf '' setzen = Production. WARNUNG: dann werden Live-Daten verändert!
 const COL_PREFIX='v2_';
-const _PFX_EXCLUDE=new Set([]); // Collections die NICHT geprefixed werden sollen (leer lassen)
+// Collections die NICHT geprefixed werden sollen — User-Verwaltung ist mit Live geteilt.
+const _PFX_EXCLUDE=new Set(['users']);
 (function(_d){
     const _orig=_d.collection.bind(_d);
     _d.collection=function(name){

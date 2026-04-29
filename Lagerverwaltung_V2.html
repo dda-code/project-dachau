@@ -1425,7 +1425,8 @@ const _secondaryDb = _secondaryApp.firestore();
 // Schreibt/liest NICHT in die Live-Collections, sondern in v2_*-Spiegel.
 // Auf '' setzen = Production. WARNUNG: dann werden Live-Daten verändert!
 const COL_PREFIX='v2_';
-const _PFX_EXCLUDE=new Set([]); // Collections die NICHT geprefixed werden sollen (leer lassen)
+// Collections die NICHT geprefixed werden sollen — User-Verwaltung ist mit Live geteilt.
+const _PFX_EXCLUDE=new Set(['users']);
 (function(_dbs){
     _dbs.forEach(function(_d){
         const _orig=_d.collection.bind(_d);
@@ -3288,9 +3289,10 @@ $('createUserForm').addEventListener('submit',async e=>{
                 }
             }else{throw createErr;}
         }
-        // User schreibt sein eigenes Dokument (Firestore Rules: auth.uid == doc.id)
-        await _secondaryDb.collection('users').doc(uid).set({displayName:u,email:toEmail(u),role:r,disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
+        // Secondary sofort ausloggen — danach schreibt der PRIMÄRE Admin das users/{uid}-Doc
+        // (Rules: nur isUserAdmin() darf users-Docs anlegen mit beliebiger Rolle).
         await _secondaryAuth.signOut();
+        await db.collection('users').doc(uid).set({displayName:u,email:toEmail(u),role:r,disabled:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});
         $('newUsername').value='';$('newPassword').value='';$('newRole').value='user';
         suc.textContent='Benutzer "'+u+'" erfolgreich angelegt!';suc.style.display='block';
         loadUserMgmt();
