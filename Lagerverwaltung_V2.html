@@ -465,6 +465,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         justify-content: center !important;
     }
     .label-sheet { width: 172mm !important; max-width: 172mm !important; margin: 0 !important; box-shadow: none !important; border: 2.5px solid #000 !important; }
+    /* Linke Eingabe-Spalte und Layout-Wrapper im Druck komplett aus dem Flow nehmen,
+       sonst zwingt deren min-width:600px die Body-Breite über die Seitenbreite und erzeugt
+       in der Druckvorschau eine horizontale Scrollbar. */
+    .label-split-left, .label-toolbar, #labelPrinterInfo, #sgLabelPrinterInfo,
+    #lastPrintedBox, #sgLastPrintedBox { display: none !important; }
+    .label-split-layout { display: block !important; gap: 0 !important; }
+    .label-split-right { display: block !important; flex: none !important; min-width: 0 !important; max-width: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+    .label-page-wrap { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+    html, body { overflow: hidden !important; width: auto !important; }
     /* Hintergrundfarben im Druck beibehalten (nötig für die grauen Header) */
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
@@ -740,7 +749,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                         <!-- Row 1 (57.6pt) — Logo links, "Beverage Can Ends 2.0" zentriert; A1:B1 merged -->
                         <tr class="lbl-row-head lbl-r1">
                             <td colspan="2" style="position:relative;padding:0">
-                                <img src="xo_logo.jpeg" class="lbl-logo-img" alt="XO" style="position:absolute;left:0;top:0;bottom:0;margin:auto 0">
+                                <img src="xo_logo.png" class="lbl-logo-img" alt="XO" style="position:absolute;left:0;top:0;bottom:0;margin:auto 0">
                                 <div class="lbl-title">Beverage Can Ends 2.0</div>
                             </td>
                         </tr>
@@ -836,7 +845,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                             <!-- Row 1 (57.6pt) — Logo links, "Frame" zentriert; A1:B1 merged -->
                             <tr class="sg-lbl-row-head sg-lbl-r1">
                                 <td colspan="2" style="position:relative;padding:0">
-                                    <img src="xo_logo.jpeg" class="lbl-logo-img" alt="XO" style="position:absolute;left:0;top:0;bottom:0;margin:auto 0">
+                                    <img src="xo_logo.png" class="lbl-logo-img" alt="XO" style="position:absolute;left:0;top:0;bottom:0;margin:auto 0">
                                     <div class="sg-lbl-title">Frame</div>
                                 </td>
                             </tr>
@@ -5327,7 +5336,7 @@ function _bpLoadSavedDevice(){
 }
 
 // ============================================================
-// LOGO → ZPL GRF — rendert xo_logo.jpeg zur Laufzeit via Canvas
+// LOGO → ZPL GRF — rendert xo_logo.png zur Laufzeit via Canvas
 // zu monochromer Bitmap + ^GFA-Command (ACS-Hex, ohne Kompression).
 // Cache pro Zielbreite, damit die Konvertierung nur einmal passiert.
 // ============================================================
@@ -5336,7 +5345,7 @@ async function _sgLogoToGRF(targetW){
     const key = 'logo@'+targetW;
     if(_grfCache.has(key)) return _grfCache.get(key);
     const img = new Image();
-    img.src = 'xo_logo.jpeg';
+    img.src = 'xo_logo.png';
     try{
         await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; });
     }catch(e){ return null; }
@@ -6154,7 +6163,7 @@ function _renderDruckEditForm(row){
         + '</td>';
     document.getElementById('druckEditForm').innerHTML=
         '<div style="display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #334155;border-bottom:none;padding:10px 14px;min-height:62px">'
-        + '<img src="xo_logo.jpeg" alt="XO" style="height:48px;width:auto;display:block">'
+        + '<img src="xo_logo.png" alt="XO" style="height:48px;width:auto;display:block">'
         + '<div style="flex:1;text-align:center;font-size:1.15rem;font-weight:600;color:#0f172a">Beverage Can Ends 2.0</div>'
         + '</div>'
         + '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
@@ -6186,7 +6195,7 @@ function _renderDruckEditFormFrame(row){
         + '</td>';
     document.getElementById('druckEditForm').innerHTML=
         '<div style="display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #334155;border-bottom:none;padding:10px 14px;min-height:62px">'
-        + '<img src="xo_logo.jpeg" alt="XO" style="height:48px;width:auto;display:block">'
+        + '<img src="xo_logo.png" alt="XO" style="height:48px;width:auto;display:block">'
         + '<div style="flex:1;text-align:center;font-size:1.15rem;font-weight:600;color:#0f172a">Frame (Spritzguss)</div>'
         + '</div>'
         + '<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
