@@ -370,9 +370,9 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
             </div>
           </div>
         </div>
-        <!-- Pricelist-Warning: Customer + Art-Kombi nicht in Pricelist hinterlegt -->
+        <!-- Pricelist warning: customer + article combination not in pricelist -->
         <div id="o_pricelistWarn" style="display:none;background:#fef2f2;border:1.5px solid #dc2626;color:#991b1b;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.9rem;font-weight:600">
-          ⚠ <span id="o_pricelistWarnText">Diese Kombination Customer + Art # ist nicht in der Pricelist hinterlegt.</span>
+          ⚠ <span id="o_pricelistWarnText">This combination of Customer + Art # is not listed in the pricelist.</span>
         </div>
         <!-- Sektion 2: Berechnungen (grau, automatisch) -->
         <div class="order-section">
@@ -3664,7 +3664,7 @@ function recalcOrder(rebuildGrid){
         calc.style.display='block';
     } else if(qty>0 && !art){
         calc.className='calc-row warn';
-        calc.textContent='Art # auswählen, damit PAL automatisch berechnet wird.';
+        calc.textContent='Select an Art # so that PAL can be calculated automatically.';
         calc.style.display='block';
     } else if(qty>0 && outDay===0){
         calc.className='calc-row warn';
@@ -4014,23 +4014,23 @@ async function checkShiftPlanConflicts(seq){
     }catch(e){ console.warn('checkShiftPlanConflicts:',e); }
     return result;
 }
-// Pricelist-Match-Warning aktualisieren (Customer + Art muessen zusammen in der Pricelist hinterlegt sein)
+// Update pricelist match warning (customer + article must both be listed in the pricelist)
 function _checkPricelistMatch(){
     const w=$('o_pricelistWarn'); if(!w) return;
     const wt=$('o_pricelistWarnText');
     const art=String(($('o_art')?.value)||'').trim();
     const cust=String(($('o_cust')?.value)||'').trim();
     if(!art || !cust){ w.style.display='none'; return; }
-    // Pricelist noch nicht geladen → Banner zeigen mit entsprechendem Hinweis
+    // Pricelist not yet loaded → show banner with hint
     if(!Array.isArray(pricelistRows) || !pricelistRows.length){
-        if(wt) wt.textContent='Pricelist wird noch geladen — bitte einen Moment warten oder Pricelist im Approver-Modus pruefen.';
+        if(wt) wt.textContent='Pricelist is still loading — please wait a moment, or check the pricelist in approver mode.';
         w.style.display='';
         return;
     }
     const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
     const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust.toLowerCase() && _norm(r.articleNr)===_norm(art));
     if(!match){
-        if(wt) wt.textContent='⚠ Diese Kombination Customer "'+cust+'" + Art # "'+art+'" ist nicht in der Pricelist hinterlegt. Request Approval ist trotzdem moeglich — beim Absenden ist ein Pflichtkommentar erforderlich.';
+        if(wt) wt.textContent='⚠ This combination of Customer "'+cust+'" + Art # "'+art+'" is not listed in the pricelist. Request Approval is still possible — a comment is mandatory when submitting.';
         w.style.display='';
     } else {
         w.style.display='none';
@@ -4057,13 +4057,13 @@ function _updateArtInfo(){
     const shellBeschreibung=_shellBeschreibung(row);
     const items=[
         ['Shell',         formatShell(row)],
-        ['Shell Beschreibung', shellBeschreibung],
+        ['Shell Description', shellBeschreibung],
         ['Frame',         formatFrameK(row)],
         ['Inner-Slider',  formatInnerK(row)],
         ['Outer-Slider',  formatOuterK(row)],
         ['TP-Band',       formatTpK(row)],
         ['Laser Code',    String(row['Laser Code Beschreibung']||'').trim()],
-        ['Verpackung',    verpStr]
+        ['Packaging',     verpStr]
     ];
     body.innerHTML=items.map(([lbl,val])=>{
         const v=val||'<span style="color:#94a3b8">–</span>';
@@ -4088,20 +4088,20 @@ async function saveOrder(mode){
             if(sel){ sel.style.borderColor='#ef4444'; sel.style.background='#fef2f2'; sel.focus(); setTimeout(()=>{ sel.style.borderColor=''; sel.style.background=''; },2500); }
             return;
         }
-        // Pricelist-Mismatch: Customer + Art-Kombination nicht hinterlegt → Acknowledge + Pflichtkommentar
+        // Pricelist mismatch: customer + article combination not listed → acknowledge + mandatory comment
         const artVal=String($('o_art')?.value||'').trim();
         if(artVal && Array.isArray(pricelistRows) && pricelistRows.length){
             const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
             const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===custVal.toLowerCase() && _norm(r.articleNr)===_norm(artVal));
             if(!match){
                 _hasMismatch=true;
-                const ack=confirm('⚠ Achtung: Customer "'+custVal+'" + Art # "'+artVal+'" ist nicht in der Pricelist hinterlegt.\n\nMit OK bestaetigen Sie die Kenntnis und koennen anschliessend einen Begruendungskommentar fuer die Freigeber abgeben.\nMit Abbrechen wird der Vorgang gestoppt.');
+                const ack=confirm('⚠ Warning: Customer "'+custVal+'" + Art # "'+artVal+'" is not listed in the pricelist.\n\nClick OK to acknowledge — you will then be asked for a justification comment for the approvers.\nClick Cancel to abort.');
                 if(!ack) return;
-                const note=prompt('Pflichtkommentar fuer die Freigeber:\n(z.B. Sonderpreisvereinbarung, Erstauftrag, neuer Kunde …)', '');
+                const note=prompt('Mandatory comment for the approvers:\n(e.g. special price agreement, first order, new customer …)', '');
                 if(note===null) return;  // Cancel
                 _mismatchNote=String(note).trim();
                 if(!_mismatchNote){
-                    alert('Ein Begruendungskommentar ist Pflicht bei Pricelist-Mismatch.');
+                    alert('A justification comment is mandatory for a pricelist mismatch.');
                     return;
                 }
             }
@@ -4131,7 +4131,7 @@ async function saveOrder(mode){
             // Manager-Aktion ins Protokoll der Approver schreiben
             try{ await _logProtocol('request_created', docRef.id, currentTab,
                 {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:ts},
-                _hasMismatch?('Pricelist-Mismatch — '+_mismatchNote):''); }
+                _hasMismatch?('Pricelist mismatch — '+_mismatchNote):''); }
             catch(e){ console.warn('protocol log (request_created):',e); }
             showMsg(`Approval requested (ID: ${docRef.id.slice(0,6)}…).`+(currentCanApprove?' PDF downloaded.':''),'success');
             closeOrderModal();
@@ -4199,7 +4199,7 @@ async function saveOrder(mode){
         const dowLabel={mon:'Mo',tue:'Di',wed:'Mi',thu:'Do',fri:'Fr',sat:'Sa',sun:'So'};
         const lines=spCheck.shifts.map(c=>`• ${c.iso} (${dowLabel[c.dow]||c.dow}): ${c.planned} Schicht(en) geplant – Schichtplan erlaubt max. ${c.allowed}`).join('\n');
         const planNames=Array.from(new Set(spCheck.shifts.flatMap(c=>c.planNames))).join(', ');
-        if(!confirm(`⚠ Schichtplan-Kollision (Schichten)!\n\nAn folgenden Tagen werden mehr Schichten geplant als im Schichtplan "${planNames}" vorgesehen:\n\n${lines}\n\nAusnahme hinzufügen und trotzdem speichern?`)) return;
+        if(!confirm(`⚠ Shift plan collision (shifts)!\n\nOn the following days more shifts are planned than allowed by shift plan "${planNames}":\n\n${lines}\n\nAdd exception and save anyway?`)) return;
     }
     if(spCheck.kpi.length>0){
         const k=spCheck.kpi[0];
@@ -4211,7 +4211,7 @@ async function saveOrder(mode){
     if(coll.hits.length>0){
         const soList=Array.from(coll.sos).join(', ');
         if(editingOrderSo){
-            if(!confirm(`⚠ Kollision!\nDer erweiterte Auftrag überschneidet sich an ${coll.hits.length} Tag(en) mit Folgeauftrag (${soList}).\n\nDiese Folgeaufträge werden automatisch nach hinten verschoben – ihre Daten bleiben erhalten.\n\nFortfahren?`)) return;
+            if(!confirm(`⚠ Collision!\nThe extended order overlaps on ${coll.hits.length} day(s) with following order(s) (${soList}).\n\nThose following orders will be shifted backwards automatically — their data is preserved.\n\nContinue?`)) return;
             // Kollidierende Folgeaufträge vorab komplett laden (damit sie nach dem Schreiben neu platziert werden können)
             try{
                 const soKey=fieldKey('Production Plan','','SO #');
@@ -4235,7 +4235,7 @@ async function saveOrder(mode){
                 preloadedFollowers.forEach(o=>o.days.sort((a,b)=>a.iso.localeCompare(b.iso)));
             }catch(e){ console.warn('Follower-Preload:',e); }
         } else {
-            if(!confirm(`⚠ Kollision!\nDer geplante Auftrag überschneidet sich an ${coll.hits.length} Tag(en) mit bereits vorhandenem Auftrag (${soList}).\n\nTrotzdem speichern? Die bestehenden Tageswerte werden überschrieben.`)) return;
+            if(!confirm(`⚠ Collision!\nThe planned order overlaps on ${coll.hits.length} day(s) with an existing order (${soList}).\n\nSave anyway? The existing daily values will be overwritten.`)) return;
         }
     }
     // Snapshot aktueller Grid-Inputs ins orderGridData mergen
@@ -4320,7 +4320,7 @@ async function saveOrder(mode){
             }catch(e){ console.warn('Auto-Transfer (saveOrder):',e); approveTransferMsg=' (auto-transfer failed: '+e.message+')'; }
         }
         const approvedSuffix=(mode==='approve' || mode==='direct')?' (freigegeben)':'';
-        showMsg(`Auftrag ${soVal||''} über ${days} Tag(e) gespeichert${approvedSuffix}.${shiftedInfo}${approveTransferMsg}`,'success');
+        showMsg(`Order ${soVal||''} saved across ${days} day(s)${approvedSuffix}.${shiftedInfo}${approveTransferMsg}`,'success');
         closeOrderModal();
         await loadWeek();
     }catch(e){
@@ -4343,7 +4343,7 @@ async function openShiftPlanner(){
 // KPI-Felder im Shift-Planner für Nicht-Freigeber sperren (grau + readonly + Tooltip)
 function _applyShiftPlannerPermissions(){
     const kpiIds=['sp_cycle','sp_cav','sp_hrs','sp_daysm','sp_scrap','sp_oee'];
-    const tip='KPI-Werte können nur Freigeber ändern.';
+    const tip='KPI values can only be changed by approvers.';
     kpiIds.forEach(id=>{
         const e=$(id); if(!e) return;
         if(currentCanApprove){
@@ -4364,9 +4364,9 @@ function _spSetMode(editing){
     _editingShiftPlanId=editing?_editingShiftPlanId:null;
     const banner=$('sp_mode_banner'); if(banner) banner.classList.toggle('edit',!!editing);
     const title=$('sp_mode_title'); if(title) title.textContent=editing?'Schichtplan bearbeiten':'Neuen Schichtplan anlegen';
-    const hint=$('sp_mode_hint'); if(hint) hint.textContent=editing?'— Änderungen speichern oder abbrechen':'— Zeitraum und Schichtanzahl eintragen';
+    const hint=$('sp_mode_hint'); if(hint) hint.textContent=editing?'— Save changes or cancel':'— Enter period and number of shifts';
     const cancel=$('sp_cancel_edit'); if(cancel) cancel.style.display=editing?'':'none';
-    const saveBtn=$('sp_save_btn'); if(saveBtn) saveBtn.textContent=editing?'Änderungen speichern':'Schichtplan anlegen';
+    const saveBtn=$('sp_save_btn'); if(saveBtn) saveBtn.textContent=editing?'Save changes':'Create shift plan';
     const tbody=$('sp_list'); if(tbody){
         tbody.querySelectorAll('tr.editing').forEach(tr=>tr.classList.remove('editing'));
         if(editing && _editingShiftPlanId){
@@ -4467,7 +4467,7 @@ async function loadShiftPlans(){
         const rows=[];
         snap.forEach(doc=>{ rows.push({id:doc.id, ...doc.data()}); });
         if(!rows.length){
-            tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">Noch keine Schichtpläne angelegt.</td></tr>';
+            tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">No shift plans created yet.</td></tr>';
             return;
         }
         const fmtRange=(a,b)=>{
@@ -4501,7 +4501,7 @@ async function loadShiftPlans(){
                 <td class="sp-kpi-cell">${escHtml(kpiTxt)}</td>
                 <td class="sp-actions-cell">
                     <button class="sp-btn sp-edit" data-id="${escHtml(r.id)}" title="Bearbeiten">Bearbeiten</button>
-                    <button class="sp-btn sp-del"  data-id="${escHtml(r.id)}" title="Löschen">✕</button>
+                    <button class="sp-btn sp-del"  data-id="${escHtml(r.id)}" title="Delete">✕</button>
                 </td>
             </tr>`;
         }).join('');
@@ -4638,7 +4638,7 @@ function clearArtInput(){
 async function deleteOrder(){
     const so=editingOrderSo;
     if(!so){ alert('No existing order selected for deletion.'); return; }
-    if(!confirm(`Auftrag ${so} wirklich löschen?\nAlle zugehörigen Tage werden vollständig entfernt.`)) return;
+    if(!confirm(`Really delete order ${so}?\nAll associated days will be removed completely.`)) return;
     try{
         const today=new Date(); today.setHours(0,0,0,0);
         const from=new Date(today); from.setDate(today.getDate()-180);
@@ -4687,7 +4687,7 @@ async function deleteOrder(){
                 {payload:{header:headerSnap}, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null},
                 count+' day(s) removed');
         }catch(e){ console.warn('protocol log (order_deleted):',e); }
-        showMsg(`Auftrag ${so} gelöscht (${count} Tag(e)).`,'success');
+        showMsg(`Order ${so} deleted (${count} day(s)).`,'success');
         editingOrderSo=null;
         closeOrderModal();
         await loadWeek();
@@ -4701,7 +4701,7 @@ let ordersManagerData={orders:[]};
 let dragOrderIdx=null;
 async function openOrdersManager(){
     if(currentTab!=='assembly'){ showMsg('Order Sequence is only available in the Assembly tab.','error'); return; }
-    $('ordersList').innerHTML='<div class="orders-empty">Lade Aufträge…</div>';
+    $('ordersList').innerHTML='<div class="orders-empty">Loading orders…</div>';
     $('ordersModal').classList.add('open');
     try{
         const today=new Date(); today.setHours(0,0,0,0);
@@ -4749,7 +4749,7 @@ function closeOrdersManager(){ $('ordersModal').classList.remove('open'); }
 function renderOrdersManager(){
     const container=$('ordersList'); if(!container) return;
     const orders=ordersManagerData.orders;
-    if(!orders.length){ container.innerHTML='<div class="orders-empty">Keine Aufträge im Zeitraum gefunden.</div>'; return; }
+    if(!orders.length){ container.innerHTML='<div class="orders-empty">No orders found in this period.</div>'; return; }
     const total=orders.length;
     const parts=[];
     orders.forEach((o,i)=>{
@@ -5177,7 +5177,7 @@ function renderTransferModal(){
     const available=(transferModalData.available||[]);
     const availEl=$('transferAvailableList');
     if(!available.length){
-        availEl.innerHTML='<div class="transfer-empty">Keine offenen Aufträge ab heute.</div>';
+        availEl.innerHTML='<div class="transfer-empty">No open orders from today.</div>';
     } else {
         const head=`<thead><tr>
             <th style="width:32px"></th>
@@ -5190,7 +5190,7 @@ function renderTransferModal(){
             const ai=already[o.so];
             const isReTransfer=!!ai;
             const reMark=isReTransfer
-                ?`<span class="transfer-redo-badge" title="Bereits am ${escHtml(_fmtTransferDate(ai.transferredAt))} übertragen — erneutes Übernehmen überschreibt den Eintrag im Produktionsplan">↻ erneut</span>`
+                ?`<span class="transfer-redo-badge" title="Already transferred on ${escHtml(_fmtTransferDate(ai.transferredAt))} — re-transferring will overwrite the entry in the production plan">↻ again</span>`
                 :'<span class="transfer-new-badge">neu</span>';
             return `<tr class="${isReTransfer?'transfer-row-redo':''}">
             <td><input type="checkbox" class="transfer-so-cb" data-so="${escHtml(o.so)}"></td>
@@ -5209,11 +5209,11 @@ function renderTransferModal(){
     const doneEl=$('transferDoneList');
     const doneEntries=Object.entries(already);
     if(!doneEntries.length){
-        doneEl.innerHTML='<div class="transfer-empty">Noch nichts übertragen.</div>';
+        doneEl.innerHTML='<div class="transfer-empty">Nothing transferred yet.</div>';
     } else {
         const head=`<thead><tr>
             <th>SO #</th><th>Kunde</th><th>Art #</th>
-            <th>Übertragen am</th><th>Von</th><th></th>
+            <th>Transferred on</th><th>By</th><th></th>
         </tr></thead>`;
         const rows=doneEntries.sort((a,b)=>a[0].localeCompare(b[0])).map(([so,info])=>`<tr>
             <td class="so-val">${escHtml(so)}</td>
@@ -5221,13 +5221,13 @@ function renderTransferModal(){
             <td>${escHtml(info.artikelnummer||'–')}</td>
             <td>${escHtml(_fmtTransferDate(info.transferredAt))}</td>
             <td>${escHtml(_uidLabel(info.transferredBy))}</td>
-            <td><span class="transfer-badge done">übernommen</span></td>
+            <td><span class="transfer-badge done">transferred</span></td>
         </tr>`).join('');
         doneEl.innerHTML=`<table class="transfer-table">${head}<tbody>${rows}</tbody></table>`;
     }
     $('transferSelectAll').checked=false;
     $('transferConfirmBtn').disabled=true;
-    $('transferCountLbl').textContent=`0 von ${available.length} ausgewählt`;
+    $('transferCountLbl').textContent=`0 of ${available.length} selected`;
 }
 
 function toggleAllTransferCbs(checked){
@@ -5240,7 +5240,7 @@ function updateTransferConfirmBtn(){
     const cbs=[...document.querySelectorAll('#transferAvailableList .transfer-so-cb')];
     const picked=cbs.filter(cb=>cb.checked).length;
     $('transferConfirmBtn').disabled=picked===0;
-    $('transferCountLbl').textContent=`${picked} von ${cbs.length} ausgewählt`;
+    $('transferCountLbl').textContent=`${picked} of ${cbs.length} selected`;
     const all=$('transferSelectAll');
     if(all) all.checked=cbs.length>0 && picked===cbs.length;
 }
@@ -5350,8 +5350,8 @@ async function confirmTransferSelection(){
         }
         if(ops>0) await batch.commit();
         const parts=[];
-        if(neu) parts.push(`${neu} neu übernommen`);
-        if(redo) parts.push(`${redo} erneut übertragen (überschrieben)`);
+        if(neu) parts.push(`${neu} newly transferred`);
+        if(redo) parts.push(`${redo} re-transferred (overwritten)`);
         showMsg(parts.join(' · ')+'.','success');
         await loadWeek();
         await openTransferModal();
