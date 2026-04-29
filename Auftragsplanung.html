@@ -366,7 +366,11 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
       <div id="o_calc" class="calc-row" style="display:none"></div>
 
       <div class="preview-title">
-        <span>Preview – next 4 weeks</span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <button type="button" id="o_prevWeekBtn" class="btn btn-sm btn-secondary" title="Previous week (←)" style="padding:2px 8px;font-weight:700">◀</button>
+          <span>Preview – 4 weeks from <span id="o_previewKw" style="font-weight:700">KW –</span></span>
+          <button type="button" id="o_nextWeekBtn" class="btn btn-sm btn-secondary" title="Next week (→)" style="padding:2px 8px;font-weight:700">▶</button>
+        </span>
         <span style="font-size:0.75rem;color:#64748b">Yellow = scheduled · Blue = new order · Red = collision</span>
       </div>
       <div class="mini-cal-head">
@@ -759,6 +763,7 @@ function _uidLabel(uid){
 }
 let currentYear, currentWeek, currentMonth;
 let currentAnchor=null; // Montag der ersten angezeigten Woche
+let previewAnchor=null;  // Montag der ersten Zeile im Order-Preview-Kalender (per Pfeiltasten navigierbar)
 const MONTH_NAMES_DE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 function mondayOf(date){
     const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
@@ -1765,6 +1770,25 @@ function renderGrid(){
                         displayVal='';
                     }
                 }
+                // Pick-Up (Deadline): erste SO-Zelle = Datum (DD.MM.YYYY), Folgezellen = "→", immer rot
+                if(isPickup){
+                    const soForIso=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','','SO #')])||'';
+                    const _fmtPu=(s)=>{const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}.${m[2]}.${m[1]}`:(s||'');};
+                    if(soForIso && soSpans[soForIso]){
+                        const sp=soSpans[soForIso];
+                        if(iso===sp.firstIso){
+                            const raw=(weekData[sp.firstIso]&&weekData[sp.firstIso].fields&&weekData[sp.firstIso].fields[key])||val||'';
+                            displayVal=_fmtPu(raw);
+                        } else if(iso<=sp.lastIso){
+                            displayVal='→';
+                        } else {
+                            displayVal='';
+                        }
+                    } else {
+                        displayVal=_fmtPu(val);
+                    }
+                    extraCellStyle+=';color:#dc2626;font-weight:700';
+                }
                 const dayHasSo=!!(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','','SO #')]);
                 const pendingMeta=(weekData[iso]&&weekData[iso]._pending)||null;
                 const pendCls=pendingMeta?' cell-pending':'';
@@ -1799,9 +1823,12 @@ function renderGrid(){
                     const dispCls='cell-day cell-display'+(isWe?' weekend':'')+(isHolidayDay?' holiday':'')+pendCls;
                     const pickStyle=isPickup?' style="color:#dc2626;font-weight:700"':'';
                     html+=`<td class="${dispCls}"${pendAttr}${pendTitle}${pickStyle}>${escHtml(displayVal)}</td>`;
+                } else if(isPickup){
+                    const dispCls='cell-day cell-display'+(isWe?' weekend':'')+(isHolidayDay?' holiday':'');
+                    const styleAttr=` style="color:#dc2626;font-weight:700"`;
+                    html+=`<td class="${dispCls}"${styleAttr}>${escHtml(displayVal)}</td>`;
                 } else if(inpType==='date'){
-                    const dateStyle=isPickup?' style="color:#dc2626;font-weight:700"':'';
-                    html+=`<td class="${tdCls}"><input type="date" data-date="${iso}" data-key="${key}"${extra}${dateStyle} value="${escHtml(displayVal)}"></td>`;
+                    html+=`<td class="${tdCls}"><input type="date" data-date="${iso}" data-key="${key}"${extra}value="${escHtml(displayVal)}"></td>`;
                 } else {
                     html+=`<td class="${tdCls}"><textarea rows="1" data-date="${iso}" data-key="${key}"${listAttr}${extra}>${escHtml(displayVal)}</textarea></td>`;
                 }
@@ -2158,12 +2185,30 @@ function openOrderModal(){
     $('o_start').value=toIsoDate(today);
     prefillOutDayFromShiftPlan();
     $('o_calc').style.display='none';
+    // Preview-Kalender immer auf Montag der AKTUELLEN KW zurücksetzen, dann navigierbar
+    {
+        const _t=new Date(); _t.setHours(0,0,0,0);
+        const _dow=_t.getDay()||7;
+        _t.setDate(_t.getDate()-(_dow-1));
+        previewAnchor=_t;
+    }
     $('orderModal').classList.add('open');
     _updateArtInfo();
     // Delegation: jeder Input im Modal triggert recalc (einmal binden)
     if(!openOrderModal._bound){
         openOrderModal._bound=true;
         const modal=$('orderModal');
+        const _prevBtn=$('o_prevWeekBtn');
+        const _nextBtn=$('o_nextWeekBtn');
+        if(_prevBtn) _prevBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();shiftPreviewWeek(-1);});
+        if(_nextBtn) _nextBtn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();shiftPreviewWeek(1);});
+        document.addEventListener('keydown',e=>{
+            if(!modal.classList.contains('open')) return;
+            const tag=(e.target&&e.target.tagName)||'';
+            if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+            if(e.key==='ArrowLeft'){ e.preventDefault(); shiftPreviewWeek(-1); }
+            else if(e.key==='ArrowRight'){ e.preventDefault(); shiftPreviewWeek(1); }
+        });
         $('shiftPopover').addEventListener('click',e=>{
             const btn=e.target.closest('.sp-btn');
             if(!btn) return;
@@ -2195,6 +2240,9 @@ function openOrderModal(){
                 const qtyHas=parseThousands($('o_qty').value)>0;
                 if(palHas && !qtyHas) syncQtyFromPal();
                 else syncPalFromQty();
+                _updateArtInfo();
+            }
+            else if(t.id==='o_cust'){
                 _updateArtInfo();
             }
             if(t.id && ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_start','o_pickup'].includes(t.id)){
@@ -3799,24 +3847,17 @@ function renderOrderPreview(){
     const days=parseInt($('o_days').value||'0',10)||0;
     const newArt=$('o_art').value.trim();
     const newCust=$('o_cust').value.trim();
-    // Fenster: Montag der Haupttabellen-Ansicht (currentAnchor) als Startpunkt – identisch zur Assembly-Tabelle
+    // Fenster: previewAnchor (per Pfeiltasten navigierbar) — beim Öffnen auf Montag der aktuellen KW gesetzt
     const today0=new Date(); today0.setHours(0,0,0,0);
-    let anchor=currentAnchor ? new Date(currentAnchor) : new Date(today0);
-    if(newStart){
-        const ns=new Date(newStart+'T00:00:00');
-        if(ns<anchor) anchor=ns;
+    if(!previewAnchor){
+        const _t=new Date(today0);
+        const _dow=_t.getDay()||7;
+        _t.setDate(_t.getDate()-(_dow-1));
+        previewAnchor=_t;
     }
+    let anchor=new Date(previewAnchor);
     anchor.setHours(0,0,0,0);
-    const a0=anchor.getDay()||7;
-    anchor.setDate(anchor.getDate()-(a0-1));
-    // Dynamisches Fenster: mindestens 28 Tage, ansonsten bis neuer Auftrag endet + 7 Tage Puffer
-    let windowDays=28;
-    if(newStart && days>0){
-        const ns=new Date(newStart+'T00:00:00');
-        const ne=new Date(ns); ne.setDate(ns.getDate()+days-1);
-        const diff=Math.ceil((ne-anchor)/(1000*60*60*24))+7;
-        if(diff>windowDays) windowDays=Math.min(diff, 120);
-    }
+    const windowDays=28; // immer 4 Wochen — Navigation via ◀ ▶ / Pfeiltasten
     // Kollisionen bestimmen
     const coll=getCollisionInfo();
     const collIsoSet=new Set(coll.hits.map(h=>h.iso));
@@ -3884,6 +3925,23 @@ function renderOrderPreview(){
             showShiftPopover(cell.dataset.iso, cell);
         });
     });
+    // KW-Label im Preview-Header aktualisieren
+    const kwEl=$('o_previewKw');
+    if(kwEl){
+        const iw=getIsoWeek(anchor);
+        kwEl.textContent='KW '+iw.week+' / '+iw.year;
+    }
+}
+function shiftPreviewWeek(deltaWeeks){
+    if(!previewAnchor){
+        const t=new Date(); t.setHours(0,0,0,0);
+        const d=t.getDay()||7; t.setDate(t.getDate()-(d-1));
+        previewAnchor=t;
+    }
+    const a=new Date(previewAnchor);
+    a.setDate(a.getDate()+deltaWeeks*7);
+    previewAnchor=a;
+    renderOrderPreview();
 }
 async function checkShiftPlanConflicts(seq){
     const result={shifts:[], kpi:[]};
@@ -3950,8 +4008,23 @@ function _updateArtInfo(){
     if(verpSuf && verpSuf!=='-') verpParts.push(verpSuf);
     if(verpEnds>0) verpParts.push(Number(verpEnds).toLocaleString('de-DE'));
     const verpStr=verpParts.join(', ');
+    // Shell-Hersteller aus Pricelist (customer + articleNr) auflösen, falls Customer gewählt
+    let shellManu='';
+    try{
+        const cust=String(($('o_cust')?.value)||'').trim().toLowerCase();
+        if(cust && Array.isArray(pricelistRows)){
+            const m=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust && _normArt2(r.articleNr)===_normArt2(art));
+            if(m && m.shellSupplier) shellManu=String(m.shellSupplier).trim();
+            // Fallback: irgendein Pricelist-Eintrag mit gleicher Art# (egal welcher Kunde)
+            if(!shellManu){
+                const any=pricelistRows.find(r=>_normArt2(r.articleNr)===_normArt2(art) && r.shellSupplier);
+                if(any) shellManu=String(any.shellSupplier).trim();
+            }
+        }
+    }catch(_){}
     const items=[
         ['Shell',         formatShell(row)],
+        ['Shell Hersteller', shellManu],
         ['Frame',         formatFrameK(row)],
         ['Inner-Slider',  formatInnerK(row)],
         ['Outer-Slider',  formatOuterK(row)],
