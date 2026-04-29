@@ -137,6 +137,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .prod-edit-table td { background:white; }
 .prod-edit-input { width:100%; border:1px solid #cbd5e1; border-radius:4px; padding:6px 8px; font-size:0.88rem; background:transparent; box-sizing:border-box; }
 .prod-edit-input:focus { outline:none; border-color:#4361ee; box-shadow:0 0 0 2px rgba(67,97,238,0.15); }
+/* Section-basiertes Layout fuer "Auftrag bearbeiten" — Felder gruppiert nach Eingabe / Auto / Berechnung */
+.prod-edit-section { margin-bottom: 16px; }
+.prod-edit-section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; padding: 8px 14px; border-radius: 8px 8px 0 0; border: 1px solid; border-bottom: 0; }
+.prod-edit-section-title.edit { color:#1e3a8a; background:#eef2ff; border-color:#c7d2fe; }
+.prod-edit-section-title.auto { color:#475569; background:#f1f5f9; border-color:#cbd5e1; }
+.prod-edit-section-title.readonly { color:#dc2626; background:#fef2f2; border-color:#fecaca; }
+.prod-edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; background:#fff; }
+.prod-edit-section-title.edit + .prod-edit-grid { border-color:#c7d2fe; }
+.prod-edit-section-title.auto + .prod-edit-grid { border-color:#cbd5e1; background:#f8fafc; }
+.prod-edit-section-title.readonly + .prod-edit-grid { border-color:#fecaca; background:#fff7f7; }
+.prod-edit-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.prod-edit-field > label { font-size: 0.78rem; font-weight: 700; color: #334155; line-height:1.2; white-space:normal; word-break:break-word; }
+.prod-edit-field.readonly > label { color: #dc2626; }
+.prod-edit-field > input, .prod-edit-field > select { width:100%; box-sizing:border-box; padding:9px 11px; font-size:0.95rem; border:1px solid #cbd5e1; border-radius:6px; background:#fff; min-height:38px; }
+.prod-edit-field > input:focus, .prod-edit-field > select:focus { outline:none; border-color:#4361ee; box-shadow:0 0 0 2px rgba(67,97,238,.15); }
+.prod-edit-field > input.calc { background:#f1f5f9; color:#475569; }
+.prod-edit-field.readonly > input { background:#fef2f2 !important; color:#dc2626 !important; font-weight:700; cursor:not-allowed; }
 .prod-pal-list { display:flex; flex-wrap:wrap; gap:3px; max-width:100%; }
 .prod-pal-chip { display:inline-block; padding:2px 6px; font-size:0.7rem; background:#eef2ff; color:#334155; border:1px solid #c7d2fe; border-radius:3px; cursor:pointer; user-select:none; }
 .prod-pal-chip:hover { background:#4361ee; color:white; }
@@ -1059,7 +1076,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         </div>
     </div></div>
 
-    <div class="modal-overlay" id="prodEditModal" style="display:none"><div class="modal" style="max-width:1180px">
+    <div class="modal-overlay" id="prodEditModal" style="display:none"><div class="modal" style="max-width:1400px;width:95vw">
         <div class="modal-header"><h3>Auftrag bearbeiten</h3><button class="modal-close" onclick="closeProdEdit()">&times;</button></div>
         <div class="modal-body">
             <div id="prodEditArticlePicker" class="form-group" style="display:none;padding:12px;background:#eef2ff;border-radius:8px;margin-bottom:14px">
@@ -1071,12 +1088,44 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <select id="prodArticleSelect" class="form-select"><option value="">— Auswählen —</option></select>
             </div>
             <div class="form-grid" id="prodEditForm"></div>
-            <div style="display:flex;gap:10px;margin-top:14px">
+            <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
                 <button class="btn btn-primary btn-full" onclick="saveProdEdit()">Speichern</button>
+                <button class="btn btn-secondary btn-full" id="prodEditSplitBtn" style="display:none;background:#7c3aed;color:#fff;border-color:#7c3aed" onclick="openSplitProdOrder()" title="Auftrag in zwei Teilaufträge aufteilen (Manager/Admin)">⚡ Auftrag aufteilen</button>
                 <button class="btn btn-danger btn-full" id="prodEditDeleteBtn" onclick="deleteProdOrder()">Auftrag löschen</button>
                 <button class="btn btn-secondary btn-full" onclick="closeProdEdit()">Abbrechen</button>
             </div>
             <p class="error-msg" id="prodEditError" style="display:none"></p>
+        </div>
+    </div></div>
+
+    <!-- AUFTRAG AUFTEILEN SUB-MODAL -->
+    <div class="modal-overlay" id="splitProdModal" style="display:none;z-index:10001"><div class="modal" style="max-width:520px">
+        <div class="modal-header"><h3>Auftrag aufteilen</h3><button class="modal-close" onclick="closeSplitProdOrder()">&times;</button></div>
+        <div class="modal-body">
+            <div id="splitProdInfo" style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.92rem;color:#1e3a8a"></div>
+            <div class="prod-edit-grid" style="grid-template-columns:1fr 1fr">
+                <div class="prod-edit-field">
+                    <label for="splitPart1Pal">Paletten in Part 1</label>
+                    <input type="number" id="splitPart1Pal" min="1" oninput="_splitProdRecalc()">
+                </div>
+                <div class="prod-edit-field">
+                    <label for="splitPart2Pal">Paletten in Part 2 (auto)</label>
+                    <input type="number" id="splitPart2Pal" readonly class="calc">
+                </div>
+                <div class="prod-edit-field">
+                    <label for="splitPart1Name">Sales Order Part 1</label>
+                    <input type="text" id="splitPart1Name">
+                </div>
+                <div class="prod-edit-field">
+                    <label for="splitPart2Name">Sales Order Part 2</label>
+                    <input type="text" id="splitPart2Name">
+                </div>
+            </div>
+            <p id="splitProdError" class="error-msg" style="display:none;margin-top:10px"></p>
+            <div style="display:flex;gap:10px;margin-top:16px">
+                <button class="btn btn-primary btn-full" onclick="confirmSplitProdOrder()">Aufteilen</button>
+                <button class="btn btn-secondary btn-full" onclick="closeSplitProdOrder()">Abbrechen</button>
+            </div>
         </div>
     </div></div>
 
@@ -3985,38 +4034,45 @@ function openProdEdit(idx){
     const form=document.getElementById('prodEditForm');
     // Importierte Aufträge (aus Auftragsplanung übernommen): keine Grau-Felder, alles voll editierbar
     const isImported=(o && o.source==='sales_plan');
-    const rowStyle=(f)=>{
-        if(isImported) return '';
-        if(f.calc||f.auto)return 'background:#f1f5f9;';
-        return '';
-    };
-    const _renderRow=(f)=>{
+    const _renderField=(f)=>{
         const v=o[f.k]==null?'':o[f.k];
         const id='prodEdit_'+f.k.replace(/[^a-z0-9]/gi,'_');
-        let inputStyle=(!isImported && (f.calc||f.auto))?'background:#f1f5f9;color:#475569;':'';
-        if(f.readonly) inputStyle+='background:#fef2f2;color:#dc2626;font-weight:700;cursor:not-allowed;';
-        let title=isImported?'':(f.calc?' title="wird automatisch berechnet"':(f.auto?' title="wird aus Artikelstamm gefüllt"':''));
-        if(f.readonly) title=' title="Vom Approver gesetzt – nicht änderbar"';
-        const roAttr=f.readonly?' readonly':'';
-        let valueHtml;
+        const isCalc=!isImported && (f.calc||f.auto);
+        let cls='prod-edit-field';
+        let inputCls='';
+        let attrs='';
+        let title='';
+        if(f.readonly){ cls+=' readonly'; attrs+=' readonly'; title='Vom Approver gesetzt – nicht änderbar'; }
+        else if(isCalc){ inputCls='calc'; attrs+=' readonly'; title=f.calc?'wird automatisch berechnet':'wird aus Artikelstamm gefüllt'; }
+        const titleAttr=title?' title="'+_prodEsc(title)+'"':'';
+        let inputHtml;
         if(f.opts){
-            valueHtml='<select class="form-select prod-edit-input" id="'+id+'"'+(inputStyle?' style="'+inputStyle+'"':'')+title+(f.readonly?' disabled':'')+'>'+
+            inputHtml='<select id="'+id+'"'+(f.readonly?' disabled':'')+titleAttr+'>'+
                 f.opts.map(x=>'<option value="'+_prodEsc(x)+'"'+(String(v).toLowerCase().trim().startsWith(x.toLowerCase())?' selected':'')+'>'+_prodEsc(x)+'</option>').join('')+
                 '</select>';
         } else {
-            valueHtml='<input class="prod-edit-input" type="'+(f.num?'number':'text')+'" id="'+id+'" value="'+_prodEsc(v)+'"'+(inputStyle?' style="'+inputStyle+'"':'')+title+roAttr+'>';
+            inputHtml='<input'+(inputCls?' class="'+inputCls+'"':'')+' type="'+(f.num?'number':'text')+'" id="'+id+'" value="'+_prodEsc(v)+'"'+attrs+titleAttr+'>';
         }
-        const rs=rowStyle(f);
-        return '<tr'+(rs?' style="'+rs+'"':'')+'><th'+(f.readonly?' style="color:#dc2626"':'')+'>'+_prodEsc(f.l)+'</th><td>'+valueHtml+'</td></tr>';
+        return '<div class="'+cls+'"><label for="'+id+'">'+_prodEsc(f.l)+'</label>'+inputHtml+'</div>';
     };
-    // Zweispaltige Aufteilung: links Sales Order…Laser Code, rechts Anzahl Paletten…Zusatzpaletten
-    const _splitIdx=_PROD_EDIT_FIELDS.findIndex(f=>f.k==='Anzahl Paletten');
-    const _leftFields=_splitIdx>0?_PROD_EDIT_FIELDS.slice(0,_splitIdx):_PROD_EDIT_FIELDS;
-    const _rightFields=_splitIdx>0?_PROD_EDIT_FIELDS.slice(_splitIdx):[];
-    form.innerHTML='<div class="prod-edit-cols">'
-        +'<div class="prod-edit-col"><table class="prod-edit-table"><tbody>'+_leftFields.map(_renderRow).join('')+'</tbody></table></div>'
-        +(_rightFields.length?'<div class="prod-edit-col"><table class="prod-edit-table"><tbody>'+_rightFields.map(_renderRow).join('')+'</tbody></table></div>':'')
-        +'</div>';
+    // Felder gruppieren: editierbar (Eingabe) / Approver-Daten (rot/readonly) / Artikelstamm-Auto / Berechnungen
+    const editKeys=['Sales Order - PALETTENLABEL','Sales Order XO','veredelung','Kunde','Kundenreferenz','Status Produktion','Anzahl Paletten','Paletten Nummer START Auftrag','Zusatzpaletten'];
+    const readonlyKeys=['Pick-Up Deadline'];
+    const autoKeys=['Artikelnummer','Palettenformat','Ends pro Palette','Palettentyp','Sleevetyp','Shell','Frame','Inner-Slider','Outer-Slider','TP-Band','Laser Code'];
+    const calcKeys=['Paletten Nummer ENDE Auftrag','Anzahl Paletten offen','Menge Auftrag Gesamt','Menge Auftrag offen','Menge Auftrag Gesamt + 5% Ausschuss','letzte gefertigte Palettennummer'];
+    const findField=(k)=>_PROD_EDIT_FIELDS.find(f=>f.k===k);
+    const renderSection=(title,keys,cls)=>{
+        const fields=keys.map(findField).filter(Boolean);
+        if(!fields.length) return '';
+        return '<div class="prod-edit-section">'
+              +'<div class="prod-edit-section-title '+cls+'">'+_prodEsc(title)+'</div>'
+              +'<div class="prod-edit-grid">'+fields.map(_renderField).join('')+'</div></div>';
+    };
+    form.innerHTML=
+         renderSection('Auftragsdaten — Eingabe', editKeys, 'edit')
+        +renderSection('Pick-Up Deadline (vom Approver gesetzt)', readonlyKeys, 'readonly')
+        +renderSection('Artikel-Stammdaten (automatisch aus TA-0006)', autoKeys, 'auto')
+        +renderSection('Berechnungen (automatisch)', calcKeys, 'auto');
     // Artikel-Picker nur bei neuem Auftrag anzeigen
     const picker=document.getElementById('prodEditArticlePicker');
     if(picker){
@@ -4026,6 +4082,12 @@ function openProdEdit(idx){
     // Löschen-Button nur bei bestehenden Aufträgen anzeigen
     const delBtn=document.getElementById('prodEditDeleteBtn');
     if(delBtn)delBtn.style.display=_prodEditIsNew?'none':'';
+    // Auftrag-aufteilen-Button nur fuer Manager/Admin und bestehende Auftraege mit >1 Paletten
+    const splitBtn=document.getElementById('prodEditSplitBtn');
+    if(splitBtn){
+        const palCount=parseInt(o['Anzahl Paletten']||0,10)||0;
+        splitBtn.style.display=(!_prodEditIsNew && canManage() && palCount>=2)?'':'none';
+    }
     // Recalc-Listener auf Inputs, die in Rechnungen einfliessen
     ['Anzahl Paletten','Ends pro Palette','Paletten Nummer START Auftrag','letzte gefertigte Palettennummer'].forEach(k=>{
         const el=document.getElementById('prodEdit_'+k.replace(/[^a-z0-9]/gi,'_'));
@@ -4094,6 +4156,133 @@ function saveProdEdit(){
     _prodEditIdx=-1;
     renderProduktionsplan();
 }
+// === AUFTRAG AUFTEILEN ==========================================
+// Splittet einen bestehenden Auftrag in zwei Teilauftraege (z.B. 4444 -> 4444-Part1 + 4444-Part2)
+// mit individueller Paletten-Aufteilung. Nur Manager/Admin.
+let _splitProdSourceIdx=-1;
+function openSplitProdOrder(){
+    if(!canManage()){ alert('Nur Manager/Admin koennen Auftraege aufteilen.'); return; }
+    if(_prodEditIdx<0 || _prodEditIsNew) return;
+    const o=PRODUKTIONSPLAN_DATA[_prodEditIdx];
+    if(!o) return;
+    // Aktuellen Stand aus dem Edit-Form uebernehmen (falls Anzahl Paletten gerade editiert wurde)
+    const palInputEl=document.getElementById('prodEdit_Anzahl_Paletten');
+    const totalPal=parseInt(palInputEl?palInputEl.value:o['Anzahl Paletten'],10)||0;
+    if(totalPal<2){ alert('Auftrag hat weniger als 2 Paletten — Aufteilen nicht moeglich.'); return; }
+    _splitProdSourceIdx=_prodEditIdx;
+    const baseSo=String(o['Sales Order - PALETTENLABEL']||'').trim();
+    document.getElementById('splitProdInfo').innerHTML=
+        '<div><strong>Original-Auftrag:</strong> '+_prodEsc(baseSo||'(ohne Nummer)')+'</div>'
+        +'<div><strong>Kunde:</strong> '+_prodEsc(o['Kunde']||'')+' &nbsp;·&nbsp; <strong>Artikel:</strong> '+_prodEsc(o['Artikelnummer']||'')+'</div>'
+        +'<div style="margin-top:6px"><strong>Gesamt-Paletten:</strong> '+totalPal+'</div>';
+    const half=Math.floor(totalPal/2);
+    document.getElementById('splitPart1Pal').max=totalPal-1;
+    document.getElementById('splitPart1Pal').value=half;
+    document.getElementById('splitPart2Pal').value=totalPal-half;
+    document.getElementById('splitPart1Name').value=baseSo+'-Part1';
+    document.getElementById('splitPart2Name').value=baseSo+'-Part2';
+    document.getElementById('splitProdError').style.display='none';
+    document.getElementById('splitProdModal').style.display='flex';
+}
+function closeSplitProdOrder(){
+    document.getElementById('splitProdModal').style.display='none';
+    _splitProdSourceIdx=-1;
+}
+function _splitProdRecalc(){
+    if(_splitProdSourceIdx<0) return;
+    const o=PRODUKTIONSPLAN_DATA[_splitProdSourceIdx];
+    if(!o) return;
+    const palInputEl=document.getElementById('prodEdit_Anzahl_Paletten');
+    const total=parseInt(palInputEl?palInputEl.value:o['Anzahl Paletten'],10)||0;
+    const p1=parseInt(document.getElementById('splitPart1Pal').value,10);
+    if(isNaN(p1)){ document.getElementById('splitPart2Pal').value=''; return; }
+    document.getElementById('splitPart2Pal').value=Math.max(0,total-p1);
+}
+async function confirmSplitProdOrder(){
+    if(_splitProdSourceIdx<0) return;
+    const o=PRODUKTIONSPLAN_DATA[_splitProdSourceIdx];
+    if(!o) return;
+    const errEl=document.getElementById('splitProdError');
+    errEl.style.display='none';
+    const palInputEl=document.getElementById('prodEdit_Anzahl_Paletten');
+    const total=parseInt(palInputEl?palInputEl.value:o['Anzahl Paletten'],10)||0;
+    const p1=parseInt(document.getElementById('splitPart1Pal').value,10);
+    const p2=total-p1;
+    if(isNaN(p1) || p1<1 || p1>=total){
+        errEl.textContent='Part 1 Paletten muss zwischen 1 und '+(total-1)+' liegen.';
+        errEl.style.display='block'; return;
+    }
+    const name1=String(document.getElementById('splitPart1Name').value||'').trim();
+    const name2=String(document.getElementById('splitPart2Name').value||'').trim();
+    if(!name1 || !name2){
+        errEl.textContent='Beide Sales-Order-Namen muessen gesetzt sein.';
+        errEl.style.display='block'; return;
+    }
+    if(name1===name2){
+        errEl.textContent='Sales-Order-Namen muessen sich unterscheiden.';
+        errEl.style.display='block'; return;
+    }
+    // Pal-Nr.-Bereich aufteilen, falls START gesetzt
+    const startStr=String(o['Paletten Nummer START Auftrag']||'').trim();
+    let part1Start=startStr;
+    let part2Start='';
+    if(startStr){
+        const m=startStr.match(/^([A-Z]*)(\d+)$/i);
+        if(m){
+            const prefix=m[1];
+            const startNum=parseInt(m[2],10);
+            const pad=m[2].length;
+            const part2Num=startNum+p1;
+            part2Start=prefix+String(part2Num).padStart(pad,'0');
+        }
+    }
+    const ends=parseFloat(o['Ends pro Palette'])||0;
+    // Part 2 = Update des bestehenden Docs (behaelt _fsId)
+    o['Sales Order - PALETTENLABEL']=name2;
+    o['Anzahl Paletten']=p2;
+    o['Anzahl Paletten offen']=p2;
+    o['Menge Auftrag Gesamt']=Math.round(p2*ends)||0;
+    o['Menge Auftrag offen']=Math.round(p2*ends)||0;
+    o['Menge Auftrag Gesamt + 5% Ausschuss']=Math.round(p2*ends*1.05)||0;
+    if(part2Start) o['Paletten Nummer START Auftrag']=part2Start;
+    o['Paletten Nummer ENDE Auftrag']=_prodPalNrEnde(o['Paletten Nummer START Auftrag']||'',p2);
+    o['letzte gefertigte Palettennummer']='';
+    // Part 1 = neuer Auftrag mit kopierten Daten
+    const part1=Object.assign({},o);
+    delete part1._fsId;
+    delete part1._created;
+    part1['Sales Order - PALETTENLABEL']=name1;
+    part1['Anzahl Paletten']=p1;
+    part1['Anzahl Paletten offen']=p1;
+    part1['Menge Auftrag Gesamt']=Math.round(p1*ends)||0;
+    part1['Menge Auftrag offen']=Math.round(p1*ends)||0;
+    part1['Menge Auftrag Gesamt + 5% Ausschuss']=Math.round(p1*ends*1.05)||0;
+    part1['Paletten Nummer START Auftrag']=part1Start;
+    part1['Paletten Nummer ENDE Auftrag']=_prodPalNrEnde(part1Start,p1);
+    part1['letzte gefertigte Palettennummer']='';
+    // Persistieren: Part 2 (update existing) + Part 1 (neu)
+    try{
+        // Part 2 Update
+        if(typeof _fsWriteOrder==='function' && auth.currentUser && _fsProdReady){
+            await _fsWriteOrder(o);
+        }
+        // Part 1 neu in Array + Firestore (vor Part 2 einreihen)
+        PRODUKTIONSPLAN_DATA.splice(_splitProdSourceIdx,0,part1);
+        if(typeof _fsWriteOrder==='function' && auth.currentUser && _fsProdReady){
+            await _fsWriteOrder(part1);
+        }
+        try{ localStorage.setItem('produktionsplanOverride',JSON.stringify(PRODUKTIONSPLAN_DATA)); }catch(_){}
+    }catch(e){
+        errEl.textContent='Speichern fehlgeschlagen: '+e.message;
+        errEl.style.display='block';
+        return;
+    }
+    closeSplitProdOrder();
+    document.getElementById('prodEditModal').style.display='none';
+    _prodEditIdx=-1;
+    renderProduktionsplan();
+}
+
 function _persistProdData(order){
     // Einzelnen Auftrag nach Firestore schreiben, wenn angegeben & eingeloggt
     if(order && auth.currentUser && _fsProdReady){
