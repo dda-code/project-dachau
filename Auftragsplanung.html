@@ -370,6 +370,10 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
             </div>
           </div>
         </div>
+        <!-- Pricelist-Warning: Customer + Art-Kombi nicht in Pricelist hinterlegt -->
+        <div id="o_pricelistWarn" style="display:none;background:#fef2f2;border:1.5px solid #dc2626;color:#991b1b;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:0.9rem;font-weight:600">
+          ⚠ <span id="o_pricelistWarnText">Diese Kombination Customer + Art # ist nicht in der Pricelist hinterlegt.</span>
+        </div>
         <!-- Sektion 2: Berechnungen (grau, automatisch) -->
         <div class="order-section">
           <div class="order-section-title calc">Calculated (auto)</div>
@@ -2298,8 +2302,8 @@ function _applyOrderModalButtons(){
     const rejectBtn=$('o_rejectBtn');
     const updBtn=$('o_updateBtn');
     const withdrawBtn=$('o_withdrawBtn');
-    // "Freigabe anfordern" nur in Standard-Mode (kein review, kein owner-edit)
-    if(reqBtn)      reqBtn.style.display      = (!reviewing && !ownerEdit) ? '' : 'none';
+    // "Request Approval" nur fuer Manager (= !canApprove). Approver brauchen den Workflow nicht — die haben "Direct Approve".
+    if(reqBtn)      reqBtn.style.display      = (!reviewing && !ownerEdit && !currentCanApprove) ? '' : 'none';
     // "Freigeben & Speichern" / "Ablehnen" nur im Review-Mode
     if(apprBtn)     apprBtn.style.display     = reviewing ? '' : 'none';
     if(rejectBtn)   rejectBtn.style.display   = reviewing ? '' : 'none';
@@ -3999,8 +4003,26 @@ async function checkShiftPlanConflicts(seq){
     }catch(e){ console.warn('checkShiftPlanConflicts:',e); }
     return result;
 }
+// Pricelist-Match-Warning aktualisieren (Customer + Art muessen zusammen in der Pricelist hinterlegt sein)
+function _checkPricelistMatch(){
+    const w=$('o_pricelistWarn'); if(!w) return;
+    const wt=$('o_pricelistWarnText');
+    const art=String(($('o_art')?.value)||'').trim();
+    const cust=String(($('o_cust')?.value)||'').trim();
+    if(!art || !cust){ w.style.display='none'; return; }
+    if(!Array.isArray(pricelistRows) || !pricelistRows.length){ w.style.display='none'; return; }
+    const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
+    const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust.toLowerCase() && _norm(r.articleNr)===_norm(art));
+    if(!match){
+        if(wt) wt.textContent='Diese Kombination Customer "'+cust+'" + Art # "'+art+'" ist nicht in der Pricelist hinterlegt. Request Approval ist trotzdem moeglich.';
+        w.style.display='';
+    } else {
+        w.style.display='none';
+    }
+}
 // Aktualisiert das Komponenten-Info-Panel rechts neben den Order-Feldern
 function _updateArtInfo(){
+    _checkPricelistMatch();
     const body=$('o_artInfoBody'); if(!body) return;
     const art=String(($('o_art')?.value)||'').trim();
     if(!art){ body.innerHTML='<span style="color:#64748b;font-style:italic">Select an article number to see its components.</span>'; return; }
