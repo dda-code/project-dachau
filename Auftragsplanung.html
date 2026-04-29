@@ -4074,6 +4074,8 @@ async function saveOrder(mode){
     if(!start){ alert('Start date missing.'); return; }
     if(days<=0){ alert('Enter Qty and Daily output so duration can be calculated.'); return; }
     // Customer-Pflichtfeld (nur bei pending-Workflow zwingend, damit Approver-Editing nicht blockiert wird)
+    let _mismatchNote='';
+    let _hasMismatch=false;
     if(mode==='request' || mode==='updateRequest'){
         const custVal=String($('o_cust')?.value||'').trim();
         if(!custVal){
@@ -4081,6 +4083,24 @@ async function saveOrder(mode){
             const sel=$('o_cust');
             if(sel){ sel.style.borderColor='#ef4444'; sel.style.background='#fef2f2'; sel.focus(); setTimeout(()=>{ sel.style.borderColor=''; sel.style.background=''; },2500); }
             return;
+        }
+        // Pricelist-Mismatch: Customer + Art-Kombination nicht hinterlegt → Acknowledge + Pflichtkommentar
+        const artVal=String($('o_art')?.value||'').trim();
+        if(artVal && Array.isArray(pricelistRows) && pricelistRows.length){
+            const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
+            const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===custVal.toLowerCase() && _norm(r.articleNr)===_norm(artVal));
+            if(!match){
+                _hasMismatch=true;
+                const ack=confirm('⚠ Achtung: Customer "'+custVal+'" + Art # "'+artVal+'" ist nicht in der Pricelist hinterlegt.\n\nMit OK bestaetigen Sie die Kenntnis und koennen anschliessend einen Begruendungskommentar fuer die Freigeber abgeben.\nMit Abbrechen wird der Vorgang gestoppt.');
+                if(!ack) return;
+                const note=prompt('Pflichtkommentar fuer die Freigeber:\n(z.B. Sonderpreisvereinbarung, Erstauftrag, neuer Kunde …)', '');
+                if(note===null) return;  // Cancel
+                _mismatchNote=String(note).trim();
+                if(!_mismatchNote){
+                    alert('Ein Begruendungskommentar ist Pflicht bei Pricelist-Mismatch.');
+                    return;
+                }
+            }
         }
     }
     // Modus 'request': Auftrag wandert in pending_orders_<tab> (kein Schreiben in salesCol)
@@ -4095,7 +4115,9 @@ async function saveOrder(mode){
                 requestedByEmail:currentUserEmail,
                 requestedAt:ts,
                 editingOrderSo:editingOrderSo||null,
-                payload
+                payload,
+                pricelistMismatch:_hasMismatch,
+                managerNote:_mismatchNote||''
             });
             // PDF nur für Approver bei direkter Freigabe — Manager-Antrag erzeugt kein PDF
             if(currentCanApprove){
@@ -4104,7 +4126,8 @@ async function saveOrder(mode){
             }
             // Manager-Aktion ins Protokoll der Approver schreiben
             try{ await _logProtocol('request_created', docRef.id, currentTab,
-                {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:ts}, ''); }
+                {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:ts},
+                _hasMismatch?('Pricelist-Mismatch — '+_mismatchNote):''); }
             catch(e){ console.warn('protocol log (request_created):',e); }
             showMsg(`Approval requested (ID: ${docRef.id.slice(0,6)}…).`+(currentCanApprove?' PDF downloaded.':''),'success');
             closeOrderModal();
@@ -4138,7 +4161,9 @@ async function saveOrder(mode){
                 isUpdated:true,
                 updateCount: prevCount+1,
                 lastUpdatedAt: ts,
-                lastUpdatedByEmail: currentUserEmail
+                lastUpdatedByEmail: currentUserEmail,
+                pricelistMismatch:_hasMismatch,
+                managerNote:_mismatchNote||(old.managerNote||'')
             });
             // PDF nur für Approver — Manager-Update erzeugt kein PDF
             if(currentCanApprove){
@@ -4147,7 +4172,8 @@ async function saveOrder(mode){
             }
             // Update ins Protokoll der Approver schreiben (mit Versionshinweis in der Note)
             try{ await _logProtocol('request_updated', id, currentTab,
-                {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:old.requestedAt}, 'Version '+(prevCount+1)); }
+                {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:old.requestedAt},
+                'Version '+(prevCount+1)+(_hasMismatch?' — Pricelist-Mismatch — '+_mismatchNote:'')); }
             catch(e){ console.warn('protocol log (request_updated):',e); }
             _editingOwnPendingId=null;
             showMsg(`Request updated (version ${prevCount+1}). Approvers see the new state immediately.`,'success');
