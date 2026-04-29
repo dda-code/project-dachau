@@ -359,6 +359,13 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                       <button type="button" class="btn btn-sm btn-secondary" id="o_kpiBtn" onclick="openKpiModal();return false;" title="KPI calculator" style="padding:3px 10px;font-size:1rem">⚙</button>
                   </div>
               </div>
+              <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
+                  <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price (€/1000 pcs.)</span>
+                  <div style="display:flex;gap:4px;align-items:stretch">
+                      <input id="o_approverPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" title="Suggested from pricelist — editable" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;font-weight:700;text-align:right;background:#fffbeb;min-height:38px;box-sizing:border-box;color:#0f172a">
+                      <span id="o_approverPriceCcy" style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
+                  </div>
+              </div>
             </div>
             <div id="o_wknd_block" style="display:flex;flex-direction:column;gap:4px;margin-top:12px">
                 <span style="font-size:0.78rem;color:#475569;font-weight:600">Weekend &amp; Holiday Production</span>
@@ -2200,6 +2207,13 @@ function openOrderModal(){
     // Manager: keine Eingaben zu Schichten/KPI/Wochenende — nur Approver dürfen das setzen
     const wkndBlock=$('o_wknd_block');
     if(wkndBlock) wkndBlock.style.display = currentCanApprove ? '' : 'none';
+    // Approver-Preisfeld: nur fuer canApprove sichtbar; Wert/Touched-Flag bei jedem Modal-Open zuruecksetzen
+    const priceWrap=$('o_priceWrap');
+    if(priceWrap) priceWrap.style.display = currentCanApprove ? 'flex' : 'none';
+    const priceInp=$('o_approverPrice');
+    if(priceInp){ priceInp.value=''; delete priceInp.dataset.touched; }
+    const priceCcy=$('o_approverPriceCcy');
+    if(priceCcy) priceCcy.textContent='EUR';
     const today=new Date();
     $('o_start').value=toIsoDate(today);
     prefillOutDayFromShiftPlan();
@@ -2250,6 +2264,7 @@ function openOrderModal(){
         };
         modal.addEventListener('input',e=>{
             const t=e.target; if(!t) return;
+            if(t.id==='o_approverPrice'){ t.dataset.touched='1'; }
             if(t.id==='o_qty' || t.id==='o_outday'){
                 const caret=(t.selectionStart===t.value.length);
                 t.value=formatThousands(t.value);
@@ -2329,7 +2344,7 @@ function _applyOrderModalButtons(){
 function collectOrderPayload(){
     const get=id=>{ const e=$(id); return e?e.value:''; };
     const chk=id=>{ const e=$(id); return !!(e&&e.checked); };
-    return {
+    const payload={
         tab:currentTab,
         editingOrderSo:editingOrderSo||null,
         header:{
@@ -2346,6 +2361,16 @@ function collectOrderPayload(){
         perDayShifts:JSON.parse(JSON.stringify(perDayShifts||{})),
         gridData:JSON.parse(JSON.stringify(orderGridData||{}))
     };
+    // Approver-eingegebener (oder aus Pricelist vorgeschlagener) Preis → in PDF + Auto-Transfer übernehmen
+    if(currentCanApprove){
+        const raw=String(get('o_approverPrice')||'').trim().replace(/\s/g,'').replace(',','.');
+        const num=parseFloat(raw);
+        if(isFinite(num) && num>0){
+            const ccy=($('o_approverPriceCcy')?.textContent||'EUR').trim()||'EUR';
+            payload.approvedPrice={price:num, ccy};
+        }
+    }
+    return payload;
 }
 
 // Schreibt ein Payload zurück in die Modal-Inputs (Approve-Review)
@@ -2365,6 +2390,16 @@ function applyOrderPayload(p){
     set('k_days',k.days); set('k_scrap',k.scrap); set('k_oee',k.oee);
     perDayShifts=p.perDayShifts?JSON.parse(JSON.stringify(p.perDayShifts)):{};
     orderGridData=p.gridData?JSON.parse(JSON.stringify(p.gridData)):{};
+    // approvedPrice (falls von Approver bereits gesetzt) ins Modal-Feld zurückschreiben
+    if(currentCanApprove && p.approvedPrice && p.approvedPrice.price!=null){
+        const priceInp=$('o_approverPrice');
+        const priceCcy=$('o_approverPriceCcy');
+        if(priceInp){
+            priceInp.value = Number(p.approvedPrice.price).toFixed(2).replace('.',',');
+            priceInp.dataset.touched='1';
+        }
+        if(priceCcy) priceCcy.textContent = p.approvedPrice.ccy || 'EUR';
+    }
     if(typeof _updateArtInfo==='function') _updateArtInfo();
 }
 
@@ -4029,11 +4064,27 @@ function _checkPricelistMatch(){
     }
     const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
     const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust.toLowerCase() && _norm(r.articleNr)===_norm(art));
+    const priceInp=$('o_approverPrice');
+    const priceCcy=$('o_approverPriceCcy');
     if(!match){
-        if(wt) wt.textContent='⚠ This combination of Customer "'+cust+'" + Art # "'+art+'" is not listed in the pricelist. Request Approval is still possible — a comment is mandatory when submitting.';
+        if(wt){
+            wt.textContent = currentCanApprove
+                ? '⚠ Customer "'+cust+'" + Art # "'+art+'" is not listed in the pricelist — please enter the price manually.'
+                : '⚠ This combination of Customer "'+cust+'" + Art # "'+art+'" is not listed in the pricelist. Request Approval is still possible — a comment is mandatory when submitting.';
+        }
         w.style.display='';
+        // Approver: Vorschlag leeren, falls noch nicht vom User editiert
+        if(currentCanApprove && priceInp && !priceInp.dataset.touched){
+            priceInp.value='';
+            if(priceCcy) priceCcy.textContent='EUR';
+        }
     } else {
         w.style.display='none';
+        // Approver: Vorschlag aus Preisliste setzen, solange User das Feld nicht angefasst hat
+        if(currentCanApprove && priceInp && !priceInp.dataset.touched && match.unitPrice!=null){
+            priceInp.value = Number(match.unitPrice).toFixed(2).replace('.',',');
+            if(priceCcy) priceCcy.textContent = match.ccy || 'EUR';
+        }
     }
 }
 // Aktualisiert das Komponenten-Info-Panel rechts neben den Order-Feldern
