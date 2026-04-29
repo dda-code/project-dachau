@@ -1294,6 +1294,14 @@ function _fmtKomp(xo, bezeichnung, farbe){
 function formatShell(row){
     return _fmtKomp(row['Shell XO Nr.'], String(row['End Typ']||'').trim(), row['Shell Farbe']);
 }
+// Shell-Beschreibung aus TA-0006 Excel "Shell"-Tabellenblatt (Art, Farbe, Lieferant, Werk).
+// Mapping per Shell XO Nr. — wird in _updateArtInfo() im Article-Components-Panel angezeigt.
+const _SHELL_DESC_MAP = {"110001":"202 B64, Silver, Ardagh EU, Deeside, UK","110002":"202 CDLe, Silver, Ardagh EU, Braunschweig, DE","110003":"202 CDL+, Silver, Ball US, Findlay, US","110004":"202 ISE, Silver, Crown EU, Wantage, GB","110005":"202 B64, Silver, Crown EU, ?","110006":"202 B64, Silver, Ardagh EU, Deeside, UK","110007":"202 CDL-E, Silver, Ardagh EU, Braunschweig, DE","110008":"202 CDL+, Silver, Ardagh US, Valparaiso, US","110009":"202 SE, Silver, Crown US, Winchester, US","110010":"202 CDLe, Silver, Envases, MX, ?","110011":"202 ISE, Silver, Crown EU, ?","110012":"202 CDLe, Gold, Ardagh EU, Braunschweig, DE","110013":"202 CDL+, Silver, Ball US, Birmingham, US","110014":"202 B64, Silver, Ball EU, Naro-Fominsk, RU","110015":"202 B64, Silver, Ball EU, Naro-Fominsk, RU","110016":"202 B64, Silver, Crown US, Winchester, US","110017":"202 B64, Silver, JN Pack, China (EnPack)","110018":"202 CDL+, Silver, Ardagh US, Valparaiso, US","110019":"202 B64, Silver, Ball EU, Mont, FR","110020":"202 B64, Silver, Ardagh US, Valparaiso, US","110021":"Silver","110022":"Silver","110023":"Silver","110024":"Silver","110025":"CDLw, Silver, Ball Mexico S de RL de CL, Ball MEX Monterttey","110026":"Silver","110027":"202 ISE, Silver, Crown EU, Botcherby, GB","110028":"202 ISE, Silver, Crown EU, Agoncillo, E","110029":"B64, Silver, Bao Feng","110030":"","110031":"","110032":"","110033":"CDL, Siler, Al Jomaih Bev","110034":"202 ISE, Siler, Nafcel / Crown, Saudi Arabia","110035":"206 B64, Siler, Nafcel / Crown, Saudi Arabia","110036":"202 B64, Siler, Nafcel / Crown, Saudi Arabia","110037":"CDL+, Silver, CANPACK, Olyphant PA","110038":"202 B64, Black, JN Pack, China","110039":"202 CDLe, Silver, Ball EU, Mont, FR","110040":"206 CDLw, Silver, CANPACK, Dubai","110041":"202 CDLe, CANPACK, Dubai","110042":"202 B64, Silver, CANPACK, Olyphant PA","110043":"202 B64, Silver, ZHUHAI BRIGHT PACKAGING, China","110044":"202 CDLe, Silver, ZHUHAI BRIGHT PACKAGING, China","110045":"202 CDL+, Silver, Envases, MX, Mexico","110046":"202 B64, Silver, JN Pack, China (EnPack)","110047":"202 CDLe, Silver, Changzhou Bright Metal Packaging Co Ltd, China","110048":"202 B64, Silver, Changzhou Bright Metal Packaging Co Ltd, China","110049":"202 B64, Silver, BaZhou Sinowin Packaging Products Co Ltd, China","110050":"206 CDLw, Silver, CANPACK, Dubai","110051":"206 CDLw, Silver, Ball Mexico S de RL de CL, Ball MEX Monterttey","110052":"206 CDLw, gold, CANPACK, Dubai","110053":"206 CDLw, Silver, Ardagh US, Valparaiso, US","110054":"B143, Silver, Dongwon Systems, Republic of Korea","110055":"202 B64, Ball US","110056":"202 CDL+, Ball US","110057":"202 CDLe, Silver, JN Pack, China"};
+function _shellBeschreibung(row){
+    if(!row) return '';
+    const sh=String(row['Shell XO Nr.']==null?'':row['Shell XO Nr.']).trim();
+    return _SHELL_DESC_MAP[sh]||'';
+}
 function formatFrameK(row){
     return _fmtKomp(row['Frame Conv. Nr.'], 'Frame', row['Frame Farbe']);
 }
@@ -2204,6 +2212,9 @@ function openOrderModal(){
         previewAnchor=_t;
     }
     $('orderModal').classList.add('open');
+    // Pricelist im Hintergrund laden — auch fuer Manager noetig, damit der Mismatch-Check und
+    // der Shell-Hersteller-Lookup funktionieren (loadPricelist war bisher nur fuer Approver getriggert).
+    if(!pricelistRows.length){ loadPricelist().then(()=>_updateArtInfo()).catch(e=>console.warn('loadPricelist:',e)); }
     _updateArtInfo();
     // Delegation: jeder Input im Modal triggert recalc (einmal binden)
     if(!openOrderModal._bound){
@@ -4010,11 +4021,16 @@ function _checkPricelistMatch(){
     const art=String(($('o_art')?.value)||'').trim();
     const cust=String(($('o_cust')?.value)||'').trim();
     if(!art || !cust){ w.style.display='none'; return; }
-    if(!Array.isArray(pricelistRows) || !pricelistRows.length){ w.style.display='none'; return; }
+    // Pricelist noch nicht geladen → Banner zeigen mit entsprechendem Hinweis
+    if(!Array.isArray(pricelistRows) || !pricelistRows.length){
+        if(wt) wt.textContent='Pricelist wird noch geladen — bitte einen Moment warten oder Pricelist im Approver-Modus pruefen.';
+        w.style.display='';
+        return;
+    }
     const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
     const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust.toLowerCase() && _norm(r.articleNr)===_norm(art));
     if(!match){
-        if(wt) wt.textContent='Diese Kombination Customer "'+cust+'" + Art # "'+art+'" ist nicht in der Pricelist hinterlegt. Request Approval ist trotzdem moeglich.';
+        if(wt) wt.textContent='⚠ Diese Kombination Customer "'+cust+'" + Art # "'+art+'" ist nicht in der Pricelist hinterlegt. Request Approval ist trotzdem moeglich — beim Absenden ist ein Pflichtkommentar erforderlich.';
         w.style.display='';
     } else {
         w.style.display='none';
@@ -4037,23 +4053,11 @@ function _updateArtInfo(){
     if(verpSuf && verpSuf!=='-') verpParts.push(verpSuf);
     if(verpEnds>0) verpParts.push(Number(verpEnds).toLocaleString('de-DE'));
     const verpStr=verpParts.join(', ');
-    // Shell-Hersteller aus Pricelist (customer + articleNr) auflösen, falls Customer gewählt
-    let shellManu='';
-    try{
-        const cust=String(($('o_cust')?.value)||'').trim().toLowerCase();
-        if(cust && Array.isArray(pricelistRows)){
-            const m=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust && _normArt2(r.articleNr)===_normArt2(art));
-            if(m && m.shellSupplier) shellManu=String(m.shellSupplier).trim();
-            // Fallback: irgendein Pricelist-Eintrag mit gleicher Art# (egal welcher Kunde)
-            if(!shellManu){
-                const any=pricelistRows.find(r=>_normArt2(r.articleNr)===_normArt2(art) && r.shellSupplier);
-                if(any) shellManu=String(any.shellSupplier).trim();
-            }
-        }
-    }catch(_){}
+    // Shell-Beschreibung direkt aus TA-0006 (Shell XO Nr. → Art, Farbe, Lieferant, Werk).
+    const shellBeschreibung=_shellBeschreibung(row);
     const items=[
         ['Shell',         formatShell(row)],
-        ['Shell Hersteller', shellManu],
+        ['Shell Beschreibung', shellBeschreibung],
         ['Frame',         formatFrameK(row)],
         ['Inner-Slider',  formatInnerK(row)],
         ['Outer-Slider',  formatOuterK(row)],
