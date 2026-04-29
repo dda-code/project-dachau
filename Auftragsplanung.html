@@ -209,7 +209,7 @@ tr.row-gap td.cell-day input{color:#be123c;font-weight:700}
 .shift-plans-list .sp-del{color:#ef4444}
 .shift-plans-list .sp-del:hover{background:#fee2e2;border-color:#fecaca}
 .shift-plans-empty{padding:18px;text-align:center;color:#94a3b8;font-size:0.85rem}
-/* Transfer-Modal (In Produktionsplan übernehmen) */
+/* Transfer modal (push to production plan) */
 .transfer-section{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px}
 .transfer-filter-bar{display:flex;gap:14px;align-items:center;margin-bottom:8px;font-size:0.82rem;color:#475569}
 .transfer-filter-bar label{display:flex;align-items:center;gap:6px;cursor:pointer}
@@ -707,7 +707,7 @@ if(!_USE_EMULATOR){
 const db=firebase.firestore();
 // === V2 SANDBOX-PREFIX ===
 // Schreibt/liest NICHT in die Live-Collections, sondern in v2_*-Spiegel.
-// Auf '' setzen = Production. WARNUNG: dann werden Live-Daten verändert!
+// Set to '' = Production. WARNING: live data will be modified!
 const COL_PREFIX='v2_';
 // Collections die NICHT geprefixed werden sollen — User-Verwaltung ist mit Live geteilt.
 const _PFX_EXCLUDE=new Set(['users']);
@@ -724,7 +724,7 @@ if(COL_PREFIX){
     console.log('%c[V2-SANDBOX] Collection-Prefix aktiv: '+COL_PREFIX+'*  — KEINE Live-Daten!','background:#16a34a;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;font-size:13px');
     document.addEventListener('DOMContentLoaded',function(){
         const b=document.createElement('div');
-        b.textContent='V2 SANDBOX — Prefix '+COL_PREFIX+'  (keine Live-Daten)';
+        b.textContent='V2 SANDBOX — Prefix '+COL_PREFIX+'  (no live data)';
         b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#16a34a;color:#fff;font:600 12px/1.4 system-ui;padding:4px 10px;text-align:center;letter-spacing:.3px;box-shadow:0 1px 4px rgba(0,0,0,.2)';
         document.body.appendChild(b);
         document.body.style.paddingTop='24px';
@@ -736,16 +736,16 @@ if(_USE_EMULATOR){
         auth.useEmulator('http://127.0.0.1:9099',{disableWarnings:true});
         db.useEmulator('127.0.0.1',8080);
         console.log('%c[EMULATOR] Auth+Firestore lokal — keine Cloud-Calls','background:#f97316;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700');
-    }catch(e){console.warn('Emulator-Connect fehlgeschlagen:',e);}
+    }catch(e){console.warn('Emulator connect failed:',e);}
 }
 
 const $=id=>document.getElementById(id);
 let currentUserRole='user', currentUid=null, currentUserEmail='', currentCanApprove=false;
-let _reviewingPendingId=null; // ID eines pending_orders-Docs, das gerade im Modal geprüft wird
+let _reviewingPendingId=null; // ID of a pending_orders doc currently under review in the modal
 let _editingOwnPendingId=null; // ID einer eigenen Pending-Anfrage, die der Manager selbst nachbearbeitet
-let _pendingUnsub=null;       // Listener-Unsubscribe für Pending-Liste (Badge, alle Tabs)
-let _gridPendingUnsub=null;   // Listener-Unsubscribe für Grid-Refresh (nur aktueller Tab)
-let _gridSalesUnsub=null;     // Listener-Unsubscribe für Grid-Refresh bei Sales-Plan-Änderungen
+let _pendingUnsub=null;       // Listener unsubscribe for pending list (badge, all tabs)
+let _gridPendingUnsub=null;   // Listener unsubscribe for grid refresh (current tab only)
+let _gridSalesUnsub=null;     // Listener unsubscribe for grid refresh on sales plan changes
 let _gridReloadTimer=null;
 function _scheduleGridReload(){
     if(_gridReloadTimer) return;
@@ -808,7 +808,7 @@ function twoWeekRangeIso(anchor){
 }
 let weekData={};
 let fertigpalCount={}; // "<orderNr>|<iso>" → Anzahl fertig gescannter Paletten
-let shiftPlansCache=[]; // Alle Schichtpläne für schnelles Lookup in renderGrid
+let shiftPlansCache=[]; // All shift plans for fast lookup in renderGrid
 const _holidayCache={};
 function _easterSunday(year){
     const a=year%19, b=Math.floor(year/100), c=year%100;
@@ -864,7 +864,7 @@ let PALLET_BY_ARTNR={};   // 'Artikel Nr.' (z.B. '160001') -> pallet row
 let SLEEVE_BY_ARTNR={};   // 'Artikel Nr.' (z.B. '170002') -> sleeve row
 function _shortPalletDesc(b){
     if(!b) return '';
-    // Lange Beschreibungen wie "EU-Palette, 800x1200mm, Holz, ISPM 15, IPPC: ..." kürzen auf "EU-Pal, Holz"
+    // Shorten long descriptions like "EU-Palette, 800x1200mm, Holz, ISPM 15, IPPC: ..." to "EU-Pal, Holz"
     const parts=String(b).split(',').map(s=>s.trim()).filter(Boolean);
     if(!parts.length) return '';
     const first=parts[0].replace(/EU-Palette/i,'EU-Pal').replace(/Palette/i,'Pal');
@@ -923,9 +923,9 @@ async function loadPalletAndSleeve(){
             if(res.ok){
                 const j=await res.json();
                 ingest((j.xoend&&j.xoend.rows)||[]);
-                console.log('[Auftragsplanung] Pallet/Sleeve aus JSON-Fallback:',Object.keys(PALLET_BY_ARTNR).length,'/',Object.keys(SLEEVE_BY_ARTNR).length);
+                console.log('[Auftragsplanung] Pallet/Sleeve from JSON fallback:',Object.keys(PALLET_BY_ARTNR).length,'/',Object.keys(SLEEVE_BY_ARTNR).length);
             }
-        }catch(e){ console.warn('JSON-Fallback Pallet/Sleeve fehlgeschlagen:',e); }
+        }catch(e){ console.warn('JSON fallback Pallet/Sleeve failed:',e); }
     }
 }
 function endsForArtFallback(artVal){
@@ -944,7 +944,7 @@ function endsForArtFallback(artVal){
 }
 let editingOrderSo=null;      // SO# des aktuell bearbeiteten Auftrags (null = Neuer Auftrag)
 let pendingKpiInputs=null;    // KPI-Werte aus Rechner, werden beim Speichern in die Haupttabelle geschrieben
-let perDayShifts={};          // iso → Anzahl Schichten für diesen Tag (Override der Basis-Schichten)
+let perDayShifts={};          // iso → number of shifts for this day (override of base shifts)
 const TAB_CONFIG={
     assembly:{ salesCol:'sales_plan',       prodCol:'produktionsplan',            title:'Assembly' },
     frame:   { salesCol:'sales_plan_frame', prodCol:'produktionsplan_spritzguss', title:'Injection Frame' }
@@ -970,7 +970,7 @@ function showMsg(text,type='info'){
     area.innerHTML=`<div class="msg ${cls}">${text}</div>`;
     if(type==='success') setTimeout(()=>{area.innerHTML='';},3000);
 }
-function doLogout(){ auth.signOut().catch(e=>console.warn('Logout-Fehler:',e)); }
+function doLogout(){ auth.signOut().catch(e=>console.warn('Logout error:',e)); }
 const _AP_EMAIL_DOMAIN='@lager.local';
 const SUPER_ADMIN_EMAIL='dominik.dannenbauer@xolution.com';
 function _apToEmail(u){
@@ -980,7 +980,7 @@ function _apToEmail(u){
 }
 function _apIsSuperAdmin(e){return (e||'').toLowerCase()===SUPER_ADMIN_EMAIL;}
 const _AP_ERR_MAP={'auth/invalid-email':'Invalid username','auth/user-not-found':'User not found','auth/wrong-password':'Wrong password','auth/invalid-credential':'Wrong username or password','auth/too-many-requests':'Too many attempts. Please wait.'};
-function _apTranslateErr(c){ return _AP_ERR_MAP[c]||'Fehler: '+c; }
+function _apTranslateErr(c){ return _AP_ERR_MAP[c]||'Error: '+c; }
 document.addEventListener('DOMContentLoaded',()=>{
     const f=document.getElementById('loginForm');
     if(f) f.addEventListener('submit',async e=>{
@@ -1058,7 +1058,7 @@ auth.onAuthStateChanged(async user=>{
             const uData=uDoc.exists?(uDoc.data()||{}):{};
             currentUserRole=uData.role||'user';
             currentCanApprove=!!uData.canApprove;
-        }catch(e){ console.warn('Rolle laden fehlgeschlagen',e); }
+        }catch(e){ console.warn('Loading role failed',e); }
     }
 if(currentUserRole!=='admin' && currentUserRole!=='manager'){
         const err=document.getElementById('loginError');
@@ -1087,22 +1087,22 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager'){
         // Manager: nur ihre eigenen abgelehnten Requests anzeigen
         startMyRejectedListener();
     }
-    // Grid-Live-Listener für ALLE Rollen (Manager + Freigeber): pendant + sales_plan
+    // Grid live listener for ALL roles (manager + approver): pending + sales_plan
     startGridLiveListeners();
-    // Schicht-/KPI-Planung-Button nur für Freigeber sichtbar — Manager dürfen nur per-Auftrag-Schichten setzen
+    // Shift/KPI planning button visible only for approvers — managers can only set per-order shifts
     const spBtn=$('shiftPlannerBtn');
     if(spBtn) spBtn.style.display = currentCanApprove ? '' : 'none';
-    // Pricelist nur für Freigeber/Admin sichtbar
+    // Pricelist visible only for approvers/admin
     const plBtn=$('pricelistBtn');
     if(plBtn) plBtn.style.display = currentCanApprove ? '' : 'none';
-    // Protocol nur für Freigeber/Admin sichtbar
+    // Protocol visible only for approvers/admin
     const protoBtn=$('protocolBtn');
     if(protoBtn) protoBtn.style.display = currentCanApprove ? '' : 'none';
-    // Auftragsreihenfolge: für Freigeber ausblenden (nur Manager planen die Reihenfolge)
+    // Order sequence: hidden for approvers (only managers plan the sequence)
     const ordBtn=$('ordersManagerBtn');
     if(ordBtn) ordBtn.style.display = currentCanApprove ? 'none' : '';
     if(_apBooted){
-        // Bei reinem User-Wechsel: Daten neu laden für die aktuelle Rolle
+        // On pure user switch: reload data for the new role
         try{ await loadWeek(); }catch(_){}
         return;
     }
@@ -1136,9 +1136,9 @@ async function loadEndsPerPal(){
             if(res.ok){
                 const j=await res.json();
                 ingest((j.xoend&&j.xoend.rows)||[]);
-                console.log('[Auftragsplanung] ENDS_PER_PAL aus JSON-Fallback:',ENDS_PER_PAL);
+                console.log('[Auftragsplanung] ENDS_PER_PAL from JSON fallback:',ENDS_PER_PAL);
             }
-        }catch(e){ console.warn('JSON-Fallback xoend fehlgeschlagen:',e); }
+        }catch(e){ console.warn('JSON fallback xoend failed:',e); }
     }
 }
 
@@ -1160,7 +1160,7 @@ async function loadArticles(){
             articleMapAssembly[nr]=r;
         });
     }catch(e){
-        console.warn('Artikel laden fehlgeschlagen:',e);
+        console.warn('Loading articles failed:',e);
     }
     if(articlesAssembly.length===0){
         try{
@@ -1179,9 +1179,9 @@ async function loadArticles(){
                     articlesAssembly.push(r);
                     articleMapAssembly[nr]=r;
                 });
-                console.log('[Auftragsplanung] Artikel aus JSON-Fallback:',articlesAssembly.length);
+                console.log('[Auftragsplanung] articles from JSON fallback:',articlesAssembly.length);
             }
-        }catch(e){ console.warn('JSON-Fallback Artikel fehlgeschlagen:',e); }
+        }catch(e){ console.warn('JSON fallback articles failed:',e); }
     }
     articlesAssembly.sort((a,b)=>String(a._fullArtNr||'').localeCompare(String(b._fullArtNr||'')));
     renderArticleDatalist();
@@ -1322,7 +1322,7 @@ function formatTpK(row){
     return _fmtKomp(row['TP-Band XO-Nr.'], 'TP-Band', row['TP-Band Farbe']);
 }
 // Altwert aus gespeichertem Feld ins neue Format migrieren (z.B. "S046/B64/BPA, PFAS-NI" -> "110046, 202 B64 silver", "TP004/white" -> "150004, TP-Band white").
-// Braucht die art-Row als Quelle für End Typ und Farben.
+// Needs the art row as source for end type and colors.
 function _migrateKompWert(field, val, row){
     const s=String(val||'').trim();
     if(!row) return s;
@@ -1438,14 +1438,14 @@ async function loadFertigpaletten(){
             const key=order+'|'+iso;
             fertigpalCount[key]=(fertigpalCount[key]||0)+1;
         });
-    }catch(e){ console.warn('Fertigpaletten laden:',e); }
+    }catch(e){ console.warn('Loading finished pallets:',e); }
 }
 async function loadWeek(){
     if(!currentAnchor) currentAnchor=mondayOf(new Date());
     const iw1=getIsoWeek(currentAnchor);
     const d8=new Date(currentAnchor); d8.setDate(currentAnchor.getDate()+7);
     const iw2=getIsoWeek(d8);
-    $('gridArea').innerHTML='<div class="loading">Lade '+TAB_CONFIG[currentTab].title+' – KW '+iw1.week+' + '+iw2.week+' / '+iw1.year+'…</div>';
+    $('gridArea').innerHTML='<div class="loading">Loading '+TAB_CONFIG[currentTab].title+' – CW '+iw1.week+' + '+iw2.week+' / '+iw1.year+'…</div>';
     $('footerBar').style.display='none';
     weekData={};
     try{
@@ -1458,8 +1458,8 @@ async function loadWeek(){
             const d=doc.data();
             if(d.datum) weekData[d.datum]={...d,_id:doc.id};
         });
-        // Pending Orders zusätzlich einblenden (grau + Vermerk "Freigabe ausstehend")
-        // Approved Sales-Plan-Einträge haben Vorrang — pending überschreibt nicht.
+        // Also display pending orders (grey + note "Approval pending")
+        // Approved sales plan entries take precedence — pending does not overwrite.
         try{
             const pSnap=await db.collection(_pendingColForTab(currentTab))
                 .where('status','==','pending').get();
@@ -1477,18 +1477,18 @@ async function loadWeek(){
                     };
                 });
             });
-        }catch(e){ console.warn('Pending-Overlay laden:',e); }
+        }catch(e){ console.warn('Loading pending overlay:',e); }
         await loadFertigpaletten();
         await loadShiftPlansCache();
     }catch(e){
-        console.error('Load-Fehler:',e);
+        console.error('Load error:',e);
         showMsg('Error loading: '+e.message,'error');
     }
     renderGrid();
     $('footerBar').style.display='flex';
     setDirty(false);
 }
-// Dynamische Clipping-Prüfung (Sales-Grid): markiert abgeschnittene Zellen rot
+// Dynamic clipping check (sales grid): marks truncated cells red
 let _clipTimer=null;
 function _scheduleClippingCheck(){
     if(_clipTimer) clearTimeout(_clipTimer);
@@ -1505,7 +1505,7 @@ function _checkClipping(){
             clipped++;
         }
     });
-    if(clipped) console.warn('[Auftragsplanung] '+clipped+' Zelle(n) abgeschnitten – rot markiert.');
+    if(clipped) console.warn('[Auftragsplanung] '+clipped+' cell(s) truncated – marked red.');
 }
 window.addEventListener('resize',()=>{ if(typeof _scheduleClippingCheck==='function') _scheduleClippingCheck(); });
 
@@ -1518,9 +1518,9 @@ function renderGrid(){
     const todayIso=toIsoDate(new Date());
     // SO → Farb-Index (0 oder 1) abwechselnd nach chronologischer Reihenfolge in der aktuellen Ansicht
     const soColor={};
-    // SO → {firstIso, lastIso, totalQty} über sichtbare 14 Tage
+    // SO → {firstIso, lastIso, totalQty} across the visible 14 days
     const soSpans={};
-    // SO → {ts} wenn in Produktionsplan übertragen (frühestes uebernommenAm der Tagesdocs)
+    // SO → {ts} if transferred to production plan (earliest uebernommenAm across day docs)
     const soTransferred={};
     {
         const soKey=fieldKey('Production Plan','','SO #');
@@ -1587,7 +1587,7 @@ function renderGrid(){
     SCHEMA.forEach(block=>{
         if(block.group!==lastGroup){
             if(block.group==='Production Plan'){
-                // Section-Header-Zeile: links Titel, Badge nur in der ERSTEN Spalte jedes übertragenen SO# (über die sichtbaren 14 Tage)
+                // Section header row: title on the left, badge only in the FIRST column of each transferred SO# (across the visible 14 days)
                 const soKeyL=fieldKey('Production Plan','','SO #');
                 html+=`<tr class="section-header"><td colspan="3">${escHtml(block.group)}</td>`;
                 dates.forEach(d=>{
@@ -1660,7 +1660,7 @@ function renderGrid(){
                     if(displayVal && displayVal.includes(', ')) displayVal=displayVal.replace(', ','\n');
                 }
                 let extraCellStyle='';
-                // KPI-Plan-Fallback aus Schichtplan (wenn für diesen Tag keine auftragsspezifischen Werte vorliegen)
+                // KPI plan fallback from shift plan (when no order-specific values exist for this day)
                 const isKpiPlan=(block.group==='KPI' && block.sub==='Plan');
                 if(isKpiPlan && !String(val||'').trim()){
                     const spPlan=getShiftPlanForIso(iso);
@@ -1672,7 +1672,7 @@ function renderGrid(){
                         if(field==='shift'){
                             if(planShift>0) displayVal=String(planShift);
                         } else if(planShift>0){
-                            // KPI-Werte und Output/d nur zeigen, wenn an diesem Wochentag überhaupt produziert wird
+                            // Show KPI values and Output/d only if production happens on this weekday
                             if(KPI_NAMES.includes(field)){
                                 const v=String(planKpi[field]||'').trim();
                                 if(v) displayVal=v;
@@ -1683,7 +1683,7 @@ function renderGrid(){
                         }
                     }
                 }
-                // Act Output/d PAL: Anzahl fertiger Paletten aus fertigpaletten für (SO#, Tag)
+                // Act Output/d PAL: number of finished pallets from fertigpaletten for (SO#, day)
                 const isActPal=(block.group==='KPI' && block.sub==='Act' && field==='Output/d PAL');
                 if(isActPal && weekData[iso] && weekData[iso].fields){
                     const so=weekData[iso].fields[fieldKey('Production Plan','','SO #')]||'';
@@ -1692,7 +1692,7 @@ function renderGrid(){
                         displayVal=n>0?String(n):'';
                     } else displayVal='';
                 }
-                // Act Output/d Pcs.: actPal × ends (Stück)
+                // Act Output/d Pcs.: actPal × ends (pieces)
                 const isActPcs=(block.group==='KPI' && block.sub==='Act' && field==='Output/d Pcs.');
                 if(isActPcs && weekData[iso] && weekData[iso].fields){
                     const so=weekData[iso].fields[fieldKey('Production Plan','','SO #')]||'';
@@ -1765,7 +1765,7 @@ function renderGrid(){
                         displayVal='';
                     }
                 }
-                // PAL immer dynamisch aus Qty + Art# berechnen (überschreibt evtl. abweichend gespeicherte Altwerte)
+                // PAL is always computed dynamically from Qty + Art# (overwrites any stale stored values)
                 if(isPal && weekData[iso] && weekData[iso].fields){
                     const qRaw=weekData[iso].fields[fieldKey('Production Plan','','Qty')]||'';
                     const qNum=parseInt(String(qRaw).replace(/[^\d]/g,''),10);
@@ -1872,7 +1872,7 @@ function renderGrid(){
             const pendId=td.dataset.pendingId;
             if(pendId){
                 if(currentCanApprove){ openPendingForReview(pendId, currentTab); return; }
-                // Manager: eigene Anfrage → bearbeiten/zurückziehen, fremde → nur Hinweis
+                // Manager: own request → edit/withdraw; others' → notice only
                 const iso=td.dataset.iso;
                 const meta=(weekData[iso]&&weekData[iso]._pending)||null;
                 if(meta && meta.requestedBy===currentUid){
@@ -2007,8 +2007,8 @@ async function saveDay(iso){
         });
         flashSaved();
     }catch(e){
-        console.error('Auto-Save-Fehler:',e);
-        showMsg('Auto-Save fehlgeschlagen ('+iso+'): '+e.message,'error');
+        console.error('Auto-save error:',e);
+        showMsg('Auto-save failed ('+iso+'): '+e.message,'error');
     }finally{
         pendingSaves.delete(iso);
         if(Object.keys(pendingTimers).length===0 && pendingSaves.size===0){
@@ -2051,7 +2051,7 @@ function stepPal(delta){
 }
 const KPI_DEFAULTS={ cycle:'1,74', cav:'16', hrs:'8', shift:'3', days:'1', scrap:'5', oee:'54' };
 function openKpiModal(){
-    // Nur befüllen wenn alle Felder leer sind (User-Änderungen nicht überschreiben)
+    // Fill only if all fields are empty (don't overwrite user edits)
     const ids=['k_cycle','k_cav','k_hrs','k_shift','k_days','k_scrap','k_oee'];
     const allEmpty=ids.every(id=>!($(id).value||'').trim());
     if(allEmpty){
@@ -2187,7 +2187,7 @@ function openOrderModal(){
     const banner=$('o_reviewBanner');
     if(banner){ banner.style.display='none'; banner.style.background=''; banner.style.borderColor=''; banner.style.color=''; }
     _applyOrderModalButtons();
-    // Tagesmenge + KPI-Rechner: für Manager (nicht-Freigeber) gesperrt — Plan ist verbindlich
+    // Daily output + KPI calculator: locked for managers (non-approvers) — plan is binding
     const outEl=$('o_outday');
     const kpiBtn=$('o_kpiBtn');
     if(outEl){
@@ -2204,7 +2204,7 @@ function openOrderModal(){
         }
     }
     if(kpiBtn) kpiBtn.style.display = currentCanApprove ? '' : 'none';
-    // Manager: keine Eingaben zu Schichten/KPI/Wochenende — nur Approver dürfen das setzen
+    // Manager: no input on shifts/KPI/weekend — only approvers may set those
     const wkndBlock=$('o_wknd_block');
     if(wkndBlock) wkndBlock.style.display = currentCanApprove ? '' : 'none';
     // Approver-Preisfeld: nur fuer canApprove sichtbar; Wert/Touched-Flag bei jedem Modal-Open zuruecksetzen
@@ -2218,7 +2218,7 @@ function openOrderModal(){
     $('o_start').value=toIsoDate(today);
     prefillOutDayFromShiftPlan();
     $('o_calc').style.display='none';
-    // Preview-Kalender immer auf Montag der AKTUELLEN KW zurücksetzen, dann navigierbar
+    // Always reset preview calendar to Monday of the CURRENT week, then navigable
     {
         const _t=new Date(); _t.setHours(0,0,0,0);
         const _dow=_t.getDay()||7;
@@ -2333,14 +2333,14 @@ function _applyOrderModalButtons(){
     // "Freigeben & Speichern" / "Ablehnen" nur im Review-Mode
     if(apprBtn)     apprBtn.style.display     = reviewing ? '' : 'none';
     if(rejectBtn)   rejectBtn.style.display   = reviewing ? '' : 'none';
-    // "Direkt freigeben" nur außerhalb beider Spezial-Modi + nur für canApprove
+    // "Direct approve" only outside both special modes + only for canApprove
     if(directBtn)   directBtn.style.display   = (!reviewing && !ownerEdit && currentCanApprove) ? '' : 'none';
-    // Owner-Edit-Mode: Zurückziehen + Aktualisieren
+    // Owner edit mode: withdraw + update
     if(updBtn)      updBtn.style.display      = ownerEdit ? '' : 'none';
     if(withdrawBtn) withdrawBtn.style.display = ownerEdit ? '' : 'none';
 }
 
-// Liest alle relevanten Auftragsdaten aus dem Modal in ein Plain-Object (für Pending-Doc + PDF)
+// Reads all relevant order data from the modal into a plain object (for pending doc + PDF)
 function collectOrderPayload(){
     const get=id=>{ const e=$(id); return e?e.value:''; };
     const chk=id=>{ const e=$(id); return !!(e&&e.checked); };
@@ -2361,7 +2361,7 @@ function collectOrderPayload(){
         perDayShifts:JSON.parse(JSON.stringify(perDayShifts||{})),
         gridData:JSON.parse(JSON.stringify(orderGridData||{}))
     };
-    // Approver-eingegebener (oder aus Pricelist vorgeschlagener) Preis → in PDF + Auto-Transfer übernehmen
+    // Approver-entered (or pricelist-suggested) price → carried into PDF + auto-transfer
     if(currentCanApprove){
         const raw=String(get('o_approverPrice')||'').trim().replace(/\s/g,'').replace(',','.');
         const num=parseFloat(raw);
@@ -2373,7 +2373,7 @@ function collectOrderPayload(){
     return payload;
 }
 
-// Schreibt ein Payload zurück in die Modal-Inputs (Approve-Review)
+// Writes a payload back into the modal inputs (approve-review)
 function applyOrderPayload(p){
     if(!p) return;
     const set=(id,v)=>{ const e=$(id); if(e) e.value=(v==null?'':String(v)); };
@@ -2390,7 +2390,7 @@ function applyOrderPayload(p){
     set('k_days',k.days); set('k_scrap',k.scrap); set('k_oee',k.oee);
     perDayShifts=p.perDayShifts?JSON.parse(JSON.stringify(p.perDayShifts)):{};
     orderGridData=p.gridData?JSON.parse(JSON.stringify(p.gridData)):{};
-    // approvedPrice (falls von Approver bereits gesetzt) ins Modal-Feld zurückschreiben
+    // Write approvedPrice (if already set by an approver) back into the modal field
     if(currentCanApprove && p.approvedPrice && p.approvedPrice.price!=null){
         const priceInp=$('o_approverPrice');
         const priceCcy=$('o_approverPriceCcy');
@@ -2424,7 +2424,7 @@ function startPendingBadgeListener(){
                 topBtn.style.display='none';
             }
         }
-        // Wenn Modal offen ist und Daten ändern sich → neu rendern
+        // If modal is open and data changes → re-render
         const modal=$('pendingModal');
         if(modal && modal.style.display!=='none') renderPendingList('pendingModalBody');
     };
@@ -2657,9 +2657,9 @@ async function renderPendingList(targetId){
 }
 
 async function openPendingModal(){
-    if(!currentCanApprove){ alert('Keine Berechtigung.'); return; }
+    if(!currentCanApprove){ alert('No permission.'); return; }
     $('pendingModal').style.display='flex';
-    // Pricelist im Hintergrund laden für Preis-Lookup
+    // Load pricelist in the background for price lookup
     if(!pricelistRows.length){ try{ await loadPricelist(); }catch(_){} }
     renderPendingList('pendingModalBody');
 }
@@ -2697,7 +2697,7 @@ async function populateCustomerDropdown(){
 
 // ---------- Pricelist ----------
 const PRICELIST_COL='customer_price_terms';
-// Seed-Daten aus Customer_Article_Price.xlsx (Stand 2026-04-28, 26 Einträge)
+// Seed data from Customer_Article_Price.xlsx (as of 2026-04-28, 26 entries)
 const _PRICELIST_SEED=[
     {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1042",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
     {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1039",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
@@ -2763,7 +2763,7 @@ async function importPricelistFromXlsx(){
 const PRICELIST_FIELDS=['region','customer','type','conversion','articleNr','articleStatus','dia','shell','shellSupplier','tier','unitPrice','ccy','paymentTerm','note'];
 let pricelistRows=[];
 let _pricelistSaveTimer={};
-// Dynamische Skalierung: passt die 1700px breite Pricelist-Tabelle in den verfügbaren Modal-Innenraum
+// Dynamic scaling: fits the 1700px-wide pricelist table into the available modal width
 function _plFitScaler(){
     const wrap=document.getElementById('pl_scaler_wrap');
     const inner=document.getElementById('pl_scaler');
@@ -2775,7 +2775,7 @@ function _plFitScaler(){
     const scale=Math.min(1, avail/natural);
     inner.style.transform='scale('+scale+')';
     inner.style.width=natural+'px';
-    // Höhe des Wrappers an die skalierte Tabellen-Höhe anpassen, damit kein Leerraum unten entsteht
+    // Adjust wrapper height to scaled table height to avoid empty space at the bottom
     wrap.style.height=(table.scrollHeight*scale)+'px';
 }
 let _plResizeWired=false;
@@ -2803,7 +2803,7 @@ async function loadPricelist(){
         $('pl_tbody').innerHTML=`<tr><td colspan="9" style="padding:14px;color:#b91c1c">Error loading: ${escHtml(e.message)}</td></tr>`;
     }
 }
-// Schreibt unique customer-Namen in /pricelist_meta/customers, damit Manager sie lesen können
+// Writes unique customer names to /pricelist_meta/customers so managers can read them
 async function _syncPricelistCustomers(){
     if(!currentCanApprove) return;
     try{
@@ -2830,7 +2830,7 @@ function _plClearFilters(){
 function renderPricelist(){
     _plPopulateFilterDropdowns();
     const q=($('pl_search')?.value||'').trim().toLowerCase();
-    // Multi-Filter (AND-Verknüpfung): jede Dropdown muss matchen, wenn gesetzt
+    // Multi-filter (AND): every dropdown must match if set
     const FF=['region','customer','type','articleStatus','tier','ccy'];
     const activeFilters={};
     FF.forEach(f=>{
@@ -2873,9 +2873,9 @@ function renderPricelist(){
     const fCount=Object.keys(activeFilters).length;
     const fInfo=fCount?` · ${fCount} filter${fCount>1?'s':''} active`:'';
     $('pl_status').textContent=`${rows.length} of ${pricelistRows.length} row(s) shown${fInfo} — all fields editable, auto-save on cell blur.`;
-    // Initiales Auto-Grow für Textareas mit Mehrzeilen-Inhalt
+    // Initial auto-grow for textareas with multi-line content
     $('pl_tbody').querySelectorAll('textarea').forEach(_plAutoGrow);
-    // Skalierung an Modal-Breite anpassen (zwei Frames Verzögerung damit Layout final ist)
+    // Adjust scaling to modal width (delay two frames so layout is finalized)
     requestAnimationFrame(()=>requestAnimationFrame(_plFitScaler));
     _plWireResize();
 }
@@ -2930,7 +2930,7 @@ async function deletePricelistRow(id){
     }catch(e){ console.error('deletePricelistRow:',e); alert('Error: '+e.message); }
 }
 
-// Manager öffnet eigene Pending-Anfrage zum Nachbearbeiten oder Zurückziehen
+// Manager opens own pending request to edit or withdraw
 async function openPendingForOwnerEdit(id, tab){
     closePendingModal();
     try{
@@ -2966,11 +2966,11 @@ async function withdrawOwnPending(){
     if(!confirm('Really withdraw this request? Approvers will no longer see it.')) return;
     const id=_editingOwnPendingId, tab=currentTab;
     try{
-        // Snapshot vor dem Löschen, damit das Protokoll den Auftragsstand kennt
+        // Snapshot before deletion so the protocol records the order state
         let pendDoc=null;
         try{ const s=await db.collection(_pendingColForTab(tab)).doc(id).get(); pendDoc=s.exists?s.data():null; }catch(_){}
         await db.collection(_pendingColForTab(tab)).doc(id).delete();
-        // Protokoll-Eintrag für die Approver
+        // Protocol entry for the approvers
         try{ await _logProtocol('request_withdrawn', id, tab, pendDoc, ''); }
         catch(e){ console.warn('protocol log (request_withdrawn):',e); }
         _editingOwnPendingId=null;
@@ -2983,20 +2983,20 @@ async function withdrawOwnPending(){
     }
 }
 async function openPendingForReview(id, tab){
-    if(!currentCanApprove){ alert('Keine Berechtigung.'); return; }
+    if(!currentCanApprove){ alert('No permission.'); return; }
     closePendingModal();
     try{
         const doc=await db.collection(_pendingColForTab(tab)).doc(id).get();
         if(!doc.exists){ alert('Request no longer exists.'); renderPendingList(); return; }
         const data=doc.data();
-        // Tab umschalten, falls nötig (damit salesCol/Artikel-Listen passen)
+        // Switch tab if needed (so salesCol/article lists match)
         if(currentTab!==tab){
             currentTab=tab;
             document.querySelectorAll('.tab-btn').forEach(b=>{
                 b.classList.toggle('active', b.dataset.tab===tab);
             });
         }
-        // Modal öffnen + Payload reinschreiben
+        // Open modal + write payload into fields
         openOrderModal();
         applyOrderPayload(data.payload||{});
         editingOrderSo=(data.payload&&data.payload.editingOrderSo)||null;
@@ -3042,9 +3042,9 @@ async function rejectReviewing(){
     }
 }
 
-// Inline-Approve direkt aus dem Open-Requests-Modal — KEIN Auftragsmodal öffnet
+// Inline approve directly from the Open Requests modal — does NOT open the order modal
 async function approvePendingInline(id, tab){
-    if(!currentCanApprove){ alert('Keine Berechtigung.'); return; }
+    if(!currentCanApprove){ alert('No permission.'); return; }
     const inp=document.getElementById('pp_'+id);
     const rawPrice=inp?inp.value:'';
     const num=parseFloat(String(rawPrice).replace(/[.\s]/g,'').replace(',','.'));
@@ -3079,7 +3079,7 @@ async function approvePendingInline(id, tab){
             },{merge:true});
         }
         await batch.commit();
-        // 2) Approved-Preis in Payload für Protocol/PDF
+        // 2) Approved price into payload for protocol/PDF
         const finalPayload={...payload, approvedPrice:{price:num, ccy}};
         // 3) Protocol-Eintrag
         try{
@@ -3099,7 +3099,7 @@ async function approvePendingInline(id, tab){
         let transferMsg='';
         try{ transferMsg = await _autoTransferAfterApprove(finalPayload, gridData, tab); }
         catch(e){ console.warn('Auto-Transfer to produktionsplan:',e); transferMsg=' (auto-transfer failed: '+e.message+')'; }
-        // 6) Pending-Doc löschen
+        // 6) Delete pending doc
         try{ await ref.delete(); }catch(e){ console.warn('Pending delete:',e); }
         showMsg(`Order approved at ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000 pcs.${transferMsg}`,'success');
         await loadWeek();
@@ -3111,7 +3111,7 @@ async function approvePendingInline(id, tab){
 }
 
 async function rejectPending(id, tab){
-    if(!currentCanApprove){ alert('Keine Berechtigung.'); return; }
+    if(!currentCanApprove){ alert('No permission.'); return; }
     const comment=prompt('Reason for rejection (optional):','');
     if(comment===null) return;
     try{
@@ -3265,7 +3265,7 @@ function exportProtocolEntryPdf(id){
         generateOrderPdf(r.payload||{}, kind, meta);
     }catch(e){
         console.error('exportProtocolEntryPdf:',e);
-        alert('PDF-Erzeugung fehlgeschlagen: '+e.message);
+        alert('PDF generation failed: '+e.message);
     }
 }
 async function editProtocolNote(id){
@@ -3296,9 +3296,9 @@ async function deleteProtocolEntry(id){
 }
 
 // ---------- PDF ----------
-// XO Logo als PNG-DataURL für jsPDF (vorab beim Page-Load gerendert).
-// Wir rendern die GIF/PNG-Vorlage bei voller Originalauflösung in ein Canvas
-// und behalten das echte Seitenverhältnis bei (~1397:1090 ≈ 1.28:1).
+// XO logo as PNG data URL for jsPDF (rendered up front on page load).
+// Render the GIF/PNG source at full original resolution into a canvas
+// and preserve the true aspect ratio (~1397:1090 ≈ 1.28:1).
 let _xoLogoDataUrl=null;
 let _xoLogoNaturalAr=1397/1090;
 (function _preloadXoLogoForPdf(){
@@ -3323,7 +3323,7 @@ let _xoLogoNaturalAr=1397/1090;
 })();
 
 function generateOrderPdf(payload, kind, meta){
-    if(!window.jspdf || !window.jspdf.jsPDF){ console.warn('jsPDF nicht geladen'); return; }
+    if(!window.jspdf || !window.jspdf.jsPDF){ console.warn('jsPDF not loaded'); return; }
     const { jsPDF } = window.jspdf;
     const doc=new jsPDF({unit:'pt', format:'a4'});
     const PAGE_W=595, PAGE_H=842, M=40;
@@ -3349,7 +3349,7 @@ function generateOrderPdf(payload, kind, meta){
     // ---- HEADER BAND ----
     setColor(C.bg,'fill'); doc.rect(0,0,PAGE_W,120,'F');
     // XO Logo (oben links) – wenn beim Page-Load erfolgreich gerendert.
-    // Höhe fixiert auf 56pt; Breite ergibt sich aus dem Original-Seitenverhältnis (~1.28:1).
+    // Height fixed at 56pt; width follows from the original aspect ratio (~1.28:1).
     let titleX=M;
     if(_xoLogoDataUrl){
         try{
@@ -3397,7 +3397,7 @@ function generateOrderPdf(payload, kind, meta){
         const colW=(PAGE_W-2*M)/2;
         const rowsPerCol=Math.ceil(rows.length/2);
         const labelGap=12;
-        // Maximale Label-Breite je Spalte ermitteln (für sauberes Alignment)
+        // Determine max label width per column (for clean alignment)
         doc.setFont('helvetica','normal'); doc.setFontSize(8);
         const labelWidths=[0,0];
         rows.forEach((r,i)=>{
@@ -3461,7 +3461,7 @@ function generateOrderPdf(payload, kind, meta){
     if(cust && orderArt && Array.isArray(pricelistRows)){
         priceMatch=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust && _normArt2(r.articleNr)===orderArt);
     }
-    // Bei approval: bestätigten Preis aus payload bevorzugen
+    // On approval: prefer confirmed price from payload
     if(kind==='approved' && payload.approvedPrice){
         const ap=payload.approvedPrice;
         const apStr=`${Number(ap.price).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ap.ccy||''}`;
@@ -3688,12 +3688,12 @@ function recalcOrder(rebuildGrid){
             const first=coll.hits[0], last=coll.hits[coll.hits.length-1];
             calc.className='calc-row warn';
             calc.innerHTML=`⚠ <b>Collision!</b> The planned order overlaps on ${coll.hits.length} day(s) with existing order (${escHtml(soList)}) – from ${escHtml(first.iso)} to ${escHtml(last.iso)}. Please adjust start date.<br>Duration: ${days} day(s) · End: ${endIso}`
-                +(ends?` · Paletten gesamt: ${totalPal}`:'');
+                +(ends?` · Total pallets: ${totalPal}`:'');
         } else {
             calc.className='calc-row';
-            calc.textContent=`Dauer: ${days} Tag(e) · Ende: ${endIso}`
-                +(ends?` · Paletten gesamt: ${totalPal}`:'')
-                +(!ends&&art?' · Art # unbekannt – PAL nicht berechenbar':'')
+            calc.textContent=`Duration: ${days} day(s) · End: ${endIso}`
+                +(ends?` · Total pallets: ${totalPal}`:'')
+                +(!ends&&art?' · Art # unknown – PAL cannot be calculated':'')
                 +(!art?' · Select Art # to compute PAL':'');
         }
         calc.style.display='block';
@@ -3703,7 +3703,7 @@ function recalcOrder(rebuildGrid){
         calc.style.display='block';
     } else if(qty>0 && outDay===0){
         calc.className='calc-row warn';
-        calc.textContent='Tagesmenge (Output/d) eingeben, um Dauer zu berechnen.';
+        calc.textContent='Enter Daily Output to calculate duration.';
         calc.style.display='block';
     } else {
         calc.style.display='none';
@@ -3720,7 +3720,7 @@ function renderOrderGrid(){
     if(!start || days<=0) return;
     const MAX_DAYS=120;
     if(days>MAX_DAYS) return;
-    // Plan mit pro-Tag Schichten/Kapazitäten
+    // Plan with per-day shifts/capacities
     const plan=computeOrderPlan();
     const dates=plan.seq.map(s=>s.date);
     const planByIso={};
@@ -3749,8 +3749,8 @@ function renderOrderGrid(){
         setAF('Laser Code',row['Laser Code Beschreibung']||'');
     }
     // KPI-Plan-Werte IMMER in die Haupttabelle schreiben.
-    // Priorität: 1) aktueller Wert im KPI-Rechner-Input  2) pendingKpiInputs  3) KPI_DEFAULTS
-    // 'shift' und 'Output/d' werden pro Tag gemäß tatsächlicher Schichten gesetzt.
+    // Priority: 1) current value in KPI calculator input  2) pendingKpiInputs  3) KPI_DEFAULTS
+    // 'shift' and 'Output/d' are set per day according to actual shifts.
     const kpiAutofillBase={};
     const kpiMap=[
         ['Cycle','k_cycle','cycle'],
@@ -3793,7 +3793,7 @@ function renderOrderGrid(){
         return out;
     }
     // Pro-Tag PAL: volle Tages-Paletten als Integer, Restmenge (q < ends) als Dezimal (0,x).
-    // Summe der Tageswerte entspricht qty/ends exakt (kein Rundungs-Überschuss).
+    // Sum of daily values matches qty/ends exactly (no rounding overflow).
     const perDayPal={};
     if(ends>0){
         dates.forEach(d=>{
@@ -3818,7 +3818,7 @@ function renderOrderGrid(){
         const iso=toIsoDate(d);
         if(!orderGridData[iso]) orderGridData[iso]={fields:{}};
         const f=orderGridData[iso].fields;
-        // Autofill — überschreibt nur, wenn leer ODER Inhalt aus alter Autofill-Berechnung
+        // Autofill — overwrites only if empty OR content came from a previous autofill
         Object.entries(autofill).forEach(([k,v])=>{ f[k]=v; });
         const kpiForDay=kpiAutofillForDay(planByIso[iso]);
         Object.entries(kpiForDay).forEach(([k,v])=>{ f[k]=v; });
@@ -3834,14 +3834,14 @@ async function loadPreview4w(){
     orderPreviewDocs={};
     orderPreviewPendingIso={};
     try{
-        // Start: 30 Tage vor heute ODER der Montag der aktuellen Haupttabelle – je früher
+        // Start: 30 days before today OR Monday of the current main table – whichever is earlier
         const today=new Date(); today.setHours(0,0,0,0);
         let startDate=new Date(today); startDate.setDate(today.getDate()-30);
         if(currentAnchor){
             const a=new Date(currentAnchor); a.setHours(0,0,0,0);
             if(a<startDate) startDate=a;
         }
-        // Ende: 120 Tage nach heute ODER zwei Wochen nach aktuellem Anker ODER neuer Auftrag + Puffer
+        // End: 120 days after today OR two weeks after current anchor OR new order + buffer
         let endDate=new Date(today); endDate.setDate(today.getDate()+120);
         if(currentAnchor){
             const ae=new Date(currentAnchor); ae.setDate(ae.getDate()+21);
@@ -3860,7 +3860,7 @@ async function loadPreview4w(){
             .where('datum','<=',toIso)
             .get();
         snap.forEach(d=>{ const dt=d.data(); if(dt.datum) orderPreviewDocs[dt.datum]=dt.fields||{}; });
-        // Pending-Aufträge zusätzlich einblenden (grau-orange) — approved gewinnt
+        // Additionally show pending orders (grey-orange) — approved wins
         try{
             const pSnap=await db.collection(_pendingColForTab(currentTab))
                 .where('status','==','pending').get();
@@ -3875,7 +3875,7 @@ async function loadPreview4w(){
                     orderPreviewPendingIso[iso]={pendingId:doc.id, requestedByEmail:reqEmail};
                 });
             });
-        }catch(e){ console.warn('Preview-Pending-Load:',e); }
+        }catch(e){ console.warn('Preview pending load:',e); }
     }catch(e){ console.warn('Preview-Load:',e); }
 }
 function getCollisionInfo(){
@@ -3904,7 +3904,7 @@ function renderOrderPreview(){
     const days=parseInt($('o_days').value||'0',10)||0;
     const newArt=$('o_art').value.trim();
     const newCust=$('o_cust').value.trim();
-    // Fenster: previewAnchor (per Pfeiltasten navigierbar) — beim Öffnen auf Montag der aktuellen KW gesetzt
+    // Window: previewAnchor (navigable via arrow keys) — set to Monday of the current week on open
     const today0=new Date(); today0.setHours(0,0,0,0);
     if(!previewAnchor){
         const _t=new Date(today0);
@@ -3918,7 +3918,7 @@ function renderOrderPreview(){
     // Kollisionen bestimmen
     const coll=getCollisionInfo();
     const collIsoSet=new Set(coll.hits.map(h=>h.iso));
-    // Aktive Slots des neuen Auftrags (Wochenenden ggf. übersprungen, Schichten-Override berücksichtigt)
+    // Active slots of the new order (weekends optionally skipped, shift override honored)
     const plan=(newStart && days>0)?computeOrderPlan():{seq:[]};
     const newSlotIsoSet=new Set(plan.seq.map(s=>s.iso));
     const shiftsByIso={}; plan.seq.forEach(s=>{ shiftsByIso[s.iso]=s.shifts; });
@@ -3926,7 +3926,7 @@ function renderOrderPreview(){
     const soKey=fieldKey('Production Plan','','SO #');
     const custKey=fieldKey('Production Plan','','Customer');
     const artKey=fieldKey('Production Plan','','Art #');
-    // Pro SO# die besten Werte für Customer / Art # aus allen Tagen sammeln (Fallback-Auflösung)
+    // Collect best values for Customer / Art # per SO# across all days (fallback resolution)
     const soResolved={};
     Object.values(orderPreviewDocs).forEach(f=>{
         const so=f[soKey]; if(!so) return;
@@ -3963,7 +3963,7 @@ function renderOrderPreview(){
         let badge='';
         if(isNew){
             const sh=(iso in shiftsByIso)?shiftsByIso[iso]:baseShifts;
-            badge=`<span class="shift-badge s-${Math.min(3,Math.max(0,sh))}" title="${sh} Schicht(en)">${sh}S</span>`;
+            badge=`<span class="shift-badge s-${Math.min(3,Math.max(0,sh))}" title="${sh} shift(s)">${sh}S</span>`;
         }
         const pendInfo=isPending?orderPreviewPendingIso[iso]:null;
         const titleSuffix=`${existSo?' · '+existSo:''}${holiName?' · Holiday: '+holiName:''}${isNew?' · Click for shifts':''}${pendInfo?' · Approval pending (by '+(pendInfo.requestedByEmail||'?')+')':''}`;
@@ -4025,7 +4025,7 @@ async function checkShiftPlanConflicts(seq){
                 result.shifts.push({iso, dow:key, planned:Number(s.shifts), allowed:maxAllowed, planNames:matching.map(p=>p.name||'(ohne Name)')});
             }
         }
-        // KPI-Abweichung: vergleiche aktuelle Auftrags-KPI (aus k_*-Feldern / Defaults) mit dem Schichtplan, der den ersten Auftragstag abdeckt
+        // KPI deviation: compare current order KPI (from k_* fields / defaults) against the shift plan covering the first order day
         const firstIso=seq[0].iso;
         const planForOrder=plans.find(p=>p.fromIso && p.toIso && firstIso>=p.fromIso && firstIso<=p.toIso && p.kpi);
         if(planForOrder && planForOrder.kpi){
@@ -4095,7 +4095,7 @@ function _updateArtInfo(){
     if(!art){ body.innerHTML='<span style="color:#64748b;font-style:italic">Select an article number to see its components.</span>'; return; }
     const row=articleMapAssembly[art];
     if(!row){ body.innerHTML='<span style="color:#dc2626;font-weight:600">Article '+escHtml(art)+' not found in master data.</span>'; return; }
-    // Verpackung: Beschreibung + Suffix + Stück/Palette
+    // Packaging: description + suffix + pieces/pallet
     const verpDesc=String(row['Verpackung Beschreibung']||'').trim();
     const verpSuf=String(row['Verpackung XO Nr.']||'').trim();
     const verpEnds=endsForArtFallback(art);
@@ -4128,7 +4128,7 @@ async function saveOrder(mode){
     const days=parseInt($('o_days').value||'0',10);
     if(!start){ alert('Start date missing.'); return; }
     if(days<=0){ alert('Enter Qty and Daily output so duration can be calculated.'); return; }
-    // Customer-Pflichtfeld (nur bei pending-Workflow zwingend, damit Approver-Editing nicht blockiert wird)
+    // Customer is mandatory only on the pending workflow so approver editing is not blocked
     let _mismatchNote='';
     let _hasMismatch=false;
     if(mode==='request' || mode==='updateRequest'){
@@ -4158,7 +4158,7 @@ async function saveOrder(mode){
             }
         }
     }
-    // Modus 'request': Auftrag wandert in pending_orders_<tab> (kein Schreiben in salesCol)
+    // Mode 'request': order goes to pending_orders_<tab> (no write to salesCol)
     if(mode==='request'){
         try{
             const payload=collectOrderPayload();
@@ -4174,10 +4174,10 @@ async function saveOrder(mode){
                 pricelistMismatch:_hasMismatch,
                 managerNote:_mismatchNote||''
             });
-            // PDF nur für Approver bei direkter Freigabe — Manager-Antrag erzeugt kein PDF
+            // PDF only for approvers on direct approval — manager request does not create a PDF
             if(currentCanApprove){
                 try{ generateOrderPdf(payload,'request',{id:docRef.id, requestedByEmail:currentUserEmail}); }
-                catch(e){ console.warn('PDF-Erzeugung fehlgeschlagen:',e); }
+                catch(e){ console.warn('PDF generation failed:',e); }
             }
             // Manager-Aktion ins Protokoll der Approver schreiben
             try{ await _logProtocol('request_created', docRef.id, currentTab,
@@ -4209,7 +4209,7 @@ async function saveOrder(mode){
             await ref.update({
                 tab:currentTab,
                 status:'pending',
-                requestedBy:currentUid, // Pflicht: für Rules-Konsistenz
+                requestedBy:currentUid, // required for rules consistency
                 requestedByEmail:currentUserEmail,
                 editingOrderSo:editingOrderSo||null,
                 payload,
@@ -4220,10 +4220,10 @@ async function saveOrder(mode){
                 pricelistMismatch:_hasMismatch,
                 managerNote:_mismatchNote||(old.managerNote||'')
             });
-            // PDF nur für Approver — Manager-Update erzeugt kein PDF
+            // PDF only for approvers — manager update does not create a PDF
             if(currentCanApprove){
                 try{ generateOrderPdf(payload,'request',{id,requestedByEmail:currentUserEmail,update:prevCount+1}); }
-                catch(e){ console.warn('PDF-Erzeugung fehlgeschlagen:',e); }
+                catch(e){ console.warn('PDF generation failed:',e); }
             }
             // Update ins Protokoll der Approver schreiben (mit Versionshinweis in der Note)
             try{ await _logProtocol('request_updated', id, currentTab,
@@ -4241,21 +4241,21 @@ async function saveOrder(mode){
         return;
     }
     if(mode==='approve' && !currentCanApprove){
-        alert('Keine Berechtigung zum Freigeben.'); return;
+        alert('No permission to approve.'); return;
     }
-    // Schichtplan-Kollision prüfen (Benutzer kann dennoch bestätigen = Ausnahme)
+    // Check shift plan collision (user can still confirm = exception)
     const plan=computeOrderPlan();
     const spCheck=await checkShiftPlanConflicts(plan.seq);
     if(spCheck.shifts.length>0){
         const dowLabel={mon:'Mo',tue:'Di',wed:'Mi',thu:'Do',fri:'Fr',sat:'Sa',sun:'So'};
-        const lines=spCheck.shifts.map(c=>`• ${c.iso} (${dowLabel[c.dow]||c.dow}): ${c.planned} Schicht(en) geplant – Schichtplan erlaubt max. ${c.allowed}`).join('\n');
+        const lines=spCheck.shifts.map(c=>`• ${c.iso} (${dowLabel[c.dow]||c.dow}): ${c.planned} shift(s) planned – shift plan allows max ${c.allowed}`).join('\n');
         const planNames=Array.from(new Set(spCheck.shifts.flatMap(c=>c.planNames))).join(', ');
         if(!confirm(`⚠ Shift plan collision (shifts)!\n\nOn the following days more shifts are planned than allowed by shift plan "${planNames}":\n\n${lines}\n\nAdd exception and save anyway?`)) return;
     }
     if(spCheck.kpi.length>0){
         const k=spCheck.kpi[0];
-        const lines=k.diffs.map(d=>`• ${d.field}: Auftrag = ${d.order}  /  Plan = ${d.plan}`).join('\n');
-        if(!confirm(`⚠ KPI-Abweichung vom Schichtplan "${k.planName}"!\n\nFolgende KPI-Werte weichen vom Schichtplan ab:\n\n${lines}\n\nAls Ausnahme speichern?`)) return;
+        const lines=k.diffs.map(d=>`• ${d.field}: Order = ${d.order}  /  Plan = ${d.plan}`).join('\n');
+        if(!confirm(`⚠ KPI deviation from shift plan "${k.planName}"!\n\nThe following KPI values differ from the shift plan:\n\n${lines}\n\nSave as exception?`)) return;
     }
     const coll=getCollisionInfo();
     let preloadedFollowers=[];
@@ -4263,7 +4263,7 @@ async function saveOrder(mode){
         const soList=Array.from(coll.sos).join(', ');
         if(editingOrderSo){
             if(!confirm(`⚠ Collision!\nThe extended order overlaps on ${coll.hits.length} day(s) with following order(s) (${soList}).\n\nThose following orders will be shifted backwards automatically — their data is preserved.\n\nContinue?`)) return;
-            // Kollidierende Folgeaufträge vorab komplett laden (damit sie nach dem Schreiben neu platziert werden können)
+            // Preload colliding follow-up orders fully (so they can be re-placed after the write)
             try{
                 const soKey=fieldKey('Production Plan','','SO #');
                 const todayX=new Date(); todayX.setHours(0,0,0,0);
@@ -4290,13 +4290,13 @@ async function saveOrder(mode){
         }
     }
     // Snapshot aktueller Grid-Inputs ins orderGridData mergen
-    // orderGridData wurde bereits durch renderOrderGrid() mit Autofill + Qty/PAL-Split befüllt
+    // orderGridData was already populated by renderOrderGrid() with autofill + Qty/PAL split
     try{
         const batch=db.batch();
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         const seq=computeOrderPlan().seq.map(s=>s.date);
         const newIsoSet=new Set(seq.map(d=>toIsoDate(d)));
-        // Beim Bearbeiten: alte Tage dieses Auftrags, die im neuen Plan nicht mehr vorkommen, löschen
+        // On edit: delete this order's old days that are no longer in the new plan
         if(editingOrderSo){
             const soKey=fieldKey('Production Plan','','SO #');
             Object.entries(orderPreviewDocs).forEach(([iso,f])=>{
@@ -4306,7 +4306,7 @@ async function saveOrder(mode){
                 }
             });
         }
-        // Kollidierende Folgeaufträge: alte Tage aus der DB löschen (werden nach compactOrdersAfter neu platziert)
+        // Colliding follow-up orders: delete old days from the DB (will be re-placed after compactOrdersAfter)
         preloadedFollowers.forEach(o=>{
             o.days.forEach(d=>{
                 const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(d.iso);
@@ -4330,18 +4330,18 @@ async function saveOrder(mode){
         }
         await batch.commit();
         const soVal=$('o_so').value.trim();
-        // Nach dem Speichern eines bearbeiteten Auftrags: nachfolgende Aufträge lückenlos an das neue Ende rücken
+        // After saving an edited order: shift subsequent orders gap-free to the new end
         let shiftedInfo='';
         if(editingOrderSo){
             const newEnd=$('o_end').value || (seq.length?toIsoDate(seq[seq.length-1]):'');
             const shiftedCount=await compactOrdersAfter(newEnd, editingOrderSo, preloadedFollowers);
-            if(shiftedCount>0) shiftedInfo=` · ${shiftedCount} nachfolgende Auftragstage(e) verschoben`;
+            if(shiftedCount>0) shiftedInfo=` · ${shiftedCount} subsequent order day(s) shifted`;
         }
-        // Bei Approve-Modus: Pending-Doc löschen + finales PDF erzeugen + Protocol loggen
+        // On approve mode: delete pending doc + generate final PDF + log protocol
         if(mode==='approve' && _reviewingPendingId){
             const pendingId=_reviewingPendingId;
             const finalPayload=collectOrderPayload();
-            // Pending-Doc snapshot vor dem Löschen für Protocol
+            // Snapshot pending doc before deletion for protocol
             let pendDocSnap=null;
             try{
                 const s=await db.collection(_pendingColForTab(currentTab)).doc(pendingId).get();
@@ -4357,9 +4357,9 @@ async function saveOrder(mode){
                     approvedByEmail:currentUserEmail,
                     approvedAt:new Date().toISOString()
                 });
-            }catch(e){ console.warn('Final-PDF fehlgeschlagen:',e); }
+            }catch(e){ console.warn('Final PDF failed:',e); }
             try{ await db.collection(_pendingColForTab(currentTab)).doc(pendingId).delete(); }
-            catch(e){ console.warn('Pending-Doc löschen fehlgeschlagen:',e); }
+            catch(e){ console.warn('Deleting pending doc failed:',e); }
             _reviewingPendingId=null;
         }
         // Auto-Transfer in den Produktionsplan bei Freigabe (Modus 'approve' oder 'direct')
@@ -4370,7 +4370,7 @@ async function saveOrder(mode){
                 approveTransferMsg = await _autoTransferAfterApprove(finalPayload, finalPayload.gridData||orderGridData||{}, currentTab);
             }catch(e){ console.warn('Auto-Transfer (saveOrder):',e); approveTransferMsg=' (auto-transfer failed: '+e.message+')'; }
         }
-        const approvedSuffix=(mode==='approve' || mode==='direct')?' (freigegeben)':'';
+        const approvedSuffix=(mode==='approve' || mode==='direct')?' (approved)':'';
         showMsg(`Order ${soVal||''} saved across ${days} day(s)${approvedSuffix}.${shiftedInfo}${approveTransferMsg}`,'success');
         closeOrderModal();
         await loadWeek();
@@ -4391,7 +4391,7 @@ async function openShiftPlanner(){
     await loadShiftPlans();
     _applyShiftPlannerPermissions();
 }
-// KPI-Felder im Shift-Planner für Nicht-Freigeber sperren (grau + readonly + Tooltip)
+// Lock KPI fields in the shift planner for non-approvers (grey + readonly + tooltip)
 function _applyShiftPlannerPermissions(){
     const kpiIds=['sp_cycle','sp_cav','sp_hrs','sp_daysm','sp_scrap','sp_oee'];
     const tip='KPI values can only be changed by approvers.';
@@ -4414,7 +4414,7 @@ function closeShiftPlanner(){ $('shiftPlanModal').classList.remove('open'); }
 function _spSetMode(editing){
     _editingShiftPlanId=editing?_editingShiftPlanId:null;
     const banner=$('sp_mode_banner'); if(banner) banner.classList.toggle('edit',!!editing);
-    const title=$('sp_mode_title'); if(title) title.textContent=editing?'Schichtplan bearbeiten':'Neuen Schichtplan anlegen';
+    const title=$('sp_mode_title'); if(title) title.textContent=editing?'Edit shift plan':'Create new shift plan';
     const hint=$('sp_mode_hint'); if(hint) hint.textContent=editing?'— Save changes or cancel':'— Enter period and number of shifts';
     const cancel=$('sp_cancel_edit'); if(cancel) cancel.style.display=editing?'':'none';
     const saveBtn=$('sp_save_btn'); if(saveBtn) saveBtn.textContent=editing?'Save changes':'Create shift plan';
@@ -4498,11 +4498,11 @@ async function saveShiftPlan(){
                 createdAt:ts, createdBy:currentUid,
                 updatedAt:ts, updatedBy:currentUid
             });
-            showMsg('Schichtplan gespeichert.','success');
+            showMsg('Shift plan saved.','success');
         }
         resetShiftForm();
         await loadShiftPlans();
-        // Cache neu laden + Hauptansicht neu rendern, damit KPI-Spalten den geänderten Plan reflektieren
+        // Reload cache + re-render main view so KPI columns reflect the updated plan
         await loadShiftPlansCache();
         if(typeof renderGrid==='function') renderGrid();
     }catch(e){
@@ -4512,7 +4512,7 @@ async function saveShiftPlan(){
 }
 async function loadShiftPlans(){
     const tbody=$('sp_list'); if(!tbody) return;
-    tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">Lade…</td></tr>';
+    tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">Loading…</td></tr>';
     try{
         const snap=await db.collection(SHIFT_PLAN_COL).orderBy('fromIso','asc').get();
         const rows=[];
@@ -4551,7 +4551,7 @@ async function loadShiftPlans(){
                 <td><div class="sp-shifts">${shiftCells}</div></td>
                 <td class="sp-kpi-cell">${escHtml(kpiTxt)}</td>
                 <td class="sp-actions-cell">
-                    <button class="sp-btn sp-edit" data-id="${escHtml(r.id)}" title="Bearbeiten">Bearbeiten</button>
+                    <button class="sp-btn sp-edit" data-id="${escHtml(r.id)}" title="Edit">Edit</button>
                     <button class="sp-btn sp-del"  data-id="${escHtml(r.id)}" title="Delete">✕</button>
                 </td>
             </tr>`;
@@ -4585,7 +4585,7 @@ async function loadShiftPlans(){
         }
     }catch(e){
         console.error('loadShiftPlans:',e);
-        tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">Fehler: '+escHtml(e.message)+'</td></tr>';
+        tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">Error: '+escHtml(e.message)+'</td></tr>';
     }
 }
 async function compactOrdersAfter(newEndIso, editedSo, preloadedFollowers){
@@ -4593,11 +4593,11 @@ async function compactOrdersAfter(newEndIso, editedSo, preloadedFollowers){
     try{
         const soKey=fieldKey('Production Plan','','SO #');
         const bySo={};
-        // 1) Vorgeladene Folgeaufträge (aus saveOrder, deren alte Docs bereits gelöscht wurden)
+        // 1) Preloaded follow-up orders (from saveOrder, whose old docs have already been deleted)
         (preloadedFollowers||[]).forEach(o=>{
             bySo[o.so]={so:o.so, days:o.days.slice()};
         });
-        // 2) Zusätzliche Docs ab newEndIso laden (Aufträge, die nach dem neuen Ende liegen)
+        // 2) Load additional docs from newEndIso onwards (orders past the new end)
         const from=new Date(newEndIso+'T00:00:00');
         const to=new Date(from); to.setDate(from.getDate()+540);
         const snap=await db.collection(TAB_CONFIG[currentTab].salesCol)
@@ -4627,7 +4627,7 @@ async function compactOrdersAfter(newEndIso, editedSo, preloadedFollowers){
         let shiftedDays=0;
         await loadShiftPlansCache();
         for(const o of orders){
-            // Placements: Plan hat Vorrang (Tage mit 0 Schichten überspringen, alle anderen nahtlos füllen).
+            // Placements: plan takes precedence (skip days with 0 shifts, fill all others seamlessly).
             // Ohne aktiven Plan: originale DOW-Pattern des Auftrags nutzen.
             const placements=[];
             const cur=new Date(cursor);
@@ -4652,7 +4652,7 @@ async function compactOrdersAfter(newEndIso, editedSo, preloadedFollowers){
                 cursor=new Date(lastP); cursor.setDate(cursor.getDate()+1);
                 continue;
             }
-            // Alte Docs löschen
+            // Delete old docs
             o.days.forEach(d=>{
                 batch.delete(db.collection(TAB_CONFIG[currentTab].salesCol).doc(d.iso));
             });
@@ -4701,7 +4701,7 @@ async function deleteOrder(){
         const soKey=fieldKey('Production Plan','','SO #');
         const batch=db.batch();
         let count=0;
-        let deletedFields=null;     // Snapshot eines repräsentativen Tages für Protokoll
+        let deletedFields=null;     // Snapshot of a representative day for the protocol
         let firstIso=null, lastIso=null;
         const matchingDocs=[];
         snap.forEach(doc=>{
@@ -4717,7 +4717,7 @@ async function deleteOrder(){
             if(!deletedFields) deletedFields=m.fields;
             firstIso=firstIso||m.iso; lastIso=m.iso;
         }
-        if(count===0){ alert('Keine passenden Tage im Bereich gefunden.'); return; }
+        if(count===0){ alert('No matching days found in range.'); return; }
         await batch.commit();
         // Protokoll-Eintrag
         try{
@@ -4805,7 +4805,7 @@ function renderOrdersManager(){
     const parts=[];
     orders.forEach((o,i)=>{
         const posCls=(i===0?' pos-first':'')+(i===total-1 && total>1?' pos-last':'');
-        const seqLbl=(i===0?'1. – ZUERST':(i===total-1?`${total}. – ZULETZT`:`${i+1}. in Reihenfolge`));
+        const seqLbl=(i===0?'1. – FIRST':(i===total-1?`${total}. – LAST`:`${i+1}. in sequence`));
         parts.push(`<div class="order-card${posCls}" draggable="true" data-idx="${i}">
             <span class="o-idx" title="Position ${i+1} von ${total}">${i+1}</span>
             <div class="o-seq">${escHtml(seqLbl)}</div>
@@ -4813,7 +4813,7 @@ function renderOrdersManager(){
             <div><span class="o-lbl">Customer</span><div class="o-val">${escHtml(o.customer||'–')}</div></div>
             <div><span class="o-lbl">Art #</span><div class="o-val">${escHtml(o.art||'–')}</div></div>
             <div><span class="o-lbl">Pick-up</span><div class="o-val">${escHtml(o.pickup||'–')}</div></div>
-            <div class="o-dates">${escHtml(o.startIso)} → ${escHtml(o.endIso)} · ${o.daysCount} Tag(e)</div>
+            <div class="o-dates">${escHtml(o.startIso)} → ${escHtml(o.endIso)} · ${o.daysCount} day(s)</div>
         </div>`);
         if(i<total-1) parts.push(`<div class="order-arrow">➜</div>`);
     });
@@ -4866,14 +4866,14 @@ async function saveOrdersSequence(){
         const anchor=new Date(anchorIso+'T00:00:00');
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         const batch=db.batch();
-        // Erst: alle alten Tage aller Aufträge löschen
+        // First: delete all old days of all affected orders
         orders.forEach(o=>{
             o.days.forEach(d=>{
                 const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(d.iso);
                 batch.delete(ref);
             });
         });
-        // Dann: sequenziell neu schreiben – Original-DOW-Pattern UND Schichtplan respektieren
+        // Then: re-write sequentially – respect both the original DOW pattern AND the shift plan
         let cursor=new Date(anchor);
         orders.forEach(o=>{
             const origDows=new Set(o.days.map(d=>new Date(d.iso+'T00:00:00').getDay()));
@@ -4908,7 +4908,7 @@ async function saveOrdersSequence(){
             cursor=new Date(lastP); cursor.setDate(cursor.getDate()+1);
         });
         await batch.commit();
-        showMsg('Reihenfolge gespeichert.','success');
+        showMsg('Sequence saved.','success');
         closeOrdersManager();
         await loadWeek();
     }catch(e){
@@ -5010,10 +5010,10 @@ async function saveWeek(){
             }
         }
         await batch.commit();
-        showMsg('Gespeichert.','success');
+        showMsg('Saved.','success');
         await loadWeek();
     }catch(e){
-        console.error('Save-Fehler:',e);
+        console.error('Save error:',e);
         showMsg('Save failed: '+e.message,'error');
     }
 }
@@ -5050,14 +5050,14 @@ function exportCSV(){
 }
 
 // ---------- Transfer (SO-Auswahl-Modal) ----------
-// Sammelt Sales-Aufträge pro SO#, zeigt Auswahl-Modal mit bereits übertragenen Aufträgen
+// Collects sales orders per SO#, shows selection modal including already-transferred orders
 // und schreibt pro Auswahl einen Auftrag ins Aumundswiese-Schema (_PROD_EDIT_FIELDS).
 let transferModalData = { available: [], already: {} };
 let _transferModalWired = false;
 
 async function transferToProduktionsplan(){
     if(currentTab!=='assembly'){ showMsg('Transfer currently only available in the Assembly tab.','error'); return; }
-    if(!currentUid){ showMsg('Bitte zuerst anmelden.','error'); return; }
+    if(!currentUid){ showMsg('Please log in first.','error'); return; }
     await openTransferModal();
 }
 
@@ -5065,8 +5065,8 @@ function closeTransferModal(){ $('transferModal').classList.remove('open'); }
 
 async function openTransferModal(){
     $('transferModal').classList.add('open');
-    $('transferAvailableList').innerHTML='<div class="transfer-empty">Lade…</div>';
-    $('transferDoneList').innerHTML='<div class="transfer-empty">Lade…</div>';
+    $('transferAvailableList').innerHTML='<div class="transfer-empty">Loading…</div>';
+    $('transferDoneList').innerHTML='<div class="transfer-empty">Loading…</div>';
     $('transferConfirmBtn').disabled=true;
     $('transferCountLbl').textContent='';
     $('transferSelectAll').checked=false;
@@ -5077,8 +5077,8 @@ async function openTransferModal(){
         renderTransferModal();
     }catch(e){
         console.error('openTransferModal:',e);
-        $('transferAvailableList').innerHTML='<div class="transfer-empty">Fehler: '+escHtml(e.message)+'</div>';
-        $('transferDoneList').innerHTML='<div class="transfer-empty">Fehler: '+escHtml(e.message)+'</div>';
+        $('transferAvailableList').innerHTML='<div class="transfer-empty">Error: '+escHtml(e.message)+'</div>';
+        $('transferDoneList').innerHTML='<div class="transfer-empty">Error: '+escHtml(e.message)+'</div>';
     }
     if(!_transferModalWired){
         $('transferSelectAll').addEventListener('change',e=>toggleAllTransferCbs(e.target.checked));
@@ -5145,7 +5145,7 @@ async function loadTransferCandidates(){
 }
 
 // Auto-Transfer nach Freigabe — schreibt direkt in TAB_CONFIG.assembly.prodCol (= produktionsplan)
-// Re-Transfer-Erkennung: bei vorhandenem source/sourceSoNr-Match wird das bestehende Doc überschrieben.
+// Re-transfer detection: existing doc is overwritten on a source/sourceSoNr match.
 async function _autoTransferAfterApprove(payload, gridData, tab){
     if(tab!=='assembly') return ''; // Frame-Tab aktuell nicht in den Lager-Produktionsplan integriert
     const isos=Object.keys(gridData||{}).sort();
@@ -5232,8 +5232,8 @@ function renderTransferModal(){
     } else {
         const head=`<thead><tr>
             <th style="width:32px"></th>
-            <th>SO #</th><th>Kunde</th><th>Art #</th>
-            <th>Zeitraum</th><th class="num">Tage</th>
+            <th>SO #</th><th>Customer</th><th>Art #</th>
+            <th>Period</th><th class="num">Days</th>
             <th class="num">Σ Qty</th><th class="num">Σ PAL</th>
             <th>Status</th>
         </tr></thead>`;
@@ -5242,7 +5242,7 @@ function renderTransferModal(){
             const isReTransfer=!!ai;
             const reMark=isReTransfer
                 ?`<span class="transfer-redo-badge" title="Already transferred on ${escHtml(_fmtTransferDate(ai.transferredAt))} — re-transferring will overwrite the entry in the production plan">↻ again</span>`
-                :'<span class="transfer-new-badge">neu</span>';
+                :'<span class="transfer-new-badge">new</span>';
             return `<tr class="${isReTransfer?'transfer-row-redo':''}">
             <td><input type="checkbox" class="transfer-so-cb" data-so="${escHtml(o.so)}"></td>
             <td class="so-val">${escHtml(o.so)}</td>
@@ -5263,7 +5263,7 @@ function renderTransferModal(){
         doneEl.innerHTML='<div class="transfer-empty">Nothing transferred yet.</div>';
     } else {
         const head=`<thead><tr>
-            <th>SO #</th><th>Kunde</th><th>Art #</th>
+            <th>SO #</th><th>Customer</th><th>Art #</th>
             <th>Transferred on</th><th>By</th><th></th>
         </tr></thead>`;
         const rows=doneEntries.sort((a,b)=>a[0].localeCompare(b[0])).map(([so,info])=>`<tr>
@@ -5373,7 +5373,7 @@ async function confirmTransferSelection(){
     const cbs=[...document.querySelectorAll('#transferAvailableList .transfer-so-cb:checked')];
     const selected=cbs.map(cb=>cb.dataset.so);
     if(!selected.length){ showMsg('No orders selected.','error'); return; }
-    // Aktuelle „bereits übertragen"-Map holen, um vorhandene Doc-IDs zu erfahren
+    // Fetch current "already transferred" map to learn existing doc IDs
     const freshAlready=await loadAlreadyTransferred();
     $('transferConfirmBtn').disabled=true;
     try{
@@ -5385,7 +5385,7 @@ async function confirmTransferSelection(){
             const order=transferModalData.available.find(o=>o.so===so);
             if(!order) continue;
             const existing=freshAlready[so];
-            // Bei Re-Transfer: vorhandenes Doc überschreiben, sonst neues anlegen
+            // On re-transfer: overwrite existing doc, otherwise create a new one
             const prodRef=existing
                 ? db.collection(TAB_CONFIG.assembly.prodCol).doc(existing.prodDocId)
                 : db.collection(TAB_CONFIG.assembly.prodCol).doc();
