@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firebaseinstallations.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com https://firebaseappcheck.googleapis.com https://www.google.com; frame-src https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firebaseinstallations.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com wss://*.firebaseio.com https://firebaseappcheck.googleapis.com https://www.google.com; frame-src https://www.google.com; base-uri 'self'; form-action 'self'; object-src 'none';">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="no-referrer">
     <title>Lagerverwaltung Aumundswiese</title>
@@ -586,16 +586,17 @@ function _getActiveTab(){const t=document.querySelector('.tab.active');return t?
 let _realtimeUnsubs=[];
 function _initRealtimeListeners(){
     // Paletten-Collection: Dashboard, Lagerkarte, Bestandsliste aktualisieren
+    const _swallowPermDenied=(label)=>err=>{ if(err&&err.code==='permission-denied') return; console.warn(label+' Listener-Fehler:',err); };
     _realtimeUnsubs.push(db.collection('paletten').onSnapshot(()=>{
         const tab=_getActiveTab();
         if(tab==='dashboard'){loadDashboard();}
         else if(tab==='inventory'){loadInventory();}
         else{renderWarehouseMap();}
-    }));
+    }, _swallowPermDenied('paletten')));
     // Protokoll-Collection: Protokoll-Tab aktualisieren
     _realtimeUnsubs.push(db.collection('protokoll').onSnapshot(()=>{
         if(_getActiveTab()==='protokoll')loadProtokoll();
-    }));
+    }, _swallowPermDenied('protokoll')));
 }
 // ============================================================
 // ARTIKELSTAMM-VERWALTUNG
@@ -1279,7 +1280,7 @@ function initRemoteScanListener(){
                 }
             }
         });
-    },err=>console.warn('Remote-Scan Listener Fehler:',err));
+    },err=>{ if(err&&err.code==='permission-denied') return; console.warn('Remote-Scan Listener Fehler:',err); });
 }
 
 async function onRemoteScan(scanDoc){
