@@ -93,9 +93,17 @@ td.cell-dropdown input{background:transparent}
 .modal-head h2{font-size:1.15rem;color:#1a1a2e}
 .modal-body{padding:16px 20px;overflow-y:auto}
 .modal-foot{padding:12px 20px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:8px;background:#f8fafc}
-.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 14px}
-.form-grid label{display:flex;flex-direction:column;font-size:0.78rem;color:#475569;font-weight:600;gap:3px}
-.form-grid input,.form-grid select,.form-grid textarea{padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.88rem;font-family:inherit}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 14px}
+.form-grid label{display:flex;flex-direction:column;font-size:0.78rem;color:#475569;font-weight:600;gap:3px;min-width:0}
+.form-grid input,.form-grid select,.form-grid textarea{padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;min-height:38px;box-sizing:border-box;width:100%}
+/* Section-Layout fuer New-Order-Modal: gelbe Eingaben oben gruppiert, graue Berechnungen unten */
+.order-section{margin-bottom:14px}
+.order-section-title{font-size:0.78rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;padding:7px 12px;border-radius:8px 8px 0 0;border:1px solid;border-bottom:0}
+.order-section-title.input{color:#854d0e;background:rgba(253,224,71,0.35);border-color:#fcd34d}
+.order-section-title.calc{color:#475569;background:#ececec;border-color:#cbd5e1}
+.order-section-body{padding:14px;border:1px solid #e2e8f0;border-radius:0 0 8px 8px;background:#fff}
+.order-section-title.input + .order-section-body{border-color:#fcd34d}
+.order-section-title.calc + .order-section-body{border-color:#cbd5e1;background:#fafbfc}
 .form-grid input:focus,.form-grid select:focus,.form-grid textarea:focus{outline:none;border-color:#4361ee;box-shadow:0 0 0 3px rgba(67,97,238,0.12)}
 .form-grid .full{grid-column:1/-1}
 .form-grid input[readonly]{background:#f1f5f9;color:#475569}
@@ -320,43 +328,59 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     </div>
     <div class="modal-body">
       <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-      <div class="form-grid" style="flex:1;min-width:0">
-        <label>SO #<input id="o_so" type="text" class="ef"></label>
-        <label>PO #<input id="o_po" type="text" class="ef"></label>
-        <label>Art #
-            <span class="input-clear-wrap">
-                <input id="o_art" type="text" list="artListAssembly" autocomplete="off" class="ef">
-                <button type="button" class="input-clear-btn" onclick="clearArtInput()" title="Clear input">×</button>
-            </span>
-        </label>
-        <label>Customer<select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
-        <label>Start date<input id="o_start" type="date" class="ef"></label>
-        <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="o_pickup" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
-        <div id="o_wknd_block" style="display:flex;flex-direction:column;gap:3px;grid-column:span 1">
-            <span style="font-size:0.78rem;color:#475569;font-weight:600">Weekend &amp; Holiday Production</span>
-            <div style="display:flex;gap:10px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;flex-wrap:wrap">
-                <label style="flex-direction:row;align-items:center;gap:5px;font-weight:500"><input type="checkbox" id="o_sat"> Saturday</label>
-                <label style="flex-direction:row;align-items:center;gap:5px;font-weight:500"><input type="checkbox" id="o_sun"> Sunday</label>
-                <label style="flex-direction:row;align-items:center;gap:5px;font-weight:500"><input type="checkbox" id="o_holiday"> Holiday</label>
+      <div style="flex:1;min-width:0">
+        <!-- Sektion 1: Eingabefelder (gelb) gruppiert -->
+        <div class="order-section">
+          <div class="order-section-title input">Order Input</div>
+          <div class="order-section-body">
+            <div class="form-grid">
+              <label>SO #<input id="o_so" type="text" class="ef"></label>
+              <label>PO #<input id="o_po" type="text" class="ef"></label>
+              <label>Art #
+                  <span class="input-clear-wrap">
+                      <input id="o_art" type="text" list="artListAssembly" autocomplete="off" class="ef">
+                      <button type="button" class="input-clear-btn" onclick="clearArtInput()" title="Clear input">×</button>
+                  </span>
+              </label>
+              <label>Customer<select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
+              <label>Start date<input id="o_start" type="date" class="ef"></label>
+              <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="o_pickup" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
+              <label>PAL (Pallets)
+                  <span class="pal-stepper">
+                      <button type="button" class="pal-btn" onclick="stepPal(-1)" title="Decrease pallets">−</button>
+                      <input id="o_pal" type="text" class="ef" inputmode="numeric">
+                      <button type="button" class="pal-btn" onclick="stepPal(1)" title="Increase pallets">+</button>
+                  </span>
+              </label>
+              <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+                  <span style="font-size:0.78rem;color:#475569;font-weight:600">Daily Output/d (pcs.)</span>
+                  <div style="display:flex;gap:4px">
+                      <input id="o_outday" type="text" class="ef" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;min-height:38px;box-sizing:border-box">
+                      <button type="button" class="btn btn-sm btn-secondary" id="o_kpiBtn" onclick="openKpiModal();return false;" title="KPI calculator" style="padding:3px 10px;font-size:1rem">⚙</button>
+                  </div>
+              </div>
             </div>
-        </div>
-        <label>Qty (pcs.)<input id="o_qty" type="text" class="cf" readonly></label>
-        <label>PAL (Pallets)
-            <span class="pal-stepper">
-                <button type="button" class="pal-btn" onclick="stepPal(-1)" title="Decrease pallets">−</button>
-                <input id="o_pal" type="text" class="ef" inputmode="numeric">
-                <button type="button" class="pal-btn" onclick="stepPal(1)" title="Increase pallets">+</button>
-            </span>
-        </label>
-        <div style="display:flex;flex-direction:column;gap:3px">
-            <span style="font-size:0.78rem;color:#475569;font-weight:600">Daily Output/d (pcs.)</span>
-            <div style="display:flex;gap:4px">
-                <input id="o_outday" type="text" class="ef" style="flex:1;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.88rem;font-family:inherit">
-                <button type="button" class="btn btn-sm btn-secondary" id="o_kpiBtn" onclick="openKpiModal();return false;" title="KPI calculator" style="padding:3px 10px;font-size:1rem">⚙</button>
+            <div id="o_wknd_block" style="display:flex;flex-direction:column;gap:4px;margin-top:12px">
+                <span style="font-size:0.78rem;color:#475569;font-weight:600">Weekend &amp; Holiday Production</span>
+                <div style="display:flex;gap:14px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;flex-wrap:wrap">
+                    <label style="flex-direction:row;align-items:center;gap:5px;font-weight:500;font-size:0.88rem"><input type="checkbox" id="o_sat"> Saturday</label>
+                    <label style="flex-direction:row;align-items:center;gap:5px;font-weight:500;font-size:0.88rem"><input type="checkbox" id="o_sun"> Sunday</label>
+                    <label style="flex-direction:row;align-items:center;gap:5px;font-weight:500;font-size:0.88rem"><input type="checkbox" id="o_holiday"> Holiday</label>
+                </div>
             </div>
+          </div>
         </div>
-        <label>Duration (days)<input id="o_days" type="text" class="cf" readonly></label>
-        <label>End date<input id="o_end" type="text" class="cf" readonly></label>
+        <!-- Sektion 2: Berechnungen (grau, automatisch) -->
+        <div class="order-section">
+          <div class="order-section-title calc">Calculated (auto)</div>
+          <div class="order-section-body">
+            <div class="form-grid">
+              <label>Qty (pcs.)<input id="o_qty" type="text" class="cf" readonly></label>
+              <label>Duration (days)<input id="o_days" type="text" class="cf" readonly></label>
+              <label>End date<input id="o_end" type="text" class="cf" readonly></label>
+            </div>
+          </div>
+        </div>
       </div>
       <aside id="o_artInfo" style="width:300px;flex-shrink:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;font-size:0.82rem;line-height:1.45;align-self:stretch">
         <div style="font-weight:700;color:#0f172a;margin-bottom:10px;font-size:0.85rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;padding-bottom:8px">Article Components</div>
@@ -1161,7 +1185,9 @@ function renderArticleDatalist(){
     dl.innerHTML=articlesAssembly.map(r=>{
         const nr=escHtml(String(r._fullArtNr||''));
         const shell=escHtml(String(r['Shell Art']||''));
-        return `<option value="${nr}" label="${shell}">${nr}</option>`;
+        // Article-Nummer wird primaer angezeigt; Shell-Info als sekundaerer Hinweis im Text.
+        // KEIN label-Attribut — Edge/Chrome zeigen das sonst statt der Artikelnummer.
+        return `<option value="${nr}">${nr}${shell?'  ·  '+shell:''}</option>`;
     }).join('');
 }
 function joinParts(a,b){
