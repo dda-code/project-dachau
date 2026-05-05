@@ -451,22 +451,20 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <div class="order-section-title input">Order Input</div>
         <div class="order-section-body">
           <div class="form-grid">
-            <label>IO # (Internal Order)<input id="fo_so" type="text" class="ef" placeholder="e.g. IO26-0001"></label>
-            <label>Art #
-              <span class="input-clear-wrap">
-                <input id="fo_art" type="text" list="artListFrame" autocomplete="off" class="ef" placeholder="e.g. 120030">
-                <button type="button" class="input-clear-btn" onclick="document.getElementById('fo_art').value='';recalcFrame();" title="Clear input">×</button>
+            <label>IO # (Internal Order)
+              <span style="display:flex;align-items:stretch">
+                <span id="fo_ioPrefix" style="display:flex;align-items:center;padding:0 10px;border:1px solid #cbd5e1;border-right:none;border-radius:6px 0 0 6px;background:#f8fafc;font-weight:700;color:#475569;font-size:0.92rem">IO26-</span>
+                <input id="fo_so" type="text" class="ef" placeholder="0001" inputmode="numeric" maxlength="6" style="border-radius:0 6px 6px 0;flex:1;min-width:0">
               </span>
             </label>
+            <label>Art #
+              <select id="fo_art" class="ef" style="font-family:inherit">
+                <option value="">– Select Frame Article –</option>
+              </select>
+            </label>
+            <label style="color:#dc2626;font-weight:600">Start date<input id="fo_start" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
             <label>Anzahl Paletten (PAL)<input id="fo_pal" type="text" class="ef" inputmode="numeric" placeholder="e.g. 20"></label>
             <label>Comment<input id="fo_comment" type="text" class="ef" placeholder="optional"></label>
-            <div id="fo_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
-              <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price (€/1000 pcs.)</span>
-              <div style="display:flex;gap:4px;align-items:stretch">
-                <input id="fo_approverPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;font-weight:700;text-align:right;background:#fffbeb;min-height:38px;box-sizing:border-box;color:#0f172a">
-                <span style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -476,9 +474,20 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
           <div class="form-grid">
             <label>Frames/PAL<input id="fo_framesPerPal" type="text" class="cf" readonly></label>
             <label>Total QTY (pcs.)<input id="fo_totalQty" type="text" class="cf" readonly></label>
+            <label>Duration (workdays)<input id="fo_days" type="text" class="cf" readonly></label>
+            <label>End date<input id="fo_end" type="text" class="cf" readonly></label>
           </div>
         </div>
       </div>
+      <div class="preview-title">
+        <span>Preview – 4 weeks from <span id="fo_previewKw" style="font-weight:700">KW –</span></span>
+        <span style="font-size:0.75rem;color:#64748b">Yellow = scheduled · Blue = new order</span>
+      </div>
+      <div class="mini-cal-head">
+        <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
+      </div>
+      <div id="fo_mini" class="mini-cal"></div>
+      <div id="fo_previewSummary" class="calc-row" style="margin-top:8px;font-size:0.82rem;color:#475569">Enter start date and PAL count to compute production duration.</div>
     </div>
     <div id="fo_reviewBanner" style="display:none;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:8px 12px;border-radius:6px;margin:0 16px 8px;font-size:0.85rem">
       <strong>Approval Mode:</strong> <span id="fo_reviewInfo">–</span>
@@ -495,7 +504,6 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     </div>
   </div>
 </div>
-<datalist id="artListFrame"></datalist>
 
 <div class="modal-overlay" id="shiftPlanModal" onclick="if(event.target===this)closeShiftPlanner()">
   <div class="modal-card" style="width:min(900px,98%)">
@@ -4496,15 +4504,22 @@ async function loadFrameArticles(){
             });
         }
     }catch(e){ console.warn('loadFrameArticles failed:',e); }
-    const dl=document.getElementById('artListFrame');
-    if(dl){
-        const list=Object.values(articleMapFrame).sort((a,b)=>String(a.nr).localeCompare(String(b.nr)));
-        dl.innerHTML=list.map(r=>{
-            const nr=escHtml(String(r.nr||''));
-            const bz=escHtml(String(r.bezeichnung||''));
-            return `<option value="${nr}">${nr}${bz?'  ·  '+bz:''}</option>`;
-        }).join('');
-    }
+    _renderFrameArticleSelect();
+}
+function _renderFrameArticleSelect(){
+    const sel=document.getElementById('fo_art');
+    if(!sel) return;
+    // Frame-Auftragsplanung: nur Spritzguss-Komponenten (Prefix 12* = Frame, 18* = Inner Slider, 19* = Outer Slider)
+    const list=Object.values(articleMapFrame)
+        .filter(r=>{ const p=String(r.nr||''); return p.startsWith('12')||p.startsWith('18')||p.startsWith('19'); })
+        .sort((a,b)=>String(a.nr).localeCompare(String(b.nr)));
+    const cur=sel.value;
+    sel.innerHTML='<option value="">– Select Frame Article –</option>'+list.map(r=>{
+        const nr=escHtml(String(r.nr||''));
+        const bz=escHtml(String(r.bezeichnung||''));
+        return `<option value="${nr}">${nr}${bz?'  ·  '+bz:''}</option>`;
+    }).join('');
+    if(cur) sel.value=cur;
 }
 
 function _frameFramesPerPalForArt(art){
@@ -4518,25 +4533,115 @@ function _frameFmtThousands(n){ if(!n||n<=0) return ''; return Number(n).toLocal
 
 function _wireFrameOrderInputs(){
     if(_frameInputsWired) return;
-    ['fo_art','fo_pal'].forEach(id=>{
+    ['fo_art','fo_pal','fo_start'].forEach(id=>{
         const e=$(id); if(!e) return;
         e.addEventListener('input',recalcFrame);
         e.addEventListener('change',recalcFrame);
     });
     _frameInputsWired=true;
 }
+
+// Roll out a frame production plan day-by-day starting from startIso.
+// Uses the active shift plan's per-weekday shifts and KPI plan to compute daily output.
+function _frameComputeProductionPlan(startIso, totalQty){
+    if(!startIso || totalQty<=0) return null;
+    const seq=[];
+    const d=new Date(startIso+'T00:00:00');
+    if(isNaN(d.getTime())) return null;
+    let remaining=totalQty;
+    let safety=0;
+    while(remaining>0 && safety<400){
+        const iso=toIsoDate(d);
+        if(isWorkDay(d)){
+            const sp=getShiftPlanForIso(iso);
+            let shifts=sp?getPlanShiftForDow(sp,d.getDay()):0;
+            if(isHoliday(iso)) shifts=0;
+            if(shifts>0 && sp){
+                const dailyOutput=computeOutputDayFromKpi(sp.kpi||{},shifts);
+                if(dailyOutput>0){
+                    const dayQty=Math.min(dailyOutput,remaining);
+                    seq.push({iso, date:new Date(d), shifts, capacity:dailyOutput, qty:dayQty});
+                    remaining-=dayQty;
+                }
+            }
+        }
+        d.setDate(d.getDate()+1);
+        safety++;
+    }
+    return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining};
+}
+
+function _frameRenderPreview(plan){
+    const cal=$('fo_mini'); if(!cal) return;
+    const start=$('fo_start')?.value||'';
+    const kwLbl=$('fo_previewKw');
+    const summary=$('fo_previewSummary');
+    if(!start){
+        cal.innerHTML='';
+        if(kwLbl) kwLbl.textContent='KW –';
+        if(summary) summary.textContent='Enter start date and PAL count to compute production duration.';
+        return;
+    }
+    const startD=new Date(start+'T00:00:00');
+    if(isNaN(startD.getTime())){ cal.innerHTML=''; if(summary) summary.textContent='Invalid start date.'; return; }
+    const monday=mondayOf(startD);
+    const planDates=new Set();
+    if(plan && plan.seq) plan.seq.forEach(s=>planDates.add(s.iso));
+    let html='';
+    for(let w=0;w<4;w++){
+        for(let i=0;i<7;i++){
+            const d=new Date(monday); d.setDate(monday.getDate()+w*7+i);
+            const iso=toIsoDate(d);
+            const dow=d.getDay();
+            const isWe=(dow===0||dow===6);
+            const isHol=isHoliday(iso);
+            const isPlan=planDates.has(iso);
+            const cls=['mini-cell'];
+            if(isPlan) cls.push('new-slot');
+            else if(isWe||isHol) cls.push('weekend');
+            html+=`<div class="${cls.join(' ')}" data-iso="${iso}" title="${iso}${isHol?' · '+escHtml(isHol||''):''}">${d.getDate()}.${d.getMonth()+1}.</div>`;
+        }
+    }
+    cal.innerHTML=html;
+    if(kwLbl){
+        const iw=getIsoWeek(monday);
+        kwLbl.textContent='KW '+String(iw.week).padStart(2,'0')+'/'+iw.year;
+    }
+    if(summary){
+        if(plan && plan.days>0){
+            const remTxt=plan.remaining>0?` · ${formatThousands(String(plan.remaining))} pcs. unscheduled (extend horizon)`:'';
+            summary.textContent=`${plan.days} workday(s) · End: ${plan.endIso || '—'}${remTxt}`;
+        } else {
+            summary.textContent='No working capacity in 4-week horizon — check shift plan or holidays.';
+        }
+    }
+}
+
 function recalcFrame(){
     const art=$('fo_art')?.value.trim()||'';
     const pal=parseInt(String($('fo_pal')?.value||'').replace(/[^\d]/g,''),10)||0;
+    const start=$('fo_start')?.value||'';
     const fpp=_frameFramesPerPalForArt(art);
     const totalQty=fpp*pal;
     if($('fo_framesPerPal')) $('fo_framesPerPal').value=_frameFmtThousands(fpp);
     if($('fo_totalQty')) $('fo_totalQty').value=_frameFmtThousands(totalQty);
+    let plan=null;
+    if(start && totalQty>0){
+        plan=_frameComputeProductionPlan(start,totalQty);
+    }
+    if($('fo_days')) $('fo_days').value=(plan&&plan.days>0)?String(plan.days):'';
+    if($('fo_end')) $('fo_end').value=(plan&&plan.endIso)?plan.endIso:'';
+    _frameRenderPreview(plan);
 }
 
 function openFrameOrderModal(){
     if(!articleMapFrame||Object.keys(articleMapFrame).length===0) loadFrameArticles();
-    ['fo_so','fo_art','fo_pal','fo_comment','fo_framesPerPal','fo_totalQty','fo_approverPrice'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+    else _renderFrameArticleSelect();
+    ['fo_so','fo_pal','fo_comment','fo_framesPerPal','fo_totalQty','fo_days','fo_end','fo_start'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+    const sel=$('fo_art'); if(sel) sel.value='';
+    // IO #-Prefix automatisch auf aktuelles Jahr setzen (z.B. "IO26-" in 2026)
+    const yy=String(new Date().getFullYear()).slice(-2);
+    if($('fo_ioPrefix')) $('fo_ioPrefix').textContent='IO'+yy+'-';
     _frameEditingDocId=null; _frameEditingPendingId=null; _frameReviewingPendingId=null;
     $('frameOrderModal').classList.add('open');
     _wireFrameOrderInputs();
@@ -4566,37 +4671,43 @@ function _applyFrameOrderModalButtons(){
 function collectFramePayload(){
     const get=id=>{ const e=$(id); return e?String(e.value||'').trim():''; };
     const intVal=id=>parseInt(String(get(id)).replace(/[^\d]/g,''),10)||0;
+    const ioPrefix=($('fo_ioPrefix')?.textContent||'').trim();
+    const ioSuffix=get('fo_so');
+    const ioNr=ioSuffix?(ioPrefix+ioSuffix):'';
     const payload={
         tab:'frame',
-        ioNr:get('fo_so'),
+        ioNr,
         artikelNr:get('fo_art'),
+        startDate:get('fo_start'),
         anzahlPaletten:intVal('fo_pal'),
         framesProPalette:intVal('fo_framesPerPal'),
         mengeGesamt:intVal('fo_totalQty'),
         comment:get('fo_comment')
     };
-    if(currentCanApprove){
-        const raw=String(get('fo_approverPrice')).replace(/\s/g,'').replace(',','.');
-        const num=parseFloat(raw);
-        if(isFinite(num)&&num>0) payload.approvedPrice={price:num,ccy:'EUR'};
-    }
     return payload;
 }
 function applyFramePayload(p){
     if(!p) return;
-    if($('fo_so')) $('fo_so').value=p.ioNr||p.salesOrderXO||'';
+    // ioNr can be e.g. "IO26-0001" → split prefix and suffix
+    const fullIo=p.ioNr||p.salesOrderXO||'';
+    const m=fullIo.match(/^(IO\d{2}-)(.*)$/);
+    if(m){
+        if($('fo_ioPrefix')) $('fo_ioPrefix').textContent=m[1];
+        if($('fo_so')) $('fo_so').value=m[2]||'';
+    } else if($('fo_so')) {
+        $('fo_so').value=fullIo;
+    }
     if($('fo_art')) $('fo_art').value=p.artikelNr||'';
+    if($('fo_start')) $('fo_start').value=p.startDate||'';
     if($('fo_pal')) $('fo_pal').value=p.anzahlPaletten?String(p.anzahlPaletten):'';
     if($('fo_comment')) $('fo_comment').value=p.comment||'';
-    if(p.approvedPrice && p.approvedPrice.price && currentCanApprove && $('fo_approverPrice')){
-        $('fo_approverPrice').value=Number(p.approvedPrice.price).toFixed(2).replace('.',',');
-    }
     recalcFrame();
 }
 
 async function _frameAutoTransferToProduktionsplan(payload,docId){
     const ts=firebase.firestore.FieldValue.serverTimestamp();
     const colName='v2_'+TAB_CONFIG.frame.prodCol; // v2_produktionsplan_spritzguss
+    const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt);
     const data={
         ioNr:payload.ioNr,
         artikelNr:payload.artikelNr,
@@ -4604,6 +4715,9 @@ async function _frameAutoTransferToProduktionsplan(payload,docId){
         anzahlPaletten:payload.anzahlPaletten,
         mengeGesamt:payload.mengeGesamt,
         mengeOffen:payload.mengeGesamt,
+        startDate:payload.startDate||'',
+        endDate:(plan&&plan.endIso)||'',
+        plannedWorkdays:(plan&&plan.days)||0,
         comment:payload.comment||'',
         transferredAt:ts,
         approvedByEmail:currentUserEmail
@@ -4614,8 +4728,9 @@ async function _frameAutoTransferToProduktionsplan(payload,docId){
 async function saveFrameOrder(mode){
     mode=mode||'direct';
     const payload=collectFramePayload();
-    if(!payload.ioNr){ alert('IO # (Internal Order) is required.'); return; }
+    if(!payload.ioNr || payload.ioNr.length<=($('fo_ioPrefix')?.textContent||'').length){ alert('IO # (Internal Order) is required.'); return; }
     if(!payload.artikelNr){ alert('Article number is required.'); return; }
+    if(!payload.startDate){ alert('Start date is required.'); return; }
     if(payload.anzahlPaletten<=0){ alert('Number of pallets must be > 0.'); return; }
     if(payload.framesProPalette<=0){ alert('Could not derive Frames/PAL — article number prefix must be 12*, 18*, or 19*.'); return; }
 
@@ -4667,9 +4782,8 @@ async function saveFrameOrder(mode){
         const salesCol=TAB_CONFIG.frame.salesCol;
         const docId=payload.ioNr.replace(/[^A-Za-z0-9_-]/g,'_');
         if(!docId){ alert('Invalid IO # for doc id.'); return; }
-        // Internal frame production has no pick-up date; use today for week-grid placement
-        const today=new Date();
-        const isoKey=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+        // Use the start date for week-grid placement (so the order shows up on the planned production day)
+        const isoKey=payload.startDate;
         const FK=(g,s,f)=>fieldKey(g,s,f);
         const fields={};
         fields[FK('Production Plan','','IO #')]=payload.ioNr;
