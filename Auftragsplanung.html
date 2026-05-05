@@ -954,7 +954,8 @@ const DAY_LABELS=['Mo','Di','Mi','Do','Fr','Sa','So'];
 
 // ---------- Schema ----------
 // Gruppen: group -> sub -> fields[]
-const SCHEMA=[
+// Tab-aware: Assembly und Frame teilen KPI/Cap/Logistic-Plan, unterscheiden sich nur im Production-Plan-Block.
+const SCHEMA_ASSEMBLY=[
  {group:'KPI', sub:'Plan', fields:['Cycle','Cav','hrs','shift','days/m','scrap','OEE','Output/d','Output/d PAL'], rowClass:''},
  {group:'KPI', sub:'Act', fields:['Output/d Pcs.','Output/d PAL'], rowClass:'row-act'},
  {group:'KPI', sub:'Plan/Act', fields:['GAP/d Pcs.','GAP/d PAL'], rowClass:'row-gap'},
@@ -962,6 +963,16 @@ const SCHEMA=[
  {group:'Production Plan', sub:'', fields:['SO #','PO #','Customer','Pick-Up (Deadline)','Total QTY','Art #','Status payment','Shell','Frame','IS','OS','Sleeve','TP','Laser Code','Qty','PAL','Logistic','Status Production','Comment'], rowClass:'row-prod'},
  {group:'Logistic Plan', sub:'Pick-up', fields:['Comment','Act','PAL','GAP (d)'], rowClass:''}
 ];
+const SCHEMA_FRAME=[
+ {group:'KPI', sub:'Plan', fields:['Cycle','Cav','hrs','shift','days/m','scrap','OEE','Output/d','Output/d PAL'], rowClass:''},
+ {group:'KPI', sub:'Act', fields:['Output/d Pcs.','Output/d PAL'], rowClass:'row-act'},
+ {group:'KPI', sub:'Plan/Act', fields:['GAP/d Pcs.','GAP/d PAL'], rowClass:'row-gap'},
+ {group:'Cap', sub:'', fields:['Cap Plan/m','Cap Fcst Act/m'], rowClass:''},
+ {group:'Production Plan', sub:'', fields:['SO #','Pick-Up (Deadline)','Art #','Frames/PAL','PAL','Total QTY','Pal-Nr. START','Pal-Nr. END','Status Production','Comment'], rowClass:'row-prod'},
+ {group:'Logistic Plan', sub:'Pick-up', fields:['Comment','Act','PAL','GAP (d)'], rowClass:''}
+];
+function getSchema(){ return currentTab==='frame' ? SCHEMA_FRAME : SCHEMA_ASSEMBLY; }
+const SCHEMA=SCHEMA_ASSEMBLY;
 
 // ---------- Helpers ----------
 function showMsg(text,type='info'){
@@ -1584,7 +1595,7 @@ function renderGrid(){
         }catch{ return null; }
     }
     let lastGroup=null;
-    SCHEMA.forEach(block=>{
+    getSchema().forEach(block=>{
         if(block.group!==lastGroup){
             if(block.group==='Production Plan'){
                 // Section header row: title on the left, badge only in the FIRST column of each transferred SO# (across the visible 14 days)
@@ -5024,7 +5035,7 @@ function exportCSV(){
     const rows=[];
     const header=['Gruppe','Sub','Feld', ...dates.map((d,i)=>`${DAY_LABELS[i%7]} ${toIsoDate(d)}`)];
     rows.push(header.map(escCsv).join(';'));
-    SCHEMA.forEach(block=>{
+    getSchema().forEach(block=>{
         block.fields.forEach(field=>{
             const key=fieldKey(block.group,block.sub,field);
             const line=[block.group,block.sub||'',field];
