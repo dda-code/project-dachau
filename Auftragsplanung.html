@@ -439,6 +439,75 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
   </div>
 </div>
 
+<!-- ===================== FRAME ORDER MODAL ===================== -->
+<div class="modal-overlay" id="frameOrderModal" onclick="if(event.target===this)closeFrameOrderModal()">
+  <div class="modal-card" style="width:min(900px,98%)">
+    <div class="modal-head">
+      <h2>New Frame Order (Injection)</h2>
+      <button class="btn btn-sm btn-secondary" onclick="closeFrameOrderModal()">Close</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div class="order-section">
+            <div class="order-section-title input">Order Input</div>
+            <div class="order-section-body">
+              <div class="form-grid">
+                <label>Sales Order XO<input id="fo_so" type="text" class="ef" placeholder="e.g. IO26-0001"></label>
+                <label>Art #
+                  <span class="input-clear-wrap">
+                    <input id="fo_art" type="text" list="artListFrame" autocomplete="off" class="ef" placeholder="e.g. 120030">
+                    <button type="button" class="input-clear-btn" onclick="document.getElementById('fo_art').value='';recalcFrame();" title="Clear input">×</button>
+                  </span>
+                </label>
+                <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="fo_pickup" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
+                <label>Anzahl Paletten (PAL)<input id="fo_pal" type="text" class="ef" inputmode="numeric" placeholder="e.g. 20"></label>
+                <label>Pal-Nr. START<input id="fo_palStart" type="text" class="ef" placeholder="e.g. FR26-0001"></label>
+                <label>Comment<input id="fo_comment" type="text" class="ef" placeholder="optional"></label>
+                <div id="fo_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
+                  <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price (€/1000 pcs.)</span>
+                  <div style="display:flex;gap:4px;align-items:stretch">
+                    <input id="fo_approverPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;font-weight:700;text-align:right;background:#fffbeb;min-height:38px;box-sizing:border-box;color:#0f172a">
+                    <span style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="order-section">
+            <div class="order-section-title calc">Calculated (auto)</div>
+            <div class="order-section-body">
+              <div class="form-grid">
+                <label>Frames/PAL<input id="fo_framesPerPal" type="text" class="cf" readonly></label>
+                <label>Total QTY (pcs.)<input id="fo_totalQty" type="text" class="cf" readonly></label>
+                <label>Pal-Nr. END<input id="fo_palEnd" type="text" class="cf" readonly></label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <aside style="width:280px;flex-shrink:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;font-size:0.82rem;line-height:1.45;align-self:stretch">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:10px;font-size:0.85rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #e2e8f0;padding-bottom:8px">Pallet Range Preview</div>
+          <div id="fo_palRangeBody" style="color:#64748b;font-style:italic">Enter Pal-Nr. START and PAL count.</div>
+        </aside>
+      </div>
+    </div>
+    <div id="fo_reviewBanner" style="display:none;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:8px 12px;border-radius:6px;margin:0 16px 8px;font-size:0.85rem">
+      <strong>Approval Mode:</strong> <span id="fo_reviewInfo">–</span>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="fo_delete" onclick="deleteFrameOrder()" style="display:none;margin-right:auto">Delete Order</button>
+      <button class="btn btn-danger" id="fo_withdrawBtn" onclick="withdrawOwnFramePending()" style="display:none;margin-right:auto">Withdraw Request</button>
+      <button class="btn btn-secondary" id="fo_rejectBtn" onclick="rejectFrameReviewing()" style="display:none">Reject</button>
+      <button class="btn btn-secondary" onclick="closeFrameOrderModal()">Cancel</button>
+      <button class="btn btn-primary" id="fo_requestBtn" onclick="saveFrameOrder('request')">Request Approval</button>
+      <button class="btn btn-primary" id="fo_updateBtn" onclick="saveFrameOrder('updateRequest')" style="display:none">Update Request</button>
+      <button class="btn btn-success" id="fo_approveBtn" onclick="saveFrameOrder('approve')" style="display:none">Approve &amp; Save</button>
+      <button class="btn btn-success" id="fo_directBtn" onclick="saveFrameOrder('direct')" style="display:none">Direct Approve</button>
+    </div>
+  </div>
+</div>
+<datalist id="artListFrame"></datalist>
+
 <div class="modal-overlay" id="shiftPlanModal" onclick="if(event.target===this)closeShiftPlanner()">
   <div class="modal-card" style="width:min(900px,98%)">
     <div class="modal-head">
@@ -1123,6 +1192,7 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager'){
     currentAnchor=mondayOf(t);
     await loadEndsPerPal();
     await loadArticles();
+    await loadFrameArticles();
     await loadPalletAndSleeve();
     await loadUsersCache();
     await loadWeek();
@@ -2180,6 +2250,7 @@ function prefillOutDayFromShiftPlan(){
     return true;
 }
 function openOrderModal(){
+    if(currentTab==='frame'){ openFrameOrderModal(); return; }
     if(currentTab!=='assembly'){ showMsg('Order function is only available in the Assembly tab.','error'); return; }
     ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup'].forEach(id=>{const e=$(id); if(e) e.value='';});
     ['k_cycle','k_cav','k_hrs','k_shift','k_days','k_scrap','k_oee'].forEach(id=>{const e=$(id); if(e) e.value='';});
@@ -2954,6 +3025,20 @@ async function openPendingForOwnerEdit(id, tab){
             currentTab=tab;
             document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===tab); });
         }
+        // Frame: dispatch to slim Frame modal
+        if(tab==='frame'){
+            openFrameOrderModal();
+            applyFramePayload(data.payload||{});
+            _frameReviewingPendingId=null;
+            _frameEditingPendingId=id;
+            const fBanner=$('fo_reviewBanner');
+            const fInfo=$('fo_reviewInfo');
+            if(fBanner){ fBanner.style.display=''; fBanner.style.background='#dbeafe'; fBanner.style.borderColor='#3b82f6'; fBanner.style.color='#1e40af'; }
+            const updMark=data.isUpdated?` · already ${data.updateCount||1}× updated`:'';
+            if(fInfo) fInfo.innerHTML=`<strong>Edit your own request:</strong> ID ${escHtml(id.slice(0,6))}…${escHtml(updMark)} — changes are pushed to approvers immediately.`;
+            _applyFrameOrderModalButtons();
+            return;
+        }
         openOrderModal();
         applyOrderPayload(data.payload||{});
         editingOrderSo=(data.payload&&data.payload.editingOrderSo)||null;
@@ -3006,6 +3091,18 @@ async function openPendingForReview(id, tab){
             document.querySelectorAll('.tab-btn').forEach(b=>{
                 b.classList.toggle('active', b.dataset.tab===tab);
             });
+        }
+        // Frame: dispatch to slim Frame modal
+        if(tab==='frame'){
+            openFrameOrderModal();
+            applyFramePayload(data.payload||{});
+            _frameReviewingPendingId=id;
+            const fBanner=$('fo_reviewBanner');
+            const fInfo=$('fo_reviewInfo');
+            if(fBanner) fBanner.style.display='';
+            if(fInfo) fInfo.textContent=`Request ${id.slice(0,6)}… from ${(data.requestedByEmail||'?').replace('@lager.local','')}`;
+            _applyFrameOrderModalButtons();
+            return;
         }
         // Open modal + write payload into fields
         openOrderModal();
@@ -4390,6 +4487,320 @@ async function saveOrder(mode){
         alert('Save failed: '+e.message);
     }
 }
+
+// ============================================================
+// FRAME ORDER (Injection) — slim parallel modal + approval flow
+// ============================================================
+let _frameEditingDocId=null;       // sales_plan_frame doc id when editing approved order
+let _frameEditingPendingId=null;   // own pending request id (manager edit)
+let _frameReviewingPendingId=null; // pending id under approver review
+let _frameInputsWired=false;
+let articleMapFrame={};
+
+async function loadFrameArticles(){
+    articleMapFrame={};
+    try{
+        const doc=await db.collection('paletten').doc('_config_artikelstamm').get();
+        if(doc.exists){
+            const articles=doc.data().articles||{};
+            Object.entries(articles).forEach(([nr,info])=>{
+                articleMapFrame[nr]={nr,bezeichnung:(info&&info.bezeichnung)||''};
+            });
+        }
+    }catch(e){ console.warn('loadFrameArticles failed:',e); }
+    const dl=document.getElementById('artListFrame');
+    if(dl){
+        const list=Object.values(articleMapFrame).sort((a,b)=>String(a.nr).localeCompare(String(b.nr)));
+        dl.innerHTML=list.map(r=>{
+            const nr=escHtml(String(r.nr||''));
+            const bz=escHtml(String(r.bezeichnung||''));
+            return `<option value="${nr}">${nr}${bz?'  ·  '+bz:''}</option>`;
+        }).join('');
+    }
+}
+
+function _frameFramesPerPalForArt(art){
+    const a=String(art||'').trim();
+    if(a.startsWith('12')) return 92400;
+    if(a.startsWith('18')) return 420672;
+    if(a.startsWith('19')) return 196224;
+    return 0;
+}
+function _frameFmtThousands(n){ if(!n||n<=0) return ''; return Number(n).toLocaleString('de-DE'); }
+function _framePalNrEnd(start,count){
+    const s=String(start||'').trim();
+    const m=s.match(/^(.*?)(\d+)$/);
+    if(!m||!count||count<=0) return '';
+    const prefix=m[1]; const num=parseInt(m[2],10); const len=m[2].length;
+    const endNum=num+count-1;
+    return prefix+String(endNum).padStart(len,'0');
+}
+
+function _wireFrameOrderInputs(){
+    if(_frameInputsWired) return;
+    ['fo_art','fo_pal','fo_palStart'].forEach(id=>{
+        const e=$(id); if(!e) return;
+        e.addEventListener('input',recalcFrame);
+        e.addEventListener('change',recalcFrame);
+    });
+    _frameInputsWired=true;
+}
+function recalcFrame(){
+    const art=$('fo_art')?.value.trim()||'';
+    const pal=parseInt(String($('fo_pal')?.value||'').replace(/[^\d]/g,''),10)||0;
+    const palStart=$('fo_palStart')?.value.trim()||'';
+    const fpp=_frameFramesPerPalForArt(art);
+    const totalQty=fpp*pal;
+    const palEnd=_framePalNrEnd(palStart,pal);
+    if($('fo_framesPerPal')) $('fo_framesPerPal').value=_frameFmtThousands(fpp);
+    if($('fo_totalQty')) $('fo_totalQty').value=_frameFmtThousands(totalQty);
+    if($('fo_palEnd')) $('fo_palEnd').value=palEnd;
+    const body=$('fo_palRangeBody');
+    if(body){
+        if(palStart && pal>0 && palEnd){
+            body.style.fontStyle='';
+            body.innerHTML=`<div style="font-weight:600;color:#0f172a;margin-bottom:6px">${escHtml(palStart)} → ${escHtml(palEnd)}</div><div>${pal} pallet${pal===1?'':'s'} · ${_frameFmtThousands(totalQty)} pcs.</div>`;
+        }else{
+            body.style.fontStyle='italic';
+            body.innerHTML='Enter Pal-Nr. START and PAL count.';
+        }
+    }
+}
+
+function openFrameOrderModal(){
+    if(!articleMapFrame||Object.keys(articleMapFrame).length===0) loadFrameArticles();
+    ['fo_so','fo_art','fo_pickup','fo_pal','fo_palStart','fo_comment','fo_framesPerPal','fo_totalQty','fo_palEnd','fo_approverPrice'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
+    _frameEditingDocId=null; _frameEditingPendingId=null; _frameReviewingPendingId=null;
+    $('frameOrderModal').classList.add('open');
+    _wireFrameOrderInputs();
+    _applyFrameOrderModalButtons();
+    recalcFrame();
+}
+function closeFrameOrderModal(){
+    $('frameOrderModal').classList.remove('open');
+    _frameEditingDocId=null; _frameEditingPendingId=null; _frameReviewingPendingId=null;
+}
+function _applyFrameOrderModalButtons(){
+    const reviewing=!!_frameReviewingPendingId;
+    const ownerEdit=!!_frameEditingPendingId;
+    const editingApproved=!!_frameEditingDocId;
+    const set=(id,show)=>{ const e=$(id); if(e) e.style.display=show?'':'none'; };
+    set('fo_requestBtn', !currentCanApprove && !reviewing && !ownerEdit && !editingApproved);
+    set('fo_updateBtn', ownerEdit);
+    set('fo_approveBtn', currentCanApprove && reviewing);
+    set('fo_directBtn', currentCanApprove && !reviewing && !ownerEdit && !editingApproved);
+    set('fo_rejectBtn', currentCanApprove && reviewing);
+    set('fo_withdrawBtn', ownerEdit);
+    set('fo_delete', currentCanApprove && editingApproved);
+    const priceWrap=$('fo_priceWrap'); if(priceWrap) priceWrap.style.display=currentCanApprove?'flex':'none';
+    const banner=$('fo_reviewBanner'); if(banner) banner.style.display=(reviewing||ownerEdit)?'':'none';
+}
+
+function collectFramePayload(){
+    const get=id=>{ const e=$(id); return e?String(e.value||'').trim():''; };
+    const intVal=id=>parseInt(String(get(id)).replace(/[^\d]/g,''),10)||0;
+    const payload={
+        tab:'frame',
+        salesOrderXO:get('fo_so'),
+        artikelNr:get('fo_art'),
+        pickup:get('fo_pickup'),
+        anzahlPaletten:intVal('fo_pal'),
+        palNrStart:get('fo_palStart'),
+        palNrEnde:get('fo_palEnd'),
+        framesProPalette:intVal('fo_framesPerPal'),
+        mengeGesamt:intVal('fo_totalQty'),
+        comment:get('fo_comment')
+    };
+    if(currentCanApprove){
+        const raw=String(get('fo_approverPrice')).replace(/\s/g,'').replace(',','.');
+        const num=parseFloat(raw);
+        if(isFinite(num)&&num>0) payload.approvedPrice={price:num,ccy:'EUR'};
+    }
+    return payload;
+}
+function applyFramePayload(p){
+    if(!p) return;
+    if($('fo_so')) $('fo_so').value=p.salesOrderXO||'';
+    if($('fo_art')) $('fo_art').value=p.artikelNr||'';
+    if($('fo_pickup')) $('fo_pickup').value=p.pickup||'';
+    if($('fo_pal')) $('fo_pal').value=p.anzahlPaletten?String(p.anzahlPaletten):'';
+    if($('fo_palStart')) $('fo_palStart').value=p.palNrStart||'';
+    if($('fo_comment')) $('fo_comment').value=p.comment||'';
+    if(p.approvedPrice && p.approvedPrice.price && currentCanApprove && $('fo_approverPrice')){
+        $('fo_approverPrice').value=Number(p.approvedPrice.price).toFixed(2).replace('.',',');
+    }
+    recalcFrame();
+}
+
+async function _frameAutoTransferToProduktionsplan(payload,docId){
+    const ts=firebase.firestore.FieldValue.serverTimestamp();
+    const colName='v2_'+TAB_CONFIG.frame.prodCol; // v2_produktionsplan_spritzguss
+    const data={
+        salesOrderXO:payload.salesOrderXO,
+        artikelNr:payload.artikelNr,
+        framesProPalette:payload.framesProPalette,
+        anzahlPaletten:payload.anzahlPaletten,
+        mengeGesamt:payload.mengeGesamt,
+        mengeOffen:payload.mengeGesamt,
+        palNrStart:payload.palNrStart,
+        palNrEnde:payload.palNrEnde,
+        letzteGefertigtePalNr:'',
+        status:'OFFEN',
+        paletten:[],
+        pickup:payload.pickup,
+        comment:payload.comment||'',
+        transferredAt:ts,
+        approvedByEmail:currentUserEmail
+    };
+    await db.collection(colName).doc(docId).set(data,{merge:true});
+}
+
+async function saveFrameOrder(mode){
+    mode=mode||'direct';
+    const payload=collectFramePayload();
+    if(!payload.salesOrderXO){ alert('Sales Order XO is required.'); return; }
+    if(!payload.artikelNr){ alert('Article number is required.'); return; }
+    if(!payload.pickup){ alert('Pick-Up date is required.'); return; }
+    if(payload.anzahlPaletten<=0){ alert('Number of pallets must be > 0.'); return; }
+    if(!payload.palNrStart){ alert('Pal-Nr. START is required.'); return; }
+    if(payload.framesProPalette<=0){ alert('Could not derive Frames/PAL — article number prefix must be 12*, 18*, or 19*.'); return; }
+
+    if(mode==='request'){
+        try{
+            const ts=firebase.firestore.FieldValue.serverTimestamp();
+            const docRef=await db.collection(_pendingColForTab('frame')).add({
+                tab:'frame', status:'pending',
+                requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:ts,
+                editingFrameDocId:_frameEditingDocId||null,
+                payload
+            });
+            try{ await _logProtocol('request_created',docRef.id,'frame',{payload,requestedBy:currentUid,requestedByEmail:currentUserEmail,requestedAt:ts},''); }catch(_){}
+            showMsg(`Frame approval requested (ID: ${docRef.id.slice(0,6)}…).`,'success');
+            closeFrameOrderModal();
+            await loadWeek();
+        }catch(e){ console.error('Frame request:',e); alert('Error: '+e.message); }
+        return;
+    }
+    if(mode==='updateRequest'){
+        if(!_frameEditingPendingId){ alert('No reference to your own request.'); return; }
+        try{
+            const id=_frameEditingPendingId;
+            const ref=db.collection(_pendingColForTab('frame')).doc(id);
+            const snap=await ref.get();
+            if(!snap.exists){ alert('Request no longer exists.'); _frameEditingPendingId=null; closeFrameOrderModal(); return; }
+            const old=snap.data();
+            if(old.status!=='pending'){ alert('Request is no longer open (status: '+old.status+').'); return; }
+            const ts=firebase.firestore.FieldValue.serverTimestamp();
+            const prevCount=Number(old.updateCount||0);
+            await ref.update({
+                tab:'frame', status:'pending',
+                requestedBy:currentUid, requestedByEmail:currentUserEmail,
+                payload, isUpdated:true, updateCount:prevCount+1,
+                lastUpdatedAt:ts, lastUpdatedByEmail:currentUserEmail
+            });
+            try{ await _logProtocol('request_updated',id,'frame',{payload,requestedBy:currentUid,requestedByEmail:currentUserEmail,requestedAt:old.requestedAt},'Version '+(prevCount+1)); }catch(_){}
+            _frameEditingPendingId=null;
+            showMsg(`Frame request updated (version ${prevCount+1}).`,'success');
+            closeFrameOrderModal();
+            await loadWeek();
+        }catch(e){ console.error('Frame updateRequest:',e); alert('Update failed: '+e.message); }
+        return;
+    }
+    if(mode==='approve' && !currentCanApprove){ alert('No permission to approve.'); return; }
+
+    try{
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        const salesCol=TAB_CONFIG.frame.salesCol;
+        const docId=payload.salesOrderXO.replace(/[^A-Za-z0-9_-]/g,'_');
+        if(!docId){ alert('Invalid Sales Order XO for doc id.'); return; }
+        const isoKey=payload.pickup;
+        const FK=(g,s,f)=>fieldKey(g,s,f);
+        const fields={};
+        fields[FK('Production Plan','','SO #')]=payload.salesOrderXO;
+        fields[FK('Production Plan','','Pick-Up (Deadline)')]=payload.pickup;
+        fields[FK('Production Plan','','Art #')]=payload.artikelNr;
+        fields[FK('Production Plan','','Frames/PAL')]=String(payload.framesProPalette);
+        fields[FK('Production Plan','','PAL')]=String(payload.anzahlPaletten);
+        fields[FK('Production Plan','','Total QTY')]=String(payload.mengeGesamt);
+        fields[FK('Production Plan','','Pal-Nr. START')]=payload.palNrStart;
+        fields[FK('Production Plan','','Pal-Nr. END')]=payload.palNrEnde;
+        fields[FK('Production Plan','','Status Production')]='OFFEN';
+        fields[FK('Production Plan','','Comment')]=payload.comment||'';
+        const docData={
+            datum:isoKey, fields, framePayload:payload,
+            approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:ts,
+            approvedPrice:payload.approvedPrice||null
+        };
+        await db.collection(salesCol).doc(docId).set(docData,{merge:true});
+
+        if(mode==='approve' && _frameReviewingPendingId){
+            const pendingId=_frameReviewingPendingId;
+            let pendDocSnap=null;
+            try{ const s=await db.collection(_pendingColForTab('frame')).doc(pendingId).get(); if(s.exists) pendDocSnap=s.data(); }catch(_){}
+            try{ await _logProtocol('approved',pendingId,'frame',{payload,requestedBy:pendDocSnap?.requestedBy,requestedByEmail:pendDocSnap?.requestedByEmail,requestedAt:pendDocSnap?.requestedAt},''); }catch(_){}
+            try{ await db.collection(_pendingColForTab('frame')).doc(pendingId).delete(); }catch(e){ console.warn('Deleting pending failed:',e); }
+            _frameReviewingPendingId=null;
+        }
+
+        let transferMsg='';
+        try{ await _frameAutoTransferToProduktionsplan(payload,docId); transferMsg=' · transferred to production plan'; }
+        catch(e){ console.warn('Frame transfer failed:',e); transferMsg=' (transfer failed: '+e.message+')'; }
+
+        showMsg(`Frame order ${payload.salesOrderXO} saved (approved)${transferMsg}.`,'success');
+        closeFrameOrderModal();
+        await loadWeek();
+    }catch(e){ console.error('saveFrameOrder:',e); alert('Save failed: '+e.message); }
+}
+
+async function withdrawOwnFramePending(){
+    if(!_frameEditingPendingId) return;
+    if(!confirm('Really withdraw this request? Approvers will no longer see it.')) return;
+    try{
+        const id=_frameEditingPendingId;
+        const snap=await db.collection(_pendingColForTab('frame')).doc(id).get();
+        const pendDoc=snap.exists?snap.data():null;
+        await db.collection(_pendingColForTab('frame')).doc(id).delete();
+        try{ await _logProtocol('request_withdrawn',id,'frame',pendDoc,''); }catch(_){}
+        _frameEditingPendingId=null;
+        showMsg('Frame request withdrawn.','success');
+        closeFrameOrderModal();
+        await loadWeek();
+    }catch(e){ console.error('withdrawOwnFramePending:',e); alert('Withdraw failed: '+e.message); }
+}
+
+async function rejectFrameReviewing(){
+    if(!_frameReviewingPendingId) return;
+    const id=_frameReviewingPendingId;
+    const comment=prompt('Reason for rejection (optional):','');
+    if(comment===null) return;
+    try{
+        const snap=await db.collection(_pendingColForTab('frame')).doc(id).get();
+        const pendDoc=snap.exists?snap.data():null;
+        await db.collection(_pendingColForTab('frame')).doc(id).update({
+            status:'rejected',
+            rejectedBy:currentUid, rejectedByEmail:currentUserEmail,
+            rejectedAt:firebase.firestore.FieldValue.serverTimestamp(),
+            rejectComment:comment||''
+        });
+        try{ await _logProtocol('rejected',id,'frame',pendDoc,comment||''); }catch(_){}
+        showMsg('Frame request rejected.','success');
+        closeFrameOrderModal();
+        await loadWeek();
+    }catch(e){ console.error('rejectFrameReviewing:',e); alert('Error: '+e.message); }
+}
+
+async function deleteFrameOrder(){
+    if(!_frameEditingDocId) return;
+    if(!confirm('Really delete this frame order?')) return;
+    try{
+        await db.collection(TAB_CONFIG.frame.salesCol).doc(_frameEditingDocId).delete();
+        try{ await db.collection('v2_'+TAB_CONFIG.frame.prodCol).doc(_frameEditingDocId).delete(); }catch(_){}
+        showMsg('Frame order deleted.','success');
+        closeFrameOrderModal();
+        await loadWeek();
+    }catch(e){ console.error('deleteFrameOrder:',e); alert('Delete failed: '+e.message); }
+}
+
 const SHIFT_PLAN_COL='shift_plans';
 let _editingShiftPlanId=null;
 async function openShiftPlanner(){
