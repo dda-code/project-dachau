@@ -1214,7 +1214,11 @@ async function confirmInbound(){
     const fields=getInboundFields(currentLabelTyp);const data={};ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');fields.forEach(f=>{data[f.key]=document.getElementById('inbound-'+f.key)?.value.trim()||data[f.key]||'';});
     const ps=document.getElementById('positionSelect'),pos=ps.style.display!=='none'&&ps.value?ps.value:document.getElementById('suggestedPosition').textContent;
     const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
-    if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');return;}if(!pos||pos==='Kein Platz frei!'){alert('Kein Stellplatz!');return;}
+    if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');return;}
+    if(!ARTIKEL_NUMMERN.includes(data.artikelNr)&&!data.artikelNr.startsWith('XO')){alert('Artikelnummer "'+data.artikelNr+'" ist nicht im Artikelstamm. Bitte zuerst im Artikelstamm anlegen oder korrigieren.');return;}
+    if(!data.datum||data.datum==='FEHLER'){alert('Produktionsdatum fehlt!');return;}
+    if(currentLabelTyp==='XO Fertigware'&&(!data.menge||data.menge==='FEHLER')){alert('Menge fehlt!');return;}
+    if(!pos||pos==='Kein Platz frei!'){alert('Kein Stellplatz!');return;}
     // Duplikat-Prüfung
     try{const existing=await db.collection('paletten').doc(docId).get();
         if(existing.exists){
