@@ -4499,10 +4499,6 @@ async function loadFrameArticles(){
         rows.forEach(r=>{
             const fNr=String(r['Frame Conv. Nr.']||'').trim();
             if(fNr && !articleMapFrame[fNr]) articleMapFrame[fNr]={nr:fNr,bezeichnung:'Frame '+(r['Frame Farbe']||'')};
-            const iNr=String(r['Innerslider Conv. Nr.']||'').trim();
-            if(iNr && !articleMapFrame[iNr]) articleMapFrame[iNr]={nr:iNr,bezeichnung:'Inner Slider '+(r['Innerslider Farbe']||'')};
-            const oNr=String(r['Outerslider Conv. Nr.']||'').trim();
-            if(oNr && !articleMapFrame[oNr]) articleMapFrame[oNr]={nr:oNr,bezeichnung:'Outer Slider '+(r['Outerslider Farbe']||'')};
         });
     };
     try{
