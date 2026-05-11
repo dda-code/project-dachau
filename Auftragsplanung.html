@@ -4495,15 +4495,30 @@ let articleMapFrame={};
 
 async function loadFrameArticles(){
     articleMapFrame={};
+    const ingest=rows=>{
+        rows.forEach(r=>{
+            const fNr=String(r['Frame Conv. Nr.']||'').trim();
+            if(fNr && !articleMapFrame[fNr]) articleMapFrame[fNr]={nr:fNr,bezeichnung:'Frame '+(r['Frame Farbe']||'')};
+            const iNr=String(r['Innerslider Conv. Nr.']||'').trim();
+            if(iNr && !articleMapFrame[iNr]) articleMapFrame[iNr]={nr:iNr,bezeichnung:'Inner Slider '+(r['Innerslider Farbe']||'')};
+            const oNr=String(r['Outerslider Conv. Nr.']||'').trim();
+            if(oNr && !articleMapFrame[oNr]) articleMapFrame[oNr]={nr:oNr,bezeichnung:'Outer Slider '+(r['Outerslider Farbe']||'')};
+        });
+    };
     try{
-        const doc=await db.collection('paletten').doc('_config_artikelstamm').get();
-        if(doc.exists){
-            const articles=doc.data().articles||{};
-            Object.entries(articles).forEach(([nr,info])=>{
-                articleMapFrame[nr]={nr,bezeichnung:(info&&info.bezeichnung)||''};
-            });
-        }
-    }catch(e){ console.warn('loadFrameArticles failed:',e); }
+        const snap=await db.collection('artikelstamm_ta0006').where('_cat','==','xoend').get();
+        ingest(snap.docs.map(d=>d.data()));
+    }catch(e){ console.warn('loadFrameArticles xoend failed:',e); }
+    if(Object.keys(articleMapFrame).length===0){
+        try{
+            const res=await fetch('artikelliste_all.json',{cache:'no-store'});
+            if(res.ok){
+                const j=await res.json();
+                ingest((j.xoend&&j.xoend.rows)||[]);
+                console.log('[Auftragsplanung] Frame articles from JSON fallback:',Object.keys(articleMapFrame).length);
+            }
+        }catch(e){ console.warn('Frame articles JSON fallback failed:',e); }
+    }
     _renderFrameArticleSelect();
 }
 function _renderFrameArticleSelect(){
