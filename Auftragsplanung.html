@@ -4497,6 +4497,8 @@ async function loadFrameArticles(){
     articleMapFrame={};
     const ingest=rows=>{
         rows.forEach(r=>{
+            const status=String(r['End Status']||'').toLowerCase().trim();
+            if(status!=='aktiv' && status!=='active') return;
             const fNr=String(r['Frame Conv. Nr.']||'').trim();
             if(fNr && !articleMapFrame[fNr]) articleMapFrame[fNr]={nr:fNr,bezeichnung:'Frame '+(r['Frame Farbe']||'')};
         });
