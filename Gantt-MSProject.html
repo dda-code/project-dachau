@@ -3,12 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://www.recaptcha.net;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob:;
+  font-src 'self' data:;
+  connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseappcheck.googleapis.com https://www.google.com https://recaptcha.net;
+  frame-src https://www.google.com https://recaptcha.net;
+  object-src 'none';
+  base-uri 'self';">
 <title>Project Dachau – MS Project Gantt</title>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"
+        integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9"
+        crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"
+        integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC"
+        crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"
+        integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1"
+        crossorigin="anonymous"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"
+        integrity="sha384-E3vxFxXu8FhW5kvqdQJ5Yf8ugrV7iCJP8jgnItRH2Rk8Q08cJzJGTi/oMC3FEp3j"
+        crossorigin="anonymous"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
@@ -26,7 +44,11 @@ if (location.protocol !== 'file:') {
         new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
         true
       );
-    } catch(e){}
+    } catch(e){
+      console.error('AppCheck init failed:', e && e.message);
+      // UI-Hinweis spaeter via setStatus() — setStatus() ist hier noch nicht definiert
+      window.__appCheckError = e && e.message || 'unknown';
+    }
   }, {once:true});
 }
 const db = firebase.firestore();
@@ -175,8 +197,8 @@ body.readonly .gc{cursor:default !important}
 <div id="login-overlay">
   <div id="login-box">
     <h2>Project Dachau – MS Project Gantt</h2>
-    <p>Bitte einloggen (xolution.com)</p>
-    <input type="email" id="li-email" placeholder="E-Mail" autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('li-pw').focus()">
+    <p>Bitte einloggen</p>
+    <input type="text" id="li-email" placeholder="Benutzer" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('li-pw').focus()">
     <input type="password" id="li-pw" placeholder="Passwort" onkeydown="if(event.key==='Enter')doLogin()">
     <div id="login-err"></div>
     <button onclick="doLogin()">Anmelden</button>
@@ -265,6 +287,14 @@ const MONTHS_DE      = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','
 const MONTHS_DE_FULL = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const DAYS_DE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
 const EMAIL_DOMAIN = '@xolution.com';
+
+// Zugriffs-Whitelist fuer Gantt-MSProject (muss zu firestore.rules /gantt-msp passen)
+// Keys = exakte Firebase-Auth-Email
+const GANTT_MSP_USERS = {
+  'dominik.dannenbauer@xolution.com': 'admin',
+  'roland.mueller@lager.local':       'manager',
+  'user@lager.local':                 'viewer'
+};
 
 const ZOOM = {
   day:     { ppd: 32,  hdr1:'month', hdr2:'day' },
@@ -378,6 +408,11 @@ function toast(msg){
 function setStatus(color, text){
   document.getElementById('save-dot').style.background = color;
   document.getElementById('save-txt').textContent = text;
+}
+// AppCheck-Init laeuft vor setStatus() — falls dort ein Fehler auftrat, jetzt sichtbar machen.
+if (window.__appCheckError) {
+  setStatus('#ef4444','⚠ AppCheck-Fehler');
+  console.warn('AppCheck-Init-Fehler war:', window.__appCheckError);
 }
 function _canEdit(){ return currentRole === 'admin' || currentRole === 'manager'; }
 
@@ -1498,31 +1533,42 @@ function seedDemoTasks(){
 }
 
 // === AUTH ===
-function toEmail(v){ v = (v||'').trim().toLowerCase(); return v.includes('@') ? v : v + EMAIL_DOMAIN; }
+// Account-IDs werden 1:1 als Firebase-Auth-Email verwendet (kein Domain-Anhang).
+function normalizeLogin(v){ return (v||'').trim().toLowerCase(); }
 function doLogin(){
-  const e = toEmail(document.getElementById('li-email').value);
+  const e = normalizeLogin(document.getElementById('li-email').value);
   const pw = document.getElementById('li-pw').value;
   const err = document.getElementById('login-err');
   err.textContent = '';
-  if (!e.endsWith(EMAIL_DOMAIN)){ err.textContent = 'Nur ' + EMAIL_DOMAIN + ' Konten erlaubt'; return; }
+  if (!e){ err.textContent = 'Bitte Benutzer eingeben'; return; }
+  if (!GANTT_MSP_USERS[e]){
+    err.textContent = 'Kein Zugriff für "' + e + '"';
+    return;
+  }
   firebase.auth().signInWithEmailAndPassword(e, pw).catch(ex => {
     err.textContent = (ex.code === 'auth/wrong-password' || ex.code === 'auth/invalid-credential') ? 'Falsche Zugangsdaten' : (ex.message || 'Login fehlgeschlagen');
   });
 }
 function doLogout(){ firebase.auth().signOut(); }
 
-async function fetchRole(uid){
-  for (let i = 0; i < 3; i++){
-    try {
-      const doc = await db.collection('users').doc(uid).get();
-      if (doc.exists){
-        const d = doc.data() || {};
-        return d.role || d.currentRole || 'viewer';
-      }
-    } catch(e){ console.warn('fetchRole try', i, e.code || e.message); }
-    await new Promise(r => setTimeout(r, 400 * (i+1)));
-  }
-  return 'viewer';
+// === IDLE LOGOUT (30 Min Inaktivitaet) ===
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+let _idleTimer = null;
+function _resetIdleTimer(){
+  if (!currentUser) return;
+  clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(() => {
+    toast('Sitzung wegen Inaktivitaet beendet.');
+    firebase.auth().signOut();
+  }, IDLE_TIMEOUT_MS);
+}
+['mousemove','keydown','click','touchstart','wheel'].forEach(ev =>
+  document.addEventListener(ev, _resetIdleTimer, {passive:true})
+);
+
+function roleForEmail(email){
+  if (!email) return null;
+  return GANTT_MSP_USERS[email.toLowerCase()] || null;
 }
 
 firebase.auth().onAuthStateChanged(async (u) => {
@@ -1533,10 +1579,17 @@ firebase.auth().onAuthStateChanged(async (u) => {
     tasks = []; render();
     return;
   }
+  const r = roleForEmail(u.email);
+  if (!r){
+    // Kein Zugriff fuer diese Email — auslog­gen und Hinweis anzeigen
+    const err = document.getElementById('login-err');
+    if (err) err.textContent = 'Kein Zugriff für ' + (u.email||'?');
+    await firebase.auth().signOut();
+    return;
+  }
   currentUser = u;
+  currentRole = r;
   document.getElementById('login-overlay').style.display = 'none';
-  setStatus('#60a5fa','⟳ Lade Rolle…');
-  currentRole = await fetchRole(u.uid);
   updateRoleUI();
   setStatus('#60a5fa','⟳ Lade Daten…');
   listenState();
