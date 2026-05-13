@@ -1063,14 +1063,25 @@ function selectRow(id){
 }
 
 // === CELL EDITING ===
+// Single-Click zum Editieren (wie MS Project / Excel)
 function bindCellEdit(cell, task, field){
   if (isSummary(task) && (field === 'start' || field === 'finish' || field === 'duration' || field === 'predecessors')) {
     cell.style.cursor = 'default';
     return;
   }
+  cell.addEventListener('click', (e) => {
+    e.stopPropagation();  // verhindert dass row.click selectRow ueberschreibt
+    if (editingCell) return;  // schon im Edit-Modus woanders
+    if (!_canEdit()) { toast('Nur Manager/Admin können bearbeiten.'); return; }
+    selectRow(task.id);  // markiert Reihe
+    startEdit(cell, task, field);
+  });
+  // Dblclick-Fallback (z.B. falls Click bereits in einem Eltern-Handler abgefangen)
   cell.addEventListener('dblclick', (e) => {
     e.stopPropagation();
-    if (!_canEdit()) { toast('Nur Manager/Admin können bearbeiten.'); return; }
+    if (editingCell) return;
+    if (!_canEdit()) return;
+    selectRow(task.id);
     startEdit(cell, task, field);
   });
 }
