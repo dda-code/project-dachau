@@ -937,6 +937,20 @@ function setZ(v){
   buildAll();
   saveView();
 }
+// Werktage zwischen zwei Daten (inklusive beider Enden). Wochenenden + HOLIDAYS exkl.
+function workdaysBetween(start,end){
+  if(!start||!end) return 0;
+  var d=new Date(start.getFullYear(),start.getMonth(),start.getDate());
+  var e=new Date(end.getFullYear(),end.getMonth(),end.getDate());
+  if(d>e) return 0;
+  var n=0;
+  while(d<=e){
+    var dow=d.getDay();
+    if(dow!==0 && dow!==6 && !HOLIDAYS[fmtD(d)]) n++;
+    d.setDate(d.getDate()+1);
+  }
+  return n;
+}
 function adjZ(d){setZ(zi+1+d);}
 
 function isBlocked(t){
@@ -1293,6 +1307,11 @@ function buildGrid(vrows){
       var pNm=p.name||t.name;
       wr2.innerHTML='<div class="bar" style="background:'+_esc(t.color)+'"><span class="blbl">'+_esc(pNm)+'</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(pNm)+'</span>';
       var pBar=wr2.firstChild;
+      pBar.addEventListener('mouseenter',function(e){
+        if(linkMode||dragPeriod.active)return;
+        showTT(t,e,false,p);
+      });
+      pBar.addEventListener('mouseleave',hideTT);
       pBar.addEventListener('mousedown',function(e){
         if(linkMode)return;
         if(e.target.classList.contains('rhl')||e.target.classList.contains('rhr'))return;
@@ -1407,12 +1426,18 @@ function drawDeps(vrows,_ppd){
       if(didx===undefined)continue;
       var dep=vrows[didx].task;
       var x1=(fastDOff(dep.end)+1)*_ppd,y1=didx*44+22;
-      var x2=fastDOff(t.start)*_ppd,y2=ti*44+22;
+      var barX2=fastDOff(t.start)*_ppd,y2=ti*44+22;
+      // Pfeil endet 8px VOR dem Balken, damit der Pfeilkopf das Bar-Label (.blbl-over)
+      // nicht überlagert. Für den Elbow-Fall etwas mehr Luft, weil der Pfeilkopf
+      // dort von rechts kommt und der Chevron-Body sonst hinter dem Balken-Anfang sitzt.
+      var GAP_CURVE=8, GAP_ELBOW=12;
+      var x2=barX2-GAP_CURVE;
       var midX=x1+Math.max((x2-x1)/2,20);
       var d;
-      if(x2>x1+4){
+      if(barX2>x1+4){
         d='M'+x1+','+y1+' C'+midX+','+y1+' '+midX+','+y2+' '+x2+','+y2;
       } else {
+        x2=barX2-GAP_ELBOW;
         var elbX=Math.max(x1,x2)+30;
         d='M'+x1+','+y1+' L'+elbX+','+y1+' L'+elbX+','+y2+' L'+x2+','+y2;
       }
@@ -2699,17 +2724,26 @@ function _ttCache(){
   return tt;
 }
 function fmtDate(s){var p=s.split('-');return p[2]+'.'+p[1]+'.'+p[0];}
-function showTT(t,e,isVacation){
+function showTT(t,e,isVacation,period){
   if(ttTimer)clearTimeout(ttTimer);
   var tt=_ttDot?document.getElementById('tt'):_ttCache();
   var blk=isBlocked(t);
-  var so=s2d(t.start),eo=s2d(t.end);
-  var dur=Math.round((eo-so)/86400000)+1;
+  // Wenn ein konkreter Period-Eintrag übergeben wurde (Hover auf Extra-Bar),
+  // zeigt der Tooltip die Period-Daten, nicht die Haupt-Task-Range.
+  var srcStart = period ? period.start : t.start;
+  var srcEnd   = period ? period.end   : t.end;
+  var so=s2d(srcStart),eo=s2d(srcEnd);
+  var dur=workdaysBetween(so,eo);
   var pct=t.progress||0;
   _ttDot.style.background=isVacation?'#f59e0b':t.color;
-  _ttN.textContent=(isVacation?'🏖 ':'')+t.name;
-  // For vacation: show all periods
-  if(isVacation && t.urlaubPeriods && t.urlaubPeriods.length > 1){
+  if(period){
+    var pName = period.name || t.name;
+    _ttN.textContent = pName + (period.name ? '  ·  ' + t.name : '');
+  } else {
+    _ttN.textContent=(isVacation?'🏖 ':'')+t.name;
+  }
+  // For vacation: show all periods (nur wenn KEIN konkreter Period-Hover)
+  if(!period && isVacation && t.urlaubPeriods && t.urlaubPeriods.length > 1){
     var periodTxt = t.urlaubPeriods.map(function(p){
       return fmtDate(p.start)+' – '+fmtDate(p.end);
     }).join(' · ');
@@ -2719,11 +2753,11 @@ function showTT(t,e,isVacation){
     _ttERow.style.display = 'none';
     _ttSLbl.textContent = 'Periods';
   } else {
-    _ttS.textContent=fmtDate(t.start);
-    _ttE.textContent=fmtDate(t.end);
+    _ttS.textContent=fmtDate(srcStart);
+    _ttE.textContent=fmtDate(srcEnd);
     _ttERow.style.display = '';
     _ttSLbl.textContent = 'Start';
-    _ttD.textContent=dur+' Day'+(dur!==1?'s':'');
+    _ttD.textContent=dur+' Workday'+(dur!==1?'s':'');
   }
   /* milestone tooltip entfernt */
   var depNames=(t.deps||[]).map(function(did){var d=taskMap.get(did);return d?d.name:'?';});
