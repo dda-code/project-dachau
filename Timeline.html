@@ -85,6 +85,7 @@
   var GANTT_DOC = db.collection('gantt').doc('state');
   var LOCK_DOC  = db.collection('gantt').doc('lock');
   var SESSIONS_COL = db.collection('gantt-sessions');
+  var VIEW_COL = db.collection('gantt-views');
 
   // (WebChannel-Warnungen bereits in früherem Block unterdrückt)
 </script>
@@ -702,11 +703,106 @@ var _remoteUpdate = false;
 function saveState(){
   if(!_isEditor) return;
   markSaving();
-  var state={tasks:tasks,nid:nid,zi:zi,collapsed:collapsed,savedAt:new Date().toISOString()};
+  // .hidden ist per-User (gantt-views/{uid}) — nicht in den globalen State schreiben.
+  // zi/collapsed wandern ebenfalls in das View-Doc; .set() ohne merge löscht die alten Felder.
+  var tasksClean = tasks.map(function(t){
+    var c={}; for(var k in t){ if(k!=='hidden') c[k]=t[k]; } return c;
+  });
+  var state={tasks:tasksClean,nid:nid,savedAt:new Date().toISOString()};
   GANTT_DOC.set(state)
     .then(function(){markSaved();})
     .catch(function(e){console.error('Save error:',e);markSaveError();});
 }
+
+// ── Per-User View-State (gantt-views/{uid}) ─────────────────────────────────
+// Speichert Zoom, Scroll-Datum (linke Kante), Collapse-Map und Hidden-Tasks-Overlay
+// PRO User. Unabhängig vom globalen gantt/state und vom Editor-Lock.
+var _viewSaveTimer = null;
+var _suppressScrollSave = false;
+var _lastScrollLeftSeen = -1;
+var userView = { zi:null, viewDate:null, collapsed:{}, hiddenTasks:{} };
+
+function _viewDocRef(){
+  var u = firebase.auth().currentUser;
+  return u ? VIEW_COL.doc(u.uid) : null;
+}
+
+function _currentViewDate(){
+  var el = document.getElementById('right');
+  if(!el) return null;
+  var dayOff = Math.round(el.scrollLeft / ppd());
+  var d = new Date(PS); d.setDate(d.getDate() + dayOff);
+  if(d < PS) d = new Date(PS);
+  if(d > PE) d = new Date(PE);
+  return d2s(d);
+}
+
+function saveView(){
+  if(_remoteUpdate) return;
+  if(!_viewDocRef()) return;
+  if(_viewSaveTimer) clearTimeout(_viewSaveTimer);
+  _viewSaveTimer = setTimeout(_flushSaveView, 600);
+}
+
+function _flushSaveView(){
+  if(_viewSaveTimer){ clearTimeout(_viewSaveTimer); _viewSaveTimer = null; }
+  var ref = _viewDocRef();
+  if(!ref) return;
+  var payload = {
+    zi: zi,
+    viewDate: _currentViewDate(),
+    collapsed: collapsed || {},
+    hiddenTasks: (userView && userView.hiddenTasks) || {}
+  };
+  userView.zi = payload.zi;
+  userView.viewDate = payload.viewDate;
+  userView.collapsed = payload.collapsed;
+  userView.hiddenTasks = payload.hiddenTasks;
+  ref.set(payload, {merge:true}).catch(function(e){
+    console.warn('saveView:', e && e.message);
+  });
+}
+
+function loadView(){
+  var ref = _viewDocRef();
+  if(!ref) return Promise.resolve(null);
+  return ref.get().then(function(d){
+    if(!d.exists) return null;
+    var v = d.data() || {};
+    return {
+      zi: (typeof v.zi === 'number') ? v.zi : null,
+      viewDate: v.viewDate || null,
+      collapsed: v.collapsed || {},
+      hiddenTasks: v.hiddenTasks || {}
+    };
+  }).catch(function(e){
+    console.warn('loadView:', e && e.message);
+    return null;
+  });
+}
+
+function applyHiddenOverlay(){
+  var hm = (userView && userView.hiddenTasks) || {};
+  tasks.forEach(function(t){ t.hidden = !!hm[t.id]; });
+}
+
+function scrollToDate(dateStr){
+  var el = document.getElementById('right');
+  if(!el || !dateStr) return false;
+  var d = s2d(dateStr);
+  if(isNaN(d.getTime())) return false;
+  if(d < PS || d > PE) return false;
+  var off = Math.round((d - PS) / 86400000);
+  _suppressScrollSave = true;
+  el.scrollLeft = Math.max(0, off * ppd());
+  _lastScrollLeftSeen = el.scrollLeft;
+  setTimeout(function(){ _suppressScrollSave = false; }, 120);
+  return true;
+}
+
+window.addEventListener('beforeunload', function(){
+  try{ _flushSaveView(); }catch(_){}
+});
 
 // Lock-Heartbeat: der Editor-Tab aktualisiert lockedAt alle 30s. Andere Clients
 // können ein "totes" Lock (> 2 Min kein Update) übernehmen falls der Editor-Tab abstürzt.
@@ -839,6 +935,7 @@ function setZ(v){
   document.getElementById('zoom-slider').value=zi+1;
   document.getElementById('zoom-label').textContent=ZL[zi][1];
   buildAll();
+  saveView();
 }
 function adjZ(d){setZ(zi+1+d);}
 
@@ -1383,6 +1480,7 @@ function buildLeft(vrows){
         e.stopPropagation();
         collapsed['meeting-group']=!collapsed['meeting-group'];
         buildAll();
+        saveView();
       });
       mGrpRow.appendChild(mTog);
       var mGrpIco=mk('span','');mGrpIco.textContent='📅';mGrpIco.style.cssText='font-size:13px;flex-shrink:0';
@@ -1406,6 +1504,7 @@ function buildLeft(vrows){
         e.stopPropagation();
         collapsed['urlaub-group']=!collapsed['urlaub-group'];
         buildAll();
+        saveView();
       });
       grpRow.appendChild(tog);
       var grpIco=mk('span','');grpIco.textContent='🏖';grpIco.style.cssText='font-size:13px;flex-shrink:0';
@@ -1484,6 +1583,7 @@ function buildLeft(vrows){
         e.stopPropagation();
         collapsed[t.id]=!collapsed[t.id];
         buildAll();
+        saveView();
       });
       row2.appendChild(tog);
     } else {
@@ -1560,32 +1660,38 @@ function toggleHide(id){
   if(!t)return;
   var newState=!t.hidden;
   t.hidden=newState;
+  userView.hiddenTasks = userView.hiddenTasks || {};
+  if(newState) userView.hiddenTasks[id]=true; else delete userView.hiddenTasks[id];
   // Recursively apply same state to all descendants (subtasks)
   function setChildrenHidden(parentId,state){
     tasks.forEach(function(c){
       if(c.parentId===parentId){
         c.hidden=state;
+        if(state) userView.hiddenTasks[c.id]=true; else delete userView.hiddenTasks[c.id];
         setChildrenHidden(c.id,state);
       }
     });
   }
   setChildrenHidden(id,newState);
-  triggerSave();buildAll();
+  saveView();buildAll();
 }
 function showAllTasks(){
   tasks.forEach(function(t){t.hidden=false;});
-  triggerSave();buildAll();
+  userView.hiddenTasks = {};
+  saveView();buildAll();
 }
 function toggleAllVisibility(){
   var anyHidden=tasks.some(function(t){return t.hidden;});
+  userView.hiddenTasks = userView.hiddenTasks || {};
   if(anyHidden){
     // If anything is hidden: show all
     tasks.forEach(function(t){t.hidden=false;});
+    userView.hiddenTasks = {};
   } else {
     // Hide all
-    tasks.forEach(function(t){t.hidden=true;});
+    tasks.forEach(function(t){ t.hidden=true; userView.hiddenTasks[t.id]=true; });
   }
-  triggerSave();buildAll();
+  saveView();buildAll();
 }
 function reorderTask(srcId,tgtId,insertAfter){
   var src=taskMap.get(srcId);
@@ -1869,6 +1975,12 @@ document.getElementById('right').addEventListener('wheel',function(e){
     _syncing=true;
     tlist.scrollTop=right.scrollTop;
     _syncing=false;
+    // Per-User View-Save: nur bei tatsächlicher horizontaler Änderung,
+    // nicht für programmatische Scroll-Restore (siehe _suppressScrollSave).
+    if(_suppressScrollSave) return;
+    if(right.scrollLeft === _lastScrollLeftSeen) return;
+    _lastScrollLeftSeen = right.scrollLeft;
+    saveView();
   });
   tlist.addEventListener('scroll',function(){
     if(_syncing)return;
@@ -2702,6 +2814,7 @@ function _resetIdleTimer(){
   if(!firebase.auth().currentUser) return;
   _idleTimer = setTimeout(function(){
     if(firebase.auth().currentUser){
+      try{ _flushSaveView(); }catch(_){}
       firebase.auth().signOut();
       alert('Automatisch abgemeldet nach 5 Minuten Inaktivität.');
     }
@@ -2740,6 +2853,7 @@ function doLogin(){
 }
 
 function doLogout(){
+  try{ _flushSaveView(); }catch(_){}
   try{ unregisterPresence(); }catch(_){}
   if(_unsubSessions){ try{_unsubSessions();}catch(_){} _unsubSessions=null; }
   var el=document.getElementById('online-users'); if(el) el.innerHTML='';
@@ -2816,10 +2930,8 @@ firebase.auth().onAuthStateChanged(function(user){
       var nm=document.getElementById('login-name'); if(nm) nm.value='';
       applyRole();
       _resetIdleTimer();
-      setTimeout(function(){
-        if(typeof autoFitLeftColumn==='function') autoFitLeftColumn();
-        if(typeof scrollToToday==='function') scrollToToday();
-      },80);
+      // autoFitLeftColumn + Scroll werden in firebaseStart() nach Promise.all
+      // (gantt/state + gantt-views/{uid}) ausgeführt — sonst doppelter Scroll.
     }).catch(function(e){
       // Xolution-Allowlist-User haben oft keinen /users/{uid}-Doc → Read schlägt fehl.
       // Da Email schon allowlisted ist, fallback auf admin-Default.
@@ -2832,14 +2944,13 @@ firebase.auth().onAuthStateChanged(function(user){
       var nm=document.getElementById('login-name'); if(nm) nm.value='';
       applyRole();
       _resetIdleTimer();
-      setTimeout(function(){
-        if(typeof autoFitLeftColumn==='function') autoFitLeftColumn();
-        if(typeof scrollToToday==='function') scrollToToday();
-      },80);
+      // autoFitLeftColumn + Scroll werden in firebaseStart() nach Promise.all
+      // (gantt/state + gantt-views/{uid}) ausgeführt — sonst doppelter Scroll.
     });
   } else {
     currentRole=null; currentUser=null; USERS=[];
     _isEditor=false; _firebaseStarted=false;
+    userView = { zi:null, viewDate:null, collapsed:{}, hiddenTasks:{} };
     document.body.classList.remove('user-mode');
     var wrap=document.getElementById('wrap'); if(wrap) wrap.style.visibility='hidden';
     var ov=document.getElementById('login-overlay'); if(ov) ov.style.display='flex';
@@ -2935,19 +3046,40 @@ function firebaseStart(){
   if(_firebaseStarted) return;
   _firebaseStarted = true;
   markConnecting();
-  GANTT_DOC.get().then(function(doc){
-    if(doc.exists){
+  Promise.all([
+    GANTT_DOC.get().catch(function(e){ console.warn('gantt load:', e && e.message); return null; }),
+    loadView()
+  ]).then(function(results){
+    var doc = results[0], view = results[1];
+    _remoteUpdate = true;
+    if(doc && doc.exists){
       var d=doc.data();
       if(d.tasks&&d.tasks.length){
-        _remoteUpdate=true;
-        tasks=d.tasks;nid=d.nid||tasks.length+2;
-        zi=d.zi||2;collapsed=d.collapsed||{};
-        document.getElementById('zoom-slider').value=zi+1;
-        document.getElementById('zoom-label').textContent=ZL[zi][1];
-        buildAll();
-        setTimeout(function(){_remoteUpdate=false;},500);
+        tasks=d.tasks; nid=d.nid||tasks.length+2;
+        // zi/collapsed/hidden kommen jetzt aus dem View-Doc, NICHT mehr aus gantt/state
       }
     }
+    if(view){
+      userView = view;
+      if(typeof view.zi === 'number') zi = Math.max(0, Math.min(ZL.length-1, view.zi));
+      if(view.collapsed) collapsed = view.collapsed;
+    } else {
+      userView = { zi:null, viewDate:null, collapsed:{}, hiddenTasks:{} };
+    }
+    applyHiddenOverlay();
+    document.getElementById('zoom-slider').value=zi+1;
+    document.getElementById('zoom-label').textContent=ZL[zi][1];
+    buildAll();
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      if(typeof autoFitLeftColumn==='function') autoFitLeftColumn();
+      if(view && view.viewDate){
+        if(!scrollToDate(view.viewDate)) scrollToToday();
+      } else {
+        scrollToToday();
+      }
+    });});
+    setTimeout(function(){_remoteUpdate=false;}, 500);
+
     // Sperre: Admin übernimmt immer, User bekommt Nur-Lese
     if(_canEdit()){
       acquireLock().then(function(){markCloud();}).catch(function(e){
@@ -2971,11 +3103,19 @@ function firebaseStart(){
     if(!doc.exists||doc.metadata.hasPendingWrites)return;
     var d=doc.data();if(!d||!d.tasks)return;
     _remoteUpdate=true;
+    // Scroll-Position sichern, damit Remote-Updates die User-Ansicht nicht resetten.
+    var rightEl=document.getElementById('right');
+    var savedScrollLeft = rightEl ? rightEl.scrollLeft : 0;
     tasks=d.tasks;nid=d.nid||tasks.length+2;
-    zi=d.zi||2;collapsed=d.collapsed||{};
-    document.getElementById('zoom-slider').value=zi+1;
-    document.getElementById('zoom-label').textContent=ZL[zi][1];
+    // zi/collapsed bleiben per-User (gantt-views/{uid}) — nicht aus gantt/state lesen.
+    applyHiddenOverlay();
     buildAll();
+    if(rightEl){
+      _suppressScrollSave = true;
+      rightEl.scrollLeft = savedScrollLeft;
+      _lastScrollLeftSeen = rightEl.scrollLeft;
+      setTimeout(function(){ _suppressScrollSave = false; }, 120);
+    }
     requestAnimationFrame(function(){requestAnimationFrame(function(){
       if(typeof autoFitLeftColumn==='function') autoFitLeftColumn();
     });});
