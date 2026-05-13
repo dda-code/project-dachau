@@ -285,7 +285,18 @@ body.readonly .gc{cursor:default !important}
 <script>
 // === CONSTANTS ===
 const PROJECT_START = new Date(2026,0,1);
-const PROJECT_END   = new Date(2028,11,31);
+const PROJECT_END_BASE = new Date(2028,11,31);
+let   PROJECT_END = new Date(PROJECT_END_BASE);  // dynamisch erweiterbar
+function updateProjectEnd(){
+  let latest = PROJECT_END_BASE;
+  for (const t of tasks){
+    if (!t.finish) continue;
+    const f = parseDate(t.finish);
+    if (f && f > latest) latest = f;
+  }
+  // Aufgerundet auf Jahresende fuer schoene Chart-Header
+  PROJECT_END = new Date(latest.getFullYear(), 11, 31);
+}
 const MONTHS_DE      = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 const MONTHS_DE_FULL = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const DAYS_DE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
@@ -450,9 +461,12 @@ function buildWBS(){
 function parsePredecessors(s){
   if (!s) return [];
   return s.split(/[,;]/).map(p=>p.trim()).filter(Boolean).map(p=>{
-    const m = p.match(/^(\d+)\s*(FS|SS|FF|SF)?\s*([+-]\d+)?\s*d?$/i);
+    // Whitespace zwischen Vorzeichen und Zahl erlaubt: "2 FS + 3 d", "5SS-1d", "7"
+    const m = p.match(/^(\d+)\s*(FS|SS|FF|SF)?\s*([+-])?\s*(\d+)?\s*d?$/i);
     if (!m) return null;
-    return {id:parseInt(m[1]), type:(m[2]||'FS').toUpperCase(), lag:parseInt(m[3]||'0')};
+    const sign = m[3] === '-' ? -1 : 1;
+    const lag = m[4] ? sign * parseInt(m[4]) : 0;
+    return {id:parseInt(m[1]), type:(m[2]||'FS').toUpperCase(), lag:lag};
   }).filter(Boolean);
 }
 function fmtPredecessors(arr){
@@ -468,8 +482,54 @@ function fmtPredecessors(arr){
 // Map id -> visible index (set after each render)
 function findTask(id){ return tasks.find(t => t.id === id); }
 
+// Check ob candidateId ein Vorfahre von taskId in der Outline-Hierarchie ist
+function isAncestor(taskId, candidateId){
+  const t = findTask(taskId);
+  if (!t) return false;
+  const idx = tasks.indexOf(t);
+  let curLvl = t.outlineLevel || 0;
+  for (let i = idx-1; i >= 0; i--){
+    const lvl = tasks[i].outlineLevel || 0;
+    if (lvl < curLvl){
+      if (tasks[i].id === candidateId) return true;
+      curLvl = lvl;
+      if (lvl === 0) break;
+    }
+  }
+  return false;
+}
+
+// Topologische Zyklusprüfung über Predecessor-Graph (DFS, drei Farben)
+function hasCycle(){
+  const WHITE=0, GRAY=1, BLACK=2;
+  const color = new Map();
+  for (const t of tasks) color.set(t.id, WHITE);
+  function dfs(id){
+    const c = color.get(id);
+    if (c === GRAY) return true;
+    if (c === BLACK) return false;
+    color.set(id, GRAY);
+    const t = findTask(id);
+    for (const p of (t?.predecessors||[])){
+      if (dfs(p.id)) return true;
+    }
+    color.set(id, BLACK);
+    return false;
+  }
+  for (const t of tasks){ if (dfs(t.id)) return true; }
+  return false;
+}
+
 // === SCHEDULE (forward) ===
 function scheduleTasks(){
+  if (hasCycle()){
+    if (!window.__cycleToastShown){
+      toast('⚠ Zyklische Abhaengigkeit erkannt — Planung uebersprungen');
+      window.__cycleToastShown = true;
+      setTimeout(() => { window.__cycleToastShown = false; }, 5000);
+    }
+    return;
+  }
   for (let iter = 0; iter < tasks.length + 5; iter++){
     let changed = false;
     for (const t of tasks){
@@ -601,6 +661,7 @@ function dateToX(s){
 function render(){
   buildWBS();
   scheduleTasks();
+  updateProjectEnd();   // PROJECT_END an spaeteste Aufgabe anpassen
   renderGrid();
   renderChartHeader();
   renderChartBody();
@@ -989,8 +1050,16 @@ function mkDepPath(x1, y1, x2, y2, type, crit){
 }
 
 function selectRow(id){
+  if (selectedRowId === id) return;
   selectedRowId = id;
-  render();
+  // KEIN render() — sonst zerstoert der erste Click das DOM und dblclick zum
+  // Editieren feuert nie. Stattdessen .selected per CSS-Klasse togglen.
+  document.querySelectorAll('#grid-body .grow.selected, #chart-inner .crow.selected')
+    .forEach(el => el.classList.remove('selected'));
+  const gr = document.querySelector('#grid-body .grow[data-task-id="'+id+'"]');
+  if (gr) gr.classList.add('selected');
+  const cr = document.querySelector('#chart-inner .crow[data-task-id="'+id+'"]');
+  if (cr) cr.classList.add('selected');
 }
 
 // === CELL EDITING ===
@@ -1077,26 +1146,44 @@ function applyEdit(task, field, val){
   }
   else if (field === 'start'){
     const d = parseDateDE(val);
-    if (d){
-      task.start = fmtDate(d);
-      task.finish = fmtDate(finishFromStart(d, task.duration||0));
+    if (!d){ toast('Ungueltiges Datumsformat (DD.MM.YY)'); return; }
+    // Wenn finish existiert und d > finish: blockieren
+    if (task.finish){
+      const fd = parseDate(task.finish);
+      if (d > fd){ toast('Start darf nicht nach Ende liegen'); return; }
     }
+    task.start = fmtDate(d);
+    task.finish = fmtDate(finishFromStart(d, task.duration||0));
   }
   else if (field === 'finish'){
     const d = parseDateDE(val);
-    if (d && task.start){
-      const sd = parseDate(task.start);
-      if (d >= sd){
-        task.duration = workDaysBetween(sd, d);
-        task.finish = fmtDate(d);
-      }
-    }
+    if (!d){ toast('Ungueltiges Datumsformat (DD.MM.YY)'); return; }
+    if (!task.start){ toast('Bitte zuerst Start setzen'); return; }
+    const sd = parseDate(task.start);
+    if (d < sd){ toast('Ende darf nicht vor Start liegen'); return; }
+    task.duration = workDaysBetween(sd, d);
+    task.finish = fmtDate(d);
   }
   else if (field === 'predecessors'){
-    task.predecessors = parsePredecessors(val);
+    const parsed = parsePredecessors(val);
+    // Selbst-Referenz oder Vorfahr-Referenz ausschliessen
+    const bad = parsed.find(p => p.id === task.id || isAncestor(task.id, p.id));
+    if (bad){
+      toast('Ungueltige Abhaengigkeit auf #'+bad.id+' (Selbstbezug oder Vorfahre)');
+      return;
+    }
+    // Pruefen, ob neue Predecessors einen Zyklus erzeugen wuerden
+    const oldPreds = task.predecessors;
+    task.predecessors = parsed;
+    if (hasCycle()){
+      task.predecessors = oldPreds;
+      toast('Abhaengigkeit erzeugt Zyklus — abgelehnt');
+      return;
+    }
   }
   else if (field === 'percent'){
-    let n = parseInt(String(val).replace(/[^0-9]/g,'')) || 0;
+    // Minus erhalten, damit "-50" zu negativem n wird und korrekt auf 0 geclamped wird
+    let n = parseInt(String(val).replace(/[^0-9-]/g,'')) || 0;
     if (n < 0) n = 0; if (n > 100) n = 100;
     task.percent = n;
   }
@@ -1244,13 +1331,29 @@ document.getElementById('file-input').addEventListener('change', (e) => {
   rd.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      if (!Array.isArray(data.tasks)) throw new Error('Ungültiges Format');
+      if (!Array.isArray(data.tasks)) throw new Error('Ungültiges Format: tasks fehlt oder ist kein Array');
+      // Schema pro Task validieren
+      const seen = new Set();
+      for (let i = 0; i < data.tasks.length; i++){
+        const t = data.tasks[i];
+        if (!t || typeof t !== 'object') throw new Error('Task #'+i+' ist kein Objekt');
+        if (typeof t.id !== 'number' || !Number.isFinite(t.id)) throw new Error('Task #'+i+' hat keine numerische id');
+        if (seen.has(t.id)) throw new Error('Doppelte id '+t.id);
+        seen.add(t.id);
+        if (typeof t.name !== 'string') throw new Error('Task #'+i+' (id='+t.id+') hat keinen name-String');
+        if (t.outlineLevel != null && (typeof t.outlineLevel !== 'number' || t.outlineLevel < 0)) throw new Error('Task '+t.id+' outlineLevel ungueltig');
+        if (t.predecessors != null && !Array.isArray(t.predecessors)) throw new Error('Task '+t.id+' predecessors muss Array sein');
+        if (t.duration != null && (typeof t.duration !== 'number' || t.duration < 0)) throw new Error('Task '+t.id+' duration ungueltig');
+        if (t.percent != null && (typeof t.percent !== 'number' || t.percent < 0 || t.percent > 100)) throw new Error('Task '+t.id+' percent ungueltig');
+        if (t.start && !/^\d{4}-\d{2}-\d{2}/.test(t.start)) throw new Error('Task '+t.id+' start nicht ISO');
+        if (t.finish && !/^\d{4}-\d{2}-\d{2}/.test(t.finish)) throw new Error('Task '+t.id+' finish nicht ISO');
+      }
       if (!confirm('Alle aktuellen Aufgaben durch '+data.tasks.length+' importierte ersetzen?')) return;
       tasks = data.tasks;
-      nextId = data.nextId || (Math.max(...tasks.map(t=>t.id))+1);
+      nextId = data.nextId || (Math.max(0, ...tasks.map(t=>t.id))+1);
       render();
       saveState();
-      toast('Import erfolgreich');
+      toast('Import erfolgreich ('+tasks.length+' Aufgaben)');
     } catch (err){
       alert('Import fehlgeschlagen: ' + err.message);
     }
@@ -1487,7 +1590,18 @@ function saveState() {
       }, {merge:true});
     } catch(e){
       console.error('Save failed:', e);
-      setStatus('#ef4444','⚠ Fehler');
+      if (e && e.code === 'permission-denied'){
+        setStatus('#ef4444','⚠ Keine Schreibrechte');
+        if (!window.__permToastShown){
+          toast('Schreibrecht-Konflikt — Firestore-Rules pruefen');
+          window.__permToastShown = true;
+          setTimeout(() => { window.__permToastShown = false; }, 5000);
+        }
+      } else if (e && e.code === 'unavailable'){
+        setStatus('#f59e0b','⚠ Offline — speichert spaeter');
+      } else {
+        setStatus('#ef4444','⚠ '+((e && e.code) || 'Fehler'));
+      }
     }
   }, 400);
 }
