@@ -1574,6 +1574,7 @@ function roleForEmail(email){
 firebase.auth().onAuthStateChanged(async (u) => {
   if (!u){
     currentUser = null; currentRole = 'viewer';
+    clearTimeout(_idleTimer); _idleTimer = null;
     document.getElementById('login-overlay').style.display = 'flex';
     if (_unsubState){ _unsubState(); _unsubState = null; }
     tasks = []; render();
@@ -1593,6 +1594,7 @@ firebase.auth().onAuthStateChanged(async (u) => {
   updateRoleUI();
   setStatus('#60a5fa','⟳ Lade Daten…');
   listenState();
+  _resetIdleTimer();
 });
 
 // === INIT ===
