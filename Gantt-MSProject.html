@@ -72,7 +72,10 @@ const DOC = db.collection('gantt-msp').doc('state');
 }
 body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;font-size:12px}
 
-#login-overlay{position:fixed;inset:0;background:rgba(26,29,46,.85);z-index:1000;display:flex;align-items:center;justify-content:center}
+#login-overlay{position:fixed;inset:0;background:#1a1d2e;z-index:1000;display:flex;align-items:center;justify-content:center}
+/* Solange nicht eingeloggt: Topbar + Gantt-Bereich gar nicht zeigen (Doppelter Schutz) */
+body:not(.logged-in) #topbar,
+body:not(.logged-in) #wrap { visibility:hidden }
 #login-box{background:var(--bg2);padding:32px;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:340px}
 #login-box h2{margin:0 0 16px;font-size:18px}
 #login-box p{margin:0 0 16px;color:var(--text2);font-size:13px}
@@ -286,7 +289,7 @@ const PROJECT_END   = new Date(2028,11,31);
 const MONTHS_DE      = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 const MONTHS_DE_FULL = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 const DAYS_DE = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-const EMAIL_DOMAIN = '@xolution.com';
+const EMAIL_DOMAIN = '@lager.local';   // Standard-Domain fuer Login-Eingaben ohne "@"
 
 // Zugriffs-Whitelist fuer Gantt-MSProject (muss zu firestore.rules /gantt-msp passen)
 // Keys = exakte Firebase-Auth-Email
@@ -1533,18 +1536,31 @@ function seedDemoTasks(){
 }
 
 // === AUTH ===
-// Account-IDs werden 1:1 als Firebase-Auth-Email verwendet (kein Domain-Anhang).
-function normalizeLogin(v){ return (v||'').trim().toLowerCase(); }
+// Akzeptiert Kurzform oder volle Email. Standard-Domain ist EMAIL_DOMAIN
+// (@lager.local). Abweichende Domains (z.B. @xolution.com fuer Dominik) werden
+// per Local-Part-Match abgefangen, damit auch dort die Kurzform reicht.
+function resolveLogin(input){
+  const raw = (input||'').trim().toLowerCase();
+  if (!raw) return null;
+  // 1) Eingabe enthaelt bereits "@" -> direkt gegen Whitelist pruefen
+  if (raw.includes('@')) return GANTT_MSP_USERS[raw] ? raw : null;
+  // 2) Kurzform: zuerst mit Standard-Domain (@lager.local) probieren
+  const std = raw + EMAIL_DOMAIN;
+  if (GANTT_MSP_USERS[std]) return std;
+  // 3) Fallback: per Local-Part in der Whitelist suchen
+  for (const full of Object.keys(GANTT_MSP_USERS)){
+    if (full.split('@')[0] === raw) return full;
+  }
+  return null;
+}
 function doLogin(){
-  const e = normalizeLogin(document.getElementById('li-email').value);
+  const raw = document.getElementById('li-email').value;
+  const e = resolveLogin(raw);
   const pw = document.getElementById('li-pw').value;
   const err = document.getElementById('login-err');
   err.textContent = '';
-  if (!e){ err.textContent = 'Bitte Benutzer eingeben'; return; }
-  if (!GANTT_MSP_USERS[e]){
-    err.textContent = 'Kein Zugriff für "' + e + '"';
-    return;
-  }
+  if (!raw.trim()){ err.textContent = 'Bitte Benutzer eingeben'; return; }
+  if (!e){ err.textContent = 'Kein Zugriff für "' + raw.trim() + '"'; return; }
   firebase.auth().signInWithEmailAndPassword(e, pw).catch(ex => {
     err.textContent = (ex.code === 'auth/wrong-password' || ex.code === 'auth/invalid-credential') ? 'Falsche Zugangsdaten' : (ex.message || 'Login fehlgeschlagen');
   });
@@ -1575,6 +1591,7 @@ firebase.auth().onAuthStateChanged(async (u) => {
   if (!u){
     currentUser = null; currentRole = 'viewer';
     clearTimeout(_idleTimer); _idleTimer = null;
+    document.body.classList.remove('logged-in');
     document.getElementById('login-overlay').style.display = 'flex';
     if (_unsubState){ _unsubState(); _unsubState = null; }
     tasks = []; render();
@@ -1590,6 +1607,7 @@ firebase.auth().onAuthStateChanged(async (u) => {
   }
   currentUser = u;
   currentRole = r;
+  document.body.classList.add('logged-in');
   document.getElementById('login-overlay').style.display = 'none';
   updateRoleUI();
   setStatus('#60a5fa','⟳ Lade Daten…');
