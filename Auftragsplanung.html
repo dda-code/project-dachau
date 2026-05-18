@@ -1488,7 +1488,10 @@ async function loadShiftPlansCache(){
 }
 function getShiftPlanForIso(iso){
     if(!iso) return null;
-    return shiftPlansCache.find(p=>p.fromIso && p.toIso && iso>=p.fromIso && iso<=p.toIso)||null;
+    return shiftPlansCache.find(p=>
+        p.fromIso && p.toIso && iso>=p.fromIso && iso<=p.toIso &&
+        _inferPlanTab(p)===currentTab
+    )||null;
 }
 function getPlanShiftForDow(plan, dow){
     const keys=['sun','mon','tue','wed','thu','fri','sat'];
@@ -4882,12 +4885,27 @@ async function deleteFrameOrder(){
 
 const SHIFT_PLAN_COL='shift_plans';
 let _editingShiftPlanId=null;
+// Tab-specific defaults for new shift plans (Assembly vs Injection Frame have different process KPIs)
+const SHIFT_KPI_DEFAULTS={
+    assembly:{cycle:'1,74',cav:'16',hrs:'8',daysm:'1',scrap:'5',oee:'54'},
+    frame:   {cycle:'7,8', cav:'64',hrs:'8',daysm:'1',scrap:'0,5',oee:'99'}
+};
+function _shiftKpiDefaults(){ return SHIFT_KPI_DEFAULTS[currentTab]||SHIFT_KPI_DEFAULTS.assembly; }
+// Legacy plans (saved before tab-scoping) have no `tab` field — infer from name so they keep working.
+function _inferPlanTab(plan){
+    if(plan && plan.tab) return plan.tab;
+    const name=String(plan?.name||'').toLowerCase();
+    if(/frame|spritzguss|injection|\bim\b/.test(name)) return 'frame';
+    return 'assembly';
+}
 async function openShiftPlanner(){
     if(!currentCanApprove){
         alert('Shift & KPI Planning is only accessible to Approvers. Per-order shifts can be set in the order modal.');
         return;
     }
     $('shiftPlanModal').classList.add('open');
+    const titleEl=document.querySelector('#shiftPlanModal .modal-head h2');
+    if(titleEl) titleEl.textContent='Shift Planning – '+(TAB_CONFIG[currentTab]?.title||currentTab);
     resetShiftForm();
     await loadShiftPlans();
     _applyShiftPlannerPermissions();
@@ -4931,7 +4949,8 @@ function resetShiftForm(){
     ['sp_from','sp_to','sp_name'].forEach(id=>{const e=$(id); if(e) e.value='';});
     ['sp_mon','sp_tue','sp_wed','sp_thu','sp_fri'].forEach(id=>{const e=$(id); if(e) e.value='3';});
     ['sp_sat','sp_sun'].forEach(id=>{const e=$(id); if(e) e.value='0';});
-    const defs={sp_cycle:'1,74',sp_cav:'16',sp_hrs:'8',sp_daysm:'1',sp_scrap:'5',sp_oee:'54'};
+    const d=_shiftKpiDefaults();
+    const defs={sp_cycle:d.cycle,sp_cav:d.cav,sp_hrs:d.hrs,sp_daysm:d.daysm,sp_scrap:d.scrap,sp_oee:d.oee};
     Object.entries(defs).forEach(([id,v])=>{const e=$(id); if(e) e.value=v;});
     _editingShiftPlanId=null;
     _spSetMode(false);
@@ -4948,8 +4967,9 @@ function editShiftPlan(row){
     setN('sp_mon',s.mon); setN('sp_tue',s.tue); setN('sp_wed',s.wed); setN('sp_thu',s.thu);
     setN('sp_fri',s.fri); setN('sp_sat',s.sat); setN('sp_sun',s.sun);
     const setT=(id,v,def)=>{const e=$(id); if(e) e.value=(v==null||v==='')?def:String(v);};
-    setT('sp_cycle',k.Cycle,'1,74'); setT('sp_cav',k.Cav,'16'); setT('sp_hrs',k.hrs,'8');
-    setT('sp_daysm',k['days/m'],'1'); setT('sp_scrap',k.scrap,'5'); setT('sp_oee',k.OEE,'54');
+    const dft=SHIFT_KPI_DEFAULTS[_inferPlanTab(row)]||SHIFT_KPI_DEFAULTS.assembly;
+    setT('sp_cycle',k.Cycle,dft.cycle); setT('sp_cav',k.Cav,dft.cav); setT('sp_hrs',k.hrs,dft.hrs);
+    setT('sp_daysm',k['days/m'],dft.daysm); setT('sp_scrap',k.scrap,dft.scrap); setT('sp_oee',k.OEE,dft.oee);
     _spSetMode(true);
     $('shiftPlanModal')?.querySelector('.modal-body')?.scrollTo({top:0,behavior:'smooth'});
 }
@@ -4988,6 +5008,7 @@ async function saveShiftPlan(){
                 name:name||'(ohne Name)',
                 fromIso:from, toIso:to,
                 shifts, kpi,
+                tab:currentTab,
                 updatedAt:ts, updatedBy:currentUid
             });
             showMsg('Shift plan updated.','success');
@@ -4996,6 +5017,7 @@ async function saveShiftPlan(){
                 name:name||'(ohne Name)',
                 fromIso:from, toIso:to,
                 shifts, kpi,
+                tab:currentTab,
                 createdAt:ts, createdBy:currentUid,
                 updatedAt:ts, updatedBy:currentUid
             });
@@ -5017,9 +5039,12 @@ async function loadShiftPlans(){
     try{
         const snap=await db.collection(SHIFT_PLAN_COL).orderBy('fromIso','asc').get();
         const rows=[];
-        snap.forEach(doc=>{ rows.push({id:doc.id, ...doc.data()}); });
+        snap.forEach(doc=>{
+            const data={id:doc.id, ...doc.data()};
+            if(_inferPlanTab(data)===currentTab) rows.push(data);
+        });
         if(!rows.length){
-            tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">No shift plans created yet.</td></tr>';
+            tbody.innerHTML='<tr><td colspan="5" class="shift-plans-empty">No shift plans created yet for '+escHtml(TAB_CONFIG[currentTab]?.title||currentTab)+'.</td></tr>';
             return;
         }
         const fmtRange=(a,b)=>{
