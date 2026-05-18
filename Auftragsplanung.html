@@ -1034,7 +1034,7 @@ const SCHEMA_FRAME=[
  {group:'KPI', sub:'Act', fields:['Output/d Pcs.','Output/d PAL'], rowClass:'row-act'},
  {group:'KPI', sub:'Plan/Act', fields:['GAP/d Pcs.','GAP/d PAL'], rowClass:'row-gap'},
  {group:'Cap', sub:'', fields:['Cap Plan/m','Cap Fcst Act/m'], rowClass:''},
- {group:'Production Plan', sub:'', fields:['IO #','Art #','Frames/PAL','PAL','Total QTY','Comment'], rowClass:'row-prod'}
+ {group:'Production Plan', sub:'', fields:['IO #','Art #','Frames/PAL','Qty','PAL','Total QTY','Comment'], rowClass:'row-prod'}
 ];
 function getSchema(){ return currentTab==='frame' ? SCHEMA_FRAME : SCHEMA_ASSEMBLY; }
 const SCHEMA=SCHEMA_ASSEMBLY;
@@ -1499,7 +1499,8 @@ function getPlanShiftForDow(plan, dow){
 }
 function computeOutputDayFromKpi(kpi, shifts){
     const parseN=s=>{ const n=parseFloat(String(s||'').replace(',','.')); return isNaN(n)?NaN:n; };
-    const parsePctL=s=>{ const v=String(s||'').replace(',','.').replace('%','').trim(); const n=parseFloat(v); if(isNaN(n)) return NaN; return n>1?n/100:n; };
+    // KPI fields are always entered as percentage numbers (label "(%)"), e.g. 5 = 5%, 0,5 = 0.5%, 99 = 99%.
+    const parsePctL=s=>{ const v=String(s||'').replace(',','.').replace('%','').trim(); const n=parseFloat(v); if(isNaN(n)) return NaN; return n/100; };
     const cycle=parseN(kpi.Cycle), cav=parseN(kpi.Cav), hrs=parseN(kpi.hrs), daysM=parseN(kpi['days/m']);
     const scrap=parsePctL(kpi.scrap), oee=parsePctL(kpi.OEE);
     if(isNaN(cycle)||cycle<=0||isNaN(cav)||isNaN(hrs)||isNaN(daysM)||isNaN(scrap)||scrap>=1||isNaN(oee)||!(shifts>0)) return 0;
@@ -1596,14 +1597,16 @@ function renderGrid(){
     const iw2=getIsoWeek(d8);
     $('weekLabel').textContent='KW '+iw1.week+' + '+iw2.week+' / '+iw1.year;
     const todayIso=toIsoDate(new Date());
-    // SO → Farb-Index (0 oder 1) abwechselnd nach chronologischer Reihenfolge in der aktuellen Ansicht
+    // Order-ID field is tab-specific: SO # in Assembly, IO # in Injection Frame
+    const orderIdField=(currentTab==='frame'?'IO #':'SO #');
+    // OrderId → Farb-Index (0 oder 1) abwechselnd nach chronologischer Reihenfolge in der aktuellen Ansicht
     const soColor={};
-    // SO → {firstIso, lastIso, totalQty} across the visible 14 days
+    // OrderId → {firstIso, lastIso, totalQty} across the visible 14 days
     const soSpans={};
-    // SO → {ts} if transferred to production plan (earliest uebernommenAm across day docs)
+    // OrderId → {ts} if transferred to production plan (earliest uebernommenAm across day docs)
     const soTransferred={};
     {
-        const soKey=fieldKey('Production Plan','','SO #');
+        const soKey=fieldKey('Production Plan','',orderIdField);
         const qtyKey=fieldKey('Production Plan','','Qty');
         let nextIdx=0;
         dates.forEach(d=>{
@@ -1667,8 +1670,8 @@ function renderGrid(){
     getSchema().forEach(block=>{
         if(block.group!==lastGroup){
             if(block.group==='Production Plan'){
-                // Section header row: title on the left, badge only in the FIRST column of each transferred SO# (across the visible 14 days)
-                const soKeyL=fieldKey('Production Plan','','SO #');
+                // Section header row: title on the left, badge only in the FIRST column of each transferred order (across the visible 14 days)
+                const soKeyL=fieldKey('Production Plan','',orderIdField);
                 html+=`<tr class="section-header"><td colspan="3">${escHtml(block.group)}</td>`;
                 dates.forEach(d=>{
                     const iso=toIsoDate(d);
@@ -1712,7 +1715,9 @@ function renderGrid(){
                 const isAutofill=(currentTab==='assembly' && block.group==='Production Plan' && ['Shell','Frame','IS','OS','Sleeve','TP','Laser Code'].includes(field));
                 const isPickup=(block.group==='Production Plan' && field==='Pick-Up (Deadline)');
                 const isQty=(block.group==='Production Plan' && field==='Qty');
-                const isPal=(currentTab==='assembly' && block.group==='Production Plan' && field==='PAL');
+                const isPal=(block.group==='Production Plan' && field==='PAL');
+                const isPalAssembly=(isPal && currentTab==='assembly');
+                const isPalFrame=(isPal && currentTab==='frame');
                 const isOutDay=(block.group==='KPI' && block.sub==='Plan' && field==='Output/d');
                 const listAttr=isArtNr?' list="artListAssembly"':'';
                 const extras=[];
@@ -1846,7 +1851,7 @@ function renderGrid(){
                     }
                 }
                 // PAL is always computed dynamically from Qty + Art# (overwrites any stale stored values)
-                if(isPal && weekData[iso] && weekData[iso].fields){
+                if(isPalAssembly && weekData[iso] && weekData[iso].fields){
                     const qRaw=weekData[iso].fields[fieldKey('Production Plan','','Qty')]||'';
                     const qNum=parseInt(String(qRaw).replace(/[^\d]/g,''),10);
                     const artVal=weekData[iso].fields[fieldKey('Production Plan','','Art #')]||'';
@@ -1859,10 +1864,24 @@ function renderGrid(){
                         displayVal='';
                     }
                 }
-                // Total QTY: erste SO-Zelle = Summe, Folgezellen = "→"
+                // Frame PAL: dynamisch aus Qty / Frames-per-PAL (analog Assembly aber mit Frame-Divisor)
+                if(isPalFrame && weekData[iso] && weekData[iso].fields){
+                    const qRaw=weekData[iso].fields[fieldKey('Production Plan','','Qty')]||'';
+                    const qNum=parseInt(String(qRaw).replace(/[^\d]/g,''),10);
+                    const artVal=weekData[iso].fields[fieldKey('Production Plan','','Art #')]||'';
+                    const fpp=_frameFramesPerPalForArt(artVal);
+                    if(qNum>0 && fpp>0){
+                        const palCalc=qNum/fpp;
+                        if(Number.isInteger(palCalc)) displayVal=String(palCalc);
+                        else displayVal=(Math.round(palCalc*10)/10).toString().replace('.', ',');
+                    } else {
+                        displayVal='';
+                    }
+                }
+                // Total QTY: erste Order-Zelle = Summe, Folgezellen = "→"
                 const isTotalQty=(block.group==='Production Plan' && field==='Total QTY');
                 if(isTotalQty){
-                    const soForIso=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','','SO #')])||'';
+                    const soForIso=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','',orderIdField)])||'';
                     if(soForIso && soSpans[soForIso]){
                         const sp=soSpans[soForIso];
                         if(iso===sp.firstIso){
@@ -1876,9 +1895,9 @@ function renderGrid(){
                         displayVal='';
                     }
                 }
-                // Pick-Up (Deadline): erste SO-Zelle = Datum (DD.MM.YYYY), Folgezellen = "→", immer rot
+                // Pick-Up (Deadline): erste Order-Zelle = Datum (DD.MM.YYYY), Folgezellen = "→", immer rot
                 if(isPickup){
-                    const soForIso=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','','SO #')])||'';
+                    const soForIso=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','',orderIdField)])||'';
                     const _fmtPu=(s)=>{const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}.${m[2]}.${m[1]}`:(s||'');};
                     if(soForIso && soSpans[soForIso]){
                         const sp=soSpans[soForIso];
@@ -1895,13 +1914,14 @@ function renderGrid(){
                     }
                     extraCellStyle+=';color:#dc2626;font-weight:700';
                 }
-                const dayHasSo=!!(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','','SO #')]);
+                const dayHasSo=!!(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','',orderIdField)]);
                 const pendingMeta=(weekData[iso]&&weekData[iso]._pending)||null;
                 const pendCls=pendingMeta?' cell-pending':'';
                 const pendTitle=pendingMeta?` title="Approval pending — requested by ${escHtml(pendingMeta.requestedByEmail||'?')}${pendingMeta.isUpdated?' · 🔄 updated (v'+(pendingMeta.updateCount||1)+')':''}"`:'';
                 const pendAttr=pendingMeta?` data-pending-id="${escHtml(pendingMeta.pendingId)}"`:'';
                 const isProdPlan=(block.group==='Production Plan');
                 const isAssemblyTab=(currentTab==='assembly');
+                const isFrameTab=(currentTab==='frame');
                 if(isAssemblyTab){
                     const isSoField=(isProdPlan && field==='SO #');
                     const soVal=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','','SO #')])||'';
@@ -1911,6 +1931,17 @@ function renderGrid(){
                     const attrs=clickable?` data-so="${escHtml(soVal)}" data-iso="${iso}"`:'';
                     const styleAttr=extraCellStyle?` style="${extraCellStyle.replace(/^;/,'')}"`:'';
                     const badge=(isSoField && pendingMeta)?(pendingMeta.isUpdated?'<span class="pending-badge" style="background:#7c3aed" title="Updated v'+(pendingMeta.updateCount||1)+'">🔄 v'+(pendingMeta.updateCount||1)+'</span>':'<span class="pending-badge" title="Approval pending">⏳ Approval</span>'):'';
+                    html+=`<td class="${dispCls}"${attrs}${pendAttr}${pendTitle}${styleAttr}>${escHtml(displayVal)}${badge}</td>`;
+                } else if(isFrameTab && isProdPlan){
+                    // Frame: IO # is the clickable order anchor. All other Production-Plan fields are read-only display when this day belongs to an order.
+                    const isIoField=(field==='IO #');
+                    const ioVal=(weekData[iso]&&weekData[iso].fields&&weekData[iso].fields[fieldKey('Production Plan','','IO #')])||'';
+                    const clickable=isIoField && ioVal;
+                    const colorCls=(clickable && !pendingMeta && ioVal in soColor)?(' so-color-'+soColor[ioVal]):'';
+                    const dispCls='cell-day cell-display'+(clickable?' so-cell':'')+colorCls+(isWe?' weekend':'')+(isHolidayDay?' holiday':'')+pendCls;
+                    const attrs=clickable?` data-so="${escHtml(ioVal)}" data-iso="${iso}"`:'';
+                    const styleAttr=extraCellStyle?` style="${extraCellStyle.replace(/^;/,'')}"`:'';
+                    const badge=(isIoField && pendingMeta)?(pendingMeta.isUpdated?'<span class="pending-badge" style="background:#7c3aed" title="Updated v'+(pendingMeta.updateCount||1)+'">🔄 v'+(pendingMeta.updateCount||1)+'</span>':'<span class="pending-badge" title="Approval pending">⏳ Approval</span>'):'';
                     html+=`<td class="${dispCls}"${attrs}${pendAttr}${pendTitle}${styleAttr}>${escHtml(displayVal)}${badge}</td>`;
                 } else if(dayHasSo && isProdPlan){
                     const isSoField=(field==='SO #');
@@ -1962,7 +1993,8 @@ function renderGrid(){
                 }
                 return;
             }
-            editOrder(td.dataset.so, td.dataset.iso);
+            if(currentTab==='frame') editFrameOrder(td.dataset.so, td.dataset.iso);
+            else editOrder(td.dataset.so, td.dataset.iso);
         });
     });
     $('gridArea').querySelectorAll('[data-date]').forEach(inp=>{
@@ -4559,6 +4591,7 @@ function _wireFrameOrderInputs(){
 
 // Roll out a frame production plan day-by-day starting from startIso.
 // Uses the active shift plan's per-weekday shifts and KPI plan to compute daily output.
+// On empty result, `diag` carries a human-readable reason (no plan / no shifts / output=0).
 function _frameComputeProductionPlan(startIso, totalQty){
     if(!startIso || totalQty<=0) return null;
     const seq=[];
@@ -4566,25 +4599,32 @@ function _frameComputeProductionPlan(startIso, totalQty){
     if(isNaN(d.getTime())) return null;
     let remaining=totalQty;
     let safety=0;
+    const diag={noPlanDays:0, zeroShiftDays:0, zeroOutputDays:0, samplePlanName:'', sampleKpi:null};
     while(remaining>0 && safety<400){
         const iso=toIsoDate(d);
         if(isWorkDay(d)){
             const sp=getShiftPlanForIso(iso);
-            let shifts=sp?getPlanShiftForDow(sp,d.getDay()):0;
-            if(isHoliday(iso)) shifts=0;
-            if(shifts>0 && sp){
-                const dailyOutput=computeOutputDayFromKpi(sp.kpi||{},shifts);
-                if(dailyOutput>0){
-                    const dayQty=Math.min(dailyOutput,remaining);
-                    seq.push({iso, date:new Date(d), shifts, capacity:dailyOutput, qty:dayQty});
-                    remaining-=dayQty;
+            if(!sp){ diag.noPlanDays++; }
+            else {
+                if(!diag.samplePlanName){ diag.samplePlanName=sp.name||'(unnamed)'; diag.sampleKpi=sp.kpi||null; }
+                let shifts=getPlanShiftForDow(sp,d.getDay());
+                if(isHoliday(iso)) shifts=0;
+                if(shifts<=0){ diag.zeroShiftDays++; }
+                else {
+                    const dailyOutput=computeOutputDayFromKpi(sp.kpi||{},shifts);
+                    if(dailyOutput<=0){ diag.zeroOutputDays++; }
+                    else {
+                        const dayQty=Math.min(dailyOutput,remaining);
+                        seq.push({iso, date:new Date(d), shifts, capacity:dailyOutput, qty:dayQty});
+                        remaining-=dayQty;
+                    }
                 }
             }
         }
         d.setDate(d.getDate()+1);
         safety++;
     }
-    return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining};
+    return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining, diag};
 }
 
 function _frameRenderPreview(plan){
@@ -4628,10 +4668,24 @@ function _frameRenderPreview(plan){
             const remTxt=plan.remaining>0?` · ${formatThousands(String(plan.remaining))} pcs. unscheduled (extend horizon)`:'';
             summary.textContent=`${plan.days} workday(s) · End: ${plan.endIso || '—'}${remTxt}`;
         } else {
-            summary.textContent='No working capacity in 4-week horizon — check shift plan or holidays.';
+            // Pinpoint the reason so the user knows what to fix
+            const dg=plan&&plan.diag;
+            let detail='No working capacity in 4-week horizon';
+            if(dg){
+                if(dg.noPlanDays>0 && dg.zeroShiftDays===0 && dg.zeroOutputDays===0){
+                    detail=`No shift plan covers the start date (${start}) for this tab — open “Shift & KPI Planning” and create one.`;
+                } else if(dg.zeroOutputDays>0){
+                    const k=dg.sampleKpi||{};
+                    detail=`Shift plan “${dg.samplePlanName}” found, but daily output is 0 — KPI values invalid? Cycle=${k.Cycle||'?'} Cav=${k.Cav||'?'} hrs=${k.hrs||'?'} days/m=${k['days/m']||'?'} scrap=${k.scrap||'?'} OEE=${k.OEE||'?'}.`;
+                } else if(dg.zeroShiftDays>0 && seqIsEmpty(plan)){
+                    detail=`Shift plan “${dg.samplePlanName}” found, but it has 0 shifts on every workday in the horizon — set shifts in “Shift & KPI Planning”.`;
+                }
+            }
+            summary.textContent=detail;
         }
     }
 }
+function seqIsEmpty(plan){ return !plan||!plan.seq||plan.seq.length===0; }
 
 function recalcFrame(){
     const art=$('fo_art')?.value.trim()||'';
@@ -4650,7 +4704,7 @@ function recalcFrame(){
     _frameRenderPreview(plan);
 }
 
-function openFrameOrderModal(){
+async function openFrameOrderModal(){
     if(!articleMapFrame||Object.keys(articleMapFrame).length===0) loadFrameArticles();
     else _renderFrameArticleSelect();
     ['fo_so','fo_pal','fo_comment','fo_framesPerPal','fo_totalQty','fo_days','fo_end','fo_start'].forEach(id=>{ const e=$(id); if(e) e.value=''; });
@@ -4662,7 +4716,53 @@ function openFrameOrderModal(){
     $('frameOrderModal').classList.add('open');
     _wireFrameOrderInputs();
     _applyFrameOrderModalButtons();
+    // Ensure shift plans are current — preview/capacity calc relies on the cache.
+    try{ await loadShiftPlansCache(); }catch(e){ console.warn('Shift cache reload (frame modal):',e); }
     recalcFrame();
+}
+// Open an existing frame order for re-editing. Mirrors editOrder() in Assembly: collect all day-docs sharing this IO #,
+// reconstruct the payload from the stored framePayload (preferred) or from the grid fields, and populate the modal.
+async function editFrameOrder(ioNr, iso){
+    if(!ioNr) return;
+    // Collect all day-docs in the current 14-day view that belong to this order
+    const hits=[];
+    Object.entries(weekData).forEach(([k,rec])=>{
+        if(rec.fields && rec.fields[fieldKey('Production Plan','','IO #')]===ioNr) hits.push({iso:k, doc:rec});
+    });
+    hits.sort((a,b)=>a.iso.localeCompare(b.iso));
+    // Prefer a stored framePayload (carries authoritative anzahlPaletten/startDate/etc.)
+    let payload=null, sourceDocId=null;
+    for(const h of hits){ if(h.doc.framePayload){ payload=h.doc.framePayload; sourceDocId=h.doc._id; break; } }
+    // Fallback: try Firestore directly in case the original startDate is outside the visible window
+    if(!payload){
+        try{
+            const snap=await db.collection(TAB_CONFIG.frame.salesCol).where('ioNr','==',ioNr).limit(1).get();
+            snap.forEach(d=>{ const data=d.data(); if(!payload && data.framePayload){ payload=data.framePayload; sourceDocId=d.id; } });
+        }catch(e){ console.warn('editFrameOrder fallback query:',e); }
+    }
+    // Last-resort fallback: reconstruct from grid fields (loses Comment if not on the visible day)
+    if(!payload && hits.length){
+        const f=hits[0].doc.fields||{};
+        const ioFull=f[fieldKey('Production Plan','','IO #')]||ioNr;
+        payload={
+            tab:'frame',
+            ioNr:ioFull,
+            artikelNr:f[fieldKey('Production Plan','','Art #')]||'',
+            startDate:hits[0].iso,
+            anzahlPaletten:parseInt(String(f[fieldKey('Production Plan','','PAL')]||'').replace(/[^\d]/g,''),10)||0,
+            framesProPalette:parseInt(String(f[fieldKey('Production Plan','','Frames/PAL')]||'').replace(/[^\d]/g,''),10)||0,
+            mengeGesamt:parseInt(String(f[fieldKey('Production Plan','','Total QTY')]||'').replace(/[^\d]/g,''),10)||0,
+            comment:f[fieldKey('Production Plan','','Comment')]||''
+        };
+    }
+    openFrameOrderModal();
+    if(payload){
+        applyFramePayload(payload);
+        // Re-populate anzahlPaletten from payload (applyFramePayload already does it but be defensive on edge cases)
+        if($('fo_pal') && payload.anzahlPaletten) $('fo_pal').value=String(payload.anzahlPaletten);
+    }
+    _frameEditingDocId=sourceDocId||(ioNr.replace(/[^A-Za-z0-9_-]/g,'_'));
+    _applyFrameOrderModalButtons();
 }
 function closeFrameOrderModal(){
     $('frameOrderModal').classList.remove('open');
@@ -4676,7 +4776,8 @@ function _applyFrameOrderModalButtons(){
     set('fo_requestBtn', !currentCanApprove && !reviewing && !ownerEdit && !editingApproved);
     set('fo_updateBtn', ownerEdit);
     set('fo_approveBtn', currentCanApprove && reviewing);
-    set('fo_directBtn', currentCanApprove && !reviewing && !ownerEdit && !editingApproved);
+    // Approver: 'Direct Approve' acts as Save both for new orders and when re-editing an existing approved order.
+    set('fo_directBtn', currentCanApprove && !reviewing && !ownerEdit);
     set('fo_rejectBtn', currentCanApprove && reviewing);
     set('fo_withdrawBtn', ownerEdit);
     set('fo_delete', currentCanApprove && editingApproved);
@@ -4796,24 +4897,52 @@ async function saveFrameOrder(mode){
     try{
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         const salesCol=TAB_CONFIG.frame.salesCol;
-        const docId=payload.ioNr.replace(/[^A-Za-z0-9_-]/g,'_');
-        if(!docId){ alert('Invalid IO # for doc id.'); return; }
-        // Use the start date for week-grid placement (so the order shows up on the planned production day)
-        const isoKey=payload.startDate;
+        const baseDocId=payload.ioNr.replace(/[^A-Za-z0-9_-]/g,'_');
+        if(!baseDocId){ alert('Invalid IO # for doc id.'); return; }
+        // Spread the order across workdays based on the active shift plan's daily capacity (Assembly-style).
+        const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt);
+        if(!plan || !plan.seq || plan.seq.length===0){
+            alert('No workdays/capacity found in the 4-week horizon. Check shift plan / start date / article.');
+            return;
+        }
+        // Delete any pre-existing day-docs for this IO # (covers renamed IO, changed start, changed PAL, and legacy single-doc form).
+        try{
+            const oldSnap=await db.collection(salesCol).where('ioNr','==',payload.ioNr).get();
+            const batch=db.batch();
+            oldSnap.forEach(d=>batch.delete(d.ref));
+            // Legacy single-doc form (docId == sanitized IO #, no ioNr field)
+            try{ const legacy=await db.collection(salesCol).doc(baseDocId).get(); if(legacy.exists && !legacy.data().ioNr) batch.delete(legacy.ref); }catch(_){}
+            await batch.commit();
+        }catch(e){ console.warn('Cleanup of old frame day-docs failed (continuing):',e); }
+        // Write one doc per workday with the per-day Qty + shared order metadata.
         const FK=(g,s,f)=>fieldKey(g,s,f);
-        const fields={};
-        fields[FK('Production Plan','','IO #')]=payload.ioNr;
-        fields[FK('Production Plan','','Art #')]=payload.artikelNr;
-        fields[FK('Production Plan','','Frames/PAL')]=String(payload.framesProPalette);
-        fields[FK('Production Plan','','PAL')]=String(payload.anzahlPaletten);
-        fields[FK('Production Plan','','Total QTY')]=String(payload.mengeGesamt);
-        fields[FK('Production Plan','','Comment')]=payload.comment||'';
-        const docData={
-            datum:isoKey, fields, framePayload:payload,
-            approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:ts,
-            approvedPrice:payload.approvedPrice||null
-        };
-        await db.collection(salesCol).doc(docId).set(docData,{merge:true});
+        const writeBatch=db.batch();
+        plan.seq.forEach(d=>{
+            const fields={};
+            fields[FK('Production Plan','','IO #')]=payload.ioNr;
+            fields[FK('Production Plan','','Art #')]=payload.artikelNr;
+            fields[FK('Production Plan','','Frames/PAL')]=String(payload.framesProPalette);
+            fields[FK('Production Plan','','Qty')]=String(d.qty);
+            // PAL und Total QTY werden im Grid dynamisch berechnet (PAL=Qty/FramesPerPal, Total QTY=Summe).
+            // Wir schreiben sie trotzdem mit fuer Konsumenten ausserhalb des Grids (Prod-Plan-Transfer).
+            const palCalc=(payload.framesProPalette>0)?(d.qty/payload.framesProPalette):0;
+            fields[FK('Production Plan','','PAL')]=Number.isInteger(palCalc)?String(palCalc):(Math.round(palCalc*10)/10).toString().replace('.', ',');
+            fields[FK('Production Plan','','Total QTY')]=String(payload.mengeGesamt);
+            fields[FK('Production Plan','','Comment')]=payload.comment||'';
+            const dayDocId=baseDocId+'_'+d.iso;
+            const docData={
+                datum:d.iso,
+                ioNr:payload.ioNr,
+                fields,
+                framePayload:payload,
+                dayQty:d.qty, dayShifts:d.shifts, dayCapacity:d.capacity,
+                approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:ts,
+                approvedPrice:payload.approvedPrice||null
+            };
+            writeBatch.set(db.collection(salesCol).doc(dayDocId), docData, {merge:true});
+        });
+        await writeBatch.commit();
+        const docId=baseDocId; // used by transfer/protocol below for stable per-order identity
 
         if(mode==='approve' && _frameReviewingPendingId){
             const pendingId=_frameReviewingPendingId;
@@ -4875,8 +5004,24 @@ async function deleteFrameOrder(){
     if(!_frameEditingDocId) return;
     if(!confirm('Really delete this frame order?')) return;
     try{
-        await db.collection(TAB_CONFIG.frame.salesCol).doc(_frameEditingDocId).delete();
-        try{ await db.collection('v2_'+TAB_CONFIG.frame.prodCol).doc(_frameEditingDocId).delete(); }catch(_){}
+        const salesCol=TAB_CONFIG.frame.salesCol;
+        // Derive the IO # from the modal so we delete ALL day-docs (per-day pattern), not just the source doc the modal was opened from.
+        const ioPrefix=($('fo_ioPrefix')?.textContent||'').trim();
+        const ioSuffix=($('fo_so')?.value||'').trim();
+        const ioNr=ioSuffix?(ioPrefix+ioSuffix):'';
+        const baseDocId=ioNr?ioNr.replace(/[^A-Za-z0-9_-]/g,'_'):_frameEditingDocId;
+        // Per-day docs carry ioNr — query and batch-delete.
+        if(ioNr){
+            try{
+                const snap=await db.collection(salesCol).where('ioNr','==',ioNr).get();
+                const batch=db.batch();
+                snap.forEach(d=>batch.delete(d.ref));
+                await batch.commit();
+            }catch(e){ console.warn('Per-day delete failed:',e); }
+        }
+        // Legacy single-doc form (and any doc keyed by sanitized IO # without ioNr field)
+        try{ await db.collection(salesCol).doc(baseDocId).delete(); }catch(_){}
+        try{ await db.collection('v2_'+TAB_CONFIG.frame.prodCol).doc(baseDocId).delete(); }catch(_){}
         showMsg('Frame order deleted.','success');
         closeFrameOrderModal();
         await loadWeek();
