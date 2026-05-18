@@ -4821,25 +4821,65 @@ function applyFramePayload(p){
     recalcFrame();
 }
 
+// Auto-transfer Frame order into Lagerverwaltung_V2's "Produktionsplan Spritzguss" (collection v2_produktionsplan_spritzguss).
+// Field naming MUST match what Lagerverwaltung_V2 reads (German keys: 'Sales Order XO', 'Artikelnummer', 'Frames pro Palette', 'Anzahl Paletten',
+// 'Menge Auftrag Gesamt', 'Menge Auftrag offen', 'Status Produktion', ...) — otherwise rows render empty.
 async function _frameAutoTransferToProduktionsplan(payload,docId){
     const ts=firebase.firestore.FieldValue.serverTimestamp();
     const colName='v2_'+TAB_CONFIG.frame.prodCol; // v2_produktionsplan_spritzguss
     const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt);
+    // Look up an existing entry by Sales Order XO so re-transfer overwrites in place (Assembly pattern).
+    let existingDocId=null;
+    try{
+        const snap=await db.collection(colName).where('Sales Order XO','==',payload.ioNr).limit(1).get();
+        snap.forEach(d=>{ if(!existingDocId) existingDocId=d.id; });
+    }catch(e){ console.warn('Lookup existing v2 prod-sg doc:',e); }
+    // Legacy form (camelCase, doc id = sanitized IO#) — overwrite that same doc id so it's not orphaned.
+    const targetDocId=existingDocId||docId;
     const data={
-        ioNr:payload.ioNr,
-        artikelNr:payload.artikelNr,
-        framesProPalette:payload.framesProPalette,
-        anzahlPaletten:payload.anzahlPaletten,
-        mengeGesamt:payload.mengeGesamt,
-        mengeOffen:payload.mengeGesamt,
-        startDate:payload.startDate||'',
-        endDate:(plan&&plan.endIso)||'',
-        plannedWorkdays:(plan&&plan.days)||0,
-        comment:payload.comment||'',
-        transferredAt:ts,
-        approvedByEmail:currentUserEmail
+        // Order identity
+        'Sales Order XO':                  payload.ioNr,
+        'Sales Order - PALETTENLABEL':     payload.ioNr,
+        'Artikelnummer':                   payload.artikelNr||'',
+        'Frames pro Palette':              payload.framesProPalette||0,
+        'Anzahl Paletten':                 payload.anzahlPaletten||0,
+        'Menge Auftrag Gesamt':            payload.mengeGesamt||0,
+        'Menge Auftrag offen':             payload.mengeGesamt||0,
+        'Status Produktion':               'open',
+        'Paletten Nummer START Auftrag':   '',
+        'Paletten Nummer ENDE Auftrag':    '',
+        'letzte gefertigte Palettennummer':'',
+        'Kommentar':                       payload.comment||'',
+        // Provenance / re-transfer metadata (mirrors Assembly's _buildProdDocFromOrder)
+        source:           'sales_plan_frame',
+        sourceSoNr:       payload.ioNr,
+        sourceIoNr:       payload.ioNr,
+        sourceStartIso:   payload.startDate||'',
+        sourceEndIso:     (plan&&plan.endIso)||'',
+        sourceDaysCount:  (plan&&plan.days)||0,
+        transferredAt:    ts,
+        transferredBy:    currentUid||'',
+        _pendingReview:   true,
+        _isUpdate:        !!existingDocId,
+        _created:         Date.now()
     };
-    await db.collection(colName).doc(docId).set(data,{merge:true});
+    await db.collection(colName).doc(targetDocId).set(data,{merge:true});
+    // Per-day "übernommen"-Flag in sales_plan_frame: gleicher Mechanismus wie Assembly,
+    // damit das Transfer-Badge in der section-header-Zeile im Grid erscheint.
+    if(plan && plan.seq && plan.seq.length){
+        const salesCol=TAB_CONFIG.frame.salesCol;
+        const baseDocId=payload.ioNr.replace(/[^A-Za-z0-9_-]/g,'_');
+        let b=db.batch(), ops=0;
+        for(const d of plan.seq){
+            const dayDocId=baseDocId+'_'+d.iso;
+            b.set(db.collection(salesCol).doc(dayDocId),
+                { uebernommen:true, uebernommenAm:ts, uebernommenVon:currentUid, uebernommenAlsProd:targetDocId },
+                {merge:true});
+            if(++ops>=400){ await b.commit(); b=db.batch(); ops=0; }
+        }
+        if(ops>0) await b.commit();
+    }
+    return existingDocId ? 'updated in production plan (Spritzguss)' : 'transferred to production plan (Spritzguss)';
 }
 
 async function saveFrameOrder(mode){
@@ -4954,7 +4994,10 @@ async function saveFrameOrder(mode){
         }
 
         let transferMsg='';
-        try{ await _frameAutoTransferToProduktionsplan(payload,docId); transferMsg=' · transferred to production plan'; }
+        try{
+            const tMsg=await _frameAutoTransferToProduktionsplan(payload,docId);
+            transferMsg=' · '+(tMsg||'transferred to production plan');
+        }
         catch(e){ console.warn('Frame transfer failed:',e); transferMsg=' (transfer failed: '+e.message+')'; }
 
         showMsg(`Frame order ${payload.ioNr} saved (approved)${transferMsg}.`,'success');
@@ -5021,7 +5064,17 @@ async function deleteFrameOrder(){
         }
         // Legacy single-doc form (and any doc keyed by sanitized IO # without ioNr field)
         try{ await db.collection(salesCol).doc(baseDocId).delete(); }catch(_){}
-        try{ await db.collection('v2_'+TAB_CONFIG.frame.prodCol).doc(baseDocId).delete(); }catch(_){}
+        // Lagerverwaltung_V2 production plan (Spritzguss): remove via Sales Order XO lookup AND legacy doc id.
+        try{
+            const sgCol='v2_'+TAB_CONFIG.frame.prodCol;
+            if(ioNr){
+                const sgSnap=await db.collection(sgCol).where('Sales Order XO','==',ioNr).get();
+                const sgBatch=db.batch();
+                sgSnap.forEach(d=>sgBatch.delete(d.ref));
+                await sgBatch.commit();
+            }
+            await db.collection(sgCol).doc(baseDocId).delete();
+        }catch(e){ console.warn('Spritzguss production plan cleanup:',e); }
         showMsg('Frame order deleted.','success');
         closeFrameOrderModal();
         await loadWeek();
