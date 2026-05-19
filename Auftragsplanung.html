@@ -58,6 +58,8 @@ td.cell-display{padding:4px 6px;font-size:0.74rem;white-space:pre-wrap;word-brea
 td.cell-display.so-cell{background:#fed7aa;font-weight:700;cursor:pointer;color:#9a3412;text-align:center}
 .so-transferred{display:inline-block;margin-left:6px;color:#16a34a;font-size:0.72em;font-weight:700;vertical-align:middle;white-space:nowrap}
 .transfer-cell-badge{display:inline-block;color:#16a34a;font-size:0.7rem;font-weight:700;line-height:1.15;white-space:normal;word-break:break-word;text-transform:none;letter-spacing:0;text-align:center}
+.changeover-badge{display:inline-block;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:4px;padding:1px 5px;font-size:0.66rem;font-weight:700;line-height:1.2;letter-spacing:0;text-transform:none;white-space:nowrap;cursor:help}
+.changeover-badge::before{content:"⚙ ";font-size:0.72rem}
 .cell-clipped{outline:2px dashed #dc2626 !important;outline-offset:-2px}
 /* Pending-Order-Overlay: graue Schraffur, kursiv */
 table.sales-grid td.cell-display.cell-pending,table.sales-grid td.cell-display.so-cell.cell-pending{background:repeating-linear-gradient(135deg,#e5e7eb 0,#e5e7eb 6px,#f3f4f6 6px,#f3f4f6 12px)!important;color:#6b7280!important;font-style:italic;cursor:help}
@@ -1757,13 +1759,17 @@ function renderGrid(){
     getSchema().forEach(block=>{
         if(block.group!==lastGroup){
             if(block.group==='Production Plan'){
-                // Section header row: title on the left, badge only in the FIRST slot of each transferred order (across the visible 14 days)
+                // Section header row: transfer badge + changeover badge per slot.
+                // Walk the slots in left-to-right (date + slot index) order so we can detect order transitions.
                 const soKeyL=fieldKey('Production Plan','',orderIdField);
+                const artKeyL=fieldKey('Production Plan','','Art #');
                 html+=`<tr class="section-header"><td colspan="3">${escHtml(block.group)}</td>`;
+                let prevOrderId='', prevArt='';
                 dates.forEach(d=>{
                     const iso=toIsoDate(d);
                     slotsByIso[iso].forEach(slot=>{
                         const soForIso=(slot.fields&&slot.fields[soKeyL])||'';
+                        const artForIso=(slot.fields&&slot.fields[artKeyL])||'';
                         let badge='';
                         const isFirstOfSo=(soForIso && soSpans[soForIso] && soSpans[soForIso].firstIso===iso);
                         if(isFirstOfSo && soTransferred[soForIso]){
@@ -1775,6 +1781,22 @@ function renderGrid(){
                                 badge='<span class="transfer-cell-badge" title="Transferred to production plan">✓</span>';
                             }
                         }
+                        // Changeover badge: show on the FIRST slot of a new order when the preceding visible slot
+                        // belonged to a different order AND had a different article. Hours = active shift plan rule.
+                        if(soForIso && soForIso!==prevOrderId && prevOrderId && prevArt && artForIso && prevArt!==artForIso){
+                            const spCo=getShiftPlanForIso(iso);
+                            if(spCo){
+                                const co_h=_changeoverHoursForPlan(spCo, prevArt, artForIso);
+                                if(co_h>0){
+                                    const fam1=_articleFamily(prevArt)||'?', fam2=_articleFamily(artForIso)||'?';
+                                    const t=`Changeover ${escHtml(prevArt)} → ${escHtml(artForIso)} (${fam1} → ${fam2}): ${co_h} h`;
+                                    badge+=`<div style="margin-top:2px"><span class="changeover-badge" title="${t}">${co_h} h</span></div>`;
+                                }
+                            }
+                        }
+                        // Advance the rolling "previous" pointer for the next slot iteration.
+                        if(soForIso){ prevOrderId=soForIso; }
+                        if(artForIso){ prevArt=artForIso; }
                         html+=`<td>${badge}</td>`;
                     });
                 });
@@ -1800,11 +1822,14 @@ function renderGrid(){
                 const isWe=(dow===0||dow===6);
                 const key=fieldKey(block.group,block.sub,field);
                 const daySlots=slotsByIso[iso];
-                // For Production-Plan rows: render one TD per slot (each order gets its own column).
-                // For day-level rows (KPI/Cap/Logistic): render one TD spanning the day's slots (use first slot's data).
-                const iterations=isProdPlanBlock?daySlots:[daySlots[0]];
-                const colspanForDay=(!isProdPlanBlock && daySlots.length>1)?daySlots.length:1;
+                // Iterate ALL slots for every row so each order's sub-column also shows the day-level KPI / Cap / Logistic values
+                // (shift-plan fallback fills them identically across the day's sub-columns; order-specific Act/GAP values use each slot's fields).
+                // For editable inputs (textareas / date pickers in Assembly inline-edit) we render the input ONLY in slot 0 and
+                // display-only mirrors in slots 1+ to avoid duplicate data-date inputs that would confuse the recalc/save selectors.
+                const iterations=daySlots;
+                const colspanForDay=1;
                 iterations.forEach((slot,_slotIdxInDay)=>{
+                const isMirrorSlot=(_slotIdxInDay>0 && !isProdPlanBlock);
                 const slotFields=(slot&&slot.fields)||{};
                 const val=slotFields[key]||'';
                 const isArtNr=(currentTab==='assembly' && block.group==='Production Plan' && field==='Art #');
@@ -2056,9 +2081,19 @@ function renderGrid(){
                     const styleAttr=` style="color:#dc2626;font-weight:700"`;
                     html+=`<td class="${dispCls}"${styleAttr}${cspanAttr}>${escHtml(displayVal)}</td>`;
                 } else if(inpType==='date'){
-                    html+=`<td class="${tdCls}"${cspanAttr}><input type="date" data-date="${iso}" data-key="${key}"${extra}value="${escHtml(displayVal)}"></td>`;
+                    if(isMirrorSlot){
+                        const dispCls='cell-day cell-display'+(isWe?' weekend':'')+(isHolidayDay?' holiday':'');
+                        html+=`<td class="${dispCls}"${cspanAttr}>${escHtml(displayVal)}</td>`;
+                    } else {
+                        html+=`<td class="${tdCls}"${cspanAttr}><input type="date" data-date="${iso}" data-key="${key}"${extra}value="${escHtml(displayVal)}"></td>`;
+                    }
                 } else {
-                    html+=`<td class="${tdCls}"${cspanAttr}><textarea rows="1" data-date="${iso}" data-key="${key}"${listAttr}${extra}>${escHtml(displayVal)}</textarea></td>`;
+                    if(isMirrorSlot){
+                        const dispCls='cell-day cell-display'+(isWe?' weekend':'')+(isHolidayDay?' holiday':'');
+                        html+=`<td class="${dispCls}"${cspanAttr}>${escHtml(displayVal)}</td>`;
+                    } else {
+                        html+=`<td class="${tdCls}"${cspanAttr}><textarea rows="1" data-date="${iso}" data-key="${key}"${listAttr}${extra}>${escHtml(displayVal)}</textarea></td>`;
+                    }
                 }
                 }); // close iterations.forEach
             });
