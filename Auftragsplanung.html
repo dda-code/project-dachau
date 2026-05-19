@@ -551,6 +551,14 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         </div>
       </div>
 
+      <div class="sp-section">
+        <h4 class="sp-section-title">Changeover times <span style="font-weight:500;text-transform:none;letter-spacing:0;color:#94a3b8;font-size:0.72rem">(hours deducted from day capacity when a new order starts after a different article)</span></h4>
+        <div class="sp-kpi-grid">
+          <label>Same family (h)<input id="sp_co_same" type="text" value="3" title="e.g. 202 → 202 in Assembly; same article-prefix family"></label>
+          <label>Different family (h)<input id="sp_co_diff" type="text" value="24" title="e.g. 202 ↔ 206 in Assembly; different article-prefix family"></label>
+        </div>
+      </div>
+
       <div class="sp-actions">
         <button class="btn btn-sm btn-secondary" onclick="resetShiftForm()">Clear form</button>
         <button id="sp_save_btn" class="btn btn-sm btn-primary" onclick="saveShiftPlan()">Create shift plan</button>
@@ -1506,6 +1514,45 @@ function computeOutputDayFromKpi(kpi, shifts){
     if(isNaN(cycle)||cycle<=0||isNaN(cav)||isNaN(hrs)||isNaN(daysM)||isNaN(scrap)||scrap>=1||isNaN(oee)||!(shifts>0)) return 0;
     const v=(3600/cycle*cav*hrs*shifts*daysM*oee)*(1-scrap);
     return Math.round(v);
+}
+
+// ===========================================================
+// Article family + changeover helpers (used by backfill logic).
+// "Family" is the first numeric prefix of the article number — Assembly: 202/206 — Frame: 12/18/19.
+// Different family = major changeover (24h default), same family but different article = minor (3h default).
+// ===========================================================
+function _articleFamily(art){
+    const s=String(art||'').trim();
+    // Match either "XO-202-..." (Assembly) or "120027" / "180007" / "190009" (Frame raw article numbers)
+    let m=s.match(/^XO-(\d{2,4})-/i);
+    if(m) return m[1];
+    m=s.match(/^(\d{2,3})/);
+    return m?m[1]:'';
+}
+function _changeoverHoursForPlan(plan, prevArt, newArt){
+    if(!prevArt || !newArt) return 0;
+    if(String(prevArt).trim()===String(newArt).trim()) return 0; // identical article = no setup
+    const co=(plan&&plan.changeover)||{};
+    const parseH=v=>{ const n=parseFloat(String(v||'').replace(',','.')); return isNaN(n)?0:Math.max(0,n); };
+    const tab=_inferPlanTab(plan);
+    const dft=SHIFT_CHANGEOVER_DEFAULTS[tab]||SHIFT_CHANGEOVER_DEFAULTS.assembly;
+    const sameH=co.same!=null?parseH(co.same):parseH(dft.same);
+    const diffH=co.diff!=null?parseH(co.diff):parseH(dft.diff);
+    const f1=_articleFamily(prevArt), f2=_articleFamily(newArt);
+    if(!f1||!f2) return sameH;
+    return (f1===f2)?sameH:diffH;
+}
+// Translate a changeover duration (hours) into pieces of lost capacity, given the day's full-shift output and total shift hours.
+function _changeoverPiecesLoss(plan, prevArt, newArt, shifts){
+    const co_h=_changeoverHoursForPlan(plan, prevArt, newArt);
+    if(co_h<=0 || !(shifts>0)) return 0;
+    const k=(plan&&plan.kpi)||{};
+    const hrs=parseFloat(String(k.hrs||'').replace(',','.'))||0;
+    if(!(hrs>0)) return 0;
+    const fullCap=computeOutputDayFromKpi(k, shifts);
+    if(!(fullCap>0)) return 0;
+    // pieces lost per hour of setup = fullCap / (hrs * shifts)
+    return Math.floor(fullCap * co_h / (hrs * shifts));
 }
 async function loadFertigpaletten(){
     fertigpalCount={};
@@ -2739,7 +2786,7 @@ async function renderPendingList(targetId){
                 // Duration / end date derived from current shift plan (so the approver sees the projected horizon)
                 let durDisp='–', endDisp='–';
                 try{
-                    const plan=(p.startDate && p.mengeGesamt>0)?_frameComputeProductionPlan(p.startDate, p.mengeGesamt):null;
+                    const plan=(p.startDate && p.mengeGesamt>0)?_frameComputeProductionPlan(p.startDate, p.mengeGesamt, p.artikelNr||''):null;
                     if(plan && plan.days>0){
                         durDisp=String(plan.days);
                         endDisp=fmtDateDe(plan.endIso);
@@ -3799,24 +3846,58 @@ function getShiftsForDay(iso){
     if(iso in perDayShifts) return perDayShifts[iso];
     return getBaseShifts();
 }
+// Assembly per-day usage from the 4-week preview cache (orderPreviewDocs), respecting editingOrderSo.
+function _assemblyDayUsage(iso){
+    const f=orderPreviewDocs[iso]||{};
+    const soKey=fieldKey('Production Plan','','SO #');
+    const qtyKey=fieldKey('Production Plan','','Qty');
+    const artKey=fieldKey('Production Plan','','Art #');
+    const existSo=f[soKey]||'';
+    if(!existSo) return {usedQty:0, lastArt:''};
+    if(editingOrderSo && existSo===editingOrderSo) return {usedQty:0, lastArt:''};
+    const q=parseInt(String(f[qtyKey]||'').replace(/[^\d]/g,''),10)||0;
+    return {usedQty:q, lastArt:f[artKey]||''};
+}
 function computeOrderPlan(){
     const qty=parseThousands($('o_qty').value);
     const outDay=parseThousands($('o_outday').value);
     const start=$('o_start').value;
     const baseShifts=getBaseShifts();
+    const newArt=$('o_art')?.value.trim()||'';
     const res={qty, outDay, baseShifts, days:0, seq:[], endIso:'', remaining:qty};
     if(!start || qty<=0 || outDay<=0 || baseShifts<=0) return res;
     const d=new Date(start+'T00:00:00');
     let remaining=qty, safety=0;
+    let isFirstScheduled=true;
     while(remaining>0 && safety<400){
         if(isWorkDay(d)){
             const iso=toIsoDate(d);
             const shifts=getShiftsForDay(iso);
             if(shifts>0){
-                const cap=Math.max(0,Math.round(outDay*shifts/baseShifts));
-                const dayQty=Math.min(cap,remaining);
-                res.seq.push({iso, shifts, capacity:cap, qty:dayQty, date:new Date(d)});
-                remaining-=dayQty;
+                const fullCap=Math.max(0,Math.round(outDay*shifts/baseShifts));
+                if(fullCap>0){
+                    const usage=_assemblyDayUsage(iso);
+                    // Changeover (only on the day the new order actually starts producing): use the shift plan governing this day.
+                    let coLoss=0;
+                    if(isFirstScheduled && usage.lastArt){
+                        const sp=getShiftPlanForIso(iso);
+                        if(sp){
+                            // pieces lost per setup hour = fullCap / (hrs * shifts)
+                            const co_h=_changeoverHoursForPlan(sp, usage.lastArt, newArt);
+                            const hrs=parseFloat(String((sp.kpi||{}).hrs||'').replace(',','.'))||0;
+                            if(co_h>0 && hrs>0 && shifts>0){
+                                coLoss=Math.floor(fullCap * co_h / (hrs * shifts));
+                            }
+                        }
+                    }
+                    const availableCap=Math.max(0, fullCap - usage.usedQty - coLoss);
+                    if(availableCap>0){
+                        const dayQty=Math.min(availableCap,remaining);
+                        res.seq.push({iso, shifts, capacity:availableCap, fullCapacity:fullCap, usedByOthers:usage.usedQty, changeoverLoss:coLoss, qty:dayQty, date:new Date(d)});
+                        remaining-=dayQty;
+                        isFirstScheduled=false;
+                    }
+                }
             }
         }
         d.setDate(d.getDate()+1);
@@ -3871,19 +3952,32 @@ function recalcOrder(rebuildGrid){
         const ends=endsForArtFallback(art);
         const totalPal=ends?Math.ceil(qty/ends):0;
         const coll=getCollisionInfo();
-        if(coll.hits.length>0){
-            const soList=Array.from(coll.sos).join(', ');
-            const first=coll.hits[0], last=coll.hits[coll.hits.length-1];
+        const plan=computeOrderPlan();
+        const overflow=plan.remaining>0;
+        // Identify backfill days where the new order shares capacity with existing orders
+        const backfillDays=plan.seq.filter(s=>s.usedByOthers>0).map(s=>({iso:s.iso, used:s.usedByOthers, co:s.changeoverLoss||0, qty:s.qty, cap:s.fullCapacity}));
+        let html='';
+        if(overflow){
+            html+=`⚠ <b>Overflow:</b> ${formatThousands(String(plan.remaining))} pcs. could not be scheduled in the horizon. Extend duration or capacity.<br>`;
             calc.className='calc-row warn';
-            calc.innerHTML=`⚠ <b>Collision!</b> The planned order overlaps on ${coll.hits.length} day(s) with existing order (${escHtml(soList)}) – from ${escHtml(first.iso)} to ${escHtml(last.iso)}. Please adjust start date.<br>Duration: ${days} day(s) · End: ${endIso}`
-                +(ends?` · Total pallets: ${totalPal}`:'');
+        } else if(backfillDays.length>0){
+            const first=backfillDays[0];
+            const coNote=first.co>0?` · setup −${formatThousands(String(first.co))} pcs.`:'';
+            html+=`ℹ <b>Backfill:</b> ${backfillDays.length} day(s) share capacity with existing orders (e.g. ${escHtml(first.iso)}: ${formatThousands(String(first.used))}/${formatThousands(String(first.cap))} pcs. already planned${coNote}).<br>`;
+            calc.className='calc-row';
+        } else if(coll.hits.length>0){
+            // Different SO# on the same day but no usage qty (legacy data) — treat as info only.
+            const soList=Array.from(coll.sos).join(', ');
+            html+=`ℹ Shares day(s) with: ${escHtml(soList)}.<br>`;
+            calc.className='calc-row';
         } else {
             calc.className='calc-row';
-            calc.textContent=`Duration: ${days} day(s) · End: ${endIso}`
-                +(ends?` · Total pallets: ${totalPal}`:'')
-                +(!ends&&art?' · Art # unknown – PAL cannot be calculated':'')
-                +(!art?' · Select Art # to compute PAL':'');
         }
+        html+=`Duration: ${days} day(s) · End: ${endIso}`
+            +(ends?` · Total pallets: ${totalPal}`:'')
+            +(!ends&&art?' · Art # unknown – PAL cannot be calculated':'')
+            +(!art?' · Select Art # to compute PAL':'');
+        calc.innerHTML=html;
         calc.style.display='block';
     } else if(qty>0 && !art){
         calc.className='calc-row warn';
@@ -4638,17 +4732,56 @@ function _wireFrameOrderInputs(){
     _frameInputsWired=true;
 }
 
+// Cache of existing frame day-docs in a window around the planned start (for backfill capacity calc).
+// { iso: [{ioNr, art, qty}, ...] } — multiple entries when several orders share a day.
+let _frameExistingByIso={};
+let _frameExistingExcludeIo=null; // IO# of the order currently being edited (its own qty must NOT count)
+async function _frameLoadExistingForRange(fromIso, toIso){
+    _frameExistingByIso={};
+    try{
+        const snap=await db.collection(TAB_CONFIG.frame.salesCol)
+            .where('datum','>=',fromIso).where('datum','<=',toIso).get();
+        const FK=(g,s,f)=>fieldKey(g,s,f);
+        const ioKey=FK('Production Plan','','IO #');
+        const artKey=FK('Production Plan','','Art #');
+        const qtyKey=FK('Production Plan','','Qty');
+        snap.forEach(d=>{
+            const dt=d.data();
+            const iso=dt.datum; if(!iso) return;
+            const f=dt.fields||{};
+            const io=f[ioKey]||dt.ioNr||'';
+            const art=f[artKey]||(dt.framePayload&&dt.framePayload.artikelNr)||'';
+            const qty=parseInt(String(f[qtyKey]||'').replace(/[^\d]/g,''),10)||0;
+            if(qty<=0) return;
+            if(!_frameExistingByIso[iso]) _frameExistingByIso[iso]=[];
+            _frameExistingByIso[iso].push({ioNr:io, art, qty});
+        });
+    }catch(e){ console.warn('_frameLoadExistingForRange:',e); }
+}
+// Returns {usedQty, lastArt} for an ISO date, optionally excluding orders that match _frameExistingExcludeIo.
+function _frameDayUsage(iso){
+    const arr=_frameExistingByIso[iso]||[];
+    let usedQty=0, lastArt='';
+    arr.forEach(e=>{
+        if(_frameExistingExcludeIo && e.ioNr===_frameExistingExcludeIo) return;
+        usedQty+=e.qty;
+        if(e.art) lastArt=e.art;
+    });
+    return {usedQty, lastArt};
+}
+
 // Roll out a frame production plan day-by-day starting from startIso.
-// Uses the active shift plan's per-weekday shifts and KPI plan to compute daily output.
-// On empty result, `diag` carries a human-readable reason (no plan / no shifts / output=0).
-function _frameComputeProductionPlan(startIso, totalQty){
+// Now respects existing day-occupancy (backfill) and changeover hours.
+// On empty result, `diag` carries a human-readable reason (no plan / no shifts / output=0 / day full).
+function _frameComputeProductionPlan(startIso, totalQty, newArt){
     if(!startIso || totalQty<=0) return null;
     const seq=[];
     const d=new Date(startIso+'T00:00:00');
     if(isNaN(d.getTime())) return null;
     let remaining=totalQty;
     let safety=0;
-    const diag={noPlanDays:0, zeroShiftDays:0, zeroOutputDays:0, samplePlanName:'', sampleKpi:null};
+    const diag={noPlanDays:0, zeroShiftDays:0, zeroOutputDays:0, fullDays:0, samplePlanName:'', sampleKpi:null};
+    let isFirstScheduled=true; // changeover deduction only on the day the new order actually starts producing
     while(remaining>0 && safety<400){
         const iso=toIsoDate(d);
         if(isWorkDay(d)){
@@ -4660,12 +4793,19 @@ function _frameComputeProductionPlan(startIso, totalQty){
                 if(isHoliday(iso)) shifts=0;
                 if(shifts<=0){ diag.zeroShiftDays++; }
                 else {
-                    const dailyOutput=computeOutputDayFromKpi(sp.kpi||{},shifts);
-                    if(dailyOutput<=0){ diag.zeroOutputDays++; }
+                    const fullCap=computeOutputDayFromKpi(sp.kpi||{},shifts);
+                    if(fullCap<=0){ diag.zeroOutputDays++; }
                     else {
-                        const dayQty=Math.min(dailyOutput,remaining);
-                        seq.push({iso, date:new Date(d), shifts, capacity:dailyOutput, qty:dayQty});
-                        remaining-=dayQty;
+                        const usage=_frameDayUsage(iso);
+                        const coLoss=isFirstScheduled?_changeoverPiecesLoss(sp, usage.lastArt, newArt||'', shifts):0;
+                        const availableCap=Math.max(0, fullCap - usage.usedQty - coLoss);
+                        if(availableCap<=0){ diag.fullDays++; }
+                        else {
+                            const dayQty=Math.min(availableCap,remaining);
+                            seq.push({iso, date:new Date(d), shifts, capacity:availableCap, fullCapacity:fullCap, usedByOthers:usage.usedQty, changeoverLoss:coLoss, qty:dayQty});
+                            remaining-=dayQty;
+                            isFirstScheduled=false;
+                        }
                     }
                 }
             }
@@ -4715,7 +4855,15 @@ function _frameRenderPreview(plan){
     if(summary){
         if(plan && plan.days>0){
             const remTxt=plan.remaining>0?` · ${formatThousands(String(plan.remaining))} pcs. unscheduled (extend horizon)`:'';
-            summary.textContent=`${plan.days} workday(s) · End: ${plan.endIso || '—'}${remTxt}`;
+            // Backfill / changeover info: highlight days where another order already occupies part of the day's capacity
+            const backfillDays=plan.seq.filter(s=>s.usedByOthers>0||s.changeoverLoss>0);
+            let backfillTxt='';
+            if(backfillDays.length>0){
+                const b=backfillDays[0];
+                const coNote=b.changeoverLoss>0?` · setup −${formatThousands(String(b.changeoverLoss))}`:'';
+                backfillTxt=` · backfill on ${backfillDays.length} day(s) (e.g. ${b.iso}: ${formatThousands(String(b.usedByOthers))}/${formatThousands(String(b.fullCapacity))} pcs. already planned${coNote})`;
+            }
+            summary.textContent=`${plan.days} workday(s) · End: ${plan.endIso || '—'}${backfillTxt}${remTxt}`;
         } else {
             // Pinpoint the reason so the user knows what to fix
             const dg=plan&&plan.diag;
@@ -4746,11 +4894,32 @@ function recalcFrame(){
     if($('fo_totalQty')) $('fo_totalQty').value=_frameFmtThousands(totalQty);
     let plan=null;
     if(start && totalQty>0){
-        plan=_frameComputeProductionPlan(start,totalQty);
+        plan=_frameComputeProductionPlan(start,totalQty,art);
     }
     if($('fo_days')) $('fo_days').value=(plan&&plan.days>0)?String(plan.days):'';
     if($('fo_end')) $('fo_end').value=(plan&&plan.endIso)?plan.endIso:'';
     _frameRenderPreview(plan);
+}
+// Refresh the existing-orders cache used by _frameComputeProductionPlan for backfill awareness.
+// Loads a 6-month window starting at the current modal start date (covers typical multi-week orders).
+async function _frameReloadExistingCache(){
+    const start=$('fo_start')?.value||toIsoDate(new Date());
+    const startD=new Date(start+'T00:00:00');
+    if(isNaN(startD.getTime())) return;
+    const endD=new Date(startD); endD.setDate(endD.getDate()+180);
+    const fromIso=toIsoDate(new Date(startD.getTime()-7*86400000));
+    const toIso=toIsoDate(endD);
+    await _frameLoadExistingForRange(fromIso, toIso);
+    // When editing an existing order, its own qty must NOT count as "used by others"
+    // (otherwise capacity would shrink to 0 for the very order we're re-planning).
+    if(_frameEditingDocId){
+        // Try to derive IO# from current modal state
+        const ioPrefix=($('fo_ioPrefix')?.textContent||'').trim();
+        const ioSuffix=($('fo_so')?.value||'').trim();
+        _frameExistingExcludeIo=ioSuffix?(ioPrefix+ioSuffix):null;
+    } else {
+        _frameExistingExcludeIo=null;
+    }
 }
 
 async function openFrameOrderModal(){
@@ -4765,8 +4934,9 @@ async function openFrameOrderModal(){
     $('frameOrderModal').classList.add('open');
     _wireFrameOrderInputs();
     _applyFrameOrderModalButtons();
-    // Ensure shift plans are current — preview/capacity calc relies on the cache.
+    // Ensure shift plans + existing-orders cache are current — preview/capacity calc relies on both.
     try{ await loadShiftPlansCache(); }catch(e){ console.warn('Shift cache reload (frame modal):',e); }
+    try{ await _frameReloadExistingCache(); }catch(e){ console.warn('Frame existing-orders reload:',e); }
     recalcFrame();
 }
 // Open an existing frame order for re-editing. Mirrors editOrder() in Assembly: collect all day-docs sharing this IO #,
@@ -4877,7 +5047,7 @@ function applyFramePayload(p){
 async function _frameAutoTransferToProduktionsplan(payload,docId){
     const ts=firebase.firestore.FieldValue.serverTimestamp();
     const colName='v2_'+TAB_CONFIG.frame.prodCol; // v2_produktionsplan_spritzguss
-    const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt);
+    const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt,payload.artikelNr||'');
     // Look up an existing entry by Sales Order XO so re-transfer overwrites in place (Assembly pattern).
     let existingDocId=null;
     try{
@@ -4961,10 +5131,12 @@ async function saveFrameOrder(mode){
     if(!payload.startDate){ alert('Start date is required.'); return; }
     if(payload.anzahlPaletten<=0){ alert('Number of pallets must be > 0.'); return; }
     if(payload.framesProPalette<=0){ alert('Could not derive Frames/PAL — article number prefix must be 12*, 18*, or 19*.'); return; }
+    // Ensure existing-orders cache is fresh so backfill capacity is computed against the latest sales_plan_frame.
+    try{ await _frameReloadExistingCache(); }catch(_){}
     // Compute the day-by-day plan once and snapshot it onto the payload so:
     //  1) Approver sees the same projected horizon (gridData) as the requester
     //  2) loadWeek's pending-overlay can render the request as grey-hatched draft cells
-    const plan=_frameComputeProductionPlan(payload.startDate, payload.mengeGesamt);
+    const plan=_frameComputeProductionPlan(payload.startDate, payload.mengeGesamt, payload.artikelNr||'');
     if(!plan || plan.days===0){
         alert('No workdays/capacity in 4-week horizon. Check shift plan or holidays before requesting approval.');
         return;
@@ -5021,8 +5193,10 @@ async function saveFrameOrder(mode){
         const salesCol=TAB_CONFIG.frame.salesCol;
         const baseDocId=payload.ioNr.replace(/[^A-Za-z0-9_-]/g,'_');
         if(!baseDocId){ alert('Invalid IO # for doc id.'); return; }
-        // Spread the order across workdays based on the active shift plan's daily capacity (Assembly-style).
-        const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt);
+        // Spread the order across workdays based on the active shift plan's daily capacity (Assembly-style),
+        // honouring existing day-occupancy (backfill) + changeover hours from the prior article on that day.
+        try{ await _frameReloadExistingCache(); }catch(_){}
+        const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt,payload.artikelNr||'');
         if(!plan || !plan.seq || plan.seq.length===0){
             alert('No workdays/capacity found in the 4-week horizon. Check shift plan / start date / article.');
             return;
@@ -5170,7 +5344,16 @@ const SHIFT_KPI_DEFAULTS={
     assembly:{cycle:'1,74',cav:'16',hrs:'8',daysm:'1',scrap:'5',oee:'54'},
     frame:   {cycle:'7,8', cav:'64',hrs:'8',daysm:'1',scrap:'0,5',oee:'99'}
 };
+// Default changeover times (hours): same-family is the minor changeover (e.g. 202→202 in Assembly = 3h),
+// different-family is the major changeover (e.g. 202↔206 = 24h). For Injection Frame the user hasn't
+// specified specific values yet — defaults to 0/0 so the planner shows the fields but doesn't deduct
+// capacity until an admin configures them.
+const SHIFT_CHANGEOVER_DEFAULTS={
+    assembly:{same:'3', diff:'24'},
+    frame:   {same:'0', diff:'0'}
+};
 function _shiftKpiDefaults(){ return SHIFT_KPI_DEFAULTS[currentTab]||SHIFT_KPI_DEFAULTS.assembly; }
+function _shiftChangeoverDefaults(){ return SHIFT_CHANGEOVER_DEFAULTS[currentTab]||SHIFT_CHANGEOVER_DEFAULTS.assembly; }
 // Legacy plans (saved before tab-scoping) have no `tab` field — infer from name so they keep working.
 function _inferPlanTab(plan){
     if(plan && plan.tab) return plan.tab;
@@ -5232,6 +5415,9 @@ function resetShiftForm(){
     const d=_shiftKpiDefaults();
     const defs={sp_cycle:d.cycle,sp_cav:d.cav,sp_hrs:d.hrs,sp_daysm:d.daysm,sp_scrap:d.scrap,sp_oee:d.oee};
     Object.entries(defs).forEach(([id,v])=>{const e=$(id); if(e) e.value=v;});
+    const co=_shiftChangeoverDefaults();
+    if($('sp_co_same')) $('sp_co_same').value=co.same;
+    if($('sp_co_diff')) $('sp_co_diff').value=co.diff;
     _editingShiftPlanId=null;
     _spSetMode(false);
 }
@@ -5250,6 +5436,10 @@ function editShiftPlan(row){
     const dft=SHIFT_KPI_DEFAULTS[_inferPlanTab(row)]||SHIFT_KPI_DEFAULTS.assembly;
     setT('sp_cycle',k.Cycle,dft.cycle); setT('sp_cav',k.Cav,dft.cav); setT('sp_hrs',k.hrs,dft.hrs);
     setT('sp_daysm',k['days/m'],dft.daysm); setT('sp_scrap',k.scrap,dft.scrap); setT('sp_oee',k.OEE,dft.oee);
+    const codft=SHIFT_CHANGEOVER_DEFAULTS[_inferPlanTab(row)]||SHIFT_CHANGEOVER_DEFAULTS.assembly;
+    const co=row.changeover||{};
+    setT('sp_co_same', co.same, codft.same);
+    setT('sp_co_diff', co.diff, codft.diff);
     _spSetMode(true);
     $('shiftPlanModal')?.querySelector('.modal-body')?.scrollTo({top:0,behavior:'smooth'});
 }
@@ -5281,13 +5471,17 @@ async function saveShiftPlan(){
         scrap:  ($('sp_scrap')?.value||'').trim(),
         OEE:    ($('sp_oee')?.value||'').trim()
     };
+    const changeover={
+        same: ($('sp_co_same')?.value||'').trim(),
+        diff: ($('sp_co_diff')?.value||'').trim()
+    };
     try{
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         if(_editingShiftPlanId){
             await db.collection(SHIFT_PLAN_COL).doc(_editingShiftPlanId).update({
                 name:name||'(ohne Name)',
                 fromIso:from, toIso:to,
-                shifts, kpi,
+                shifts, kpi, changeover,
                 tab:currentTab,
                 updatedAt:ts, updatedBy:currentUid
             });
@@ -5296,7 +5490,7 @@ async function saveShiftPlan(){
             await db.collection(SHIFT_PLAN_COL).add({
                 name:name||'(ohne Name)',
                 fromIso:from, toIso:to,
-                shifts, kpi,
+                shifts, kpi, changeover,
                 tab:currentTab,
                 createdAt:ts, createdBy:currentUid,
                 updatedAt:ts, updatedBy:currentUid
