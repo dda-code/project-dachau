@@ -574,9 +574,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <!-- DASHBOARD -->
     <section class="view active" id="view-dashboard">
         <h3 style="margin-top:0">Bestand Halbfabrikate / Granulate</h3>
-        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th title="Paletten am Standort Aumundswiese">Aumundswiese</th><th title="Paletten am Standort K&amp;R-Lager">K&amp;R-Lager</th><th title="Paletten am Standort Seepack">Seepack</th><th title="Paletten gesamt über alle Standorte">Gesamt</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashArtikelBody"></tbody></table>
+        <table class="data-table"><thead>
+<tr><th rowspan="2">Artikelnr.</th><th rowspan="2">Bezeichnung</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Aumundswiese">Aumundswiese</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort K&amp;R-Lager">K&amp;R-Lager</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Seepack">Seepack</th><th rowspan="2" title="Paletten gesamt über alle Standorte">Gesamt Pal</th><th rowspan="2">Menge gesamt</th><th rowspan="2" style="color:#10b981">Freigegeben</th><th rowspan="2" style="color:#ef4444">Gesperrt</th></tr>
+<tr><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th></tr>
+</thead><tbody id="dashArtikelBody"></tbody></table>
         <h3 style="margin-top:24px">Bestand Fertigware</h3>
-        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th title="Paletten am Standort Aumundswiese">Aumundswiese</th><th title="Paletten am Standort K&amp;R-Lager">K&amp;R-Lager</th><th title="Paletten am Standort Seepack">Seepack</th><th title="Paletten gesamt über alle Standorte">Gesamt</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashFertigBody"></tbody></table>
+        <table class="data-table"><thead>
+<tr><th rowspan="2">Artikelnr.</th><th rowspan="2">Bezeichnung</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Aumundswiese">Aumundswiese</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort K&amp;R-Lager">K&amp;R-Lager</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Seepack">Seepack</th><th rowspan="2" title="Paletten gesamt über alle Standorte">Gesamt Pal</th><th rowspan="2">Menge gesamt</th><th rowspan="2" style="color:#10b981">Freigegeben</th><th rowspan="2" style="color:#ef4444">Gesperrt</th></tr>
+<tr><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th></tr>
+</thead><tbody id="dashFertigBody"></tbody></table>
     </section>
 
     <!-- EINLAGERN -->
@@ -1716,7 +1722,8 @@ async function loadDashboard(){
         if(s==='Seepack')return 'sp';
         return 'aum'; // 'Aumundswiese' oder leer
     };
-    const _emptyAgg=()=>({count:0,cntAum:0,cntKR:0,cntSP:0,menge:0,mengeFrei:0,mengeGesperrt:0});
+    const _emptyAgg=()=>({count:0,cntAum:0,cntKR:0,cntSP:0,menge:0,mengeAum:0,mengeKR:0,mengeSP:0,mengeFrei:0,mengeGesperrt:0});
+    const _addStdMenge=(d,sk,m)=>{ if(sk==='aum')d.mengeAum+=m; else if(sk==='kr')d.mengeKR+=m; else if(sk==='sp')d.mengeSP+=m; };
     for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');const isFertig=pos.startsWith('GB')||pos.startsWith('GS')?false:_fZ.has(z);
         // Lagerkarten-Zähler (nur Aumundswiese — Außenlager haben keine position)
         const isAumStored=_stdKey(p)==='aum';
@@ -1733,7 +1740,7 @@ async function loadDashboard(){
             fertigMap[nr].count++;
             if(sk==='aum')fertigMap[nr].cntAum++; else if(sk==='kr')fertigMap[nr].cntKR++; else if(sk==='sp')fertigMap[nr].cntSP++;
             const mengeStr=p.menge||'';const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);
-            if(!isNaN(m)){fertigMap[nr].menge+=m;if(p.gesperrt)fertigMap[nr].mengeGesperrt+=m;else fertigMap[nr].mengeFrei+=m;}
+            if(!isNaN(m)){fertigMap[nr].menge+=m;_addStdMenge(fertigMap[nr],sk,m);if(p.gesperrt)fertigMap[nr].mengeGesperrt+=m;else fertigMap[nr].mengeFrei+=m;}
         }else{
             // Halbfabrikate / Granulate: Menge mit Defaults
             if(!artikelMap[nr])artikelMap[nr]=_emptyAgg();
@@ -1743,11 +1750,11 @@ async function loadDashboard(){
             if(!mengeStr&&nr.startsWith('12'))mengeStr='92.400';
             if(!mengeStr&&nr.startsWith('18'))mengeStr='420.672';
             if(!mengeStr&&nr.startsWith('19'))mengeStr='196.224';
-            const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);if(!isNaN(m)){artikelMap[nr].menge+=m;if(p.gesperrt)artikelMap[nr].mengeGesperrt+=m;else artikelMap[nr].mengeFrei+=m;}
+            const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);if(!isNaN(m)){artikelMap[nr].menge+=m;_addStdMenge(artikelMap[nr],sk,m);if(p.gesperrt)artikelMap[nr].mengeGesperrt+=m;else artikelMap[nr].mengeFrei+=m;}
         }
     }
     // Fertigware aus der Fertigpaletten-Collection (XO-Ends Scanner + manuelle Einträge) mit in die Aggregation
-    // → diese liegen physisch in Aumundswiese, daher cntAum hochzählen
+    // → diese liegen physisch in Aumundswiese, daher cntAum / mengeAum hochzählen
     if(typeof FERTIGPALETTEN_DATA!=='undefined' && FERTIGPALETTEN_DATA.length){
         FERTIGPALETTEN_DATA.forEach(p=>{
             const nr=_normalizeArtikelNr(p.artikelNr||'');
@@ -1757,17 +1764,19 @@ async function loadDashboard(){
             fertigMap[nr].cntAum++;
             const mengeStr=p.menge||'';
             const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);
-            if(!isNaN(m)){fertigMap[nr].menge+=m; if(p.gesperrt)fertigMap[nr].mengeGesperrt+=m; else fertigMap[nr].mengeFrei+=m;}
+            if(!isNaN(m)){fertigMap[nr].menge+=m; fertigMap[nr].mengeAum+=m; if(p.gesperrt)fertigMap[nr].mengeGesperrt+=m; else fertigMap[nr].mengeFrei+=m;}
         });
     }
     renderWarehouseMap();
-    const _cell=n=>n>0?String(n):'<span style="color:#cbd5e1">–</span>';
-    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${ARTIKEL_BEZEICHNUNG[nr]||'-'}</td><td>${_cell(d.cntAum)}</td><td>${_cell(d.cntKR)}</td><td>${_cell(d.cntSP)}</td><td style="font-weight:700">${d.count>0?d.count:'-'}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
+    const _dash='<span style="color:#cbd5e1">–</span>';
+    const _cellPal=n=>n>0?String(n):_dash;
+    const _cellMng=n=>n>0?n.toLocaleString('de-DE'):_dash;
+    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${ARTIKEL_BEZEICHNUNG[nr]||'-'}</td><td>${_cellPal(d.cntAum)}</td><td>${_cellMng(d.mengeAum)}</td><td>${_cellPal(d.cntKR)}</td><td>${_cellMng(d.mengeKR)}</td><td>${_cellPal(d.cntSP)}</td><td>${_cellMng(d.mengeSP)}</td><td style="font-weight:700">${d.count>0?d.count:'-'}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
     const _hasBestand=d=>d&&(d.count>0||d.menge>0);
     const _halbRows=ARTIKEL_NUMMERN.filter(nr=>!nr.startsWith('XO')).map(nr=>({nr,d:artikelMap[nr]||_emptyAgg()})).filter(x=>_hasBestand(x.d));
-    document.getElementById('dashArtikelBody').innerHTML=_halbRows.length?_halbRows.map(x=>_rowHtml(x.nr,x.d)).join(''):'<tr><td colspan="9" class="info-msg">Kein Bestand</td></tr>';
+    document.getElementById('dashArtikelBody').innerHTML=_halbRows.length?_halbRows.map(x=>_rowHtml(x.nr,x.d)).join(''):'<tr><td colspan="12" class="info-msg">Kein Bestand</td></tr>';
     const fertigNrs=Object.keys(fertigMap).filter(nr=>_hasBestand(fertigMap[nr])).sort();
-    document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="9" class="info-msg">Keine Fertigware eingelagert</td></tr>';
+    document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="12" class="info-msg">Keine Fertigware eingelagert</td></tr>';
 }
 
 function _normalizeArtikelNr(nr){
