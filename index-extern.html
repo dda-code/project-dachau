@@ -193,6 +193,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="label">Standort</div>
             <div class="val" id="inConfirmLoc">–</div>
         </div>
+        <img id="previewImgIn" class="preview-img" style="display:none" alt="Label-Vorschau">
         <div class="card" id="inConfirmDetails"></div>
         <div style="display:flex;gap:10px;">
             <button class="btn btn-secondary" onclick="showStep('step2')">Zurück</button>
@@ -204,6 +205,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <div id="stepOutChoice" class="step">
         <div class="step-header">Palette gefunden</div>
         <div id="outMatchBox"></div>
+        <img id="previewImgOut" class="preview-img" style="display:none" alt="Label-Vorschau">
         <div class="card" id="outMatchDetails" style="display:none"></div>
         <p style="font-size:0.95rem;font-weight:600;margin-bottom:10px">Was passiert mit der Palette?</p>
         <button class="btn btn-danger choice-btn" id="outShipBtn" style="margin-bottom:10px;max-width:none"><span>📦 Versand / Verkauf</span><span class="sub">Palette geht raus und wird aus dem Bestand gelöscht</span></button>
@@ -645,7 +647,18 @@ let currentAction = null;     // 'in' | 'out'
 let inboundData = null;
 let currentLabelTyp = null;
 let matchedPalette = null;    // {id, ...data} — bei Warenausgang
+let _lastPhotoUrl = null;     // ObjectURL des zuletzt aufgenommenen Labels (für Abgleich-Anzeige)
 const scanHistory = [];
+
+function _setPhoto(url){
+    if(_lastPhotoUrl && _lastPhotoUrl!==url){ try{URL.revokeObjectURL(_lastPhotoUrl);}catch(e){} }
+    _lastPhotoUrl = url || null;
+    ['previewImg','previewImgIn','previewImgOut'].forEach(id=>{
+        const el=$(id); if(!el) return;
+        if(_lastPhotoUrl){ el.src=_lastPhotoUrl; el.style.display='block'; }
+        else { el.removeAttribute('src'); el.style.display='none'; }
+    });
+}
 
 function showStep(id){
     document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
@@ -668,24 +681,26 @@ function _updateCtxBar(){
 
 function goToStepLocation(){
     currentLocation=null; currentAction=null; inboundData=null; matchedPalette=null;
+    _setPhoto(null);
     _updateCtxBar();
     showStep('stepLocation');
 }
 function goToStepAction(){
     currentAction=null; inboundData=null; matchedPalette=null;
+    _setPhoto(null);
     _resetStep1();
     _updateCtxBar();
     showStep('stepAction');
 }
 function goToStep1(){
     inboundData=null; matchedPalette=null;
+    _setPhoto(null);
     _resetStep1();
     showStep('step1');
 }
 function _resetStep1(){
     $('progressArea').style.display='none';
     $('progressFill').style.width='0%';
-    $('previewImg').style.display='none';
     $('captureBtn').style.display='inline-flex';
     $('manualBtn').style.display='inline-flex';
     const si=document.querySelector('#step1 .scan-icon');
@@ -747,11 +762,7 @@ async function processPhoto(file){
         inboundData = result.data;
         currentLabelTyp = inboundData.labelTyp || 'ALPLA Halbfabrikate';
 
-        const preview=$('previewImg');
-        if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);
-        preview._objUrl=URL.createObjectURL(file);
-        preview.src=preview._objUrl;
-        preview.style.display='block';
+        _setPhoto(URL.createObjectURL(file));
 
         renderFields();
         $('progressFill').style.width='100%';
@@ -800,7 +811,7 @@ $('manualSubmitBtn').addEventListener('click',()=>{
     if(!data.artikelNr){alert('Artikelnummer muss ausgefüllt werden!');return;}
     inboundData=data;
     currentLabelTyp=typ;
-    $('previewImg').style.display='none';
+    _setPhoto(null);
     renderFields();
     showStep('step2');
 });
