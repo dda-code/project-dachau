@@ -4822,7 +4822,8 @@ function _applyFrameOrderModalButtons(){
     const ownerEdit=!!_frameEditingPendingId;
     const editingApproved=!!_frameEditingDocId;
     const set=(id,show)=>{ const e=$(id); if(e) e.style.display=show?'':'none'; };
-    set('fo_requestBtn', !currentCanApprove && !reviewing && !ownerEdit && !editingApproved);
+    // Manager: 'Request Approval' is also valid when editing an already-approved order (matches Assembly: the request references the approved order via editingFrameDocId).
+    set('fo_requestBtn', !currentCanApprove && !reviewing && !ownerEdit);
     set('fo_updateBtn', ownerEdit);
     set('fo_approveBtn', currentCanApprove && reviewing);
     // Approver: 'Direct Approve' acts as Save both for new orders and when re-editing an existing approved order.
@@ -4931,6 +4932,27 @@ async function _frameAutoTransferToProduktionsplan(payload,docId){
     return existingDocId ? 'updated in production plan (Spritzguss)' : 'transferred to production plan (Spritzguss)';
 }
 
+// Spread a frame order's totalQty across the planned workdays and emit a Production-Plan-keyed
+// fields-map per ISO date — same shape that the pending-overlay code in loadWeek consumes for Assembly.
+function _buildFrameGridDataFromPlan(payload, plan){
+    const FK=(g,s,f)=>fieldKey(g,s,f);
+    const gridData={};
+    if(!plan || !plan.seq) return gridData;
+    plan.seq.forEach(d=>{
+        const fields={};
+        fields[FK('Production Plan','','IO #')]=payload.ioNr;
+        fields[FK('Production Plan','','Art #')]=payload.artikelNr;
+        fields[FK('Production Plan','','Frames/PAL')]=String(payload.framesProPalette);
+        fields[FK('Production Plan','','Qty')]=String(d.qty);
+        const palCalc=(payload.framesProPalette>0)?(d.qty/payload.framesProPalette):0;
+        fields[FK('Production Plan','','PAL')]=Number.isInteger(palCalc)?String(palCalc):(Math.round(palCalc*10)/10).toString().replace('.', ',');
+        fields[FK('Production Plan','','Total QTY')]=String(payload.mengeGesamt);
+        fields[FK('Production Plan','','Comment')]=payload.comment||'';
+        gridData[d.iso]={fields};
+    });
+    return gridData;
+}
+
 async function saveFrameOrder(mode){
     mode=mode||'direct';
     const payload=collectFramePayload();
@@ -4939,6 +4961,17 @@ async function saveFrameOrder(mode){
     if(!payload.startDate){ alert('Start date is required.'); return; }
     if(payload.anzahlPaletten<=0){ alert('Number of pallets must be > 0.'); return; }
     if(payload.framesProPalette<=0){ alert('Could not derive Frames/PAL — article number prefix must be 12*, 18*, or 19*.'); return; }
+    // Compute the day-by-day plan once and snapshot it onto the payload so:
+    //  1) Approver sees the same projected horizon (gridData) as the requester
+    //  2) loadWeek's pending-overlay can render the request as grey-hatched draft cells
+    const plan=_frameComputeProductionPlan(payload.startDate, payload.mengeGesamt);
+    if(!plan || plan.days===0){
+        alert('No workdays/capacity in 4-week horizon. Check shift plan or holidays before requesting approval.');
+        return;
+    }
+    payload.gridData=_buildFrameGridDataFromPlan(payload, plan);
+    payload.endDate=plan.endIso||'';
+    payload.plannedWorkdays=plan.days||0;
 
     if(mode==='request'){
         try{
