@@ -2723,12 +2723,61 @@ async function renderPendingList(targetId){
                 return `<span style="white-space:nowrap">${Number(p).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})}${ccy?' '+escHtml(ccy):''}</span>`;
             }).join(' / ');
         };
+        // Format DD.MM.YYYY from ISO yyyy-mm-dd (or pass-through if already de-formatted)
+        const fmtDateDe=s=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}.${m[2]}.${m[1]}`:(s||''); };
         const cards=all.map(it=>{
-            const h=(it.payload&&it.payload.header)||{};
             const reqLabel=(it.requestedByEmail||'').replace('@lager.local','');
-            const editTag=it.editingOrderSo?`<span style="background:#fde68a;color:#92400e;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;white-space:nowrap">Editing: ${escHtml(it.editingOrderSo)}</span>`:'';
             const updTag=it.isUpdated?`<span style="background:#ddd6fe;color:#5b21b6;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;white-space:nowrap" title="Requester updated the request">🔄 Updated (v${it.updateCount||1})</span>`:'';
             const tabBadge=`<span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;white-space:nowrap">${escHtml(TAB_CONFIG[it.tab]?.title||it.tab)}</span>`;
+            // FRAME: distinct payload shape (flat fields, no header). Render injection-relevant cells.
+            if(it.tab==='frame'){
+                const p=it.payload||{};
+                const editTag=it.editingFrameDocId?`<span style="background:#fde68a;color:#92400e;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;white-space:nowrap">Editing: ${escHtml(it.editingFrameDocId)}</span>`:'';
+                const qtyDisp=fmtNum(p.mengeGesamt)||escHtml(p.mengeGesamt)||'–';
+                const palDisp=fmtNum(p.anzahlPaletten)||escHtml(p.anzahlPaletten)||'–';
+                const fppDisp=fmtNum(p.framesProPalette)||escHtml(p.framesProPalette)||'–';
+                // Duration / end date derived from current shift plan (so the approver sees the projected horizon)
+                let durDisp='–', endDisp='–';
+                try{
+                    const plan=(p.startDate && p.mengeGesamt>0)?_frameComputeProductionPlan(p.startDate, p.mengeGesamt):null;
+                    if(plan && plan.days>0){
+                        durDisp=String(plan.days);
+                        endDisp=fmtDateDe(plan.endIso);
+                    }
+                }catch(_){}
+                const commentRow=(p.comment&&String(p.comment).trim())?`<div style="margin-bottom:12px;padding:8px 10px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px;font-size:0.85rem;color:#475569"><span style="font-weight:600;color:#64748b">Comment:</span> ${escHtml(p.comment)}</div>`:'';
+                return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;min-width:0">
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
+                            ${tabBadge}
+                            <strong style="font-size:1.05rem;color:#0f172a;word-break:break-all;line-height:1.2">${escHtml(p.ioNr||'IO –')}</strong>
+                            ${editTag}
+                            ${updTag}
+                        </div>
+                        <div style="font-size:0.78rem;color:#64748b;text-align:right;min-width:0">
+                            <div>by <strong>${escHtml(reqLabel)}</strong></div>
+                            <div style="white-space:nowrap">${fmtTs(it.requestedAt)}</div>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px;margin-bottom:12px">
+                        ${cellLabel('Article #',escHtml(p.artikelNr))}
+                        ${cellLabel('Frames / PAL',fppDisp)}
+                        ${cellLabel('Pallets',palDisp)}
+                        ${cellLabel('Total QTY (pcs)',qtyDisp)}
+                        ${cellLabel('Start',fmtDateDe(p.startDate))}
+                        ${cellLabel('End (projected)',endDisp)}
+                        ${cellLabel('Duration (workdays)',durDisp)}
+                    </div>
+                    ${commentRow}
+                    <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+                        <button class="btn btn-sm btn-secondary" onclick="rejectPending('${escHtml(it.id)}','${escHtml(it.tab)}')">Reject</button>
+                        <button class="btn btn-sm btn-primary" onclick="openPendingForReview('${escHtml(it.id)}','${escHtml(it.tab)}')">Review &amp; Approve</button>
+                    </div>
+                </div>`;
+            }
+            // ASSEMBLY (default)
+            const h=(it.payload&&it.payload.header)||{};
+            const editTag=it.editingOrderSo?`<span style="background:#fde68a;color:#92400e;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;white-space:nowrap">Editing: ${escHtml(it.editingOrderSo)}</span>`:'';
             const qtyDisp=fmtNum(h.qty)||escHtml(h.qty)||'–';
             const palDisp=escHtml(h.pal)||'–';
             const priceCell=renderPriceCell(it);
