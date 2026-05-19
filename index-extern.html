@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://firebaseinstallations.googleapis.com https://firebaseappcheck.googleapis.com https://generativelanguage.googleapis.com; frame-src https://www.google.com https://www.recaptcha.net; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <title>Lager-Scanner Extern</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#7c3aed">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+    <style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; min-height: 100dvh; }
+
+/* Login */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; background: linear-gradient(135deg, #7c3aed 0%, #4361ee 100%); }
+.login-card { background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 8px 30px rgba(0,0,0,0.2); width: 100%; max-width: 380px; margin: 20px; }
+.login-card h1 { text-align: center; font-size: 1.5rem; margin-bottom: 2px; }
+.login-card .subtitle { text-align: center; color: #94a3b8; margin-bottom: 24px; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+.form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; background: white; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+.btn { padding: 12px 22px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; transition: transform 0.15s, box-shadow 0.15s; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn-primary { background: #7c3aed; color: white; }
+.btn-success { background: #10b981; color: white; }
+.btn-secondary { background: #e2e8f0; color: #475569; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-warning { background: #f59e0b; color: white; }
+.btn-sm { padding: 8px 14px; font-size: 0.85rem; }
+.error-msg { color: #ef4444; font-size: 0.85rem; margin-top: 10px; text-align: center; display: none; }
+
+/* App */
+.app-page { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.app-header { background: white; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+.app-header h1 { font-size: 1.1rem; }
+.app-header .user-info { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #64748b; }
+.logout-btn { background: none; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; color: #475569; }
+
+/* Context-Pills */
+.ctx-bar { background: #ede9fe; padding: 8px 14px; display: flex; gap: 6px; align-items: center; font-size: 0.8rem; color: #5b21b6; border-bottom: 1px solid #ddd6fe; flex-wrap: wrap; }
+.ctx-pill { background: white; border-radius: 999px; padding: 3px 10px; font-weight: 700; border: 1px solid #c4b5fd; }
+
+/* Steps */
+.step { display: none; padding: 20px; }
+.step.active { display: block; }
+.step-header { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #1a1a2e; }
+.step-sub { color: #64748b; font-size: 0.9rem; margin-bottom: 16px; }
+
+/* Scan area */
+.scan-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 16px; }
+.scan-icon { font-size: 4rem; opacity: 0.3; }
+.scan-instruction { text-align: center; color: #64748b; font-size: 0.95rem; max-width: 300px; }
+.capture-btn { padding: 18px 40px; font-size: 1.15rem; border-radius: 50px; box-shadow: 0 4px 16px rgba(124,58,237,0.3); }
+.manual-btn { padding: 12px 30px; font-size: 0.95rem; border-radius: 50px; }
+.choice-btn { font-size: 1.15rem; padding: 22px; border-radius: 14px; width: 100%; max-width: 320px; line-height: 1.3; flex-direction: column; gap: 6px; }
+.choice-btn span.sub { font-size: 0.85rem; font-weight: 400; opacity: 0.9; }
+
+/* Preview */
+.preview-img { width: 100%; max-width: 400px; border-radius: 12px; border: 2px solid #e2e8f0; margin-bottom: 14px; }
+.field-error input { color: #ef4444; font-weight: 800; border-color: #ef4444; }
+
+/* Progress */
+.progress-bar { width: 100%; max-width: 400px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.progress-fill { height: 100%; background: #7c3aed; border-radius: 3px; transition: width 0.3s; width: 0%; }
+.progress-text { font-size: 0.9rem; color: #7c3aed; font-weight: 600; text-align: center; }
+
+/* Card */
+.card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 14px; }
+.info-box { background: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.info-box.warn { background: #fef3c7; border-color: #f59e0b; }
+.info-box.err { background: #fee2e2; border-color: #ef4444; }
+.info-box .label { font-size: 0.8rem; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+.info-box .val { font-size: 1rem; font-weight: 700; color: #1e293b; }
+
+/* Success */
+.success-screen { text-align: center; padding: 40px 20px; }
+.success-icon { font-size: 4rem; color: #10b981; margin-bottom: 12px; }
+.success-text { font-size: 1.2rem; font-weight: 700; color: #10b981; margin-bottom: 6px; }
+.success-sub { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+
+/* Suggested Position (für Umlagerung) */
+.suggested-pos { background: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 14px; }
+.suggested-pos .label { font-size: 0.85rem; color: #64748b; margin-bottom: 4px; }
+.suggested-pos .pos { font-size: 1.8rem; font-weight: 800; color: #10b981; }
+
+/* History */
+.history-section { padding: 0 20px 20px; }
+.history-title { font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.history-item { background: white; border-radius: 8px; padding: 10px 14px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.history-time { color: #94a3b8; font-size: 0.8rem; }
+
+/* Overlay */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.overlay-card { background: white; border-radius: 14px; padding: 28px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView" class="login-page">
+    <div class="login-card">
+        <h1>Lager-Scanner Extern</h1>
+        <p class="subtitle">K&amp;R-Lager &amp; Seepack</p>
+        <form id="loginForm">
+            <div class="form-group"><label for="username">Benutzername</label><input type="text" id="username" required placeholder="Benutzername" autocapitalize="off" autocomplete="username"></div>
+            <div class="form-group"><label for="password">Passwort</label><input type="password" id="password" required placeholder="Passwort" autocomplete="current-password"></div>
+            <button type="submit" class="btn btn-primary">Anmelden</button>
+            <p class="error-msg" id="loginError"></p>
+        </form>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="appView" class="app-page">
+    <header class="app-header">
+        <h1 id="appTitle">Lager-Scanner Extern</h1>
+        <div class="user-info">
+            <span id="userDisplay"></span>
+            <button class="logout-btn" onclick="logout()">Abmelden</button>
+        </div>
+    </header>
+
+    <!-- Kontext-Bar (Standort + Aktion) -->
+    <div id="ctxBar" class="ctx-bar" style="display:none">
+        <span>Kontext:</span>
+        <span class="ctx-pill" id="ctxLocation">–</span>
+        <span class="ctx-pill" id="ctxAction" style="display:none">–</span>
+        <button type="button" class="btn btn-sm btn-secondary" style="width:auto;margin-left:auto;padding:4px 10px;font-size:0.75rem" onclick="goToStepLocation()">&larr; Ändern</button>
+    </div>
+
+    <!-- STEP LOCATION: Außenlager wählen -->
+    <div id="stepLocation" class="step active">
+        <div class="scan-area">
+            <p class="scan-instruction" style="margin-bottom:8px">Welches Außenlager?</p>
+            <button class="btn btn-primary choice-btn loc-btn" data-loc="K&R-Lager"><span>🏬 K&amp;R-Lager</span><span class="sub">externer Lagerstandort</span></button>
+            <button class="btn choice-btn loc-btn" data-loc="Seepack" style="background:#0ea5e9;color:white"><span>🏬 Seepack</span><span class="sub">externer Lagerstandort</span></button>
+        </div>
+    </div>
+
+    <!-- STEP ACTION: Wareneingang / Warenausgang -->
+    <div id="stepAction" class="step">
+        <div class="scan-area">
+            <p class="scan-instruction" style="margin-bottom:8px">Was möchtest du tun?</p>
+            <button class="btn btn-success choice-btn act-btn" data-act="in"><span>📥 Wareneingang</span><span class="sub">Palette anliefern &amp; einlagern</span></button>
+            <button class="btn btn-warning choice-btn act-btn" data-act="out"><span>📤 Warenausgang</span><span class="sub">Palette entnehmen / umlagern</span></button>
+        </div>
+    </div>
+
+    <!-- STEP 1: Foto aufnehmen -->
+    <div id="step1" class="step">
+        <div class="scan-area">
+            <button type="button" class="btn btn-secondary" onclick="goToStepAction()" style="align-self:flex-start;padding:8px 14px;font-size:0.9rem;width:auto">&larr; Zurück</button>
+            <div class="scan-icon">📷</div>
+            <p class="scan-instruction">Fotografiere das Palettenlabel oder gib die Daten manuell ein.</p>
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+            <button class="btn btn-primary capture-btn" id="captureBtn">📷 Foto aufnehmen</button>
+            <button class="btn btn-secondary manual-btn" id="manualBtn">Manuell eingeben</button>
+
+            <div id="progressArea" style="display:none; width:100%; max-width:400px; text-align:center;">
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+                <div class="progress-text" id="progressText">Label wird analysiert...</div>
+            </div>
+        </div>
+        <div class="history-section" id="historySection" style="display:none">
+            <div class="history-title">Letzte Aktionen</div>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <!-- STEP 2: Felder prüfen -->
+    <div id="step2" class="step">
+        <div class="step-header">Erkannte Daten</div>
+        <div class="step-sub">Felder prüfen und ggf. korrigieren. Rot markierte Felder konnten nicht erkannt werden.</div>
+        <img id="previewImg" class="preview-img" style="display:none" alt="Label-Vorschau">
+        <div class="card">
+            <div id="fieldsContainer"></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" onclick="goToStepAction()">Abbrechen</button>
+            <button class="btn btn-primary" id="toConfirmBtn">Weiter</button>
+        </div>
+    </div>
+
+    <!-- STEP 3A (Wareneingang): Direkt bestätigen -->
+    <div id="stepInConfirm" class="step">
+        <div class="step-header">Wareneingang bestätigen</div>
+        <div class="info-box">
+            <div class="label">Standort</div>
+            <div class="val" id="inConfirmLoc">–</div>
+        </div>
+        <div class="card" id="inConfirmDetails"></div>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" onclick="showStep('step2')">Zurück</button>
+            <button class="btn btn-success" id="confirmInBtn">Einlagern</button>
+        </div>
+    </div>
+
+    <!-- STEP 3B (Warenausgang): Match-Resultat + Aktion wählen -->
+    <div id="stepOutChoice" class="step">
+        <div class="step-header">Palette gefunden</div>
+        <div id="outMatchBox"></div>
+        <div class="card" id="outMatchDetails" style="display:none"></div>
+        <p style="font-size:0.95rem;font-weight:600;margin-bottom:10px">Was passiert mit der Palette?</p>
+        <button class="btn btn-danger choice-btn" id="outShipBtn" style="margin-bottom:10px;max-width:none"><span>📦 Versand / Verkauf</span><span class="sub">Palette geht raus und wird aus dem Bestand gelöscht</span></button>
+        <button class="btn btn-primary choice-btn" id="outRelocateBtn" style="margin-bottom:14px;max-width:none"><span>🔁 Umlagerung Aumundswiese</span><span class="sub">Palette wird zurück nach Aumundswiese gebucht</span></button>
+        <button class="btn btn-secondary" onclick="showStep('step2')">Zurück zur Bearbeitung</button>
+    </div>
+
+    <!-- STEP 3C (Warenausgang → Umlagerung): Stellplatz wählen -->
+    <div id="stepRelocPos" class="step">
+        <div class="step-header">Stellplatz in Aumundswiese wählen</div>
+        <div class="suggested-pos">
+            <div class="label">Vorgeschlagener Platz</div>
+            <div class="pos" id="suggestedPos">-</div>
+        </div>
+        <div class="card">
+            <div class="form-group">
+                <label>Position ändern:</label>
+                <select id="positionSelect"></select>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+            <button class="btn btn-secondary" onclick="showStep('stepOutChoice')">Zurück</button>
+            <button class="btn btn-success" id="confirmRelocBtn">Umlagern</button>
+        </div>
+    </div>
+
+    <!-- STEP 4: Erfolg -->
+    <div id="step4" class="step">
+        <div class="success-screen">
+            <div class="success-icon">✅</div>
+            <div class="success-text" id="successText">Erfolgreich gebucht!</div>
+            <div class="success-sub" id="successDetail"></div>
+            <button class="btn btn-primary" onclick="goToStep1()">Nächste Palette</button>
+            <button class="btn btn-secondary" style="margin-top:10px" onclick="goToStepAction()">Aktion wechseln</button>
+        </div>
+    </div>
+
+    <!-- STEP: Manual entry -->
+    <div id="stepManual" class="step">
+        <div class="step-header">Manuelle Eingabe</div>
+        <div class="card">
+            <div class="form-group">
+                <label>Label-Typ:</label>
+                <select id="manualTypSelect">
+                    <option value="">-- Typ wählen --</option>
+                    <option value="ALPLA Halbfabrikate">ALPLA Halbfabrikate</option>
+                    <option value="XO Halbfabrikate">XO Halbfabrikate</option>
+                    <option value="XO Fertigware">XO Fertigware</option>
+                </select>
+            </div>
+            <div id="manualFieldsContainer" style="display:none">
+                <div id="manualFields"></div>
+                <button class="btn btn-primary" id="manualSubmitBtn" style="margin-top:14px">Weiter</button>
+            </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:10px" onclick="goToStep1()">Abbrechen</button>
+    </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
+<script>
+window.__firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check.js";
+import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-ai.js";
+const aiApp = initializeApp(window.__firebaseConfig, "aiApp");
+initializeAppCheck(aiApp, {
+    provider: new ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+    isTokenAutoRefreshEnabled: true
+});
+const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
+window.aiModel = getGenerativeModel(ai, {
+    model: "gemini-2.5-flash",
+    generationConfig: { responseMimeType: "application/json", temperature: 0 }
+});
+</script>
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const EMAIL_DOMAIN = '@lager.local';
+const VALID_LOCATIONS = Object.freeze(['K&R-Lager','Seepack']);
+
+firebase.initializeApp(window.__firebaseConfig);
+firebase.appCheck().activate(
+    new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+    true
+);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// V2-Sandbox Prefix (wie in index_V2.html und Lagerverwaltung_V2.html)
+const COL_PREFIX='v2_';
+const _PFX_EXCLUDE=new Set(['users']);
+(function(_d){
+    const _orig=_d.collection.bind(_d);
+    _d.collection=function(name){
+        if(!COL_PREFIX||_PFX_EXCLUDE.has(name)||(typeof name==='string'&&name.indexOf(COL_PREFIX)===0)) return _orig(name);
+        return _orig(COL_PREFIX+name);
+    };
+})(db);
+if(COL_PREFIX){
+    console.log('%c[V2-SANDBOX] Collection-Prefix aktiv: '+COL_PREFIX+'*  — KEINE Live-Daten!','background:#16a34a;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;font-size:13px');
+    document.addEventListener('DOMContentLoaded',function(){
+        const b=document.createElement('div');
+        b.textContent='V2 SANDBOX — Prefix '+COL_PREFIX+'  (keine Live-Daten)';
+        b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#16a34a;color:#fff;font:600 12px/1.4 system-ui;padding:4px 10px;text-align:center;letter-spacing:.3px;box-shadow:0 1px 4px rgba(0,0,0,.2)';
+        document.body.appendChild(b);
+        document.body.style.paddingTop='24px';
+    });
+}
+const $ = id => document.getElementById(id);
+
+// Aumundswiese-Zonen für Umlagerungs-Vorschlag
+const WAREHOUSE_ZONES = Object.freeze({
+    halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
+    granulate:     Object.freeze({ label:'Granulate',     zones:Object.freeze({GB:25, GS:25}) }),
+    fertigware:    Object.freeze({ label:'Fertigware',    zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
+});
+const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
+const GRANULATE_SLOT_COUNT = 25;
+function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
+const _zoneSlotMap = {};
+for(const[_,cat] of Object.entries(WAREHOUSE_ZONES)) for(const[zone,count] of Object.entries(cat.zones)) _zoneSlotMap[zone]=count;
+
+const ARTIKEL_NUMMERN = Object.freeze([
+    '120001','120002','120004','120005','120006','120007','120008','120009','120010','120011',
+    '120014','120015','120016','120018','120022','120023','120024','120025','120026','120027','120028','120030',
+    '180001','180005','180006','180007','180008',
+    '190001','190002','190003','190004','190005','190006','190007','190008','190009',
+    '190011','190012','190013','190014','190015','190016','190017','190024','190032','190033'
+]);
+
+// ============================================================
+// AUTH
+// ============================================================
+const _errorMap = Object.freeze({'auth/invalid-email':'Ungültiger Benutzername','auth/user-not-found':'Benutzer nicht gefunden','auth/wrong-password':'Falsches Passwort','auth/invalid-credential':'Falscher Benutzername oder Passwort','auth/too-many-requests':'Zu viele Versuche. Bitte warten.'});
+
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+let _idleTimer = null;
+function _resetIdleTimer(){
+    if(_idleTimer) clearTimeout(_idleTimer);
+    if(!auth.currentUser) return;
+    _idleTimer = setTimeout(() => {
+        if(auth.currentUser){
+            auth.signOut();
+            alert('Automatisch abgemeldet nach 5 Minuten Inaktivität.');
+        }
+    }, IDLE_TIMEOUT_MS);
+}
+['click','touchstart','keydown','input','change'].forEach(ev =>
+    document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true})
+);
+
+auth.onAuthStateChanged(user => {
+    if(user){
+        $('loginView').style.display='none';
+        $('appView').style.display='flex';
+        $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
+        _resetIdleTimer();
+        goToStepLocation();
+    } else {
+        $('appView').style.display='none';
+        $('loginView').style.display='flex';
+        if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
+    }
+});
+
+$('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const u=$('username').value.trim(), p=$('password').value, err=$('loginError');
+    err.style.display='none';
+    const lower=u.toLowerCase();
+    const email = lower.indexOf('@')>=0 ? lower : lower.replace(/\s+/g,'_')+EMAIL_DOMAIN;
+    try { await auth.signInWithEmailAndPassword(email,p); }
+    catch(ex) { err.textContent=_errorMap[ex.code]||'Fehler: '+ex.code; err.style.display='block'; }
+});
+
+function logout(){ auth.signOut(); }
+function getCurrentUsername(){ const u=auth.currentUser; if(!u)return''; return u.displayName||u.email.replace(EMAIL_DOMAIN,''); }
+
+// ============================================================
+// FIELD DEFINITIONS
+// ============================================================
+const INBOUND_FIELDS_BASE=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Artikelnummer'},
+    {key:'datum',label:'Produktionsdatum'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'sscc',label:'SSCC'}
+];
+const INBOUND_FIELDS_XO_HALB=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Artikelnummer'},
+    {key:'datum',label:'Produktionsdatum'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'orderNr',label:'Order Number'},
+    {key:'schicht',label:'Shift'},
+    {key:'palettenNr',label:'Pallet Number'},
+    {key:'internalBarcode',label:'Internal Barcode'}
+];
+const INBOUND_FIELDS_XO_FERTIG=[
+    {key:'labelTyp',label:'Label-Typ',readonly:true},
+    {key:'artikelNr',label:'Article Number'},
+    {key:'datum',label:'Production Date'},
+    {key:'uhrzeit',label:'Uhrzeit'},
+    {key:'sscc',label:'SSCC'},
+    {key:'menge',label:'QTY/Pallet'},
+    {key:'mengePerSleeve',label:'QTY/Sleeve'},
+    {key:'palettenNr',label:'Pallet Number'},
+    {key:'kunde',label:'Customer'},
+    {key:'orderNr',label:'Order Number'},
+    {key:'schicht',label:'Shift'},
+    {key:'gtin',label:'GTIN'}
+];
+const INBOUND_FIELDS_ALPLA=[
+    ...INBOUND_FIELDS_BASE,
+    {key:'palettenNr',label:'Running Number'},
+    {key:'lotNr',label:'Lot Number'},
+    {key:'schicht',label:'Shift'}
+];
+function getInboundFields(typ){
+    if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;
+    if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;
+    if(typ==='XO Fertigware')return INBOUND_FIELDS_XO_FERTIG;
+    return INBOUND_FIELDS_BASE;
+}
+const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','mengePerSleeve','palettenNr','lotNr','orderNr','internalBarcode','kunde','schicht','gtin'];
+
+// ============================================================
+// SCAN PROMPT & OCR (gleich wie index_V2)
+// ============================================================
+const SCAN_PROMPT=`Du bist ein OCR-Spezialist. Lies JEDES einzelne Textfeld auf dem Paletten-Label EXAKT ab. Erfinde KEINE Werte — lies nur was gedruckt steht. Achte besonders auf korrekte Ziffernfolgen.
+
+LABEL-TYPEN:
+TYP 1: "XO Fertigware" — XO-Logo + "Beverage Can Ends". Article Number im Format XO-XXX-XXXXXZ (z.B. XO-202-2046G). WICHTIG: Dieses Label hat ZWEI getrennte Mengenfelder nebeneinander: "QTY/Pallet" (linke Spalte, große Zahl z.B. 71280) und "QTY/Sleeve" (rechte Spalte, kleinere Zahl z.B. 198). Lies BEIDE Werte SEPARAT und EXAKT ab. Verwechsle sie NICHT!
+TYP 2: "XO Halbfabrikate" — XO-Logo + Überschrift "Frame" (intern produziertes Spritzguss-Label). Enthält Felder: Production Date, Time, Order Number, Shift, Article Number, Pallet Number, Internal Barcode. Article Number ist eine 6-stellige Zahl beginnend mit 12, 18 oder 19 (z.B. 120030).
+TYP 3: "ALPLA Halbfabrikate" — ALPLA-Logo, tschechische Felder wie "Barva/Color", "Počet ks v balení". Artikelnr. ist 6-stellig (z.B. 190009).
+
+WICHTIGE REGELN:
+- Lies Zahlen EXAKT Ziffer für Ziffer ab. Verwechsle nicht 0/O, 1/l, 5/S, 8/B.
+
+== XO HALBFABRIKATE (Frame / Spritzguss-Label) ==
+- LAYOUT: Tabellarisches Label mit XO-Logo oben links und "Frame" als Überschrift. Darunter eine 2-spaltige Tabelle:
+    Zeile 1: "Production Date" | "Time"           → Werte z.B. "21.04.2026" | "07:49"
+    Zeile 2: "Order Number"    | "Shift"          → Werte z.B. "IO26-0001"  | "1"
+    Zeile 3: "Article Number"  | "Pallet Number"  → Werte z.B. "120030"     | "FR260001"
+  Darunter: "Internal Barcode"-Zeile mit einer zusammengesetzten Nummer + Barcode-Strichcode.
+- ARTIKELNUMMER bei XO Halbfabrikate: Steht direkt unter der Zelle "Article Number" (linke Spalte, dritte Datenzeile). Immer eine 6-stellige Zahl, beginnend mit "12" (Frame), "18" (Innerslider) oder "19" (Outerslider). NIE XO-Präfix, NIE Bindestriche.
+- PALETTENNUMMER bei XO Halbfabrikate: Format "FR26XXXX" (z.B. "FR260001"), steht unter "Pallet Number".
+- ORDER NUMBER bei XO Halbfabrikate: Format "IO26-XXXX" — beginnt IMMER mit den BUCHSTABEN "I" und "O" (Großbuchstaben).
+- SHIFT: IMMER genau EINE Ziffer (1, 2 oder 3).
+- INTERNAL BARCODE: Format "<ArtikelNr>-<DDMMYYYY>-<HHMM>-<PalNr>".
+
+== ALPLA HALBFABRIKATE ==
+- ARTIKELNUMMER: Steht unter "Název výrobku / Article Variant Name", kann über zwei Zeilen gehen. 6-stellig (z.B. "190024").
+- RUNNING NUMBER (palettenNr): EXAKT 9 Ziffern.
+- LOT-NR.: EXAKT 5 Ziffern.
+- SHIFT: EINE Ziffer (1, 2 oder 3).
+
+== ALLGEMEINE FELDER ==
+- SSCC: LANGE Zahl, mindestens 16 Ziffern. Nur bei XO Fertigware und ALPLA Halbfabrikate.
+- Datum: EXAKT im Originalformat (z.B. "4/5/2024", "05.04.2024" oder "21.04.2026").
+- Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
+
+BEISPIEL 1 — ALPLA Halbfabrikate:
+{"labelTyp":"ALPLA Halbfabrikate","artikelNr":"190009","datum":"4/5/2024","uhrzeit":"18:58","sscc":"185921960069196244","palettenNr":"006919624","lotNr":"36479","orderNr":"","internalBarcode":"","kunde":"","schicht":"1","gtin":"","menge":"196224","mengePerSleeve":""}
+
+BEISPIEL 2 — XO Fertigware:
+{"labelTyp":"XO Fertigware","artikelNr":"XO-202-2046G","datum":"02.04.2026","uhrzeit":"19:26","sscc":"34262503660026793","palettenNr":"C26-0338","lotNr":"","orderNr":"26-0013","internalBarcode":"","kunde":"Monster","schicht":"2","gtin":"4262503660396","menge":"71280","mengePerSleeve":"198"}
+
+BEISPIEL 3 — XO Halbfabrikate:
+{"labelTyp":"XO Halbfabrikate","artikelNr":"120030","datum":"21.04.2026","uhrzeit":"07:49","sscc":"","palettenNr":"FR260001","lotNr":"","orderNr":"IO26-0001","internalBarcode":"120030-21042026-0749-FR260001","kunde":"","schicht":"1","gtin":"","menge":"","mengePerSleeve":""}
+
+Antworte NUR mit einem JSON-Objekt in exakt diesem Format (alle Felder müssen vorhanden sein):`;
+
+const _jsonBlockRe=/```(?:json)?\s*([\s\S]*?)```/;
+
+function _normalizeArtikelNr(nr){
+    if(!nr)return nr;
+    if(nr.trim().toUpperCase().startsWith('XO'))return nr.trim();
+    nr=nr.replace(/[\s\-]/g,'').replace(/[Oo]/g,'0');
+    const exact=ARTIKEL_NUMMERN.find(a=>nr.startsWith(a));
+    if(exact)return exact;
+    const digits=nr.replace(/\D/g,'');
+    if(digits.length===6&&ARTIKEL_NUMMERN.includes(digits))return digits;
+    if(digits.length>=4){const suffix=digits.slice(-4);const endMatch=ARTIKEL_NUMMERN.find(a=>a.endsWith(suffix));if(endMatch)return endMatch;}
+    const prefix=digits.slice(0,2);
+    const candidates=ARTIKEL_NUMMERN.filter(a=>a.startsWith(prefix));
+    if(candidates.length===1)return candidates[0];
+    if(candidates.length>1){
+        let best=candidates[0],bestLen=0;
+        for(const c of candidates){let i=0;while(i<c.length&&i<digits.length&&c[i]===digits[i])i++;if(i>bestLen){bestLen=i;best=c;}}
+        return best;
+    }
+    if(/^(12|18|19)\d+/.test(digits))return digits.slice(0,6);
+    return nr;
+}
+
+function normalizeDatum(s){
+    if(!s)return s;
+    s=s.trim().replace(/\s+\d{1,2}:\d{2}(:\d{2})?$/,'');
+    let d,m,y;
+    let match=s.match(/^(\d{4})[\-\/.](\d{1,2})[\-\/.](\d{1,2})/);
+    if(match){y=match[1];m=match[2];d=match[3];}
+    if(!y){match=s.match(/^(\d{1,2})\s*\/\s*(\d{1,2})\s*\/\s*(\d{4})/);if(match){m=match[1];d=match[2];y=match[3];}}
+    if(!y){match=s.match(/^(\d{1,2})[\.\-](\d{1,2})[\.\-](\d{4})/);if(match){d=match[1];m=match[2];y=match[3];}}
+    if(!y){match=s.match(/^(\d{1,2})\.?\s*([A-Za-zäöü]+)\s*(\d{4})/);if(match){
+        d=match[1];y=match[3];
+        const months={jan:'01',feb:'02',mar:'03',mär:'03',apr:'04',may:'05',mai:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',okt:'10',nov:'11',dec:'12',dez:'12'};
+        m=months[match[2].toLowerCase().slice(0,3)]||'01';
+    }}
+    if(d&&m&&y)return String(d).padStart(2,'0')+'.'+String(m).padStart(2,'0')+'.'+y;
+    return s;
+}
+
+function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(objUrl);const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}c.width=w;c.height=h;const ctx=c.getContext('2d');
+    ctx.filter='contrast(1.3) brightness(1.05)';
+    ctx.drawImage(img,0,0,w,h);ctx.filter='none';
+    const tc=document.createElement('canvas');tc.width=w;tc.height=h;const tctx=tc.getContext('2d');tctx.filter='blur(1px)';tctx.drawImage(c,0,0);tctx.filter='none';
+    const orig=ctx.getImageData(0,0,w,h);const blurred=tctx.getImageData(0,0,w,h);
+    for(let i=0;i<orig.data.length;i+=4){for(let ch=0;ch<3;ch++){orig.data[i+ch]=Math.min(255,Math.max(0,Math.round(orig.data[i+ch]*1.4-blurred.data[i+ch]*0.4)));}}
+    ctx.putImageData(orig,0,0);tc.width=0;tc.height=0;
+    const result=c.toDataURL('image/jpeg',0.92);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
+
+async function _aiRequest(base64){
+    if(!window.aiModel) throw new Error('KI-Modell noch nicht geladen — Seite neu laden');
+    const b64Data = base64.replace(/^data:image\/\w+;base64,/, '');
+    const result = await window.aiModel.generateContent([
+        SCAN_PROMPT,
+        { inlineData: { mimeType: 'image/jpeg', data: b64Data } }
+    ]);
+    return result.response.text();
+}
+
+async function scanLabel(file){
+    const base64=await imageToBase64Scan(file,2500);
+    const content=await _aiRequest(base64);
+    if(!content)throw new Error('Keine Antwort');
+    let data;try{data=JSON.parse(content);}catch{const mt=content.match(_jsonBlockRe);if(mt)data=JSON.parse(mt[1]);else throw new Error('JSON-Parse-Fehler');}
+    if(data.datum){data.datum=normalizeDatum(data.datum);}
+    const isXOFertig=data.labelTyp==='XO Fertigware';
+    if(data.artikelNr&&!isXOFertig){data.artikelNr=data.artikelNr.replace(/[\s\-]/g,'');data.artikelNr=_normalizeArtikelNr(data.artikelNr);}
+    if(data.artikelNr&&isXOFertig){
+        data.artikelNr=data.artikelNr.trim();
+        const xoMatch=data.artikelNr.match(/XO[\-\s]*(\d{2,4})[\-\s]*([A-Za-z0-9]{4,7})/i);
+        if(xoMatch)data.artikelNr='XO-'+xoMatch[1]+'-'+xoMatch[2].toUpperCase();
+    }
+    if(data.sscc){data.sscc=data.sscc.replace(/\(00\)/g,'').replace(/\D/g,'');if(data.sscc.length<16)data.sscc='';}
+    if(data.labelTyp==='XO Halbfabrikate'){
+        const ibMatch=(data.internalBarcode||'').trim().match(/^(\d{6})[\-\s]*(\d{8})[\-\s]*(\d{4})[\-\s]*(FR\d{6})$/i);
+        if(ibMatch){
+            const [,ibArt,ibDate,ibTime,ibPal]=ibMatch;
+            const tblArt=(data.artikelNr||'').replace(/[\s\-]/g,'');
+            if(ARTIKEL_NUMMERN.includes(ibArt) && (!ARTIKEL_NUMMERN.includes(tblArt))){
+                data.artikelNr=ibArt;
+            }
+            if(!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum||'')){
+                data.datum=ibDate.slice(0,2)+'.'+ibDate.slice(2,4)+'.'+ibDate.slice(4,8);
+            }
+            if(!/^\d{1,2}:\d{2}/.test(data.uhrzeit||'')){
+                data.uhrzeit=ibTime.slice(0,2)+':'+ibTime.slice(2,4);
+            }
+            if(!/^FR\d{6}$/i.test((data.palettenNr||'').trim())){
+                data.palettenNr=ibPal.toUpperCase();
+            }
+        }
+        if(data.schicht){
+            const digits=String(data.schicht).replace(/\D/g,'');
+            data.schicht=digits.length>=1?digits.charAt(0):'FEHLER';
+            if(!/^[1-3]$/.test(data.schicht))data.schicht='FEHLER';
+        }
+    }
+    if(data.labelTyp==='ALPLA Halbfabrikate'){
+        if(data.palettenNr){
+            data.palettenNr=data.palettenNr.replace(/\D/g,'');
+            if(data.palettenNr.length>0&&data.palettenNr.length<9)data.palettenNr=data.palettenNr.padStart(9,'0');
+            if(data.palettenNr.length>9)data.palettenNr=data.palettenNr.slice(-9);
+            if(!/^\d{9}$/.test(data.palettenNr))data.palettenNr='FEHLER';
+        }
+        if(data.lotNr){
+            data.lotNr=data.lotNr.replace(/\D/g,'');
+            if(data.lotNr.length>0&&data.lotNr.length<5)data.lotNr=data.lotNr.padStart(5,'0');
+            if(data.lotNr.length>5)data.lotNr=data.lotNr.slice(-5);
+            if(!/^\d{5}$/.test(data.lotNr))data.lotNr='FEHLER';
+        }
+        if(data.schicht){
+            const digits=data.schicht.replace(/\D/g,'');
+            data.schicht=digits.length>=1?digits.charAt(0):'FEHLER';
+            if(!/^\d$/.test(data.schicht))data.schicht='FEHLER';
+        }
+    }
+    if(isXOFertig){if(!data.artikelNr||!/^XO-\d+-[A-Za-z0-9]+$/.test(data.artikelNr))data.artikelNr='FEHLER';}
+    else{if(!data.artikelNr||!ARTIKEL_NUMMERN.includes(data.artikelNr))data.artikelNr='FEHLER';}
+    if(!data.datum||!/^\d{2}\.\d{2}\.\d{4}$/.test(data.datum))data.datum='FEHLER';
+    if(!data.uhrzeit||!/^\d{1,2}:\d{2}/.test(data.uhrzeit))data.uhrzeit='FEHLER';
+    const _checkFields=isXOFertig
+        ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
+        :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode','schicht']
+        :['sscc','palettenNr','lotNr','schicht'];
+    for(const k of _checkFields){if(!data[k])data[k]='FEHLER';}
+    return {data, base64};
+}
+
+// ============================================================
+// HELPER
+// ============================================================
+function _escAttr(s){return s?String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'):''}
+function _escHtml(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function _autoMenge(nr){
+    if(!nr||nr.startsWith('XO'))return null;
+    if(nr.startsWith('12'))return '92.400';
+    if(nr.startsWith('18'))return '420.672';
+    if(nr.startsWith('19'))return '196.224';
+    return null;
+}
+const _deDateRe=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/;
+const _usDateRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDateRe);if(de)return new Date(+de[3],+de[2]-1,+de[1]);const us=s.match(_usDateRe);if(us)return new Date(+us[3],+us[1]-1,+us[2]);const d=new Date(s);return isNaN(d)?new Date(9999,0):d;}
+
+// ============================================================
+// STATE & NAVIGATION
+// ============================================================
+let currentLocation = null;   // 'K&R-Lager' | 'Seepack'
+let currentAction = null;     // 'in' | 'out'
+let inboundData = null;
+let currentLabelTyp = null;
+let matchedPalette = null;    // {id, ...data} — bei Warenausgang
+const scanHistory = [];
+
+function showStep(id){
+    document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+    $(id).classList.add('active');
+}
+
+function _updateCtxBar(){
+    const bar=$('ctxBar');
+    if(!currentLocation){bar.style.display='none';return;}
+    bar.style.display='flex';
+    $('ctxLocation').textContent='📍 '+currentLocation;
+    const ca=$('ctxAction');
+    if(currentAction){
+        ca.style.display='inline-block';
+        ca.textContent=currentAction==='in'?'📥 Wareneingang':'📤 Warenausgang';
+    } else {
+        ca.style.display='none';
+    }
+}
+
+function goToStepLocation(){
+    currentLocation=null; currentAction=null; inboundData=null; matchedPalette=null;
+    _updateCtxBar();
+    showStep('stepLocation');
+}
+function goToStepAction(){
+    currentAction=null; inboundData=null; matchedPalette=null;
+    _resetStep1();
+    _updateCtxBar();
+    showStep('stepAction');
+}
+function goToStep1(){
+    inboundData=null; matchedPalette=null;
+    _resetStep1();
+    showStep('step1');
+}
+function _resetStep1(){
+    $('progressArea').style.display='none';
+    $('progressFill').style.width='0%';
+    $('previewImg').style.display='none';
+    $('captureBtn').style.display='inline-flex';
+    $('manualBtn').style.display='inline-flex';
+    const si=document.querySelector('#step1 .scan-icon');
+    const sins=document.querySelector('#step1 .scan-instruction');
+    if(si)si.style.display='block';
+    if(sins)sins.style.display='block';
+}
+
+// Standort-Buttons
+document.querySelectorAll('.loc-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        const loc=btn.dataset.loc;
+        if(!VALID_LOCATIONS.includes(loc))return;
+        currentLocation=loc;
+        _updateCtxBar();
+        showStep('stepAction');
+    });
+});
+
+// Aktions-Buttons
+document.querySelectorAll('.act-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        currentAction=btn.dataset.act;
+        _updateCtxBar();
+        goToStep1();
+    });
+});
+
+// ============================================================
+// STEP 1: CAPTURE / MANUAL
+// ============================================================
+const cameraInput=$('cameraInput');
+$('captureBtn').addEventListener('click',()=>cameraInput.click());
+$('manualBtn').addEventListener('click',()=>{
+    $('manualTypSelect').value='';
+    $('manualFieldsContainer').style.display='none';
+    showStep('stepManual');
+});
+
+cameraInput.addEventListener('change',()=>{
+    if(cameraInput.files.length) processPhoto(cameraInput.files[0]);
+    cameraInput.value='';
+});
+
+async function processPhoto(file){
+    $('progressArea').style.display='block';
+    $('progressFill').style.width='20%';
+    $('progressText').textContent='Label wird analysiert...';
+    $('captureBtn').style.display='none';
+    $('manualBtn').style.display='none';
+    const si=document.querySelector('#step1 .scan-icon');
+    const sins=document.querySelector('#step1 .scan-instruction');
+    if(si)si.style.display='none';
+    if(sins)sins.style.display='none';
+
+    try {
+        $('progressFill').style.width='50%';
+        const result = await scanLabel(file);
+        inboundData = result.data;
+        currentLabelTyp = inboundData.labelTyp || 'ALPLA Halbfabrikate';
+
+        const preview=$('previewImg');
+        if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);
+        preview._objUrl=URL.createObjectURL(file);
+        preview.src=preview._objUrl;
+        preview.style.display='block';
+
+        renderFields();
+        $('progressFill').style.width='100%';
+        $('progressText').textContent='Fertig!';
+        _resetStep1();
+        showStep('step2');
+    } catch(err) {
+        $('progressText').textContent='Fehler: '+err.message;
+        $('progressFill').style.width='0%';
+        setTimeout(_resetStep1,3000);
+    }
+}
+
+function renderFields(){
+    const fields=getInboundFields(currentLabelTyp);
+    $('fieldsContainer').innerHTML=fields.map(f=>{
+        const val=inboundData[f.key]||'';
+        const isErr=val==='FEHLER';
+        const errClass=isErr?' field-error':'';
+        const roAttr=f.readonly?' readonly':'';
+        const roStyle=f.readonly?' style="background:#f1f5f9;font-weight:700"':'';
+        return `<div class="form-group${errClass}"><label>${f.label}</label><input type="text" id="field-${f.key}" value="${_escAttr(val)}"${roAttr}${roStyle}></div>`;
+    }).join('');
+}
+
+// ============================================================
+// MANUAL ENTRY
+// ============================================================
+$('manualTypSelect').addEventListener('change',()=>{
+    const typ=$('manualTypSelect').value;
+    if(!typ){$('manualFieldsContainer').style.display='none';return;}
+    const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
+    $('manualFields').innerHTML=fields.map(f=>
+        `<div class="form-group"><label>${f.label}</label><input type="text" id="manual-${f.key}" placeholder="${f.label}"></div>`
+    ).join('');
+    $('manualFieldsContainer').style.display='block';
+});
+
+$('manualSubmitBtn').addEventListener('click',()=>{
+    const typ=$('manualTypSelect').value;
+    if(!typ){alert('Bitte Label-Typ auswählen!');return;}
+    const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
+    const data={labelTyp:typ};
+    ALL_STORE_KEYS.forEach(k=>data[k]=data[k]||'');
+    fields.forEach(f=>{data[f.key]=document.getElementById('manual-'+f.key)?.value.trim()||'';});
+    if(!data.artikelNr){alert('Artikelnummer muss ausgefüllt werden!');return;}
+    inboundData=data;
+    currentLabelTyp=typ;
+    $('previewImg').style.display='none';
+    renderFields();
+    showStep('step2');
+});
+
+// ============================================================
+// STEP 2 → next
+// ============================================================
+$('toConfirmBtn').addEventListener('click', async ()=>{
+    // Felder zurücklesen
+    const fields=getInboundFields(currentLabelTyp);
+    fields.forEach(f=>{
+        const el=document.getElementById('field-'+f.key);
+        if(el) inboundData[f.key]=el.value.trim();
+    });
+    if(!inboundData.artikelNr||inboundData.artikelNr==='FEHLER'){alert('Artikelnummer fehlt oder ungültig!');return;}
+    if(!currentLocation){alert('Kein Standort gewählt!');goToStepLocation();return;}
+
+    if(currentAction==='in') return goToInConfirm();
+    if(currentAction==='out') return goToOutMatch();
+    alert('Aktion nicht gesetzt!');
+});
+
+// ============================================================
+// WARENEINGANG-BESTÄTIGUNG
+// ============================================================
+function _detailHtml(data, extras){
+    const rows=[];
+    const push=(l,v)=>{if(v) rows.push(`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f1f5f9"><span style="color:#64748b;font-size:0.85rem">${_escHtml(l)}</span><span style="font-weight:600">${_escHtml(v)}</span></div>`);};
+    push('Label-Typ', data.labelTyp);
+    push('Artikelnr.', data.artikelNr);
+    push('Prod.-Datum', data.datum);
+    push('Uhrzeit', data.uhrzeit);
+    push('Paletten-Nr.', data.palettenNr);
+    push('SSCC', data.sscc);
+    push('Lot-Nr.', data.lotNr);
+    push('Order-Nr.', data.orderNr);
+    push('Kunde', data.kunde);
+    push('Schicht', data.schicht);
+    push('Menge', data.menge);
+    if(extras) for(const[k,v] of Object.entries(extras)) push(k,v);
+    return rows.join('');
+}
+
+function goToInConfirm(){
+    $('inConfirmLoc').textContent='📥 Wareneingang → '+currentLocation;
+    const data={...inboundData};
+    const am=_autoMenge(data.artikelNr);
+    if(!data.menge && am) data.menge=am+' (auto)';
+    $('inConfirmDetails').innerHTML=_detailHtml(data);
+    showStep('stepInConfirm');
+}
+
+$('confirmInBtn').addEventListener('click', async ()=>{
+    $('confirmInBtn').disabled=true;
+    try {
+        const data={};
+        ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');
+        const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
+
+        // Duplikat-Prüfung
+        try {
+            const existing=await db.collection('paletten').doc(docId).get();
+            if(existing.exists){
+                const ep=existing.data();
+                const where=ep.standort||(ep.position?('Aumundswiese '+ep.position):'?');
+                const proceed=await showDuplicateWarning(docId, where);
+                if(!proceed){$('confirmInBtn').disabled=false;return;}
+            }
+        } catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
+
+        // Auto-Menge
+        if(!data.menge){
+            const am=_autoMenge(data.artikelNr);
+            if(am) data.menge=am;
+        }
+
+        await db.collection('paletten').doc(docId).set({
+            ...data,
+            standort: currentLocation,
+            position: '',
+            produktionsDatum: data.datum,
+            einlagDatum: firebase.firestore.FieldValue.serverTimestamp(),
+            qc: false,
+            gesperrt: false,
+            eingelagertVon: getCurrentUsername()
+        });
+        await db.collection('protokoll').add({
+            aktion:'einlagern-extern', docId,
+            artikelNr:data.artikelNr||'', labelTyp:data.labelTyp||'',
+            sscc:data.sscc||'', internalBarcode:data.internalBarcode||'',
+            palettenNr:data.palettenNr||'', menge:data.menge||'',
+            mengePerSleeve:data.mengePerSleeve||'',
+            produktionsDatum:data.datum||'', lotNr:data.lotNr||'',
+            orderNr:data.orderNr||'', kunde:data.kunde||'',
+            schicht:data.schicht||'', gtin:data.gtin||'',
+            standort: currentLocation, position:'',
+            eingelagertVon:getCurrentUsername(),
+            einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),
+            auslagDatum:null, ausgelagertVon:''
+        });
+        await db.collection('log').add({
+            aktion:'einlagern-extern', docId,
+            artikelNr:data.artikelNr, labelTyp:data.labelTyp,
+            standort: currentLocation,
+            user:getCurrentUsername(),
+            timestamp:firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        $('successText').textContent='Wareneingang gebucht!';
+        $('successDetail').textContent=data.artikelNr+' → '+currentLocation;
+        scanHistory.unshift({time:new Date(),text:'📥 '+data.artikelNr+' → '+currentLocation});
+        renderHistory();
+        showStep('step4');
+    } catch(e){
+        alert('Fehler beim Speichern: '+e.message);
+    }
+    $('confirmInBtn').disabled=false;
+});
+
+// ============================================================
+// WARENAUSGANG: Palette finden
+// ============================================================
+async function goToOutMatch(){
+    // Such-Keys aus Scan-Daten generieren
+    const data=inboundData;
+    const candidates=[];
+    if(data.sscc) candidates.push(data.sscc);
+    if(data.internalBarcode) candidates.push(data.internalBarcode);
+    if(data.palettenNr) candidates.push(data.palettenNr);
+
+    $('outMatchBox').innerHTML='<div class="info-box"><div class="label">Suche</div><div class="val">Palette wird gesucht…</div></div>';
+    $('outMatchDetails').style.display='none';
+    showStep('stepOutChoice');
+    $('outShipBtn').disabled=true;
+    $('outRelocateBtn').disabled=true;
+    matchedPalette=null;
+
+    let found=null;
+    for(const id of candidates){
+        try {
+            const snap=await db.collection('paletten').doc(id).get();
+            if(snap.exists){ found={id:snap.id,...snap.data()}; break; }
+        } catch(e){console.warn('Suche fehlgeschlagen für',id,e);}
+    }
+
+    // Fallback: über artikelNr+palettenNr im Feld suchen
+    if(!found && data.palettenNr){
+        try {
+            const q=await db.collection('paletten').where('palettenNr','==',data.palettenNr).limit(2).get();
+            if(!q.empty){
+                if(q.size>1){
+                    $('outMatchBox').innerHTML='<div class="info-box warn"><div class="label">Mehrdeutig</div><div class="val">Mehrere Paletten mit Pal-Nr. '+_escHtml(data.palettenNr)+' gefunden. Bitte über SSCC eindeutig scannen.</div></div>';
+                    return;
+                }
+                const d=q.docs[0]; found={id:d.id,...d.data()};
+            }
+        } catch(e){console.warn('Pal-Nr-Suche fehlgeschlagen:',e);}
+    }
+
+    if(!found){
+        $('outMatchBox').innerHTML='<div class="info-box err"><div class="label">Nicht gefunden</div><div class="val">Diese Palette ist nicht im System. SSCC / Pal-Nr. prüfen oder Daten in Schritt 2 korrigieren.</div></div>';
+        return;
+    }
+
+    // Standort-Plausibilität
+    const palStandort=found.standort||(found.position?'Aumundswiese':'?');
+    if(palStandort!==currentLocation){
+        $('outMatchBox').innerHTML='<div class="info-box warn"><div class="label">Standort weicht ab</div><div class="val">Palette liegt laut System in <strong>'+_escHtml(palStandort)+'</strong>, nicht in <strong>'+_escHtml(currentLocation)+'</strong>. Du kannst trotzdem fortfahren, falls die Palette physisch hier ist.</div></div>';
+    } else {
+        $('outMatchBox').innerHTML='<div class="info-box"><div class="label">Palette gefunden</div><div class="val">'+_escHtml(found.artikelNr||'?')+' · Standort '+_escHtml(palStandort)+'</div></div>';
+    }
+    $('outMatchDetails').innerHTML=_detailHtml(found);
+    $('outMatchDetails').style.display='block';
+    matchedPalette=found;
+    $('outShipBtn').disabled=false;
+    $('outRelocateBtn').disabled=false;
+}
+
+// Versand / Verkauf — Palette komplett raus
+$('outShipBtn').addEventListener('click', async ()=>{
+    if(!matchedPalette){alert('Keine Palette zugeordnet!');return;}
+    if(!confirm('Palette '+matchedPalette.id+' wirklich aus dem Bestand löschen (Versand)?'))return;
+    $('outShipBtn').disabled=true; $('outRelocateBtn').disabled=true;
+    try {
+        const p=matchedPalette;
+        await db.collection('paletten').doc(p.id).delete();
+        await db.collection('protokoll').add({
+            aktion:'auslagern-extern-versand', docId:p.id,
+            artikelNr:p.artikelNr||'', labelTyp:p.labelTyp||'',
+            sscc:p.sscc||'', internalBarcode:p.internalBarcode||'',
+            palettenNr:p.palettenNr||'', menge:p.menge||'',
+            mengePerSleeve:p.mengePerSleeve||'',
+            produktionsDatum:p.produktionsDatum||p.datum||'',
+            lotNr:p.lotNr||'', orderNr:p.orderNr||'',
+            kunde:p.kunde||'', schicht:p.schicht||'', gtin:p.gtin||'',
+            standort: p.standort||currentLocation, position: p.position||'',
+            eingelagertVon: p.eingelagertVon||'',
+            einlagDatum: p.einlagDatum||null,
+            auslagDatum: firebase.firestore.FieldValue.serverTimestamp(),
+            ausgelagertVon: getCurrentUsername()
+        });
+        await db.collection('log').add({
+            aktion:'auslagern-extern-versand', docId:p.id,
+            artikelNr:p.artikelNr, labelTyp:p.labelTyp,
+            standort: p.standort||currentLocation,
+            user:getCurrentUsername(),
+            timestamp:firebase.firestore.FieldValue.serverTimestamp()
+        });
+        $('successText').textContent='Versand gebucht!';
+        $('successDetail').textContent=(p.artikelNr||'?')+' raus aus '+(p.standort||currentLocation);
+        scanHistory.unshift({time:new Date(),text:'📦 Versand: '+(p.artikelNr||'?')});
+        renderHistory();
+        showStep('step4');
+    } catch(e){alert('Fehler: '+e.message);}
+    $('outShipBtn').disabled=false; $('outRelocateBtn').disabled=false;
+});
+
+// Umlagerung Aumundswiese
+$('outRelocateBtn').addEventListener('click', async ()=>{
+    if(!matchedPalette){alert('Keine Palette zugeordnet!');return;}
+    try {
+        const occ=await getAllPositionsAumundswiese();
+        const zoneList=_typeToZones(matchedPalette);
+        const fp=findFreePosition(occ, zoneList);
+        $('suggestedPos').textContent=fp||'Kein Platz frei!';
+
+        const sel=$('positionSelect');
+        sel._occSnapshot=occ;
+        const frag=document.createDocumentFragment();
+        for(const[ck,cat] of Object.entries(WAREHOUSE_ZONES)){
+            if(ck==='granulate'){
+                const og=document.createElement('optgroup');og.label=cat.label;
+                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'⚠️ '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
+                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const ps='GS'+i;const o=document.createElement('option');o.value=ps;o.textContent=occ[ps]?'⚠️ '+ps+' (belegt)':ps;if(occ[ps])o.style.color='#dc2626';if(ps===fp)o.selected=true;og.appendChild(o);}
+                frag.appendChild(og);
+            } else {
+                const og=document.createElement('optgroup');og.label=cat.label;
+                for(const[z,cnt] of Object.entries(cat.zones)){
+                    for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'⚠️ '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
+                }
+                frag.appendChild(og);
+            }
+        }
+        sel.innerHTML='';sel.appendChild(frag);
+        sel.onchange=()=>{ $('suggestedPos').textContent=sel.value; };
+        showStep('stepRelocPos');
+    } catch(e){alert('Fehler beim Laden der Positionen: '+e.message);}
+});
+
+async function getAllPositionsAumundswiese(){
+    const s=await db.collection('paletten').get();
+    const o={};
+    s.forEach(d=>{
+        const dt=d.data();
+        const std=dt.standort||'';
+        // Aumundswiese-Bestand: alles ohne standort ODER explizit standort='Aumundswiese'
+        if(std && std!=='Aumundswiese')return;
+        if(!dt.position)return;
+        o[dt.position]={sscc:d.id,...dt};
+    });
+    return o;
+}
+
+function _typeToZones(pal){
+    const nr=pal.artikelNr||'';
+    if(nr.startsWith('XO')) return ['M','N','O','P','Q','R','S','T','U'];
+    return ['K','H','G','F','E','D','C','B','A','V'];
+}
+
+function findFreePosition(occ,zo){
+    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))return p;}}
+    return null;
+}
+
+$('confirmRelocBtn').addEventListener('click', async ()=>{
+    if(!matchedPalette){alert('Keine Palette!');return;}
+    const sel=$('positionSelect');
+    const pos=sel.value;
+    if(!pos||pos==='Kein Platz frei!'){alert('Bitte Stellplatz wählen!');return;}
+
+    $('confirmRelocBtn').disabled=true;
+    try {
+        // Belegungs-Warnung
+        const occSnap=sel._occSnapshot||await getAllPositionsAumundswiese();
+        if(occSnap[pos]){
+            const proceed=confirm('Stellplatz '+pos+' ist belegt mit '+(occSnap[pos].artikelNr||'?')+'. Trotzdem überschreiben?');
+            if(!proceed){$('confirmRelocBtn').disabled=false;return;}
+        }
+        // FIFO bei GS
+        if(pos.startsWith('GS')){
+            const nr=parseInt(pos.replace('GS',''),10);
+            const bodenPos='GB'+nr;
+            const bodenPal=occSnap[bodenPos];
+            if(!bodenPal){alert('Fehler: Bodenplatz '+bodenPos+' ist leer!');$('confirmRelocBtn').disabled=false;return;}
+            const neuDatum=parseProdDatum(matchedPalette.datum||matchedPalette.produktionsDatum||'');
+            const bodenDatum=parseProdDatum(bodenPal.produktionsDatum||bodenPal.datum||'');
+            if(neuDatum.getTime()>bodenDatum.getTime()){
+                if(!confirm('FIFO-Warnung: Gestapelte Palette ist neuer als Bodenpalette. Trotzdem fortfahren?')){$('confirmRelocBtn').disabled=false;return;}
+            }
+        }
+
+        const p=matchedPalette;
+        await db.collection('paletten').doc(p.id).update({
+            standort: 'Aumundswiese',
+            position: pos,
+            umlagertAm: firebase.firestore.FieldValue.serverTimestamp(),
+            umlagertVon: getCurrentUsername()
+        });
+        await db.collection('protokoll').add({
+            aktion:'umlagern-extern-zu-aumundswiese', docId:p.id,
+            artikelNr:p.artikelNr||'', labelTyp:p.labelTyp||'',
+            sscc:p.sscc||'', internalBarcode:p.internalBarcode||'',
+            palettenNr:p.palettenNr||'', menge:p.menge||'',
+            mengePerSleeve:p.mengePerSleeve||'',
+            produktionsDatum:p.produktionsDatum||p.datum||'',
+            lotNr:p.lotNr||'', orderNr:p.orderNr||'',
+            kunde:p.kunde||'', schicht:p.schicht||'', gtin:p.gtin||'',
+            standortVon: p.standort||currentLocation,
+            standortNach: 'Aumundswiese',
+            position: pos,
+            eingelagertVon: p.eingelagertVon||'',
+            einlagDatum: p.einlagDatum||null,
+            umlagertAm: firebase.firestore.FieldValue.serverTimestamp(),
+            umlagertVon: getCurrentUsername()
+        });
+        await db.collection('log').add({
+            aktion:'umlagern-extern-zu-aumundswiese', docId:p.id,
+            artikelNr:p.artikelNr, labelTyp:p.labelTyp,
+            standortVon: p.standort||currentLocation,
+            standortNach: 'Aumundswiese', position: pos,
+            user:getCurrentUsername(),
+            timestamp:firebase.firestore.FieldValue.serverTimestamp()
+        });
+        $('successText').textContent='Umlagerung gebucht!';
+        $('successDetail').textContent=(p.artikelNr||'?')+' → Aumundswiese '+pos;
+        scanHistory.unshift({time:new Date(),text:'🔁 '+(p.artikelNr||'?')+' → Aumundswiese '+pos});
+        renderHistory();
+        showStep('step4');
+    } catch(e){alert('Fehler: '+e.message);}
+    $('confirmRelocBtn').disabled=false;
+});
+
+// ============================================================
+// DUPLICATE WARNING
+// ============================================================
+function showDuplicateWarning(docId, location){
+    return new Promise(resolve=>{
+        const overlay=document.createElement('div');
+        overlay.className='overlay';
+        overlay.innerHTML=`<div class="overlay-card">
+            <div style="font-size:3.5rem;color:#ef4444;line-height:1;margin-bottom:10px;">⚠️</div>
+            <p style="color:#ef4444;font-weight:800;font-size:1.1rem;margin-bottom:14px;">Palette bereits im System!</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:6px;">(<strong>${_escAttr(docId)}</strong>)</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:20px;">aktuell in <strong>${_escAttr(location)}</strong></p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:20px;">Eintrag überschreiben?</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger btn-sm" id="_dupOk">Trotzdem buchen</button>
+                <button class="btn btn-secondary btn-sm" id="_dupCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_dupOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
+        overlay.querySelector('#_dupCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
+    });
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory(){
+    if(!scanHistory.length){$('historySection').style.display='none';return;}
+    $('historySection').style.display='block';
+    $('historyList').innerHTML=scanHistory.slice(0,10).map(h=>{
+        const ts=h.time.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        return `<div class="history-item"><span>${_escHtml(h.text)}</span><span class="history-time">${ts}</span></div>`;
+    }).join('');
+}
+
+// Service Worker
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>

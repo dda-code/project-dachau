@@ -574,9 +574,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <!-- DASHBOARD -->
     <section class="view active" id="view-dashboard">
         <h3 style="margin-top:0">Bestand Halbfabrikate / Granulate</h3>
-        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashArtikelBody"></tbody></table>
+        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th title="Paletten am Standort Aumundswiese">Aumundswiese</th><th title="Paletten am Standort K&amp;R-Lager">K&amp;R-Lager</th><th title="Paletten am Standort Seepack">Seepack</th><th title="Paletten gesamt über alle Standorte">Gesamt</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashArtikelBody"></tbody></table>
         <h3 style="margin-top:24px">Bestand Fertigware</h3>
-        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th>Paletten</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashFertigBody"></tbody></table>
+        <table class="data-table"><thead><tr><th>Artikelnr.</th><th>Bezeichnung</th><th title="Paletten am Standort Aumundswiese">Aumundswiese</th><th title="Paletten am Standort K&amp;R-Lager">K&amp;R-Lager</th><th title="Paletten am Standort Seepack">Seepack</th><th title="Paletten gesamt über alle Standorte">Gesamt</th><th>Menge gesamt</th><th style="color:#10b981">Freigegeben</th><th style="color:#ef4444">Gesperrt</th></tr></thead><tbody id="dashFertigBody"></tbody></table>
     </section>
 
     <!-- EINLAGERN -->
@@ -1708,16 +1708,37 @@ function gbToGs(nr){return 'GS'+nr;}
 async function loadDashboard(){
     const s=await db.collection('paletten').get();const paletten=[];s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt={id:d.id,...d.data()};if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);paletten.push(dt);});
     let fertig=0,halb=0,gran=0;const artikelMap={};const fertigMap={};
-    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');const isFertig=pos.startsWith('GB')||pos.startsWith('GS')?false:_fZ.has(z);if(pos.startsWith('GB')||pos.startsWith('GS'))gran++;else if(isFertig)fertig++;else if(_hZ.has(z))halb++;
+    // Standort-Zuordnung: explizites 'standort'-Feld bevorzugen,
+    // sonst Fallback Aumundswiese (Legacy-Paletten ohne standort-Feld).
+    const _stdKey=p=>{
+        const s=(p.standort||'').trim();
+        if(s==='K&R-Lager')return 'kr';
+        if(s==='Seepack')return 'sp';
+        return 'aum'; // 'Aumundswiese' oder leer
+    };
+    const _emptyAgg=()=>({count:0,cntAum:0,cntKR:0,cntSP:0,menge:0,mengeFrei:0,mengeGesperrt:0});
+    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');const isFertig=pos.startsWith('GB')||pos.startsWith('GS')?false:_fZ.has(z);
+        // Lagerkarten-Zähler (nur Aumundswiese — Außenlager haben keine position)
+        const isAumStored=_stdKey(p)==='aum';
+        if(isAumStored){
+            if(pos.startsWith('GB')||pos.startsWith('GS'))gran++;
+            else if(isFertig)fertig++;
+            else if(_hZ.has(z))halb++;
+        }
         const nr=p.artikelNr||'';const isXO=nr.startsWith('XO');
+        const sk=_stdKey(p);
         if(isXO){
             // Fertigware: Menge aus gescannten Daten
-            if(!fertigMap[nr])fertigMap[nr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};fertigMap[nr].count++;
+            if(!fertigMap[nr])fertigMap[nr]=_emptyAgg();
+            fertigMap[nr].count++;
+            if(sk==='aum')fertigMap[nr].cntAum++; else if(sk==='kr')fertigMap[nr].cntKR++; else if(sk==='sp')fertigMap[nr].cntSP++;
             const mengeStr=p.menge||'';const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);
             if(!isNaN(m)){fertigMap[nr].menge+=m;if(p.gesperrt)fertigMap[nr].mengeGesperrt+=m;else fertigMap[nr].mengeFrei+=m;}
         }else{
             // Halbfabrikate / Granulate: Menge mit Defaults
-            if(!artikelMap[nr])artikelMap[nr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};artikelMap[nr].count++;
+            if(!artikelMap[nr])artikelMap[nr]=_emptyAgg();
+            artikelMap[nr].count++;
+            if(sk==='aum')artikelMap[nr].cntAum++; else if(sk==='kr')artikelMap[nr].cntKR++; else if(sk==='sp')artikelMap[nr].cntSP++;
             let mengeStr=p.menge||'';
             if(!mengeStr&&nr.startsWith('12'))mengeStr='92.400';
             if(!mengeStr&&nr.startsWith('18'))mengeStr='420.672';
@@ -1726,24 +1747,27 @@ async function loadDashboard(){
         }
     }
     // Fertigware aus der Fertigpaletten-Collection (XO-Ends Scanner + manuelle Einträge) mit in die Aggregation
+    // → diese liegen physisch in Aumundswiese, daher cntAum hochzählen
     if(typeof FERTIGPALETTEN_DATA!=='undefined' && FERTIGPALETTEN_DATA.length){
         FERTIGPALETTEN_DATA.forEach(p=>{
             const nr=_normalizeArtikelNr(p.artikelNr||'');
             if(!nr)return;
-            if(!fertigMap[nr])fertigMap[nr]={count:0,menge:0,mengeFrei:0,mengeGesperrt:0};
+            if(!fertigMap[nr])fertigMap[nr]=_emptyAgg();
             fertigMap[nr].count++;
+            fertigMap[nr].cntAum++;
             const mengeStr=p.menge||'';
             const m=parseInt((mengeStr||'0').replace(_separatorRe,''),10);
             if(!isNaN(m)){fertigMap[nr].menge+=m; if(p.gesperrt)fertigMap[nr].mengeGesperrt+=m; else fertigMap[nr].mengeFrei+=m;}
         });
     }
     renderWarehouseMap();
-    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${ARTIKEL_BEZEICHNUNG[nr]||'-'}</td><td>${d.count}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
+    const _cell=n=>n>0?String(n):'<span style="color:#cbd5e1">–</span>';
+    const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${ARTIKEL_BEZEICHNUNG[nr]||'-'}</td><td>${_cell(d.cntAum)}</td><td>${_cell(d.cntKR)}</td><td>${_cell(d.cntSP)}</td><td style="font-weight:700">${d.count>0?d.count:'-'}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
     const _hasBestand=d=>d&&(d.count>0||d.menge>0);
-    const _halbRows=ARTIKEL_NUMMERN.filter(nr=>!nr.startsWith('XO')).map(nr=>({nr,d:artikelMap[nr]||{count:0,menge:0,mengeFrei:0,mengeGesperrt:0}})).filter(x=>_hasBestand(x.d));
-    document.getElementById('dashArtikelBody').innerHTML=_halbRows.length?_halbRows.map(x=>_rowHtml(x.nr,x.d)).join(''):'<tr><td colspan="6" class="info-msg">Kein Bestand</td></tr>';
+    const _halbRows=ARTIKEL_NUMMERN.filter(nr=>!nr.startsWith('XO')).map(nr=>({nr,d:artikelMap[nr]||_emptyAgg()})).filter(x=>_hasBestand(x.d));
+    document.getElementById('dashArtikelBody').innerHTML=_halbRows.length?_halbRows.map(x=>_rowHtml(x.nr,x.d)).join(''):'<tr><td colspan="9" class="info-msg">Kein Bestand</td></tr>';
     const fertigNrs=Object.keys(fertigMap).filter(nr=>_hasBestand(fertigMap[nr])).sort();
-    document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="6" class="info-msg">Keine Fertigware eingelagert</td></tr>';
+    document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="9" class="info-msg">Keine Fertigware eingelagert</td></tr>';
 }
 
 function _normalizeArtikelNr(nr){
