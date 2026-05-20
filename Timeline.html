@@ -1359,7 +1359,8 @@ function buildGrid(vrows){
       wr2.dataset.id=t.id;
       wr2.style.cssText='left:'+(so2*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+bw2+'px;height:'+barH+'px';
       var pNm=p.name||t.name;
-      wr2.innerHTML='<div class="bar" style="background:'+_esc(t.color)+'"><span class="blbl">'+_esc(pNm)+'</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(pNm)+'</span>';
+      var pCol=p.color||t.color;
+      wr2.innerHTML='<div class="bar" style="background:'+_esc(pCol)+'"><span class="blbl">'+_esc(pNm)+'</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(pNm)+'</span>';
       var pBar=wr2.firstChild;
       pBar.addEventListener('mouseenter',function(e){
         if(linkMode||dragPeriod.active)return;
@@ -2408,9 +2409,9 @@ function openEdit(id){
 }
 function buildPeriodList(periods){
   var pl=document.getElementById('period-list');pl.innerHTML='';
-  (periods||[]).forEach(function(p,i){addExtraPeriodRow(p.start,p.end,p.name);});
+  (periods||[]).forEach(function(p,i){addExtraPeriodRow(p.start,p.end,p.name,p.color);});
 }
-function addExtraPeriod(e){if(e)e.stopPropagation();addExtraPeriodRow('','','');}
+function addExtraPeriod(e){if(e)e.stopPropagation();addExtraPeriodRow('','','',sc||COLS[0]);}
 function buildMarkerList(markers){
   var ml=document.getElementById('marker-list');if(!ml)return;ml.innerHTML='';
   (markers||[]).forEach(function(m){addMarkerRow(m.date,m.text);});
@@ -2429,7 +2430,7 @@ function addMarkerRow(date,text){
   row.appendChild(txt);row.appendChild(dt);row.appendChild(rm);
   ml.appendChild(row);
 }
-function addExtraPeriodRow(s,en,nm){
+function addExtraPeriodRow(s,en,nm,col){
   var pl=document.getElementById('period-list');
   var row=document.createElement('div');row.className='period-row';row.style.flexWrap='wrap';
   var nameInp=document.createElement('input');nameInp.type='text';nameInp.className='pn';
@@ -2438,9 +2439,12 @@ function addExtraPeriodRow(s,en,nm){
   var ds=document.createElement('input');ds.type='date';ds.className='ps';ds.value=s||'';
   var sep=document.createElement('span');sep.textContent='–';sep.style.color='var(--text3)';
   var de=document.createElement('input');de.type='date';de.className='pe';de.value=en||'';
+  var cp=document.createElement('input');cp.type='color';cp.className='pc';cp.value=col||sc||COLS[0];
+  cp.title='Periode-Farbe';
+  cp.style.cssText='width:28px;height:28px;padding:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer;flex-shrink:0';
   var rm=document.createElement('button');rm.className='p-rm';rm.textContent='×';rm.title='Remove period';
   rm.addEventListener('click',function(e){e.stopPropagation();row.remove();});
-  row.appendChild(nameInp);row.appendChild(ds);row.appendChild(sep);row.appendChild(de);row.appendChild(rm);
+  row.appendChild(nameInp);row.appendChild(ds);row.appendChild(sep);row.appendChild(de);row.appendChild(cp);row.appendChild(rm);
   pl.appendChild(row);
 }
 function buildSW(){
@@ -2622,7 +2626,13 @@ function saveT(){
   document.querySelectorAll('#period-list .period-row').forEach(function(row){
     var s=row.querySelector('.ps').value,e2=row.querySelector('.pe').value;
     var nmEl=row.querySelector('.pn');var nm=nmEl?nmEl.value.trim():'';
-    if(s&&e2&&s<=e2) extraPeriods.push(nm?{start:s,end:e2,name:nm}:{start:s,end:e2});
+    var cEl=row.querySelector('.pc');var pcol=cEl?cEl.value:'';
+    if(s&&e2&&s<=e2){
+      var rec={start:s,end:e2};
+      if(nm)rec.name=nm;
+      if(pcol)rec.color=pcol;
+      extraPeriods.push(rec);
+    }
   });
   // Collect markers
   var markers=[];
