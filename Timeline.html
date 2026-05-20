@@ -203,6 +203,12 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .tday{position:absolute;top:0;bottom:0;width:2px;background:var(--red);z-index:5;opacity:.75}
 .tdlbl{position:absolute;font-size:9px;color:var(--red);font-weight:700;white-space:nowrap;transform:translateX(-50%);z-index:6;top:2px}
 .bwrap{position:absolute;top:7px;height:30px;z-index:2;contain:layout style}
+.tmark{position:absolute;z-index:5;pointer-events:auto;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;cursor:help}
+.tmark .tmark-flag{font-size:13px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));user-select:none}
+.tmark .tmark-line{width:1.5px;background:#1a1d2e;opacity:.55;flex-shrink:0}
+.tmark .tmark-label{position:absolute;left:8px;top:-2px;font-size:10px;font-weight:600;color:#1a1d2e;background:#fff;border:1px solid #cbd5e1;border-radius:3px;padding:1px 5px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.15);pointer-events:none;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.tmark:hover{z-index:10}
+.tmark:hover .tmark-label{background:#fef9c3;border-color:#eab308}
 .bar{width:100%;height:100%;border-radius:5px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:grab}
 .bar:hover{filter:brightness(1.15);box-shadow:0 2px 8px rgba(0,0,0,.3);will-change:transform}
 .bar.dragging-bar{cursor:grabbing;filter:brightness(1.2);box-shadow:0 4px 16px rgba(0,0,0,.3);will-change:transform}
@@ -260,9 +266,10 @@ body.firebase-readonly .done-cb{pointer-events:none;opacity:.5}
 .prow{display:flex;align-items:center;gap:10px}
 .prow input[type=range]{flex:1;accent-color:var(--accent)}
 #pval{font-size:13px;font-weight:600;min-width:36px;text-align:right}
-.swatches{display:flex;gap:7px;flex-wrap:wrap}
-.sw{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
-.sw.sel{border-color:#fff}
+.swatches{display:flex;gap:5px;flex-wrap:wrap;max-height:128px;overflow-y:auto;padding:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.sw{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .1s,box-shadow .1s,border-color .15s}
+.sw:hover{transform:scale(1.15)}
+.sw.sel{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
 .dlw{max-height:130px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px}
 .di{display:flex;align-items:center;gap:8px;padding:2px 0}
 .di input{accent-color:var(--accent)}
@@ -595,6 +602,15 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
         <div id="period-list"></div>
       </div>
 
+      <div class="field" id="f-markers">
+        <label style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span>Markers (Flags)</span>
+          <button class="btn" onclick="addMarker(event)" style="padding:2px 10px;font-size:11px">+ Marker</button>
+        </label>
+        <div id="marker-list"></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">📍 Anchored to the task. Moves when the task is rescheduled.</div>
+      </div>
+
       <div class="field"><label>Color</label><div class="swatches" id="swl"></div></div>
       <div class="field">
         <label>Dependencies (Predecessors)</label>
@@ -627,7 +643,24 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
 </div>
 <script>
 var PS=new Date(2026,0,1),PE=new Date(2028,11,31);
-var COLS=['#4f6ef7','#22c55e','#f59e0b','#ef4444','#a855f7','#06b6d4','#f97316','#ec4899','#6366f1','#14b8a6'];
+var COLS=[
+  // Blau / Indigo
+  '#4f6ef7','#3b82f6','#1d4ed8','#6366f1','#4338ca','#8b5cf6','#7c3aed','#a855f7','#9333ea','#c084fc',
+  // Pink / Magenta
+  '#ec4899','#db2777','#be185d','#f472b6','#d946ef',
+  // Rot / Orange
+  '#ef4444','#dc2626','#b91c1c','#f97316','#ea580c','#fb923c','#f59e0b','#d97706','#fbbf24',
+  // Gelb / Lime
+  '#eab308','#ca8a04','#facc15','#84cc16','#65a30d','#a3e635',
+  // Grün / Teal
+  '#22c55e','#16a34a','#15803d','#10b981','#059669','#14b8a6','#0d9488','#5eead4',
+  // Cyan / Sky
+  '#06b6d4','#0891b2','#0e7490','#0ea5e9','#0284c7','#38bdf8',
+  // Neutral / Sonstige
+  '#64748b','#475569','#334155','#78716c','#57534e','#a16207','#7f1d1d','#831843','#3b0764','#1e3a8a',
+  // Pastell
+  '#fda4af','#fcd34d','#bef264','#86efac','#67e8f9','#a5b4fc','#f9a8d4'
+];
 var MN=['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
 var MF=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 var DN=['So','Mo','Di','Mi','Do','Fr','Sa'];
@@ -1296,6 +1329,27 @@ function buildGrid(vrows){
     rhrEl.addEventListener('mousedown',function(e){if(linkMode)return;e.stopPropagation();sR(e,t.id,'r');});
     barFrag.appendChild(wr);
 
+    // Markers (flags) — anchored to this task
+    if(t.markers&&t.markers.length){
+      var rowTopY=i*44;
+      t.markers.forEach(function(m,mIdx){
+        if(!m||!m.date)return;
+        var mOff=fastDOff(m.date);
+        var mx=(mOff+0.5)*_ppd; // center on the day cell
+        var mark=mk('div','tmark');
+        mark.dataset.id=t.id;mark.dataset.mIdx=mIdx;
+        // Linie reicht von oben der Zeile bis zur Bar-Mitte
+        var lineH=Math.max(barTop+Math.floor(barH/2)-2,6);
+        mark.style.cssText='left:'+mx+'px;top:'+(rowTopY)+'px';
+        var ttl=(m.text?m.text+' • ':'')+m.date;
+        mark.title=ttl;
+        var label=m.text?'<span class="tmark-label">'+_esc(m.text)+'</span>':'';
+        mark.innerHTML='<span class="tmark-flag">📍</span>'
+          +'<div class="tmark-line" style="height:'+lineH+'px"></div>'
+          +label;
+        barFrag.appendChild(mark);
+      });
+    }
     // Extra period bars
     (t.extraPeriods||[]).forEach(function(p,pIdx){
       if(!p.start||!p.end)return;
@@ -1425,28 +1479,71 @@ function drawDeps(vrows,_ppd){
       var didx=rowIdx[deps[di2]];
       if(didx===undefined)continue;
       var dep=vrows[didx].task;
-      var x1=(fastDOff(dep.end)+1)*_ppd,y1=didx*44+22;
-      var barX2=fastDOff(t.start)*_ppd,y2=ti*44+22;
-      // Pfeil endet 8px VOR dem Balken, damit der Pfeilkopf das Bar-Label (.blbl-over)
-      // nicht überlagert. Für den Elbow-Fall etwas mehr Luft, weil der Pfeilkopf
-      // dort von rechts kommt und der Chevron-Body sonst hinter dem Balken-Anfang sitzt.
-      var GAP_CURVE=8, GAP_ELBOW=12;
-      var x2=barX2-GAP_CURVE;
-      var midX=x1+Math.max((x2-x1)/2,20);
+      // Bar-Geometrie: Zeilenhöhe 44px, Bar y=row*44+7 bis row*44+37, Mitte y=row*44+22
+      // Wir routen orthogonal AUSSERHALB der Bars: das lange horizontale Segment
+      // läuft in der Lücke zwischen den Zeilen (Inter-Row-Gap), damit es keine
+      // andere Bar überlagert. Kurze Vertikalen verbinden Bar-Mitten mit dem Trunk.
+      var x1=(fastDOff(dep.end)+1)*_ppd, y1=didx*44+22; // Exit-Punkt: rechter Bar-Rand, Mitte
+      var barX2=fastDOff(t.start)*_ppd, y2=ti*44+22;     // Ziel: linker Bar-Rand, Mitte
+      var GAP=8;                                          // Abstand zwischen Pfeilspitze und Bar
+      var R=4;                                            // Eckradius
       var d;
-      if(barX2>x1+4){
-        d='M'+x1+','+y1+' C'+midX+','+y1+' '+midX+','+y2+' '+x2+','+y2;
-      } else {
-        x2=barX2-GAP_ELBOW;
-        var elbX=Math.max(x1,x2)+30;
-        d='M'+x1+','+y1+' L'+elbX+','+y1+' L'+elbX+','+y2+' L'+x2+','+y2;
-      }
       var p=document.createElementNS('http://www.w3.org/2000/svg','path');
+
+      if(didx===ti){
+        // Gleiche Zeile: gerader Pfeil (kann auftreten wenn Ziel vor Dep)
+        var x2s=barX2-GAP;
+        if(barX2>x1+4){
+          d='M'+x1+','+y1+' L'+x2s+','+y2;
+        } else {
+          // Rückwärts: Schleife unter der Bar
+          var loopY=y1+22; // unter der Zeile in der Lücke
+          d='M'+x1+','+y1+' L'+(x1+10)+','+y1
+            +' L'+(x1+10)+','+loopY
+            +' L'+(barX2-10)+','+loopY
+            +' L'+(barX2-10)+','+y2
+            +' L'+x2s+','+y2;
+        }
+      } else {
+        // Verschiedene Zeilen — Trunk in Inter-Row-Gap neben der Ziel-Zeile
+        var targetBelow=ti>didx;
+        // Inter-Row-Gap: y zwischen zwei Zeilen (jede Zeile 44px hoch, Bar 7..37 innerhalb).
+        // Für "Ziel unten": Trunk dicht oberhalb der Ziel-Zeile (im Gap zwischen ti-1 und ti)
+        // Für "Ziel oben": Trunk dicht unterhalb der Ziel-Zeile (im Gap zwischen ti und ti+1)
+        var trunkY=targetBelow ? (ti*44 - 3) : (ti*44 + 47);
+        // Approach: am Ziel von oben/unten an die Bar-Mitte heranfahren
+        var x2s=barX2-GAP;
+        // Exit aus Dep-Bar: rechts mit kurzem horizontalen Stub, dann vertikal zum Trunk,
+        // dann horizontal entlang Trunk bis kurz vor Ziel, dann vertikal zur Bar-Mitte,
+        // dann horizontal in Pfeilspitze.
+        var stubX=x1+10;
+        if(barX2>x1+4){
+          // Normalfall: Ziel beginnt nach Dep-Ende
+          // Pfad: H-stub V-trunk H-trunk V-approach H-arrow
+          d='M'+x1+','+y1
+            +' L'+stubX+','+y1
+            +' L'+stubX+','+trunkY
+            +' L'+x2s+','+trunkY
+            +' L'+x2s+','+y2;
+        } else {
+          // Rückwärts/Überlappung: Schleife mit Trunk in Ziel-Gap, Ausweichen rechts/links
+          // Pfad geht erst nach rechts vom Dep, dann hoch/runter zum Trunk,
+          // dann links bis vor Ziel-Bar, dann zur Bar-Mitte.
+          var loopX=x1+30;
+          d='M'+x1+','+y1
+            +' L'+loopX+','+y1
+            +' L'+loopX+','+trunkY
+            +' L'+x2s+','+trunkY
+            +' L'+x2s+','+y2;
+        }
+      }
       p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',col);
       p.setAttribute('stroke-width','1.8');
+      p.setAttribute('stroke-linecap','round');
+      p.setAttribute('stroke-linejoin','round');
       p.setAttribute('stroke-dasharray',blocked?'5 3':'none');
       p.setAttribute('marker-end',blocked?'url(#da-blk)':'url(#da)');
-      p.setAttribute('opacity','0.75');
+      p.setAttribute('opacity','0.8');
       frag.appendChild(p);
     }
   }
@@ -1860,7 +1957,7 @@ document.addEventListener('mouseup',function(){
 });
 
 // ── BAR DRAG (verschieben) ────────────────────────────────
-var dragBar={active:false,moved:false,id:null,startX:0,origStart:null,origEnd:null,origDur:0,barEl:null};
+var dragBar={active:false,moved:false,id:null,startX:0,origStart:null,origEnd:null,origDur:0,barEl:null,origMarkers:null};
 var _dragRAF=0;
 
 function startBarDrag(e,id){
@@ -1873,6 +1970,7 @@ function startBarDrag(e,id){
   dragBar.origStart=t.start;
   dragBar.origEnd=t.end;
   dragBar.origDur=Math.round((s2d(t.end)-s2d(t.start))/86400000);
+  dragBar.origMarkers=(t.markers||[]).map(function(m){return {date:m.date,text:m.text};});
   dragBar.barEl=e.currentTarget;
   dragBar.barEl.classList.add('dragging-bar');
   document.body.style.userSelect='none';
@@ -1897,6 +1995,14 @@ document.addEventListener('mousemove',function(e){
     newEnd.setDate(newEnd.getDate()+dur);
     t.start=d2s(newStart);
     t.end=d2s(newEnd);
+    // Marker mit Aufgabe verschieben (gleiches Delta)
+    if(dragBar.origMarkers&&dragBar.origMarkers.length){
+      t.markers=dragBar.origMarkers.map(function(m){
+        var md=new Date(m.date+'T00:00:00');
+        md.setDate(md.getDate()+dx);
+        return {date:d2s(md),text:m.text};
+      });
+    }
     buildGrid();
   });
 });
@@ -2233,7 +2339,7 @@ function openAddSub(parentId){
     if(t.id===parentId)o.selected=true;
     sel.appendChild(o);
   });
-  buildSW();buildDL([]);buildPeriodList([]);
+  buildSW();buildDL([]);buildPeriodList([]);buildMarkerList([]);
   document.getElementById('mbg').classList.add('open');
   document.getElementById('fn').focus();
 }
@@ -2256,7 +2362,7 @@ function openAdd(){
   tasks.filter(function(t){return !t.parentId;}).forEach(function(t){
     var o=document.createElement('option');o.value=t.id;o.textContent=t.name;sel.appendChild(o);
   });
-  buildSW();buildDL([]);buildPeriodList([]);document.getElementById('mbg').classList.add('open');document.getElementById('fn').focus();
+  buildSW();buildDL([]);buildPeriodList([]);buildMarkerList([]);document.getElementById('mbg').classList.add('open');document.getElementById('fn').focus();
 }
 function openEdit(id){
   var t=taskMap.get(id);if(!t)return;
@@ -2296,6 +2402,8 @@ function openEdit(id){
   buildSW();buildDL(t.deps||[]);
   // Extra periods
   buildPeriodList(t.extraPeriods||[]);
+  // Markers
+  buildMarkerList(t.markers||[]);
   document.getElementById('mbg').classList.add('open');
 }
 function buildPeriodList(periods){
@@ -2303,6 +2411,24 @@ function buildPeriodList(periods){
   (periods||[]).forEach(function(p,i){addExtraPeriodRow(p.start,p.end,p.name);});
 }
 function addExtraPeriod(e){if(e)e.stopPropagation();addExtraPeriodRow('','','');}
+function buildMarkerList(markers){
+  var ml=document.getElementById('marker-list');if(!ml)return;ml.innerHTML='';
+  (markers||[]).forEach(function(m){addMarkerRow(m.date,m.text);});
+}
+function addMarker(e){if(e)e.stopPropagation();var sd=document.getElementById('fs').value||'';addMarkerRow(sd,'');}
+function addMarkerRow(date,text){
+  var ml=document.getElementById('marker-list');if(!ml)return;
+  var row=document.createElement('div');row.className='marker-row period-row';row.style.flexWrap='wrap';row.style.marginBottom='4px';
+  var txt=document.createElement('input');txt.type='text';txt.className='mk-t';
+  txt.placeholder='Label (e.g. Bestellung, Zahlung 15.000€)';txt.value=text||'';
+  txt.style.cssText='flex:1 1 100%;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px;font-family:var(--font)';
+  var dt=document.createElement('input');dt.type='date';dt.className='mk-d';dt.value=date||'';
+  dt.style.cssText='flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:12px;font-family:var(--font)';
+  var rm=document.createElement('button');rm.className='p-rm';rm.textContent='×';rm.title='Remove marker';
+  rm.addEventListener('click',function(e){e.stopPropagation();row.remove();});
+  row.appendChild(txt);row.appendChild(dt);row.appendChild(rm);
+  ml.appendChild(row);
+}
 function addExtraPeriodRow(s,en,nm){
   var pl=document.getElementById('period-list');
   var row=document.createElement('div');row.className='period-row';row.style.flexWrap='wrap';
@@ -2498,8 +2624,16 @@ function saveT(){
     var nmEl=row.querySelector('.pn');var nm=nmEl?nmEl.value.trim():'';
     if(s&&e2&&s<=e2) extraPeriods.push(nm?{start:s,end:e2,name:nm}:{start:s,end:e2});
   });
-  if(eid){var _t=taskMap.get(eid);if(_t){Object.assign(_t,{name:name,start:start,end:end,progress:prog,color:sc,deps:deps,parentId:parentId,extraPeriods:extraPeriods});delete _t.milestone;}}
-  else tasks.push({id:nid++,name:name,start:start,end:end,progress:prog,color:sc,deps:[],parentId:parentId,extraPeriods:extraPeriods});
+  // Collect markers
+  var markers=[];
+  document.querySelectorAll('#marker-list .marker-row').forEach(function(row){
+    var dt=row.querySelector('.mk-d').value;
+    var tx=(row.querySelector('.mk-t').value||'').trim();
+    if(dt) markers.push({date:dt,text:tx});
+  });
+  markers.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});
+  if(eid){var _t=taskMap.get(eid);if(_t){Object.assign(_t,{name:name,start:start,end:end,progress:prog,color:sc,deps:deps,parentId:parentId,extraPeriods:extraPeriods,markers:markers});delete _t.milestone;}}
+  else tasks.push({id:nid++,name:name,start:start,end:end,progress:prog,color:sc,deps:[],parentId:parentId,extraPeriods:extraPeriods,markers:markers});
   closeM();triggerSave();buildAll();
   var saved=taskMap.get(eid?eid:nid-1);
   if(saved)checkSubtaskConflict(saved);
@@ -3248,6 +3382,9 @@ startBarDrag=function(e,id){
     if(ft.urlaubPeriods&&ft.urlaubPeriods.length){
       orig.urlaubPeriods=ft.urlaubPeriods.map(function(p){return {start:p.start,end:p.end};});
     }
+    if(ft.markers&&ft.markers.length){
+      orig.markers=ft.markers.map(function(m){return {date:m.date,text:m.text};});
+    }
     if(ft.milestone)orig.milestone=ft.milestone;
     return orig;
   }).filter(Boolean);
@@ -3272,6 +3409,9 @@ document.addEventListener('mousemove',function(e){
     }
     if(orig.urlaubPeriods){
       ft.urlaubPeriods=orig.urlaubPeriods.map(function(p){return {start:shift(p.start),end:shift(p.end)};});
+    }
+    if(orig.markers){
+      ft.markers=orig.markers.map(function(m){return {date:shift(m.date),text:m.text};});
     }
     if(orig.milestone){ft.milestone=shift(orig.milestone);}
   });
