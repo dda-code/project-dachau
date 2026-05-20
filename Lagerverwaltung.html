@@ -446,10 +446,10 @@ const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfab
 const GRANULATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.granulate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const FERTIGWARE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 // Artikelstamm — wird beim App-Start aus Firestore geladen/ergaenzt (mutable)
-let ARTIKEL_NUMMERN = ['120025','120026','120027','120028','180006','180007','190009','190024','190032','190033'];
+let ARTIKEL_NUMMERN = ['120025','120026','120027','120028','180006','180007','180008','190009','190024','190032','190033'];
 let ARTIKEL_BEZEICHNUNG = {
     '120025':'Frame Black','120026':'Frame Natural','120027':'Frame Natural','120028':'Frame Natural',
-    '180006':'Inner Slider Black','180007':'Inner Slider Natural',
+    '180006':'Inner Slider Black','180007':'Inner Slider Natural','180008':'Inner Slider Transparent',
     '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
 };
 // OCR läuft jetzt über Gemini Flash (Firebase AI) — siehe <script type="module"> oben.
@@ -898,13 +898,13 @@ TYP 3: "ALPLA Halbfabrikate" — ALPLA-Logo, tschechische Felder wie "Barva/Colo
 
 WICHTIGE REGELN:
 - Lies Zahlen EXAKT Ziffer für Ziffer ab. Verwechsle nicht 0/O, 1/l, 5/S, 8/B.
-- ARTIKELNUMMER bei ALPLA/XO Halbfabrikate: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Mögliche Nummern: 120025,120026,120027,120028,180006,180007,190009,190024,190032,190033. Gib IMMER die 6-stellige Nummer zurück.
+- ARTIKELNUMMER bei ALPLA/XO Halbfabrikate: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Mögliche Nummern: 120025,120026,120027,120028,180006,180007,180008,190009,190024,190032,190033. Gib IMMER die 6-stellige Nummer zurück. Bekannte Bezeichnungen: 180006=Inner Slider Black, 180007=Inner Slider Natural, 180008=Inner Slider Transparent.
 - SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor.
 - Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024" oder "05.04.2024").
 - Order Number hat typisch das Format "26-XXXX" oder "26-XXXX-PartX".
 - RUNNING NUMBER (palettenNr) bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 9 Ziffern (z.B. "006919624"). Lies alle 9 Ziffern sorgfältig ab, auch führende Nullen! Wenn die Nummer weniger als 9 Ziffern hat, prüfe ob du Ziffern übersehen hast.
 - LOT-NR. bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 5 Ziffern (z.B. "36479"). Lies alle 5 Ziffern sorgfältig ab. Verwechsle keine Ziffern und kürze nicht ab.
-- SHIFT (schicht) bei ALPLA Halbfabrikate: Dies ist IMMER eine EINZELNE Ziffer (z.B. "1", "2" oder "3"). Lies die Schichtnummer vom Label exakt ab. Es ist immer nur EINE Ziffer, keine Buchstaben.
+- SHIFT (schicht) bei ALPLA Halbfabrikate: Dies ist IMMER eine EINZELNE Ziffer (z.B. "1", "2" oder "3"). Lies die Schichtnummer vom Label exakt ab. Es ist immer nur EINE Ziffer, keine Buchstaben. WICHTIG: Wenn das Label KEIN separates Shift-/Schicht-Feld hat (nur "Stroj/Machine" o.ä.), setze schicht auf "" — nimm NICHT die Maschinennummer als Schicht!
 - Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
 
 BEISPIEL 1 — ALPLA Halbfabrikate:
@@ -998,7 +998,7 @@ async function scanLabel(file){
     const _checkFields=isXOFertig
         ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
         :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode']
-        :['sscc','palettenNr','lotNr','schicht'];
+        :['sscc','palettenNr','lotNr'];
     _checkFields.forEach(k=>{if(!data[k])data[k]='FEHLER';});
     return{data,base64};
 }

@@ -285,7 +285,7 @@ const WAREHOUSE_ZONES = Object.freeze({
 });
 const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
 function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
-const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','190009','190024','190032','190033']);
+const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','180008','190009','190024','190032','190033']);
 const GRANULATE_SLOT_COUNT = 25;
 const _zoneSlotMap = {};
 for(const[_,cat] of Object.entries(WAREHOUSE_ZONES)) for(const[zone,count] of Object.entries(cat.zones)) _zoneSlotMap[zone]=count;
@@ -426,13 +426,13 @@ TYP 3: "ALPLA Halbfabrikate" — ALPLA-Logo, tschechische Felder wie "Barva/Colo
 
 WICHTIGE REGELN:
 - Lies Zahlen EXAKT Ziffer für Ziffer ab. Verwechsle nicht 0/O, 1/l, 5/S, 8/B.
-- ARTIKELNUMMER bei ALPLA/XO Halbfabrikate: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Mögliche Nummern: 120025,120026,120027,120028,180006,180007,190009,190024,190032,190033. Gib IMMER die 6-stellige Nummer zurück.
+- ARTIKELNUMMER bei ALPLA/XO Halbfabrikate: Die Nummer steht unter "Název výrobku / Article Variant Name" und kann über ZWEI ZEILEN gehen, z.B. "Outer Slider blue 19" auf Zeile 1 und "0024 - O024" auf Zeile 2. Die Artikelnummer ist dann "190024" (die 6 Ziffern zusammengesetzt). Mögliche Nummern: 120025,120026,120027,120028,180006,180007,180008,190009,190024,190032,190033. Gib IMMER die 6-stellige Nummer zurück. Bekannte Bezeichnungen: 180006=Inner Slider Black, 180007=Inner Slider Natural, 180008=Inner Slider Transparent.
 - SSCC ist eine LANGE Zahl mit mindestens 16 Ziffern, oft mit (00) davor.
 - Datum: Lies das Produktionsdatum EXAKT im Originalformat ab (z.B. "4/5/2024" oder "05.04.2024").
 - Order Number hat typisch das Format "26-XXXX" oder "26-XXXX-PartX".
 - RUNNING NUMBER (palettenNr) bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 9 Ziffern (z.B. "006919624"). Lies alle 9 Ziffern sorgfältig ab, auch führende Nullen! Wenn die Nummer weniger als 9 Ziffern hat, prüfe ob du Ziffern übersehen hast.
 - LOT-NR. bei ALPLA Halbfabrikate: Diese Nummer besteht IMMER aus EXAKT 5 Ziffern (z.B. "36479"). Lies alle 5 Ziffern sorgfältig ab. Verwechsle keine Ziffern und kürze nicht ab.
-- SHIFT (schicht) bei ALPLA Halbfabrikate: Dies ist IMMER eine EINZELNE Ziffer (z.B. "1", "2" oder "3"). Lies die Schichtnummer vom Label exakt ab. Es ist immer nur EINE Ziffer, keine Buchstaben.
+- SHIFT (schicht) bei ALPLA Halbfabrikate: Dies ist IMMER eine EINZELNE Ziffer (z.B. "1", "2" oder "3"). Lies die Schichtnummer vom Label exakt ab. Es ist immer nur EINE Ziffer, keine Buchstaben. WICHTIG: Wenn das Label KEIN separates Shift-/Schicht-Feld hat (nur "Stroj/Machine" o.ä.), setze schicht auf "" — nimm NICHT die Maschinennummer als Schicht!
 - Wenn ein Feld nicht auf dem Label existiert, setze es auf "".
 
 BEISPIEL 1 — ALPLA Halbfabrikate:
@@ -549,7 +549,7 @@ async function scanLabel(file){
     const _checkFields=isXOFertig
         ?['sscc','menge','mengePerSleeve','palettenNr','kunde','orderNr','schicht','gtin']
         :data.labelTyp==='XO Halbfabrikate'?['orderNr','palettenNr','internalBarcode']
-        :['sscc','palettenNr','lotNr','schicht'];
+        :['sscc','palettenNr','lotNr'];
     for(const k of _checkFields){if(!data[k])data[k]='FEHLER';}
     return {data, base64};
 }
