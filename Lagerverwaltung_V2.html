@@ -630,6 +630,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                         <option value="kunde">Kunde</option>
                         <option value="schicht">Schicht</option>
                         <option value="gtin">GTIN</option>
+                        <option value="lagerort">Lagerort</option>
                         <option value="pos">Position</option>
                         <option value="status">Status</option>
                         <option value="einlagDatum">Eingelagert</option>
@@ -639,8 +640,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </div>
             <button class="btn btn-success" id="invExportBtn" style="align-self:flex-end">Excel exportieren</button>
         </div>
-        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th>Typ</th><th>Artikelnr.</th><th>Bezeichnung</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Uhrzeit</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th>Eingelagert</th><th>Aktionen</th></tr>
-        <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="bezeichnung">&#9660; Bez.</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="palNr">&#9660; Pal-Nr</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td><button class="inv-filter-btn" data-filter="uhrzeit">&#9660; Uhrzeit</button></td><td><button class="inv-filter-btn" data-filter="menge">&#9660; Menge</button></td><td><button class="inv-filter-btn" data-filter="lotNr">&#9660; Lot-Nr</button></td><td><button class="inv-filter-btn" data-filter="orderNr">&#9660; Order</button></td><td><button class="inv-filter-btn" data-filter="kunde">&#9660; Kunde</button></td><td><button class="inv-filter-btn" data-filter="schicht">&#9660; Schicht</button></td><td><button class="inv-filter-btn" data-filter="gtin">&#9660; GTIN</button></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td><button class="inv-filter-btn" data-filter="einlagDatum">&#9660; Datum</button></td><td></td></tr>
+        <div class="table-wrapper"><table class="data-table" id="invTable"><thead><tr><th>Typ</th><th>Artikelnr.</th><th>Bezeichnung</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Uhrzeit</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Lagerort</th><th>Position</th><th>Status</th><th>Eingelagert</th><th>Aktionen</th></tr>
+        <tr class="inv-filter-row"><td><button class="inv-filter-btn" data-filter="typ">&#9660; Typ</button></td><td><button class="inv-filter-btn" data-filter="artikel">&#9660; Artikel</button></td><td><button class="inv-filter-btn" data-filter="bezeichnung">&#9660; Bez.</button></td><td><button class="inv-filter-btn" data-filter="sscc">&#9660; SSCC</button></td><td><button class="inv-filter-btn" data-filter="palNr">&#9660; Pal-Nr</button></td><td><button class="inv-filter-btn" data-filter="datum">&#9660; Datum</button></td><td><button class="inv-filter-btn" data-filter="uhrzeit">&#9660; Uhrzeit</button></td><td><button class="inv-filter-btn" data-filter="menge">&#9660; Menge</button></td><td><button class="inv-filter-btn" data-filter="lotNr">&#9660; Lot-Nr</button></td><td><button class="inv-filter-btn" data-filter="orderNr">&#9660; Order</button></td><td><button class="inv-filter-btn" data-filter="kunde">&#9660; Kunde</button></td><td><button class="inv-filter-btn" data-filter="schicht">&#9660; Schicht</button></td><td><button class="inv-filter-btn" data-filter="gtin">&#9660; GTIN</button></td><td><button class="inv-filter-btn" data-filter="lagerort">&#9660; Lagerort</button></td><td><button class="inv-filter-btn" data-filter="pos">&#9660; Position</button></td><td><button class="inv-filter-btn" data-filter="status">&#9660; Status</button></td><td><button class="inv-filter-btn" data-filter="einlagDatum">&#9660; Datum</button></td><td></td></tr>
         </thead><tbody id="invBody"></tbody></table></div>
     </section>
 
@@ -2479,7 +2480,9 @@ function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDat
 // INVENTORY
 // ============================================================
 let _inventoryInited=false;
-const _invFilters={typ:null,artikel:null,bezeichnung:null,sscc:null,palNr:null,datum:null,uhrzeit:null,menge:null,lotNr:null,orderNr:null,kunde:null,schicht:null,gtin:null,pos:null,status:null,einlagDatum:null};
+const _invFilters={typ:null,artikel:null,bezeichnung:null,sscc:null,palNr:null,datum:null,uhrzeit:null,menge:null,lotNr:null,orderNr:null,kunde:null,schicht:null,gtin:null,lagerort:null,pos:null,status:null,einlagDatum:null};
+// Lagerort-Auflösung — Standort-Feld aus Firestore (Aumundswiese ist der Default-Fallback für Legacy-Paletten ohne 'standort').
+const _lagerortOf=p=>{ const s=String(p.standort||'').trim(); return s||'Aumundswiese'; };
 let _invAllRows=[];
 let _openFilterPopup=null;
 let _invSortCol='datum',_invSortDir='asc';
@@ -2564,7 +2567,7 @@ function _invGetValues(key){
         _invAllRows.forEach(p=>{const pos=p.position||'-';positionen.add(pos);bereiche.add(_posToBereich(pos));});
         return[...bereiche].sort().concat(['---']).concat([...positionen].sort());
     }
-    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',bezeichnung:p=>ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-',sscc:idf,palNr:p=>p.palettenNr||'-',uhrzeit:p=>p.uhrzeit||'-',menge:p=>p.menge||'-',lotNr:p=>p.lotNr||'-',orderNr:p=>p.orderNr||'-',kunde:p=>p.kunde||'-',schicht:p=>p.schicht||'-',gtin:p=>p.gtin||'-',status:p=>p.gesperrt?'Gesperrt':'Frei'};
+    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',bezeichnung:p=>ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-',sscc:idf,palNr:p=>p.palettenNr||'-',uhrzeit:p=>p.uhrzeit||'-',menge:p=>p.menge||'-',lotNr:p=>p.lotNr||'-',orderNr:p=>p.orderNr||'-',kunde:p=>p.kunde||'-',schicht:p=>p.schicht||'-',gtin:p=>p.gtin||'-',lagerort:p=>_lagerortOf(p),status:p=>p.gesperrt?'Gesperrt':'Frei'};
     return[...new Set(_invAllRows.map(map[key]))].sort();
 }
 
@@ -2701,6 +2704,7 @@ function renderInvTable(){
     if(_invFilters.kunde){const q=_invFilters.kunde;if(typeof q==='string')rows=rows.filter(p=>(p.kunde||'').toLowerCase().includes(q));else rows=rows.filter(p=>q.has(p.kunde||'-'));}
     if(_invFilters.schicht)rows=rows.filter(p=>_invFilters.schicht.has(p.schicht||'-'));
     if(_invFilters.gtin){const q=_invFilters.gtin;if(typeof q==='string')rows=rows.filter(p=>(p.gtin||'').toLowerCase().includes(q));else rows=rows.filter(p=>q.has(p.gtin||'-'));}
+    if(_invFilters.lagerort)rows=rows.filter(p=>_invFilters.lagerort.has(_lagerortOf(p)));
     // Position: Match gegen Bereiche + Einzelpositionen
     if(_invFilters.pos){const f=_invFilters.pos;rows=rows.filter(p=>{const pos=p.position||'-';return f.has(pos)||f.has(_posToBereich(pos));});}
     if(_invFilters.status)rows=rows.filter(p=>_invFilters.status.has(p.gesperrt?'Gesperrt':'Frei'));
@@ -2721,6 +2725,7 @@ function renderInvTable(){
         kunde:p=>(p.kunde||'').toLowerCase(),
         schicht:p=>(p.schicht||'').toLowerCase(),
         gtin:p=>(p.gtin||'').toLowerCase(),
+        lagerort:p=>_lagerortOf(p).toLowerCase(),
         pos:p=>{const s=p.position||'';const m=s.match(/^([A-Z]+)(\d+)$/);return m?m[1]+String(parseInt(m[2],10)).padStart(4,'0'):s;},
         status:p=>p.gesperrt?1:0,
         einlagDatum:p=>{if(!p.einlagDatum)return _invSortDir==='asc'?Infinity:-Infinity;if(p.einlagDatum.toMillis)return p.einlagDatum.toMillis();const d=new Date(p.einlagDatum);return isNaN(d)?(_invSortDir==='asc'?Infinity:-Infinity):d.getTime();}
@@ -2737,8 +2742,8 @@ function renderInvTable(){
             :`<button class="btn btn-danger btn-sm inv-action-btn" data-qs-id="${_escAttr(p.id)}" data-qs-val="true" data-src="${src}">Sperren</button>`):'';
         const editBtn=canManage()?`<button class="btn btn-sm btn-secondary inv-action-btn" data-edit-id="${_escAttr(p.id)}" data-src="${src}">Bearbeiten</button>`:'';
         const delBtn=canDeletePalette()?`<button class="btn btn-danger btn-sm inv-action-btn" data-delete-id="${_escAttr(p.id)}" data-src="${src}">Löschen</button>`:'';
-        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td class="inv-actions-cell">${qsBtn}${editBtn}${delBtn}</td></tr>`;
-    }).join('')||'<tr><td colspan="17" class="info-msg">Keine Paletten im Lager</td></tr>';
+        return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td>${_escAttr(_lagerortOf(p))}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td class="inv-actions-cell">${qsBtn}${editBtn}${delBtn}</td></tr>`;
+    }).join('')||'<tr><td colspan="18" class="info-msg">Keine Paletten im Lager</td></tr>';
 }
 async function toggleInvGesperrt(docId,newVal){
     if(!canManageQS())return;
