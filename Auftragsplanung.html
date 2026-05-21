@@ -338,12 +338,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
             <div class="form-grid">
               <label>SO #<input id="o_so" type="text" class="ef"></label>
               <label>PO #<input id="o_po" type="text" class="ef"></label>
-              <label>Art #
-                  <span class="input-clear-wrap">
-                      <input id="o_art" type="text" list="artListAssembly" autocomplete="off" class="ef">
-                      <button type="button" class="input-clear-btn" onclick="clearArtInput()" title="Clear input">×</button>
-                  </span>
-              </label>
+              <label>Art #<select id="o_art" class="ef" style="font-family:inherit"><option value="">– Please select –</option></select></label>
               <label>Customer<select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
               <label>Start date<input id="o_start" type="date" class="ef"></label>
               <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="o_pickup" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
@@ -1291,6 +1286,27 @@ function renderArticleDatalist(){
         // KEIN label-Attribut — Edge/Chrome zeigen das sonst statt der Artikelnummer.
         return `<option value="${nr}">${nr}${shell?'  ·  '+shell:''}</option>`;
     }).join('');
+    if(typeof populateArtDropdown==='function') populateArtDropdown();
+}
+function populateArtDropdown(){
+    const sel=document.getElementById('o_art');
+    if(!sel || sel.tagName!=='SELECT') return;
+    const currentVal=sel.value||'';
+    const seen=new Set();
+    let html='<option value="">– Please select –</option>';
+    articlesAssembly.forEach(r=>{
+        const nr=String(r._fullArtNr||'').trim();
+        if(!nr || seen.has(nr)) return;
+        seen.add(nr);
+        const shell=String(r['Shell Art']||'').trim();
+        const label=nr+(shell?'  ·  '+shell:'');
+        html+=`<option value="${escHtml(nr)}"${nr===currentVal?' selected':''}>${escHtml(label)}</option>`;
+    });
+    if(currentVal && !seen.has(currentVal)){
+        // Edit-Mode: Art # aus altem Auftrag ist nicht (mehr) in der Stammdaten-Liste — als Ghost-Option behalten
+        html+=`<option value="${escHtml(currentVal)}" selected>${escHtml(currentVal)} (legacy)</option>`;
+    }
+    sel.innerHTML=html;
 }
 function joinParts(a,b){
     a=String(a||'').trim(); b=String(b||'').trim();
@@ -1600,7 +1616,9 @@ async function loadWeek(){
             if(!weekDocs[d.datum]) weekDocs[d.datum]=[];
             const _newOrderId=(d.fields||{})[orderIdKeyHere]||d.ioNr||'';
             const _dup=_newOrderId && weekDocs[d.datum].some(s=>s._orderId===_newOrderId);
-            if(!_dup) weekDocs[d.datum].push({kind:'approved', fields:d.fields||{}, _pending:null, doc:{...d,_id:doc.id}, _orderId:_newOrderId});
+            // Entry-Timestamp für Sortierung — Reihenfolge der Spalten = Reihenfolge der Erfassung im System.
+            const _sortTs=d.createdAt||d.approvedAt||d.updatedAt||null;
+            if(!_dup) weekDocs[d.datum].push({kind:'approved', fields:d.fields||{}, _pending:null, doc:{...d,_id:doc.id}, _orderId:_newOrderId, _sortTs});
         });
         // Pending overlay: add as ADDITIONAL slot when a different order than any approved on that day.
         // For the same order (same SO#/IO#) already approved, skip — the approved entry already shows the data
@@ -1631,7 +1649,7 @@ async function loadWeek(){
                     }
                     // Different order (or no approved entry yet) → add as a NEW slot alongside the approved ones.
                     if(!weekDocs[iso]) weekDocs[iso]=[];
-                    weekDocs[iso].push({kind:'pending', fields, _pending:pendingMeta, doc:null, _orderId:pOrderId});
+                    weekDocs[iso].push({kind:'pending', fields, _pending:pendingMeta, doc:null, _orderId:pOrderId, _sortTs:data.requestedAt||null});
                     // Back-compat: weekData[iso] uses the first slot (approved-preferred).
                     if(!weekData[iso]) weekData[iso]={datum:iso, fields, _pending:pendingMeta};
                 });
@@ -1643,6 +1661,23 @@ async function loadWeek(){
         console.error('Load error:',e);
         showMsg('Error loading: '+e.message,'error');
     }
+    // Sort same-day slots by entry order (createdAt for approved, requestedAt for pending).
+    // Reihenfolge der Spalten = Reihenfolge der Erfassung. Bei Gleichstand stabil nach _orderId.
+    const _tsMs=t=>{
+        if(!t) return Number.MAX_SAFE_INTEGER;
+        try{ if(typeof t.toMillis==='function') return t.toMillis(); }catch(_){}
+        try{ if(t.seconds!=null) return t.seconds*1000; }catch(_){}
+        try{ const d=t instanceof Date?t:new Date(t); const n=d.getTime(); return isFinite(n)?n:Number.MAX_SAFE_INTEGER; }catch(_){}
+        return Number.MAX_SAFE_INTEGER;
+    };
+    Object.values(weekDocs).forEach(arr=>{
+        if(!Array.isArray(arr) || arr.length<2) return;
+        arr.sort((a,b)=>{
+            const da=_tsMs(a._sortTs), db=_tsMs(b._sortTs);
+            if(da!==db) return da-db;
+            return String(a._orderId||'').localeCompare(String(b._orderId||''));
+        });
+    });
     renderGrid();
     $('footerBar').style.display='flex';
     setDirty(false);
@@ -2432,6 +2467,7 @@ function openOrderModal(){
     if($('o_sun')) $('o_sun').checked=false;
     if($('o_holiday')) $('o_holiday').checked=false;
     populateCustomerDropdown(); // Customer-Liste aus pricelist_meta/customers
+    if(typeof populateArtDropdown==='function') populateArtDropdown();
     orderGridData={};
     editingOrderSo=null;
     pendingKpiInputs=null;
@@ -2637,6 +2673,7 @@ function applyOrderPayload(p){
     const h=p.header||{};
     set('o_so',h.so); set('o_po',h.po); set('o_art',h.art); set('o_cust',h.cust);
     if(typeof populateCustomerDropdown==='function') populateCustomerDropdown(); // ensures the value is a valid option
+    if(typeof populateArtDropdown==='function') populateArtDropdown(); // same for Art # — adds ghost option for legacy values
     set('o_start',h.start); set('o_pickup',h.pickup);
     set('o_qty',h.qty); set('o_pal',h.pal); set('o_outday',h.outday);
     set('o_days',h.days); set('o_end',h.end);
@@ -5895,7 +5932,8 @@ async function openOrdersManager(){
     $('ordersModal').classList.add('open');
     try{
         const today=new Date(); today.setHours(0,0,0,0);
-        const from=new Date(today); from.setDate(today.getDate()-180);
+        // Cutoff: Montag der vorherigen Kalenderwoche — Aufträge davor erscheinen nicht in der Sequence-Ansicht.
+        const from=mondayOf(today); from.setDate(from.getDate()-7);
         const to=new Date(today); to.setDate(today.getDate()+540);
         const snap=await db.collection(TAB_CONFIG[currentTab].salesCol)
             .where('datum','>=',toIsoDate(from))
