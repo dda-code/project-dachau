@@ -356,6 +356,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                       <button type="button" class="btn btn-sm btn-secondary" id="o_kpiBtn" onclick="openKpiModal();return false;" title="KPI calculator" style="padding:3px 10px;font-size:1rem">⚙</button>
                   </div>
               </div>
+              <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef" required title="Datum, an dem der Kunde den Auftrag an XO erteilt hat — Pflichtfeld"></label>
               <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price (€/1000 pcs.)</span>
                   <div style="display:flex;gap:4px;align-items:stretch">
@@ -2467,7 +2468,7 @@ function prefillOutDayFromShiftPlan(){
 function openOrderModal(){
     if(currentTab==='frame'){ openFrameOrderModal(); return; }
     if(currentTab!=='assembly'){ showMsg('Order function is only available in the Assembly tab.','error'); return; }
-    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup'].forEach(id=>{const e=$(id); if(e) e.value='';});
+    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup','o_poIssueDate'].forEach(id=>{const e=$(id); if(e) e.value='';});
     ['k_cycle','k_cav','k_hrs','k_shift','k_days','k_scrap','k_oee'].forEach(id=>{const e=$(id); if(e) e.value='';});
     if($('o_sat')) $('o_sat').checked=false;
     if($('o_sun')) $('o_sun').checked=false;
@@ -2652,7 +2653,7 @@ function collectOrderPayload(){
         editingOrderSo:editingOrderSo||null,
         header:{
             so:get('o_so'), po:get('o_po'), art:get('o_art'), cust:get('o_cust'),
-            start:get('o_start'), pickup:get('o_pickup'),
+            start:get('o_start'), pickup:get('o_pickup'), poIssueDate:get('o_poIssueDate'),
             qty:get('o_qty'), pal:get('o_pal'), outday:get('o_outday'),
             days:get('o_days'), end:get('o_end'),
             sat:chk('o_sat'), sun:chk('o_sun'), holiday:chk('o_holiday')
@@ -2685,7 +2686,7 @@ function applyOrderPayload(p){
     set('o_so',h.so); set('o_po',h.po); set('o_art',h.art); set('o_cust',h.cust);
     if(typeof populateCustomerDropdown==='function') populateCustomerDropdown(); // ensures the value is a valid option
     if(typeof populateArtDropdown==='function') populateArtDropdown(); // same for Art # — adds ghost option for legacy values
-    set('o_start',h.start); set('o_pickup',h.pickup);
+    set('o_start',h.start); set('o_pickup',h.pickup); set('o_poIssueDate',h.poIssueDate);
     set('o_qty',h.qty); set('o_pal',h.pal); set('o_outday',h.outday);
     set('o_days',h.days); set('o_end',h.end);
     chk('o_sat',h.sat); chk('o_sun',h.sun); chk('o_holiday',h.holiday);
@@ -3882,6 +3883,7 @@ function generateOrderPdf(payload, kind, meta){
         ['Article', h.art],
         ['Customer', h.cust],
         ['Start date', fmtDateDe(h.start)],
+        ['PO Issue Date', fmtDateDe(h.poIssueDate)],
         ['End date', fmtDateDe(h.end)],
         ['Pick-Up (Deadline)', fmtDateDe(h.pickup)],
         ['Quantity', fmtDe(h.qty)],
@@ -4619,6 +4621,14 @@ async function saveOrder(mode){
     const days=parseInt($('o_days').value||'0',10);
     if(!start){ alert('Start date missing.'); return; }
     if(days<=0){ alert('Enter Qty and Daily output so duration can be calculated.'); return; }
+    // PO Issue Date ist Pflichtfeld bei allen Workflows (Request, UpdateRequest, Direct-Approve)
+    const poIssueVal=String($('o_poIssueDate')?.value||'').trim();
+    if(!poIssueVal){
+        alert('PO Issue Date is required — please enter the date the customer placed the order with XO.');
+        const fld=$('o_poIssueDate');
+        if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; fld.style.background=''; },2500); }
+        return;
+    }
     // Customer is mandatory only on the pending workflow so approver editing is not blocked
     let _mismatchNote='';
     let _hasMismatch=false;
