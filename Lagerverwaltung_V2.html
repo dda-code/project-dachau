@@ -1584,8 +1584,10 @@ auth.onAuthStateChanged(async user=>{
         // Lager-Sammelaccount: Excel-Export + Daten-Modal blockieren
         const _expBtn=document.getElementById('invExportBtn'); if(_expBtn) _expBtn.style.display=isLagerAccount()?'none':'';
         // Daten-Modal (SSCC) nur für Admin + Manager+canApprove + qs zugänglich — Lager/qs/Sales gesperrt
-        // Wait: qs ist hier mit BLOCKED in der Matrix → also blockieren
         const _dataBtn=document.getElementById('dataBtn'); if(_dataBtn) _dataBtn.style.display=isBlockedSensitive()?'none':'';
+        // Section-Header "Protokolle & Artikel" für Lager-Sammelaccount ausblenden — laut Permission-Matrix
+        const _protoSection=document.querySelector('.section-header[data-section="protokolle"]');
+        if(_protoSection) _protoSection.style.display=isLagerAccount()?'none':'';
         const _asmPrinterBtn=document.getElementById('btnPrinterSettings');if(_asmPrinterBtn)_asmPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgPrinterBtn=document.getElementById('sgBtnPrinterSettings');if(_sgPrinterBtn)_sgPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgOffsetBtn=document.getElementById('sgBtnPageOffset');if(_sgOffsetBtn)_sgOffsetBtn.style.display=canManage()?'inline-flex':'none';
