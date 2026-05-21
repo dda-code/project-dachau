@@ -315,8 +315,18 @@ function _resetIdleTimer(){
 // autoritative Quelle, die die Firestore-Rules für Audit-Log-Checks verwenden.
 let _cachedDisplayName = '';
 
+// Sammel-Accounts, die KEINEN Zugang zum Scanner haben sollen (Vertrieb/Geteilte-Auftragsplanung)
+const _SCN_BLOCKED_EMAILS = new Set(['sales@lager.local']);
 auth.onAuthStateChanged(async user => {
     if(user){
+        // Block-Liste: bestimmte Sammel-Accounts dürfen den Scanner nicht nutzen.
+        if(_SCN_BLOCKED_EMAILS.has((user.email||'').toLowerCase())){
+            await auth.signOut();
+            const err = $('loginError');
+            err.textContent = 'Dieser Account hat keinen Zugang zum Lager-Scanner.';
+            err.style.display = 'block';
+            return;
+        }
         // Deaktivierte Konten sofort ausloggen — Rule im Firestore muss das zusätzlich blockieren.
         try {
             const uDoc = await db.collection('users').doc(user.uid).get();

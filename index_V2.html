@@ -343,8 +343,17 @@ function _resetIdleTimer(){
     document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true})
 );
 
-auth.onAuthStateChanged(user => {
+// Sammel-Accounts, die KEINEN Zugang zum Scanner haben sollen
+const _SCN_BLOCKED_EMAILS = new Set(['sales@lager.local']);
+auth.onAuthStateChanged(async user => {
     if(user){
+        if(_SCN_BLOCKED_EMAILS.has((user.email||'').toLowerCase())){
+            await auth.signOut();
+            const err = $('loginError');
+            err.textContent = 'Dieser Account hat keinen Zugang zum Lager-Scanner.';
+            err.style.display = 'block';
+            return;
+        }
         $('loginView').style.display='none';
         $('appView').style.display='flex';
         $('userDisplay').textContent=user.displayName||user.email.replace(EMAIL_DOMAIN,'');

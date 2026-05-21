@@ -2031,9 +2031,29 @@ function doLogout(){
 // den Login selbst (IndexedDB via Firebase SDK). onAuthStateChanged feuert
 // initial (Page-Load) und bei jedem Login/Logout, d.h. ist die einzige
 // Quelle der Wahrheit fuer currentUser/currentUserRole/currentUserEmail.
+// Allowlist: TaskView ist nur für definierte Xolution-User zugänglich.
+// dominik = Outlook-Admin (ADMIN_EMAILS). fabian, yusuf, marc = reguläre Nutzer.
+// Alle anderen (Lager, qs, Sales, soojin.park, manager@lager.local …) werden sofort ausgeloggt.
+var TV_ALLOWED_EMAILS = [
+  'dominik.dannenbauer@xolution.com',
+  'fabian.brummer@xolution.com',
+  'yusuf.yaman@xolution.com',
+  'marc.rettberg@xolution.com'
+];
+function _tvAllowed(e){ return TV_ALLOWED_EMAILS.indexOf((e||'').toLowerCase())>=0; }
 firebase.auth().onAuthStateChanged(function(user){
   if(user){
-    currentUserEmail=(user.email||'').toLowerCase();
+    var _email=(user.email||'').toLowerCase();
+    if(!_tvAllowed(_email)){
+      firebase.auth().signOut();
+      try{ document.getElementById('login-overlay').style.display=''; }catch(_){}
+      try{
+        var le=document.getElementById('login-error');
+        if(le){ le.textContent='Dieser Account hat keinen Zugang zur TaskView-App.'; le.style.display='block'; }
+      }catch(_){}
+      return;
+    }
+    currentUserEmail=_email;
     currentUser=EMAIL_DISPLAY[currentUserEmail]||currentUserEmail.split('@')[0];
     currentUserRole=(ADMIN_EMAILS.indexOf(currentUserEmail)>=0)?'admin':'user';
     document.getElementById('login-overlay').style.display='none';

@@ -1531,7 +1531,7 @@ function isSuperAdminEmail(e){return (e||'').toLowerCase()===SUPER_ADMIN_EMAIL;}
 function toUsername(e){return e?e.replace(EMAIL_DOMAIN,''):'';}
 function getCurrentUsername(){const u=auth.currentUser;if(!u)return'';return u.displayName||toUsername(u.email);}
 function logout(){auth.signOut().catch(e=>console.warn('Logout-Fehler:',e));}
-let currentUserRole='user';
+let currentUserRole='user', currentUserCanApprove=false;
 function isAdmin(){return currentUserRole==='admin';}
 function isQS(){return currentUserRole==='qs';}
 function isManager(){return currentUserRole==='manager';}
@@ -1539,6 +1539,14 @@ function isManager(){return currentUserRole==='manager';}
 function canManage(){return isAdmin()||isManager();}
 function canManageQS(){return isAdmin()||isQS()||isManager();}
 function canDeletePalette(){return isAdmin()||isQS()||isManager();}
+// User-Mgmt: Admin + Manager mit canApprove=true (Cross-App-Approver wie soojin/Marc).
+function canManageUsers(){return isAdmin()||(isManager()&&currentUserCanApprove);}
+// Email-spezifische Blocks: Sammel-Accounts mit eingeschränkten Lager-Rechten.
+const _LV_LAGER_ACCOUNTS=new Set(['lager@lager.local']);
+const _LV_BLOCKED_FROM_SENSITIVE=new Set(['lager@lager.local','qs@lager.local','sales@lager.local']);
+function _lvEmail(){return (auth.currentUser&&auth.currentUser.email||'').toLowerCase();}
+function isLagerAccount(){return _LV_LAGER_ACCOUNTS.has(_lvEmail());}
+function isBlockedSensitive(){return _LV_BLOCKED_FROM_SENSITIVE.has(_lvEmail());}
 
 const $=id=>document.getElementById(id);
 auth.onAuthStateChanged(async user=>{
@@ -1547,8 +1555,10 @@ auth.onAuthStateChanged(async user=>{
         const uName=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
         // Super-Admin (hardcoded Email): Vollzugriff ohne /users/{uid}-Doc nötig.
         // Sonst Rolle aus Firestore-Doc users/{uid} (server-seitig validiert).
+        currentUserCanApprove=false;
         if(isSuperAdminEmail(user.email)){
             currentUserRole='admin';
+            currentUserCanApprove=true;
         } else {
             try{
                 const uDoc=await db.collection('users').doc(user.uid).get();
@@ -1556,6 +1566,7 @@ auth.onAuthStateChanged(async user=>{
                     const ud=uDoc.data();
                     if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
                     currentUserRole=ud.role||'user';
+                    currentUserCanApprove=!!ud.canApprove;
                 }
                 else{
                     // Neue Nutzer müssen von einem Admin über das User-Management angelegt werden.
@@ -1569,7 +1580,12 @@ auth.onAuthStateChanged(async user=>{
         console.log('Auth: user='+uName+', email='+user.email+', uid='+user.uid+', role='+currentUserRole);
         const roleLabel=currentUserRole==='admin'?' (Admin)':(currentUserRole==='manager'?' (Manager)':(currentUserRole==='qs'?' (QS)':''));
         $('userEmail').textContent=uName+roleLabel;
-        $('userMgmtBtn').style.display=isAdmin()?'inline-flex':'none';
+        $('userMgmtBtn').style.display=canManageUsers()?'inline-flex':'none';
+        // Lager-Sammelaccount: Excel-Export + Daten-Modal blockieren
+        const _expBtn=document.getElementById('invExportBtn'); if(_expBtn) _expBtn.style.display=isLagerAccount()?'none':'';
+        // Daten-Modal (SSCC) nur für Admin + Manager+canApprove + qs zugänglich — Lager/qs/Sales gesperrt
+        // Wait: qs ist hier mit BLOCKED in der Matrix → also blockieren
+        const _dataBtn=document.getElementById('dataBtn'); if(_dataBtn) _dataBtn.style.display=isBlockedSensitive()?'none':'';
         const _asmPrinterBtn=document.getElementById('btnPrinterSettings');if(_asmPrinterBtn)_asmPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgPrinterBtn=document.getElementById('sgBtnPrinterSettings');if(_sgPrinterBtn)_sgPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgOffsetBtn=document.getElementById('sgBtnPageOffset');if(_sgOffsetBtn)_sgOffsetBtn.style.display=canManage()?'inline-flex':'none';
@@ -2740,7 +2756,7 @@ function renderInvTable(){
         const qsBtn=canManageQS()?(p.gesperrt
             ?`<button class="btn btn-success btn-sm inv-action-btn" data-qs-id="${_escAttr(p.id)}" data-qs-val="false" data-src="${src}">Freigeben</button>`
             :`<button class="btn btn-danger btn-sm inv-action-btn" data-qs-id="${_escAttr(p.id)}" data-qs-val="true" data-src="${src}">Sperren</button>`):'';
-        const editBtn=canManage()?`<button class="btn btn-sm btn-secondary inv-action-btn" data-edit-id="${_escAttr(p.id)}" data-src="${src}">Bearbeiten</button>`:'';
+        const editBtn=canManageQS()?`<button class="btn btn-sm btn-secondary inv-action-btn" data-edit-id="${_escAttr(p.id)}" data-src="${src}">Bearbeiten</button>`:'';
         const delBtn=canDeletePalette()?`<button class="btn btn-danger btn-sm inv-action-btn" data-delete-id="${_escAttr(p.id)}" data-src="${src}">Löschen</button>`:'';
         return`<tr><td>${p.labelTyp||'-'}</td><td>${p.artikelNr||'-'}</td><td>${ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-'}</td><td>${idf(p)}</td><td>${p.palettenNr||'-'}</td><td>${p.produktionsDatum||'-'}</td><td>${p.uhrzeit||'-'}</td><td>${p.menge||'-'}</td><td>${p.lotNr||'-'}</td><td>${p.orderNr||'-'}</td><td>${p.kunde||'-'}</td><td>${p.schicht||'-'}</td><td>${p.gtin||'-'}</td><td>${_escAttr(_lagerortOf(p))}</td><td><span class="position-badge">${p.position||'-'}</span></td><td>${statusHtml}</td><td>${formatTimestamp(p.einlagDatum)}</td><td class="inv-actions-cell">${qsBtn}${editBtn}${delBtn}</td></tr>`;
     }).join('')||'<tr><td colspan="18" class="info-msg">Keine Paletten im Lager</td></tr>';
@@ -2757,7 +2773,7 @@ async function toggleInvGesperrt(docId,newVal){
         await _logGesperrt(docId,newVal,sperrgrund);loadInventory();renderWarehouseMap();
     }catch(e){alert('Fehler: '+e.message);}
 }
-async function deleteInventoryItem(docId){if(!confirm('Palette wirklich löschen?'))return;try{await db.collection('paletten').doc(docId).delete();loadInventory();loadDashboard();}catch(e){alert('Fehler: '+e.message);}}
+async function deleteInventoryItem(docId){if(!canDeletePalette()){alert('Keine Berechtigung.');return;}if(!confirm('Palette wirklich löschen?'))return;try{await db.collection('paletten').doc(docId).delete();loadInventory();loadDashboard();}catch(e){alert('Fehler: '+e.message);}}
 
 // Sperren/Freigeben einer Fertigpalette direkt aus der Bestandsliste
 async function toggleFertigpaletteGesperrt(fsId,newVal){
@@ -2772,8 +2788,9 @@ async function toggleFertigpaletteGesperrt(fsId,newVal){
         loadInventory();
     }catch(e){alert('Fehler: '+e.message);}
 }
-// Löschen einer Fertigpalette direkt aus der Bestandsliste
+// Löschen einer Fertigpalette direkt aus der Bestandsliste — nur admin/manager/qs.
 async function deleteFertigpaletteFromInv(fsId){
+    if(!canDeletePalette()){alert('Keine Berechtigung.');return;}
     if(!confirm('Fertigpalette wirklich löschen?'))return;
     try{
         await db.collection(_FS_FP_COLL).doc(fsId).delete();
@@ -2803,7 +2820,7 @@ const _editPalFields=[
 ];
 
 async function openEditPal(docId){
-    if(!canManage())return;
+    if(!canManageQS())return;
     _editPalId=docId;
     try{
         const snap=await db.collection('paletten').doc(docId).get();
@@ -2818,7 +2835,7 @@ async function openEditPal(docId){
 }
 function closeEditPal(){document.getElementById('editPalModal').style.display='none';_editPalId=null;}
 async function saveEditPal(){
-    if(!canManage()||!_editPalId)return;
+    if(!canManageQS()||!_editPalId)return;
     const upd={};
     _editPalFields.forEach(f=>{upd[f.key]=document.getElementById('editPal-'+f.key)?.value.trim()||'';});
     // datum-Feld synchron halten
@@ -2831,12 +2848,17 @@ async function saveEditPal(){
         const err=document.getElementById('editPalError');err.textContent='Fehler: '+e.message;err.style.display='block';
     }
 }
-function exportInventory(){const t=document.querySelector('#view-inventory .data-table'),wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(t);XLSX.utils.book_append_sheet(wb,ws,'Bestandsliste');XLSX.writeFile(wb,'Bestandsliste_'+new Date().toISOString().slice(0,10)+'.xlsx');}
+function exportInventory(){
+    if(isLagerAccount()){alert('Der Sammel-Account "Lager" darf die Bestandsliste nicht exportieren.');return;}
+    const t=document.querySelector('#view-inventory .data-table'),wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(t);
+    XLSX.utils.book_append_sheet(wb,ws,'Bestandsliste');
+    XLSX.writeFile(wb,'Bestandsliste_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
 
 // ============================================================
 // USER MANAGEMENT (Admin only)
 // ============================================================
-function openUserMgmt(){if(!isAdmin())return;$('userMgmtModal').style.display='flex';loadUserMgmt();}
+function openUserMgmt(){if(!canManageUsers())return;$('userMgmtModal').style.display='flex';loadUserMgmt();}
 function closeUserMgmt(){$('userMgmtModal').style.display='none';}
 $('userMgmtModal').addEventListener('click',e=>{if(e.target===$('userMgmtModal'))closeUserMgmt();});
 
@@ -2870,7 +2892,10 @@ let _ssccListRows=[];
 let _ssccMaxCounter=0;
 let _ssccMetaNext=0; // sscc_liste/_meta.nextCounter
 const SSCC_META_ID='_meta';
-function openSSCCList(){$('ssccListModal').style.display='flex';$('ssccMsg').style.display='none';$('ssccErr').style.display='none';switchDataTab('sscc');}
+function openSSCCList(){
+    if(isBlockedSensitive()){alert('Keine Berechtigung für das Daten-Modal.');return;}
+    $('ssccListModal').style.display='flex';$('ssccMsg').style.display='none';$('ssccErr').style.display='none';switchDataTab('sscc');
+}
 function switchDataTab(tab){
     ['sscc','gtin'].forEach(t=>{
         const body=document.getElementById('dataTab_'+t);if(body)body.style.display=(t===tab?'block':'none');
@@ -3356,6 +3381,7 @@ async function loadUserMgmt(){
 
 $('createUserForm').addEventListener('submit',async e=>{
     e.preventDefault();
+    if(!canManageUsers()){alert('Keine Berechtigung.');return;}
     const err=$('createUserError'),suc=$('createUserSuccess');
     err.style.display='none';suc.style.display='none';
     const u=$('newUsername').value.trim(),p=$('newPassword').value,r=$('newRole').value;
@@ -3391,32 +3417,32 @@ $('createUserForm').addEventListener('submit',async e=>{
 });
 
 async function changeUserRole(uid,newRole){
-    if(!isAdmin())return;
+    if(!canManageUsers())return;
     try{await db.collection('users').doc(uid).update({role:newRole});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
 async function changeUserCanApprove(uid,value){
-    if(!isAdmin())return;
+    if(!canManageUsers())return;
     try{await db.collection('users').doc(uid).update({canApprove:!!value});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
 async function deactivateUser(uid,name){
-    if(!isAdmin())return;
+    if(!canManageUsers())return;
     if(!confirm('Benutzer "'+name+'" wirklich deaktivieren?\n\nDer Benutzer kann sich danach nicht mehr anmelden. Über "Aktivieren" kann das rückgängig gemacht werden.'))return;
     try{await db.collection('users').doc(uid).update({disabled:true});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
 async function reactivateUser(uid){
-    if(!isAdmin())return;
+    if(!canManageUsers())return;
     try{await db.collection('users').doc(uid).update({disabled:false});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
 async function deleteUser(uid,name){
-    if(!isAdmin())return;
+    if(!canManageUsers())return;
     if(!confirm('Benutzer "'+name+'" wirklich ENDGÜLTIG löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden. Der Firestore-Eintrag wird gelöscht.\n\nHinweis: Der Firebase Auth-Eintrag muss ggf. manuell in der Firebase Console entfernt werden.'))return;
     try{await db.collection('users').doc(uid).delete();loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
@@ -3811,6 +3837,7 @@ const _PROD_EDIT_FIELDS=[
 let _prodEditIdx=-1;
 let _prodEditIsNew=false;
 function createProdOrder(){
+    if(!canManage()){alert('Nur Manager/Admin dürfen Produktionsaufträge anlegen.');return;}
     const empty={veredelung:''};
     _PROD_EDIT_FIELDS.forEach(f=>{empty[f.k]=f.num?'':'';});
     empty['Status Produktion']='open';
@@ -4146,6 +4173,7 @@ function closeProdEdit(){
     _prodEditIdx=-1;
 }
 async function deleteProdOrder(){
+    if(!canManage()){alert('Nur Manager/Admin dürfen Produktionsaufträge löschen.');return;}
     if(_prodEditIdx<0)return;
     const o=PRODUKTIONSPLAN_DATA[_prodEditIdx];
     if(!o){closeProdEdit();return;}
@@ -4167,6 +4195,7 @@ async function deleteProdOrder(){
     renderProduktionsplan();
 }
 function saveProdEdit(){
+    if(!canManage()){alert('Nur Manager/Admin dürfen Produktionsaufträge bearbeiten.');return;}
     if(_prodEditIdx<0)return;
     const o=PRODUKTIONSPLAN_DATA[_prodEditIdx];
     if(!o){document.getElementById('prodEditModal').style.display='none';_prodEditIdx=-1;_prodEditIsNew=false;return;}
@@ -4680,6 +4709,7 @@ let _sgProdEditIdx=-1;
 let _sgProdEditIsNew=false;
 
 function sg_createProdOrder(){
+    if(!canManage()){alert('Nur Manager/Admin dürfen Produktionsaufträge anlegen.');return;}
     const empty={};
     _SG_PROD_EDIT_FIELDS.forEach(f=>{empty[f.k]='';});
     empty['Status Produktion']='open';
@@ -4756,6 +4786,7 @@ function sg_closeProdEdit(){
 }
 
 async function sg_deleteProdOrder(){
+    if(!canManage()){alert('Nur Manager/Admin dürfen Produktionsaufträge löschen.');return;}
     if(_sgProdEditIdx<0)return;
     const o=PRODUKTIONSPLAN_SG_DATA[_sgProdEditIdx];
     if(!o){sg_closeProdEdit();return;}
@@ -4776,6 +4807,7 @@ async function sg_deleteProdOrder(){
 }
 
 function sg_saveProdEdit(){
+    if(!canManage()){alert('Nur Manager/Admin dürfen Produktionsaufträge bearbeiten.');return;}
     if(_sgProdEditIdx<0)return;
     const o=PRODUKTIONSPLAN_SG_DATA[_sgProdEditIdx];
     if(!o){document.getElementById('sgProdEditModal').style.display='none';_sgProdEditIdx=-1;_sgProdEditIsNew=false;return;}

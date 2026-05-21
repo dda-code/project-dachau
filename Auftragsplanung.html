@@ -1064,6 +1064,11 @@ function _apToEmail(u){
     return s.replace(/\s+/g,'_')+_AP_EMAIL_DOMAIN;
 }
 function _apIsSuperAdmin(e){return (e||'').toLowerCase()===SUPER_ADMIN_EMAIL;}
+// Email-spezifische Block-Liste (Option A — bis Permissions-Map kommt): manager@lager.local soll Auftragsplanung
+// nur READ-ONLY sehen — kein Order-Request, Sequence, Pricelist, Edit-Own. Buttons werden im UI ausgeblendet,
+// PDF entfällt automatisch (kein Submit-Pfad). Vgl. Users_Permissions.xlsx Zeile manager@lager.local.
+const _AP_RESTRICTED_VIEWERS=new Set(['manager@lager.local']);
+function _apIsRestrictedViewer(e){return _AP_RESTRICTED_VIEWERS.has((e||'').toLowerCase());}
 const _AP_ERR_MAP={'auth/invalid-email':'Invalid username','auth/user-not-found':'User not found','auth/wrong-password':'Wrong password','auth/invalid-credential':'Wrong username or password','auth/too-many-requests':'Too many attempts. Please wait.'};
 function _apTranslateErr(c){ return _AP_ERR_MAP[c]||'Error: '+c; }
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1183,9 +1188,10 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager'){
     // Protocol visible only for approvers/admin
     const protoBtn=$('protocolBtn');
     if(protoBtn) protoBtn.style.display = currentCanApprove ? '' : 'none';
-    // Order sequence: hidden for approvers (only managers plan the sequence)
+    // Order Sequence: sichtbar für alle admin/manager (inkl. Approver dominik/soojin/Marc) —
+    // ausser für den Restricted-Viewer (manager@lager.local) der nur lesend zugreift.
     const ordBtn=$('ordersManagerBtn');
-    if(ordBtn) ordBtn.style.display = currentCanApprove ? 'none' : '';
+    if(ordBtn) ordBtn.style.display = _apIsRestrictedViewer(currentUserEmail) ? 'none' : '';
     if(_apBooted){
         // On pure user switch: reload data for the new role
         try{ await loadWeek(); }catch(_){}
@@ -2620,8 +2626,13 @@ function _applyOrderModalButtons(){
     const rejectBtn=$('o_rejectBtn');
     const updBtn=$('o_updateBtn');
     const withdrawBtn=$('o_withdrawBtn');
-    // "Request Approval" nur fuer Manager (= !canApprove). Approver brauchen den Workflow nicht — die haben "Direct Approve".
-    if(reqBtn)      reqBtn.style.display      = (!reviewing && !ownerEdit && !currentCanApprove) ? '' : 'none';
+    // "Request Approval" sichtbar für Manager-ohne-Approve UND zusätzlich für Admin (admin darf auch im Request-Flow agieren).
+    // Approver-Manager (z.B. soojin/Marc) brauchen den Workflow nicht — sie nutzen "Direct Approve".
+    // Restricted-Viewer (manager@lager.local) bekommt den Button gar nicht.
+    const restrictedViewer=_apIsRestrictedViewer(currentUserEmail);
+    const showReq = !reviewing && !ownerEdit && !restrictedViewer &&
+                    (currentUserRole==='admin' || !currentCanApprove);
+    if(reqBtn)      reqBtn.style.display      = showReq ? '' : 'none';
     // "Freigeben & Speichern" / "Ablehnen" nur im Review-Mode
     if(apprBtn)     apprBtn.style.display     = reviewing ? '' : 'none';
     if(rejectBtn)   rejectBtn.style.display   = reviewing ? '' : 'none';
