@@ -3499,7 +3499,9 @@ async function approvePendingInline(id, tab){
             generateOrderPdf(finalPayload,'approved',{
                 id, approvedByEmail:currentUserEmail,
                 approvedAt:new Date().toISOString(),
-                approvedPrice:{price:num, ccy}
+                approvedPrice:{price:num, ccy},
+                requestedByEmail:data.requestedByEmail||'',
+                requestedAt:data.requestedAt||null
             });
         }catch(e){ console.warn('PDF:',e); }
         // 5) Auto-Transfer in den Produktionsplan (nur Assembly)
@@ -3753,6 +3755,27 @@ function generateOrderPdf(payload, kind, meta){
         if(isFinite(n) && /^[\d.,\s-]+$/.test(String(v))) return n.toLocaleString('de-DE',{maximumFractionDigits:2});
         return String(v);
     };
+    // ISO-Datum (YYYY-MM-DD) → DD.MM.YYYY. Lässt andere Strings unverändert.
+    const fmtDateDe=v=>{
+        if(v==null||v==='') return '–';
+        const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if(m) return `${m[3]}.${m[2]}.${m[1]}`;
+        return String(v);
+    };
+    // Firestore-Timestamp / Date / ISO → DD.MM.YYYY, HH:mm:ss (zero-padded).
+    const fmtTsDe=ts=>{
+        if(!ts) return '–';
+        try{
+            const d=ts?.toDate?ts.toDate():(ts instanceof Date?ts:new Date(ts));
+            if(!d || isNaN(d.getTime())) return '–';
+            const dd=String(d.getDate()).padStart(2,'0');
+            const mm=String(d.getMonth()+1).padStart(2,'0');
+            const hh=String(d.getHours()).padStart(2,'0');
+            const mi=String(d.getMinutes()).padStart(2,'0');
+            const ss=String(d.getSeconds()).padStart(2,'0');
+            return `${dd}.${mm}.${d.getFullYear()}, ${hh}:${mi}:${ss}`;
+        }catch{ return '–'; }
+    };
     // ---- HEADER BAND ----
     setColor(C.bg,'fill'); doc.rect(0,0,PAGE_W,120,'F');
     // XO Logo (oben links) – wenn beim Page-Load erfolgreich gerendert.
@@ -3842,25 +3865,59 @@ function generateOrderPdf(payload, kind, meta){
 
     // ---- 1. ORDER DETAILS ----
     sectionHeader('01','ORDER DETAILS');
-    const wEnde=((h.sat?'Sat ':'')+(h.sun?'Sun ':'')+(h.holiday?'Holiday':'')).trim()||'no';
     kvGrid([
         ['SO #', h.so],
         ['PO #', h.po],
         ['Article', h.art],
         ['Customer', h.cust],
-        ['Start date', h.start],
-        ['End date', h.end],
-        ['Pick-Up (Deadline)', h.pickup],
+        ['Start date', fmtDateDe(h.start)],
+        ['End date', fmtDateDe(h.end)],
+        ['Pick-Up (Deadline)', fmtDateDe(h.pickup)],
         ['Quantity', fmtDe(h.qty)],
         ['Pallets', h.pal],
-        ['Daily output', fmtDe(h.outday)],
-        ['Duration (days)', h.days],
-        ['Weekend/Holiday', wEnde],
     ]);
 
-    // ---- 2. PRICE ----
+    // ---- 2. ARTICLE DETAILS ----
+    sectionHeader('02','ARTICLE DETAILS');
+    const _artRow=(typeof articleMapAssembly!=='undefined')?articleMapAssembly[String(h.art||'').trim()]:null;
+    if(!_artRow){
+        setColor(C.mid,'text'); doc.setFont('helvetica','italic'); doc.setFontSize(10);
+        doc.text(`No article master data for ${h.art||'?'}.`, M, y);
+        y+=22;
+    } else {
+        const verpDesc=String(_artRow['Verpackung Beschreibung']||'').trim();
+        const verpSuf=String(_artRow['Verpackung XO Nr.']||'').trim();
+        const verpEnds=(typeof endsForArtFallback==='function')?endsForArtFallback(h.art):0;
+        const verpParts=[];
+        verpParts.push(verpDesc||'Standard');
+        if(verpSuf && verpSuf!=='-') verpParts.push(verpSuf);
+        if(verpEnds>0) verpParts.push(Number(verpEnds).toLocaleString('de-DE'));
+        const artItems=[
+            ['Shell',             formatShell(_artRow)],
+            ['Shell Description', _shellBeschreibung(_artRow)],
+            ['Frame',             formatFrameK(_artRow)],
+            ['Inner-Slider',      formatInnerK(_artRow)],
+            ['Outer-Slider',      formatOuterK(_artRow)],
+            ['TP-Band',           formatTpK(_artRow)],
+            ['Laser Code',        String(_artRow['Laser Code Beschreibung']||'').trim()],
+            ['Packaging',         verpParts.join(', ')]
+        ].map(([l,v])=>[l, (v==null||v==='')?'–':v]);
+        if(doc.autoTable){
+            doc.autoTable({
+                startY:y,
+                body:artItems,
+                theme:'plain',
+                margin:{left:M,right:M},
+                styles:{fontSize:9.5, font:'helvetica', textColor:C.charcoal, lineColor:C.lite, lineWidth:0.4, cellPadding:{top:4,bottom:4,left:6,right:6}},
+                columnStyles:{0:{cellWidth:130, textColor:C.mid, fontStyle:'normal'}, 1:{fontStyle:'bold'}}
+            });
+            y=doc.lastAutoTable.finalY+14;
+        }
+    }
+
+    // ---- 3. PRICE ----
     const sectionTitle3 = (kind==='approved' && payload.approvedPrice) ? 'CONFIRMED PRICE' : 'PRICE PER PRICELIST';
-    sectionHeader('02', sectionTitle3);
+    sectionHeader('03', sectionTitle3);
     const _normArt2=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
     const cust=String(h.cust||'').trim().toLowerCase();
     const orderArt=_normArt2(h.art);
@@ -3882,9 +3939,6 @@ function generateOrderPdf(payload, kind, meta){
         if(priceMatch){
             rowsP.push(['Tier',priceMatch.tier]);
             rowsP.push(['Region',priceMatch.region]);
-            rowsP.push(['Shell',priceMatch.shell]);
-            rowsP.push(['Shell Supplier',priceMatch.shellSupplier]);
-            rowsP.push(['Article Status',priceMatch.articleStatus]);
             rowsP.push(['Payment Term',priceMatch.paymentTerm]);
         }
         kvGrid(rowsP);
@@ -3901,9 +3955,6 @@ function generateOrderPdf(payload, kind, meta){
             ['Tier', priceMatch.tier],
             ['Region', priceMatch.region],
             ['Type', priceMatch.type],
-            ['Shell', priceMatch.shell],
-            ['Shell Supplier', priceMatch.shellSupplier],
-            ['Article Status', priceMatch.articleStatus],
             ['Payment Term', priceMatch.paymentTerm],
             ['Note', priceMatch.note],
         ]);
@@ -3913,40 +3964,15 @@ function generateOrderPdf(payload, kind, meta){
         y+=18;
     }
 
-    // ---- 3. DAILY SCHEDULE ----
-    sectionHeader('03','DAILY SCHEDULE');
-    const qtyKey=fieldKey('Production Plan','','Qty');
-    const palKey=fieldKey('Production Plan','','PAL');
-    const gridRows=Object.keys(payload.gridData||{}).sort().map(iso=>{
-        const f=(payload.gridData[iso]&&payload.gridData[iso].fields)||{};
-        const shiftOverride=(payload.perDayShifts||{})[iso];
-        return [iso, fmtDe(f[qtyKey]), f[palKey]||'–', shiftOverride!=null?String(shiftOverride):'–'];
-    });
-    if(doc.autoTable){
-        doc.autoTable({
-            startY:y,
-            head:[['Date','Quantity','Pallets','Shifts (override)']],
-            body:gridRows.length?gridRows:[['–','–','–','–']],
-            theme:'plain',
-            margin:{left:M,right:M},
-            styles:{fontSize:9, font:'helvetica', textColor:C.charcoal, lineColor:C.lite, lineWidth:0.4, cellPadding:5},
-            headStyles:{fillColor:C.bg, textColor:C.dark, fontStyle:'bold', halign:'left'},
-            alternateRowStyles:{fillColor:[252,252,252]},
-            columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'}}
-        });
-        y=doc.lastAutoTable.finalY+18;
-    }
-
     // ---- 4. AUDIT TRAIL ----
     sectionHeader('04','AUDIT TRAIL');
-    const fmtTs=ts=>{ try{ const d=ts?.toDate?ts.toDate():(ts instanceof Date?ts:(ts?new Date(ts):null)); return d?d.toLocaleString('de-DE'):'–'; }catch{ return '–'; } };
     const reqEmail=String(meta?.requestedByEmail||'').replace('@lager.local','')||'–';
     const decEmail=String(meta?.decidedByEmail||meta?.approvedByEmail||'').replace('@lager.local','')||'–';
-    const decTs=fmtTs(meta?.decidedAt||meta?.approvedAt||new Date());
+    const decTs=fmtTsDe(meta?.decidedAt||meta?.approvedAt||new Date());
     const auditRows=[
         ['Status', ACTION.label],
         ['Requested by', reqEmail],
-        ['Request submitted', fmtTs(meta?.requestedAt)],
+        ['Request submitted', fmtTsDe(meta?.requestedAt)],
     ];
     if(kind==='approved' || kind==='rejected'){
         auditRows.push(['Decision by', decEmail]);
@@ -4630,7 +4656,7 @@ async function saveOrder(mode){
             });
             // PDF only for approvers on direct approval — manager request does not create a PDF
             if(currentCanApprove){
-                try{ generateOrderPdf(payload,'request',{id:docRef.id, requestedByEmail:currentUserEmail}); }
+                try{ generateOrderPdf(payload,'request',{id:docRef.id, requestedByEmail:currentUserEmail, requestedAt:new Date()}); }
                 catch(e){ console.warn('PDF generation failed:',e); }
             }
             // Manager-Aktion ins Protokoll der Approver schreiben
@@ -4676,7 +4702,7 @@ async function saveOrder(mode){
             });
             // PDF only for approvers — manager update does not create a PDF
             if(currentCanApprove){
-                try{ generateOrderPdf(payload,'request',{id,requestedByEmail:currentUserEmail,update:prevCount+1}); }
+                try{ generateOrderPdf(payload,'request',{id,requestedByEmail:currentUserEmail,update:prevCount+1,requestedAt:old.requestedAt||new Date()}); }
                 catch(e){ console.warn('PDF generation failed:',e); }
             }
             // Update ins Protokoll der Approver schreiben (mit Versionshinweis in der Note)
@@ -4809,7 +4835,9 @@ async function saveOrder(mode){
                 generateOrderPdf(finalPayload,'approved',{
                     id:pendingId,
                     approvedByEmail:currentUserEmail,
-                    approvedAt:new Date().toISOString()
+                    approvedAt:new Date().toISOString(),
+                    requestedByEmail:pendDocSnap?.requestedByEmail||'',
+                    requestedAt:pendDocSnap?.requestedAt||null
                 });
             }catch(e){ console.warn('Final PDF failed:',e); }
             try{ await db.collection(_pendingColForTab(currentTab)).doc(pendingId).delete(); }
