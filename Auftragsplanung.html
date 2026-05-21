@@ -1595,9 +1595,12 @@ async function loadWeek(){
             if(!d.datum) return;
             // Primary doc (back-compat for callers that still read weekData[iso]): first approved per day.
             if(!weekData[d.datum]) weekData[d.datum]={...d,_id:doc.id};
-            // Multi-slot list: append every approved doc.
+            // Multi-slot list: append every approved doc, but only ONE slot per distinct order-id per day.
+            // Two slots are only emitted for the same iso when two DIFFERENT orders (SO #/IO #) exist.
             if(!weekDocs[d.datum]) weekDocs[d.datum]=[];
-            weekDocs[d.datum].push({kind:'approved', fields:d.fields||{}, _pending:null, doc:{...d,_id:doc.id}, _orderId:(d.fields||{})[orderIdKeyHere]||d.ioNr||''});
+            const _newOrderId=(d.fields||{})[orderIdKeyHere]||d.ioNr||'';
+            const _dup=_newOrderId && weekDocs[d.datum].some(s=>s._orderId===_newOrderId);
+            if(!_dup) weekDocs[d.datum].push({kind:'approved', fields:d.fields||{}, _pending:null, doc:{...d,_id:doc.id}, _orderId:_newOrderId});
         });
         // Pending overlay: add as ADDITIONAL slot when a different order than any approved on that day.
         // For the same order (same SO#/IO#) already approved, skip — the approved entry already shows the data
@@ -1615,10 +1618,15 @@ async function loadWeek(){
                     const fields=(entry&&entry.fields)?{...entry.fields}:{};
                     const pOrderId=fields[orderIdKeyHere]||'';
                     const existingSlots=weekDocs[iso]||[];
-                    const sameOrderApproved=pOrderId && existingSlots.some(s=>s.kind==='approved' && s._orderId===pOrderId);
-                    if(sameOrderApproved){
-                        // Update-Request for an already-approved order: mark the approved slot pending (badge in UI)
-                        existingSlots.forEach(s=>{ if(s.kind==='approved' && s._orderId===pOrderId) s._pending=pendingMeta; });
+                    // Merge into an existing slot when:
+                    //  - the pending carries the SAME orderId as an existing slot (approved or pending), OR
+                    //  - the pending has NO orderId but the day already has at least one approved slot
+                    //    (treat as an update to the day's order rather than a phantom extra column).
+                    const sameOrderSlot=pOrderId
+                        ? existingSlots.find(s=>s._orderId===pOrderId)
+                        : existingSlots.find(s=>s.kind==='approved');
+                    if(sameOrderSlot){
+                        sameOrderSlot._pending=pendingMeta;
                         return;
                     }
                     // Different order (or no approved entry yet) → add as a NEW slot alongside the approved ones.
