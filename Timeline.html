@@ -1392,7 +1392,7 @@ function buildGrid(vrows){
       wr2.style.cssText='left:'+(so2*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+bw2+'px;height:'+barH+'px';
       var pNm=p.name||t.name;
       var pCol=p.color||t.color;
-      wr2.innerHTML='<div class="bar" style="'+_barStyleBg(pCol,!!t.transparent,!!t.hatched)+'"><span class="blbl">'+_esc(pNm)+'</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(pNm)+'</span>';
+      wr2.innerHTML='<div class="bar" style="'+_barStyleBg(pCol,!!p.transparent,!!p.hatched)+'"><span class="blbl">'+_esc(pNm)+'</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(pNm)+'</span>';
       var pBar=wr2.firstChild;
       pBar.addEventListener('mouseenter',function(e){
         if(linkMode||dragPeriod.active)return;
@@ -2442,9 +2442,9 @@ function openEdit(id){
 }
 function buildPeriodList(periods){
   var pl=document.getElementById('period-list');pl.innerHTML='';
-  (periods||[]).forEach(function(p,i){addExtraPeriodRow(p.start,p.end,p.name,p.color);});
+  (periods||[]).forEach(function(p,i){addExtraPeriodRow(p.start,p.end,p.name,p.color,!!p.transparent,!!p.hatched);});
 }
-function addExtraPeriod(e){if(e)e.stopPropagation();addExtraPeriodRow('','','',sc||COLS[0]);}
+function addExtraPeriod(e){if(e)e.stopPropagation();addExtraPeriodRow('','','',sc||COLS[0],false,false);}
 function buildMarkerList(markers){
   var ml=document.getElementById('marker-list');if(!ml)return;ml.innerHTML='';
   (markers||[]).forEach(function(m){addMarkerRow(m.date,m.text);});
@@ -2463,7 +2463,7 @@ function addMarkerRow(date,text){
   row.appendChild(txt);row.appendChild(dt);row.appendChild(rm);
   ml.appendChild(row);
 }
-function addExtraPeriodRow(s,en,nm,col){
+function addExtraPeriodRow(s,en,nm,col,tr,ha){
   var pl=document.getElementById('period-list');
   var row=document.createElement('div');row.className='period-row';row.style.flexWrap='wrap';
   var nameInp=document.createElement('input');nameInp.type='text';nameInp.className='pn';
@@ -2476,6 +2476,8 @@ function addExtraPeriodRow(s,en,nm,col){
   var cpWrap=document.createElement('div');cpWrap.style.cssText='position:relative;flex-shrink:0';
   var cp=document.createElement('button');cp.type='button';cp.className='pc';
   cp.dataset.color=col||sc||COLS[0];
+  cp.dataset.transparent=tr?'1':'';
+  cp.dataset.hatched=ha?'1':'';
   cp.title='Periode-Farbe wählen';
   cp.style.cssText='width:24px;height:24px;padding:0;border:2px solid #fff;border-radius:50%;background:'+cp.dataset.color+';cursor:pointer;box-shadow:0 0 0 1px var(--border);transition:transform .1s';
   cp.addEventListener('mouseenter',function(){cp.style.transform='scale(1.1)';});
@@ -2484,13 +2486,38 @@ function addExtraPeriodRow(s,en,nm,col){
     e.stopPropagation();
     openColorPopover(cp,function(newCol){
       cp.dataset.color=newCol;cp.style.background=newCol;
+      updatePeriodFXPreview(row);
     });
   });
   cpWrap.appendChild(cp);
   var rm=document.createElement('button');rm.className='p-rm';rm.textContent='×';rm.title='Remove period';
   rm.addEventListener('click',function(e){e.stopPropagation();row.remove();});
-  row.appendChild(nameInp);row.appendChild(ds);row.appendChild(sep);row.appendChild(de);row.appendChild(cpWrap);row.appendChild(rm);
+  // FX-Zeile (50% transparent + schraffiert + Vorschau) — eigene Wrap-Zeile via flex-basis:100%
+  var fxRow=document.createElement('div');
+  fxRow.className='p-fx';
+  fxRow.style.cssText='flex:1 1 100%;display:flex;gap:12px;align-items:center;margin-top:2px;padding-left:2px';
+  var lbTr=document.createElement('label');
+  lbTr.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer';
+  var cbTr=document.createElement('input');cbTr.type='checkbox';cbTr.className='p-tr';cbTr.checked=!!tr;
+  cbTr.style.cssText='accent-color:var(--accent);cursor:pointer';
+  cbTr.addEventListener('change',function(){updatePeriodFXPreview(row);});
+  lbTr.appendChild(cbTr);lbTr.appendChild(document.createTextNode(' 50% transparent'));
+  var lbHa=document.createElement('label');
+  lbHa.style.cssText='display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer';
+  var cbHa=document.createElement('input');cbHa.type='checkbox';cbHa.className='p-ha';cbHa.checked=!!ha;
+  cbHa.style.cssText='accent-color:var(--accent);cursor:pointer';
+  cbHa.addEventListener('change',function(){updatePeriodFXPreview(row);});
+  lbHa.appendChild(cbHa);lbHa.appendChild(document.createTextNode(' Schraffiert'));
+  var prev=document.createElement('span');prev.className='p-fx-prev';prev.title='Vorschau';
+  fxRow.appendChild(lbTr);fxRow.appendChild(lbHa);fxRow.appendChild(prev);
+  row.appendChild(nameInp);row.appendChild(ds);row.appendChild(sep);row.appendChild(de);row.appendChild(cpWrap);row.appendChild(rm);row.appendChild(fxRow);
   pl.appendChild(row);
+  updatePeriodFXPreview(row);
+}
+function updatePeriodFXPreview(row){
+  var cp=row.querySelector('.pc'),tr=row.querySelector('.p-tr'),ha=row.querySelector('.p-ha'),prev=row.querySelector('.p-fx-prev');
+  if(!cp||!prev)return;
+  prev.style.cssText='display:inline-block;width:34px;height:14px;border-radius:3px;border:1px solid var(--border);'+_barStyleBg(cp.dataset.color||COLS[0],!!(tr&&tr.checked),!!(ha&&ha.checked));
 }
 function buildSW(){
   var sl=document.getElementById('swl');sl.innerHTML='';
@@ -2718,10 +2745,13 @@ function saveT(){
     var s=row.querySelector('.ps').value,e2=row.querySelector('.pe').value;
     var nmEl=row.querySelector('.pn');var nm=nmEl?nmEl.value.trim():'';
     var cEl=row.querySelector('.pc');var pcol=cEl?(cEl.dataset.color||cEl.value||''):'';
+    var trEl=row.querySelector('.p-tr'),haEl=row.querySelector('.p-ha');
     if(s&&e2&&s<=e2){
       var rec={start:s,end:e2};
       if(nm)rec.name=nm;
       if(pcol)rec.color=pcol;
+      if(trEl&&trEl.checked)rec.transparent=true;
+      if(haEl&&haEl.checked)rec.hatched=true;
       extraPeriods.push(rec);
     }
   });
