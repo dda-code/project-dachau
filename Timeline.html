@@ -613,6 +613,18 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
 
       <div class="field"><label>Color</label><div class="swatches" id="swl"></div></div>
       <div class="field">
+        <label>Color-Effekt</label>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <label class="fx-lbl" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer">
+            <input type="checkbox" id="f-transp" style="accent-color:var(--accent);cursor:pointer"> 50% transparent
+          </label>
+          <label class="fx-lbl" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer">
+            <input type="checkbox" id="f-hatch" style="accent-color:var(--accent);cursor:pointer"> Schraffiert
+          </label>
+          <span id="fx-preview" title="Vorschau" style="display:inline-block;width:40px;height:16px;border-radius:4px;border:1px solid var(--border);background:#4f6ef7"></span>
+        </div>
+      </div>
+      <div class="field">
         <label>Dependencies (Predecessors)</label>
         <div class="dlw" id="dlist"></div>
         <div class="ibox" style="margin-top:6px"><span>ℹ</span><span>This task only starts when all predecessors are 100% completed.</span></div>
@@ -884,7 +896,23 @@ window.addEventListener('beforeunload',function(){releaseLock();unregisterPresen
 
 
 var tasks=DEFAULT_TASKS.slice();
-var nid=2,eid=null,sc=COLS[0];
+var nid=2,eid=null,sc=COLS[0],st=false,sh=false;
+function _hexToRgba(hex,a){
+  if(!hex||typeof hex!=='string')return hex;
+  if(hex.indexOf('#')!==0)return hex;
+  var h=hex.replace('#','');
+  if(h.length===3)h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  if(h.length!==6)return hex;
+  var r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+function _barStyleBg(color,transparent,hatched){
+  var base=transparent?_hexToRgba(color,0.5):color;
+  if(hatched){
+    return 'background-color:'+base+';background-image:repeating-linear-gradient(45deg,transparent 0,transparent 5px,rgba(0,0,0,.22) 5px,rgba(0,0,0,.22) 10px)';
+  }
+  return 'background:'+base;
+}
 var collapsed={};
 var taskMap=new Map();
 var _parentIds=new Set();
@@ -1306,7 +1334,7 @@ function buildGrid(vrows){
     var pct=t.progress||0;
     var isOverdue=!t.done && t.end<todayStr;
     var isDone=!!t.done;
-    var barStyle=isOverdue?'background:#ef4444':'background:'+t.color;
+    var barStyle=isOverdue?_barStyleBg('#ef4444',!!t.transparent,!!t.hatched):_barStyleBg(t.color,!!t.transparent,!!t.hatched);
     var barClass='bar'+(isOverdue?' overdue-bar':'')+(isDone?' done-bar':'');
     var bw=Math.max((eo-so+1)*_ppd,8);
     var wr=mk('div','bwrap');
@@ -1364,7 +1392,7 @@ function buildGrid(vrows){
       wr2.style.cssText='left:'+(so2*_ppd)+'px;top:'+(i*44+barTop)+'px;width:'+bw2+'px;height:'+barH+'px';
       var pNm=p.name||t.name;
       var pCol=p.color||t.color;
-      wr2.innerHTML='<div class="bar" style="background:'+_esc(pCol)+'"><span class="blbl">'+_esc(pNm)+'</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(pNm)+'</span>';
+      wr2.innerHTML='<div class="bar" style="'+_barStyleBg(pCol,!!t.transparent,!!t.hatched)+'"><span class="blbl">'+_esc(pNm)+'</span><div class="rhl"></div><div class="rhr"></div></div><span class="blbl-over">'+_esc(pNm)+'</span>';
       var pBar=wr2.firstChild;
       pBar.addEventListener('mouseenter',function(e){
         if(linkMode||dragPeriod.active)return;
@@ -2333,6 +2361,7 @@ function openAddSub(parentId){
   document.getElementById('fs').value=parent?parent.start:'2026-04-01';
   document.getElementById('fe').value=parent?parent.end:'2026-12-07';
   sc=parent?parent.color:COLS[0];
+  st=parent?!!parent.transparent:false;sh=parent?!!parent.hatched:false;
   document.getElementById('bdel').style.display='none';
   document.getElementById('bwarn').style.display='none';
   document.getElementById('badd-sub').style.display='none';
@@ -2344,7 +2373,7 @@ function openAddSub(parentId){
     if(t.id===parentId)o.selected=true;
     sel.appendChild(o);
   });
-  buildSW();buildDL([]);buildPeriodList([]);buildMarkerList([]);
+  buildSW();buildFX();buildDL([]);buildPeriodList([]);buildMarkerList([]);
   document.getElementById('mbg').classList.add('open');
   document.getElementById('fn').focus();
 }
@@ -2358,7 +2387,7 @@ function addSubFromEdit(){
 function openAdd(){
   eid=null;document.getElementById('mtitle').textContent='Aufgabe hinzufügen';
   document.getElementById('fn').value='';document.getElementById('fs').value='2026-04-01';
-  document.getElementById('fe').value='2026-12-07';sc=COLS[0];
+  document.getElementById('fe').value='2026-12-07';sc=COLS[0];st=false;sh=false;
   document.getElementById('bdel').style.display='none';document.getElementById('bwarn').style.display='none';
   document.getElementById('badd-sub').style.display='none';
   var _bcA=document.getElementById('bcopy');if(_bcA)_bcA.style.display='none';
@@ -2367,13 +2396,13 @@ function openAdd(){
   tasks.filter(function(t){return !t.parentId;}).forEach(function(t){
     var o=document.createElement('option');o.value=t.id;o.textContent=t.name;sel.appendChild(o);
   });
-  buildSW();buildDL([]);buildPeriodList([]);buildMarkerList([]);document.getElementById('mbg').classList.add('open');document.getElementById('fn').focus();
+  buildSW();buildFX();buildDL([]);buildPeriodList([]);buildMarkerList([]);document.getElementById('mbg').classList.add('open');document.getElementById('fn').focus();
 }
 function openEdit(id){
   var t=taskMap.get(id);if(!t)return;
   eid=id;document.getElementById('mtitle').textContent='Edit Task';
   document.getElementById('fn').value=t.name;document.getElementById('fs').value=t.start;
-  document.getElementById('fe').value=t.end;sc=t.color||COLS[0];
+  document.getElementById('fe').value=t.end;sc=t.color||COLS[0];st=!!t.transparent;sh=!!t.hatched;
   document.getElementById('bdel').style.display='';
   var _bcE=document.getElementById('bcopy');if(_bcE)_bcE.style.display=(t.type==='urlaub'||t.type==='meeting')?'none':'';
   // Parent select
@@ -2404,7 +2433,7 @@ function openEdit(id){
       bw.style.display='none';
     }
   }
-  buildSW();buildDL(t.deps||[]);
+  buildSW();buildFX();buildDL(t.deps||[]);
   // Extra periods
   buildPeriodList(t.extraPeriods||[]);
   // Markers
@@ -2465,7 +2494,19 @@ function addExtraPeriodRow(s,en,nm,col){
 }
 function buildSW(){
   var sl=document.getElementById('swl');sl.innerHTML='';
-  COLS.forEach(function(c){var s=mk('div','sw'+(c===sc?' sel':''));s.style.background=c;s.addEventListener('click',function(){sc=c;buildSW();});sl.appendChild(s);});
+  COLS.forEach(function(c){var s=mk('div','sw'+(c===sc?' sel':''));s.style.background=c;s.addEventListener('click',function(){sc=c;buildSW();updateFXPreview();});sl.appendChild(s);});
+}
+function updateFXPreview(){
+  var p=document.getElementById('fx-preview');if(!p)return;
+  p.style.cssText='display:inline-block;width:40px;height:16px;border-radius:4px;border:1px solid var(--border);'+_barStyleBg(sc,st,sh);
+}
+function buildFX(){
+  var ct=document.getElementById('f-transp'),ch=document.getElementById('f-hatch');
+  if(!ct||!ch)return;
+  ct.checked=!!st;ch.checked=!!sh;
+  ct.onchange=function(){st=ct.checked;updateFXPreview();};
+  ch.onchange=function(){sh=ch.checked;updateFXPreview();};
+  updateFXPreview();
 }
 // Popover-Farbwähler mit identischer COLS-Palette
 function openColorPopover(anchor,onPick){
@@ -2692,8 +2733,8 @@ function saveT(){
     if(dt) markers.push({date:dt,text:tx});
   });
   markers.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0;});
-  if(eid){var _t=taskMap.get(eid);if(_t){Object.assign(_t,{name:name,start:start,end:end,progress:prog,color:sc,deps:deps,parentId:parentId,extraPeriods:extraPeriods,markers:markers});delete _t.milestone;}}
-  else tasks.push({id:nid++,name:name,start:start,end:end,progress:prog,color:sc,deps:[],parentId:parentId,extraPeriods:extraPeriods,markers:markers});
+  if(eid){var _t=taskMap.get(eid);if(_t){Object.assign(_t,{name:name,start:start,end:end,progress:prog,color:sc,transparent:!!st,hatched:!!sh,deps:deps,parentId:parentId,extraPeriods:extraPeriods,markers:markers});delete _t.milestone;}}
+  else tasks.push({id:nid++,name:name,start:start,end:end,progress:prog,color:sc,transparent:!!st,hatched:!!sh,deps:[],parentId:parentId,extraPeriods:extraPeriods,markers:markers});
   closeM();triggerSave();buildAll();
   var saved=taskMap.get(eid?eid:nid-1);
   if(saved)checkSubtaskConflict(saved);
