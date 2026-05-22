@@ -3028,9 +3028,11 @@ async function renderPendingList(targetId){
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px;margin-bottom:12px">
                     ${cellLabel('Article',escHtml(h.art))}
                     ${cellLabel('PO #',escHtml(h.po))}
+                    ${cellLabel('PO Issue Date',h.poIssueDate?fmtDateDe(h.poIssueDate):'–')}
                     ${cellLabel('Customer',escHtml(h.cust))}
                     ${cellLabel('Start',escHtml(h.start))}
                     ${cellLabel('End',escHtml(h.end))}
+                    ${cellLabel('Pick up Deadline',h.pickup?fmtDateDe(h.pickup):'–')}
                     ${cellLabel('Duration (days)',escHtml(h.days))}
                     ${cellLabel('Pallets',palDisp)}
                     ${cellLabel('Quantity (pcs)',qtyDisp)}
