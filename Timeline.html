@@ -1016,6 +1016,19 @@ function workdaysBetween(start,end){
   }
   return n;
 }
+// Kalenderwochen zwischen zwei Daten (inkl. beider Enden), gezählt als Anzahl distinkter ISO-Wochen.
+function weeksBetween(start,end){
+  if(!start||!end) return 0;
+  function mondayOf(d){
+    var x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    var day=x.getDay()||7;
+    x.setDate(x.getDate()-(day-1));
+    return x;
+  }
+  var a=mondayOf(start),b=mondayOf(end);
+  if(a>b) return 0;
+  return Math.round((b-a)/86400000/7)+1;
+}
 function adjZ(d){setZ(zi+1+d);}
 
 function isBlocked(t){
@@ -3022,7 +3035,8 @@ function showTT(t,e,isVacation,period){
     _ttE.textContent=fmtDate(srcEnd);
     _ttERow.style.display = '';
     _ttSLbl.textContent = 'Start';
-    _ttD.textContent=dur+' Workday'+(dur!==1?'s':'');
+    var wk=weeksBetween(so,eo);
+    _ttD.textContent=dur+' Workday'+(dur!==1?'s':'')+'  ·  '+wk+' KW';
   }
   /* milestone tooltip entfernt */
   var depNames=(t.deps||[]).map(function(did){var d=taskMap.get(did);return d?d.name:'?';});
