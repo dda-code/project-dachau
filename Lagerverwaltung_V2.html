@@ -5101,10 +5101,27 @@ window.addEventListener('afterprint',()=>setTimeout(_fitLabelSheets,30));
 // ============================================================
 // LABEL DRUCKEN — Dropdown, Barcode-Rendering, Druck-Trigger
 // ============================================================
-// Dropdown mit allen Sales-Order-Nummern aus dem Produktionsplan befüllen
-// (neueste zuerst). "Neueste" = am weitesten hinten im Array (neu angelegte
-// Aufträge werden per push() ans Ende gehängt) kombiniert mit einer
-// Descending-Sortierung der Firestore-Doc-ID (mig_XXXX bzw. Auto-ID).
+// Sortier-Helfer für die Label-Dropdowns (Assembly + Spritzguss):
+//   1) Status 'open' / 'in production' zuerst (oben), alles andere (done/cancelled/stopped) darunter.
+//   2) Innerhalb dessen: zuletzt hinzugefügte zuerst — anhand des Transfer-Zeitstempels
+//      'transferredAt' (Server-Timestamp aus der Auftragsplanung). Fallback: _created / Array-Index.
+function _labelStatusRank(s){
+    const t=String(s||'').toLowerCase().trim();
+    return (t.startsWith('open')||t.startsWith('in production')||t.startsWith('in produktion'))?0:1;
+}
+function _labelRecency(o){
+    const t=o&&o.transferredAt;
+    if(t){ if(typeof t.toMillis==='function')return t.toMillis(); if(t.seconds!=null)return t.seconds*1000; }
+    return (o&&o._created)||0;
+}
+function _labelOrderCompare(a,b){
+    const ra=_labelStatusRank(a.o['Status Produktion']), rb=_labelStatusRank(b.o['Status Produktion']);
+    if(ra!==rb) return ra-rb;                 // open/in production zuerst
+    const tr=_labelRecency(b.o)-_labelRecency(a.o);
+    if(tr!==0) return tr;                     // neueste (zuletzt hinzugefügt) zuerst
+    return (b.i||0)-(a.i||0);                 // stabiler Fallback
+}
+// Dropdown mit allen Sales-Order-Nummern aus dem Produktionsplan befüllen — Sortierung via _labelOrderCompare.
 function populateLabelOrderDropdown(){
     const sel=document.getElementById('labelOrderSelect');
     if(!sel||typeof PRODUKTIONSPLAN_DATA==='undefined')return;
@@ -5115,11 +5132,7 @@ function populateLabelOrderDropdown(){
     const arr=PRODUKTIONSPLAN_DATA.slice()
         .map((o,i)=>({o,i,so:String(o['Sales Order - PALETTENLABEL']||'').trim()}))
         .filter(x=>x.so);
-    arr.sort((a,b)=>{
-        const fa=String(a.o._fsId||''),fb=String(b.o._fsId||'');
-        if(fa!==fb)return fb.localeCompare(fa);
-        return b.i-a.i; // Fallback: Array-Index (neu = später = oben)
-    });
+    arr.sort(_labelOrderCompare);
     // Duplikate gleicher Sales Order vermeiden (selten, aber möglich)
     const seen=new Set();
     const opts=['<option value="">— Auftrag aus Produktionsplan wählen —</option>'];
@@ -6113,13 +6126,7 @@ function sg_populateLabelOrderDropdown(){
     const arr=PRODUKTIONSPLAN_SG_DATA.slice()
         .map((o,i)=>({o,i,so:String(o['Sales Order XO']||'').trim()}))
         .filter(x=>x.so);
-    arr.sort((a,b)=>{
-        const ca=a.o._created||0, cb=b.o._created||0;
-        if(ca!==cb)return cb-ca;
-        const fa=String(a.o._fsId||''),fb=String(b.o._fsId||'');
-        if(fa!==fb)return fb.localeCompare(fa);
-        return b.i-a.i;
-    });
+    arr.sort(_labelOrderCompare);
     const seen=new Set();
     const opts=['<option value="">— Auftrag aus Produktionsplan Spritzguss wählen —</option>'];
     arr.forEach(({so})=>{
