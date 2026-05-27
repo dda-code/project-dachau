@@ -1480,7 +1480,7 @@ const _secondaryDb = _secondaryApp.firestore();
 // === V2 SANDBOX-PREFIX ===
 // Schreibt/liest NICHT in die Live-Collections, sondern in v2_*-Spiegel.
 // Auf '' setzen = Production. WARNUNG: dann werden Live-Daten verändert!
-const COL_PREFIX='v2_';
+const COL_PREFIX='';
 // Collections die NICHT geprefixed werden sollen — User-Verwaltung ist mit Live geteilt.
 const _PFX_EXCLUDE=new Set(['users']);
 (function(_dbs){
@@ -1529,7 +1529,9 @@ function toEmail(u){
 }
 function isSuperAdminEmail(e){return (e||'').toLowerCase()===SUPER_ADMIN_EMAIL;}
 function toUsername(e){return e?e.replace(EMAIL_DOMAIN,''):'';}
-function getCurrentUsername(){const u=auth.currentUser;if(!u)return'';return u.displayName||toUsername(u.email);}
+// _cachedDisplayName aus users/{uid}.displayName — autoritative Quelle für die Audit-Log-Rules
+let _cachedDisplayName='';
+function getCurrentUsername(){const u=auth.currentUser;if(!u)return'';if(_cachedDisplayName)return _cachedDisplayName;if(u.displayName)return u.displayName;return toUsername(u.email);}
 function logout(){auth.signOut().catch(e=>console.warn('Logout-Fehler:',e));}
 let currentUserRole='user', currentUserCanApprove=false;
 function isAdmin(){return currentUserRole==='admin';}
@@ -1544,13 +1546,28 @@ function canManageUsers(){return isAdmin()||(isManager()&&currentUserCanApprove)
 // Email-spezifische Blocks: Sammel-Accounts mit eingeschränkten Lager-Rechten.
 const _LV_LAGER_ACCOUNTS=new Set(['lager@lager.local']);
 const _LV_BLOCKED_FROM_SENSITIVE=new Set(['lager@lager.local','qs@lager.local','sales@lager.local']);
+// Email-Block-Liste (Option A): diese Rolle-'manager'-User sollen die Lagerverwaltung gar nicht öffnen
+// (nur Technology/Timeline). Vgl. Users_Permissions.xlsx LV.login=False.
+const _LV_BLOCKED_EMAILS=new Set(['roland.mueller@lager.local','thomas.dietl@lager.local']);
 function _lvEmail(){return (auth.currentUser&&auth.currentUser.email||'').toLowerCase();}
 function isLagerAccount(){return _LV_LAGER_ACCOUNTS.has(_lvEmail());}
 function isBlockedSensitive(){return _LV_BLOCKED_FROM_SENSITIVE.has(_lvEmail());}
+function isLvBlocked(){return _LV_BLOCKED_EMAILS.has(_lvEmail());}
+// KR (externer-Lager-Account): darf in der Lagerverwaltung NUR die Lager-Section ansehen
+// (Dashboard + Bestandsliste) — kein Einlagern/Auslagern/Prod/Label/Protokoll/Export.
+// Vgl. Users_Permissions.xlsx kr@lager.local.
+const _LV_VIEW_ONLY_LAGER=new Set(['kr@lager.local']);
+function isViewOnlyLager(){return _LV_VIEW_ONLY_LAGER.has(_lvEmail());}
 
 const $=id=>document.getElementById(id);
 auth.onAuthStateChanged(async user=>{
     if(user){
+        if(isLvBlocked()){
+            const err=document.getElementById('loginError');
+            if(err){ err.textContent='Kein Zugang zur Lagerverwaltung.'; err.style.display='block'; }
+            auth.signOut();
+            return;
+        }
         $('loginView').style.display='none';$('appView').style.display='block';
         const uName=user.displayName||user.email.replace(EMAIL_DOMAIN,'');
         // Super-Admin (hardcoded Email): Vollzugriff ohne /users/{uid}-Doc nötig.
@@ -1559,6 +1576,7 @@ auth.onAuthStateChanged(async user=>{
         if(isSuperAdminEmail(user.email)){
             currentUserRole='admin';
             currentUserCanApprove=true;
+            _cachedDisplayName='Admin';
         } else {
             try{
                 const uDoc=await db.collection('users').doc(user.uid).get();
@@ -1567,14 +1585,17 @@ auth.onAuthStateChanged(async user=>{
                     if(ud.disabled){alert('Konto deaktiviert. Bitte an Administrator wenden.');auth.signOut();return;}
                     currentUserRole=ud.role||'user';
                     currentUserCanApprove=!!ud.canApprove;
+                    _cachedDisplayName=ud.displayName||user.displayName||'';
                 }
                 else{
                     // Neue Nutzer müssen von einem Admin über das User-Management angelegt werden.
                     currentUserRole='user';
+                    _cachedDisplayName=user.displayName||'';
                 }
             }catch(e){
                 console.warn('Rolle laden fehlgeschlagen:',e);
                 currentUserRole='user';
+                _cachedDisplayName=user.displayName||'';
             }
         }
         console.log('Auth: user='+uName+', email='+user.email+', uid='+user.uid+', role='+currentUserRole);
@@ -1591,6 +1612,13 @@ auth.onAuthStateChanged(async user=>{
         const _asmPrinterBtn=document.getElementById('btnPrinterSettings');if(_asmPrinterBtn)_asmPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgPrinterBtn=document.getElementById('sgBtnPrinterSettings');if(_sgPrinterBtn)_sgPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgOffsetBtn=document.getElementById('sgBtnPageOffset');if(_sgOffsetBtn)_sgOffsetBtn.style.display=canManage()?'inline-flex':'none';
+        // KR: View-only auf Lager-Section — andere Sections + Ein-/Auslagern-Tabs + Export/Daten ausblenden
+        if(isViewOnlyLager()){
+            ['prod','label','protokolle'].forEach(s=>{const h=document.querySelector('.section-header[data-section="'+s+'"]');if(h)h.style.display='none';});
+            ['inbound','outbound'].forEach(t=>{const b=document.querySelector('#section-lager .tab[data-tab="'+t+'"]');if(b)b.style.display='none';});
+            const _expKr=document.getElementById('invExportBtn'); if(_expKr)_expKr.style.display='none';
+            const _dataKr=document.getElementById('dataBtn'); if(_dataKr)_dataKr.style.display='none';
+        }
         // Auf frischen ID-Token warten, bevor Firestore-Listener angehängt werden
         // — verhindert "permission-denied" während der kurzen Zeit, in der das
         //   Firestore-SDK die Auth-Identität noch nicht übernommen hat.

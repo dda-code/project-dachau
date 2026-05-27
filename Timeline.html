@@ -3189,7 +3189,7 @@ function toEmail(u){
   return s.replace(/\s+/g,'_')+EMAIL_DOMAIN;
 }
 function toUsername(e){ return e ? e.replace(EMAIL_DOMAIN,'') : ''; }
-var ALLOWED_EMAILS=['dominik.dannenbauer@xolution.com','fabian.brummer@xolution.com','yusuf.yaman@xolution.com','soojin.park@lager.local','marc.rettberg@xolution.com','roland.mueller@lager.local','thomas.dietl@lager.local'];
+var ALLOWED_EMAILS=['dominik.dannenbauer@xolution.com','fabian.brummer@xolution.com','yusuf.yaman@xolution.com','soojin.park@lager.local','marc.rettberg@xolution.com','roland.mueller@lager.local','thomas.dietl@lager.local','stefan.mueller@xolution.com'];
 function _emailAllowed(e){ return ALLOWED_EMAILS.indexOf((e||'').toLowerCase())>=0; }
 // Editier-Rechte: Admin UND Manager dürfen Gantt bearbeiten.
 function _canEdit(){ return currentRole==='admin' || currentRole==='manager'; }

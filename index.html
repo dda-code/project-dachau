@@ -316,7 +316,7 @@ function _resetIdleTimer(){
 let _cachedDisplayName = '';
 
 // Sammel-Accounts, die KEINEN Zugang zum Scanner haben sollen (Vertrieb/Geteilte-Auftragsplanung)
-const _SCN_BLOCKED_EMAILS = new Set(['sales@lager.local']);
+const _SCN_BLOCKED_EMAILS = new Set(['sales@lager.local','kr@lager.local']);
 auth.onAuthStateChanged(async user => {
     if(user){
         // Block-Liste: bestimmte Sammel-Accounts dürfen den Scanner nicht nutzen.

@@ -2037,8 +2037,7 @@ function doLogout(){
 var TV_ALLOWED_EMAILS = [
   'dominik.dannenbauer@xolution.com',
   'fabian.brummer@xolution.com',
-  'yusuf.yaman@xolution.com',
-  'marc.rettberg@xolution.com'
+  'yusuf.yaman@xolution.com'
 ];
 function _tvAllowed(e){ return TV_ALLOWED_EMAILS.indexOf((e||'').toLowerCase())>=0; }
 firebase.auth().onAuthStateChanged(function(user){

@@ -681,7 +681,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     <div class="modal-body" style="padding:14px 16px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <input id="pl_search" type="text" placeholder="Search (Customer, Article, Tier, Note, …)" style="flex:1;min-width:240px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem" oninput="renderPricelist()">
-        <button class="btn btn-sm btn-primary" onclick="addPricelistRow()">+ New Customer</button>
+        <button id="pl_addBtn" class="btn btn-sm btn-primary" onclick="addPricelistRow()">+ New Customer</button>
       </div>
       <div id="pl_filter_row" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;font-size:0.8rem">
         <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">Region<select id="pl_f_region" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
@@ -780,7 +780,7 @@ const db=firebase.firestore();
 // === V2 SANDBOX-PREFIX ===
 // Schreibt/liest NICHT in die Live-Collections, sondern in v2_*-Spiegel.
 // Set to '' = Production. WARNING: live data will be modified!
-const COL_PREFIX='v2_';
+const COL_PREFIX='';
 // Collections die NICHT geprefixed werden sollen — User-Verwaltung ist mit Live geteilt.
 const _PFX_EXCLUDE=new Set(['users']);
 (function(_d){
@@ -1070,6 +1070,10 @@ function _apIsSuperAdmin(e){return (e||'').toLowerCase()===SUPER_ADMIN_EMAIL;}
 // PDF entfällt automatisch (kein Submit-Pfad). Vgl. Users_Permissions.xlsx Zeile manager@lager.local.
 const _AP_RESTRICTED_VIEWERS=new Set(['manager@lager.local']);
 function _apIsRestrictedViewer(e){return _AP_RESTRICTED_VIEWERS.has((e||'').toLowerCase());}
+// Email-Block-Liste (Option A): diese Rolle-'manager'-User sollen Auftragsplanung gar nicht öffnen
+// (nur Technology/Timeline bzw. Lager). Vgl. Users_Permissions.xlsx AP.login=False.
+const _AP_BLOCKED_EMAILS=new Set(['roland.mueller@lager.local','thomas.dietl@lager.local','stefan.mueller@xolution.com']);
+function _apIsBlocked(e){return _AP_BLOCKED_EMAILS.has((e||'').toLowerCase());}
 const _AP_ERR_MAP={'auth/invalid-email':'Invalid username','auth/user-not-found':'User not found','auth/wrong-password':'Wrong password','auth/invalid-credential':'Wrong username or password','auth/too-many-requests':'Too many attempts. Please wait.'};
 function _apTranslateErr(c){ return _AP_ERR_MAP[c]||'Error: '+c; }
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1151,6 +1155,12 @@ auth.onAuthStateChanged(async user=>{
             currentCanApprove=!!uData.canApprove;
         }catch(e){ console.warn('Loading role failed',e); }
     }
+    if(_apIsBlocked(currentUserEmail)){
+        const err=document.getElementById('loginError');
+        if(err){ err.textContent='No permission for Order Planning.'; err.style.display='block'; }
+        await auth.signOut().catch(()=>{});
+        return;
+    }
 if(currentUserRole!=='admin' && currentUserRole!=='manager'){
         const err=document.getElementById('loginError');
         if(err){ err.textContent='No permission for Order Planning. Role: '+currentUserRole; err.style.display='block'; }
@@ -1183,9 +1193,10 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager'){
     // Shift/KPI planning button visible only for approvers — managers can only set per-order shifts
     const spBtn=$('shiftPlannerBtn');
     if(spBtn) spBtn.style.display = currentCanApprove ? '' : 'none';
-    // Pricelist visible only for approvers/admin
+    // Pricelist sichtbar für alle admin/manager (Approver editieren, normale Manager nur lesen) —
+    // ausser Restricted-Viewer (manager@lager.local). Vgl. Users_Permissions.xlsx AP.pricelist_view.
     const plBtn=$('pricelistBtn');
-    if(plBtn) plBtn.style.display = currentCanApprove ? '' : 'none';
+    if(plBtn) plBtn.style.display = _apIsRestrictedViewer(currentUserEmail) ? 'none' : '';
     // Protocol visible only for approvers/admin
     const protoBtn=$('protocolBtn');
     if(protoBtn) protoBtn.style.display = currentCanApprove ? '' : 'none';
@@ -3180,7 +3191,9 @@ function _plWireResize(){
     window.addEventListener('resize', ()=>{ if(document.getElementById('pricelistModal')?.style.display==='flex') _plFitScaler(); });
 }
 async function openPricelist(){
-    if(!currentCanApprove){ alert('Pricelist is only accessible to Approvers/Admin.'); return; }
+    if(_apIsRestrictedViewer(currentUserEmail)){ alert('No permission.'); return; }
+    // Approver/Admin: voll editierbar. Normale Manager: read-only (Edit-Pfade unten geblockt).
+    const addBtn=$('pl_addBtn'); if(addBtn) addBtn.style.display = currentCanApprove ? '' : 'none';
     $('pricelistModal').style.display='flex';
     await loadPricelist();
 }
@@ -3243,10 +3256,15 @@ function renderPricelist(){
         _plWireResize();
         return;
     }
+    const _ro=!currentCanApprove; // normale Manager: read-only, kein Edit/Save/Delete
     const baseStyle="width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:4px;font-size:0.78rem;font-family:inherit;line-height:1.3;color:#1a1a2e;display:block";
     const taStyle=baseStyle+";resize:none;overflow:hidden;min-height:28px;white-space:pre-wrap;word-break:break-word";
-    const ta=(id,field,val)=>`<textarea data-id="${escHtml(id)}" data-field="${field}" rows="1" style="${taStyle}" oninput="_plAutoGrow(this)" onfocus="this.style.background='#fff';this.style.borderColor='#cbd5e1';_plAutoGrow(this)" onblur="this.style.background='transparent';this.style.borderColor='transparent';_savePricelistField(this)" onchange="_savePricelistField(this)">${escHtml(val??'')}</textarea>`;
-    const numInp=(id,field,val)=>`<input data-id="${escHtml(id)}" data-field="${field}" type="text" inputmode="decimal" autocomplete="off" value="${val??''}" style="${baseStyle};text-align:right" onfocus="this.style.background='#fff';this.style.borderColor='#cbd5e1'" onblur="this.style.background='transparent';this.style.borderColor='transparent';_savePricelistField(this)" onchange="_savePricelistField(this)">`;
+    const ta=(id,field,val)=>_ro
+        ? `<textarea data-id="${escHtml(id)}" data-field="${field}" rows="1" readonly style="${taStyle}" oninput="_plAutoGrow(this)">${escHtml(val??'')}</textarea>`
+        : `<textarea data-id="${escHtml(id)}" data-field="${field}" rows="1" style="${taStyle}" oninput="_plAutoGrow(this)" onfocus="this.style.background='#fff';this.style.borderColor='#cbd5e1';_plAutoGrow(this)" onblur="this.style.background='transparent';this.style.borderColor='transparent';_savePricelistField(this)" onchange="_savePricelistField(this)">${escHtml(val??'')}</textarea>`;
+    const numInp=(id,field,val)=>_ro
+        ? `<input data-id="${escHtml(id)}" data-field="${field}" type="text" readonly value="${val??''}" style="${baseStyle};text-align:right">`
+        : `<input data-id="${escHtml(id)}" data-field="${field}" type="text" inputmode="decimal" autocomplete="off" value="${val??''}" style="${baseStyle};text-align:right" onfocus="this.style.background='#fff';this.style.borderColor='#cbd5e1'" onblur="this.style.background='transparent';this.style.borderColor='transparent';_savePricelistField(this)" onchange="_savePricelistField(this)">`;
     const html=rows.map(r=>`<tr style="border-bottom:1px solid #f1f5f9;vertical-align:top">
         <td style="padding:2px 0">${ta(r.id,'region',r.region)}</td>
         <td style="padding:2px 0">${ta(r.id,'customer',r.customer)}</td>
@@ -3262,12 +3280,12 @@ function renderPricelist(){
         <td style="padding:2px 0">${ta(r.id,'ccy',r.ccy)}</td>
         <td style="padding:2px 0">${ta(r.id,'paymentTerm',r.paymentTerm)}</td>
         <td style="padding:2px 0">${ta(r.id,'note',r.note)}</td>
-        <td style="padding:4px 4px;text-align:center;vertical-align:middle"><button class="btn btn-sm btn-danger" style="padding:3px 8px;font-size:0.75rem" onclick="deletePricelistRow('${escHtml(r.id)}')" title="Delete row">🗑</button></td>
+        <td style="padding:4px 4px;text-align:center;vertical-align:middle">${_ro?'':`<button class="btn btn-sm btn-danger" style="padding:3px 8px;font-size:0.75rem" onclick="deletePricelistRow('${escHtml(r.id)}')" title="Delete row">🗑</button>`}</td>
     </tr>`).join('');
     $('pl_tbody').innerHTML=html;
     const fCount=Object.keys(activeFilters).length;
     const fInfo=fCount?` · ${fCount} filter${fCount>1?'s':''} active`:'';
-    $('pl_status').textContent=`${rows.length} of ${pricelistRows.length} row(s) shown${fInfo} — all fields editable, auto-save on cell blur.`;
+    $('pl_status').textContent=`${rows.length} of ${pricelistRows.length} row(s) shown${fInfo}${_ro?' — read-only (view).':' — all fields editable, auto-save on cell blur.'}`;
     // Initial auto-grow for textareas with multi-line content
     $('pl_tbody').querySelectorAll('textarea').forEach(_plAutoGrow);
     // Adjust scaling to modal width (delay two frames so layout is finalized)
@@ -3275,6 +3293,7 @@ function renderPricelist(){
     _plWireResize();
 }
 async function _savePricelistField(inputEl){
+    if(!currentCanApprove) return; // Backstop: normale Manager dürfen Pricelist nicht speichern
     const id=inputEl.dataset.id;
     const field=inputEl.dataset.field;
     let value=inputEl.value;
