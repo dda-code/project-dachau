@@ -5287,12 +5287,12 @@ function applyFramePayload(p){
     recalcFrame();
 }
 
-// Auto-transfer Frame order into Lagerverwaltung_V2's "Produktionsplan Spritzguss" (collection v2_produktionsplan_spritzguss).
+// Auto-transfer Frame order into Lagerverwaltung_V2's "Produktionsplan Spritzguss" (collection produktionsplan_spritzguss; COL_PREFIX-Wrapper setzt ggf. Präfix).
 // Field naming MUST match what Lagerverwaltung_V2 reads (German keys: 'Sales Order XO', 'Artikelnummer', 'Frames pro Palette', 'Anzahl Paletten',
 // 'Menge Auftrag Gesamt', 'Menge Auftrag offen', 'Status Produktion', ...) — otherwise rows render empty.
 async function _frameAutoTransferToProduktionsplan(payload,docId){
     const ts=firebase.firestore.FieldValue.serverTimestamp();
-    const colName='v2_'+TAB_CONFIG.frame.prodCol; // v2_produktionsplan_spritzguss
+    const colName=TAB_CONFIG.frame.prodCol; // produktionsplan_spritzguss (COL_PREFIX-Wrapper setzt ggf. Präfix)
     const plan=_frameComputeProductionPlan(payload.startDate,payload.mengeGesamt,payload.artikelNr||'');
     // Look up an existing entry by Sales Order XO so re-transfer overwrites in place (Assembly pattern).
     let existingDocId=null;
@@ -5568,7 +5568,7 @@ async function deleteFrameOrder(){
         try{ await db.collection(salesCol).doc(baseDocId).delete(); }catch(_){}
         // Lagerverwaltung_V2 production plan (Spritzguss): remove via Sales Order XO lookup AND legacy doc id.
         try{
-            const sgCol='v2_'+TAB_CONFIG.frame.prodCol;
+            const sgCol=TAB_CONFIG.frame.prodCol;
             if(ioNr){
                 const sgSnap=await db.collection(sgCol).where('Sales Order XO','==',ioNr).get();
                 const sgBatch=db.batch();
