@@ -1372,12 +1372,14 @@ function parseNum(v){
     return isNaN(n)?NaN:n;
 }
 function parsePct(v){
-    const s=String(v||'').trim().replace(',','.');
+    // KPI-%-Felder werden IMMER als Prozentzahl eingegeben (Konvention, vgl. parsePctL):
+    // 0,5 = 0,5 % = 0.005 · 5 = 5 % = 0.05 · 99 = 99 % = 0.99. Daher immer /100.
+    // (Die alte Heuristik n>1?n/100:n hat scrap-Werte ≤1 % fälschlich als 50 % o.ä. behandelt → Output halbiert.)
+    const s=String(v||'').trim().replace(',','.').replace('%','');
     if(!s) return NaN;
-    if(s.endsWith('%')) return parseFloat(s.slice(0,-1))/100;
     const n=parseFloat(s);
     if(isNaN(n)) return NaN;
-    return n>1?n/100:n;
+    return n/100;
 }
 function recalcOutputDay(iso){
     const grid=$('gridArea');
@@ -4520,7 +4522,9 @@ async function checkShiftPlanConflicts(seq){
     try{
         const snap=await db.collection(SHIFT_PLAN_COL).get();
         const plans=[];
-        snap.forEach(doc=>plans.push(doc.data()));
+        // NUR Schichtpläne des aktuellen Tabs — Assembly und Injection Frame sind KPI-/schichttechnisch
+        // getrennt zu betrachten. Sonst wird z.B. ein Assembly-Auftrag gegen einen Frame-Schichtplan geprüft.
+        snap.forEach(doc=>{ const d=doc.data(); if(_inferPlanTab(d)===currentTab) plans.push(d); });
         if(!plans.length) return result;
         const dowKey=['sun','mon','tue','wed','thu','fri','sat'];
         // Schicht-Kollision pro Tag

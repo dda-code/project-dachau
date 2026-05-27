@@ -4689,7 +4689,11 @@ function sg_renderProduktionsplan(){
     if(!body)return;
     PRODUKTIONSPLAN_SG_DATA.forEach((o,i)=>{if(o._created==null)o._created=i;});
     let rows=PRODUKTIONSPLAN_SG_DATA.slice();
-    rows.sort((a,b)=>(b._created||0)-(a._created||0));
+    rows.sort((a,b)=>{
+        const ap=a._pendingReview?1:0, bp=b._pendingReview?1:0;
+        if(ap!==bp) return ap-bp; // neue/importierte Aufträge (pending-review) ans ENDE (rechts) — wie Assembly
+        return (b._created||0)-(a._created||0);
+    });
     if(q){rows=rows.filter(o=>Object.values(o).some(v=>String(v).toLowerCase().includes(q)));}
     if(!statusSel.all){rows=rows.filter(o=>{
         const s=(o['Status Produktion']||'').toLowerCase().trim();
@@ -4714,17 +4718,23 @@ function sg_renderProduktionsplan(){
         head.innerHTML='<tr><th class="prod-h-corner">Auftrag</th>'+
             rows.map(o=>{
                 const idx=PRODUKTIONSPLAN_SG_DATA.indexOf(o);
-                return '<th class="prod-h-order"><div>'+_prodEsc(o['Sales Order XO']||'—')+'</div>'+
+                const updCls=(o._pendingReview && o._isUpdate)?' is-update':'';
+                const pendCls=o._pendingReview?(' pending-review-col'+updCls):'';
+                const pendTitle=o._pendingReview?(o._isUpdate?' (UPDATE – Auftrag wurde geändert und neu übertragen, bitte prüfen)':' (Neu importiert – bitte prüfen und speichern)'):'';
+                return '<th class="prod-h-order'+pendCls+'"'+(pendTitle?' title="'+pendTitle.trim()+'"':'')+'><div>'+_prodEsc(o['Sales Order XO']||'—')+'</div>'+
                     '<button class="prod-edit-btn" onclick="sg_openProdEdit('+idx+')">Bearbeiten</button></th>';
             }).join('')+'</tr>';
     }
     if(rows.length===0){
         body.innerHTML='<tr><td colspan="2" style="text-align:center;color:#94a3b8;padding:20px">Keine Aufträge</td></tr>';
     } else {
-        body.innerHTML=FIELD_ROWS.map(fr=>{
+        body.innerHTML=FIELD_ROWS.map((fr,frIdx)=>{
+            const isLastRow=(frIdx===FIELD_ROWS.length-1);
             return '<tr><th>'+_prodEsc(fr.l)+'</th>'+rows.map(o=>{
                 const content=fr.fn(o)||'';
-                return '<td'+(fr.num?' class="prod-num"':'')+'>'+content+'</td>';
+                const pendCls=o._pendingReview?(' pending-review-col'+(isLastRow?' pending-review-col-bottom':'')):'';
+                const cls=(fr.num?'prod-num':'')+pendCls;
+                return '<td'+(cls.trim()?' class="'+cls.trim()+'"':'')+'>'+content+'</td>';
             }).join('')+'</tr>';
         }).join('');
     }
@@ -4849,6 +4859,20 @@ function sg_saveProdEdit(){
         if(f.num){v=v===''?'':Number(v);}
         o[f.k]=v;
     });
+    // Importierter Auftrag wurde bearbeitet & finalisiert → orangenen Rahmen/NEU entfernen
+    // und ans ENDE der Liste einreihen (wie Assembly, saveProdEdit).
+    if(o._pendingReview){
+        let minCreated=Infinity;
+        PRODUKTIONSPLAN_SG_DATA.forEach(x=>{
+            if(x===o) return;
+            if(x._pendingReview) return;
+            const c=x._created||0;
+            if(c<minCreated) minCreated=c;
+        });
+        o._created=(minCreated===Infinity?Date.now():minCreated)-1;
+        delete o._pendingReview;
+        delete o._isUpdate;
+    }
     _sgProdEditIsNew=false;
     _sgPersistProdData(o);
     document.getElementById('sgProdEditModal').style.display='none';
