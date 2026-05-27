@@ -2529,6 +2529,8 @@ let _inventoryInited=false;
 const _invFilters={typ:null,artikel:null,bezeichnung:null,sscc:null,palNr:null,datum:null,uhrzeit:null,menge:null,lotNr:null,orderNr:null,kunde:null,schicht:null,gtin:null,lagerort:null,pos:null,status:null,einlagDatum:null};
 // Lagerort-Auflösung — Standort-Feld aus Firestore (Aumundswiese ist der Default-Fallback für Legacy-Paletten ohne 'standort').
 const _lagerortOf=p=>{ const s=String(p.standort||'').trim(); return s||'Aumundswiese'; };
+// Status-Logik inkl. Transit (Umlagerung Außenlager → Aumundswiese, noch nicht eingescannt).
+const _invStatusOf=p=>p&&p.transitTo?'in Transport':(p&&p.gesperrt?'Gesperrt':'Frei');
 let _invAllRows=[];
 let _openFilterPopup=null;
 let _invSortCol='datum',_invSortDir='asc';
@@ -2613,7 +2615,7 @@ function _invGetValues(key){
         _invAllRows.forEach(p=>{const pos=p.position||'-';positionen.add(pos);bereiche.add(_posToBereich(pos));});
         return[...bereiche].sort().concat(['---']).concat([...positionen].sort());
     }
-    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',bezeichnung:p=>ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-',sscc:idf,palNr:p=>p.palettenNr||'-',uhrzeit:p=>p.uhrzeit||'-',menge:p=>p.menge||'-',lotNr:p=>p.lotNr||'-',orderNr:p=>p.orderNr||'-',kunde:p=>p.kunde||'-',schicht:p=>p.schicht||'-',gtin:p=>p.gtin||'-',lagerort:p=>_lagerortOf(p),status:p=>p.gesperrt?'Gesperrt':'Frei'};
+    const map={typ:p=>p.labelTyp||'-',artikel:p=>p.artikelNr||'-',bezeichnung:p=>ARTIKEL_BEZEICHNUNG[p.artikelNr]||'-',sscc:idf,palNr:p=>p.palettenNr||'-',uhrzeit:p=>p.uhrzeit||'-',menge:p=>p.menge||'-',lotNr:p=>p.lotNr||'-',orderNr:p=>p.orderNr||'-',kunde:p=>p.kunde||'-',schicht:p=>p.schicht||'-',gtin:p=>p.gtin||'-',lagerort:p=>_lagerortOf(p),status:p=>_invStatusOf(p)};
     return[...new Set(_invAllRows.map(map[key]))].sort();
 }
 
@@ -2753,7 +2755,7 @@ function renderInvTable(){
     if(_invFilters.lagerort)rows=rows.filter(p=>_invFilters.lagerort.has(_lagerortOf(p)));
     // Position: Match gegen Bereiche + Einzelpositionen
     if(_invFilters.pos){const f=_invFilters.pos;rows=rows.filter(p=>{const pos=p.position||'-';return f.has(pos)||f.has(_posToBereich(pos));});}
-    if(_invFilters.status)rows=rows.filter(p=>_invFilters.status.has(p.gesperrt?'Gesperrt':'Frei'));
+    if(_invFilters.status)rows=rows.filter(p=>_invFilters.status.has(_invStatusOf(p)));
     // Eingelagert: Match gegen Monatsgruppen
     if(_invFilters.einlagDatum){const f=_invFilters.einlagDatum;rows=rows.filter(p=>{const m=_tsToMonat(p.einlagDatum)||'(Unbekannt)';return f.has(m);});}
     // Generische Sortierung
@@ -2773,7 +2775,7 @@ function renderInvTable(){
         gtin:p=>(p.gtin||'').toLowerCase(),
         lagerort:p=>_lagerortOf(p).toLowerCase(),
         pos:p=>{const s=p.position||'';const m=s.match(/^([A-Z]+)(\d+)$/);return m?m[1]+String(parseInt(m[2],10)).padStart(4,'0'):s;},
-        status:p=>p.gesperrt?1:0,
+        status:p=>p.transitTo?2:(p.gesperrt?1:0),
         einlagDatum:p=>{if(!p.einlagDatum)return _invSortDir==='asc'?Infinity:-Infinity;if(p.einlagDatum.toMillis)return p.einlagDatum.toMillis();const d=new Date(p.einlagDatum);return isNaN(d)?(_invSortDir==='asc'?Infinity:-Infinity):d.getTime();}
     };
     if(_invSortCol&&_sortVal[_invSortCol]){
@@ -2781,7 +2783,9 @@ function renderInvTable(){
         rows.sort((a,b)=>{const vA=getVal(a),vB=getVal(b);const cmp=typeof vA==='number'?vA-vB:String(vA).localeCompare(String(vB));return _invSortDir==='asc'?cmp:-cmp;});
     }
     document.getElementById('invBody').innerHTML=rows.map(p=>{
-        const statusHtml=p.gesperrt?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):'<span style="color:#10b981;font-weight:700">Frei</span>';
+        const statusHtml=p.transitTo
+            ?'<span style="color:#f97316;font-weight:700">in Transport zu '+_escAttr(p.transitTo)+'</span>'
+            :(p.gesperrt?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):'<span style="color:#10b981;font-weight:700">Frei</span>');
         const src=p._src||'pal';
         const qsBtn=canManageQS()?(p.gesperrt
             ?`<button class="btn btn-success btn-sm inv-action-btn" data-qs-id="${_escAttr(p.id)}" data-qs-val="false" data-src="${src}">Freigeben</button>`

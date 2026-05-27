@@ -1061,36 +1061,55 @@ $('outShipBtn').addEventListener('click', async ()=>{
     $('outShipBtn').disabled=false; $('outRelocateBtn').disabled=false;
 });
 
-// Umlagerung Aumundswiese
+// Umlagerung Aumundswiese — Palette als "in Transport zu Aumundswiese" markieren.
+// Der Stellplatz wird NICHT hier vergeben, sondern erst beim Einscannen in der
+// Aumundswiese (Scanner index_V2). Solange transitTo gesetzt ist, zeigt die
+// Bestandsliste den orangen Status "in Transport zu Aumundswiese".
 $('outRelocateBtn').addEventListener('click', async ()=>{
     if(!matchedPalette){alert('Keine Palette zugeordnet!');return;}
+    if(!confirm('Palette '+matchedPalette.id+' als „in Transport zu Aumundswiese" markieren?\n\nDer Stellplatz wird beim Einscannen in der Aumundswiese vergeben.'))return;
+    $('outShipBtn').disabled=true; $('outRelocateBtn').disabled=true;
     try {
-        const occ=await getAllPositionsAumundswiese();
-        const zoneList=_typeToZones(matchedPalette);
-        const fp=findFreePosition(occ, zoneList);
-        $('suggestedPos').textContent=fp||'Kein Platz frei!';
-
-        const sel=$('positionSelect');
-        sel._occSnapshot=occ;
-        const frag=document.createDocumentFragment();
-        for(const[ck,cat] of Object.entries(WAREHOUSE_ZONES)){
-            if(ck==='granulate'){
-                const og=document.createElement('optgroup');og.label=cat.label;
-                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'⚠️ '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
-                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const ps='GS'+i;const o=document.createElement('option');o.value=ps;o.textContent=occ[ps]?'⚠️ '+ps+' (belegt)':ps;if(occ[ps])o.style.color='#dc2626';if(ps===fp)o.selected=true;og.appendChild(o);}
-                frag.appendChild(og);
-            } else {
-                const og=document.createElement('optgroup');og.label=cat.label;
-                for(const[z,cnt] of Object.entries(cat.zones)){
-                    for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'⚠️ '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
-                }
-                frag.appendChild(og);
-            }
-        }
-        sel.innerHTML='';sel.appendChild(frag);
-        sel.onchange=()=>{ $('suggestedPos').textContent=sel.value; };
-        showStep('stepRelocPos');
-    } catch(e){alert('Fehler beim Laden der Positionen: '+e.message);}
+        const p=matchedPalette;
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        await db.collection('paletten').doc(p.id).update({
+            transitTo:'Aumundswiese',
+            transitSince:ts,
+            transitVon:getCurrentUsername()
+            // standort bleibt der Quell-Standort (K&R-Lager/Seepack) bis zur Ankunft;
+            // position wird erst beim Einscannen in der Aumundswiese vergeben.
+        });
+        await db.collection('protokoll').add({
+            aktion:'umlagern-extern-zu-aumundswiese', docId:p.id,
+            artikelNr:p.artikelNr||'', labelTyp:p.labelTyp||'',
+            sscc:p.sscc||'', internalBarcode:p.internalBarcode||'',
+            palettenNr:p.palettenNr||'', menge:p.menge||'',
+            mengePerSleeve:p.mengePerSleeve||'',
+            produktionsDatum:p.produktionsDatum||p.datum||'',
+            lotNr:p.lotNr||'', orderNr:p.orderNr||'',
+            kunde:p.kunde||'', schicht:p.schicht||'', gtin:p.gtin||'',
+            standortVon: p.standort||currentLocation,
+            standortNach: 'Aumundswiese (in Transport)',
+            eingelagertVon: p.eingelagertVon||'',
+            einlagDatum: p.einlagDatum||null,
+            umlagertAm: ts,
+            umlagertVon: getCurrentUsername()
+        });
+        await db.collection('log').add({
+            aktion:'umlagern-extern-zu-aumundswiese', docId:p.id,
+            artikelNr:p.artikelNr, labelTyp:p.labelTyp,
+            standortVon: p.standort||currentLocation,
+            standortNach: 'Aumundswiese (in Transport)',
+            user:getCurrentUsername(),
+            timestamp:ts
+        });
+        $('successText').textContent='In Transport zu Aumundswiese!';
+        $('successDetail').textContent=(p.artikelNr||'?')+' — bitte in der Aumundswiese einscannen';
+        scanHistory.unshift({time:new Date(),text:'🔁 Transit: '+(p.artikelNr||'?')+' → Aumundswiese'});
+        renderHistory();
+        showStep('step4');
+    } catch(e){alert('Fehler: '+e.message);}
+    $('outShipBtn').disabled=false; $('outRelocateBtn').disabled=false;
 });
 
 async function getAllPositionsAumundswiese(){

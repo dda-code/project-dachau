@@ -988,15 +988,22 @@ $('confirmBtn').addEventListener('click', async ()=>{
     if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');$('confirmBtn').disabled=false;return;}
     if(!pos||pos==='Kein Platz frei!'){alert('Kein Stellplatz!');$('confirmBtn').disabled=false;return;}
 
-    // Duplikat-Prüfung
+    // Duplikat-/Transit-Prüfung
     try {
         const existing=await db.collection('paletten').doc(docId).get();
         if(existing.exists){
             const ep=existing.data();
-            const proceed=await showDuplicateWarning(docId,ep.position||'?');
-            if(!proceed){$('confirmBtn').disabled=false;return;}
+            if(ep.transitTo){
+                // Erwartete Ankunft aus einem Außenlager — kein Duplikat, sondern Einbuchung.
+                // Das nachfolgende .set() überschreibt den Transit-Zustand (standort/transitTo entfallen) → Status frei.
+                const proceed=confirm('Palette kommt aus Außenlager „'+(ep.standort||'?')+'" und wird jetzt in der Aumundswiese eingebucht.\n\nFortfahren?');
+                if(!proceed){$('confirmBtn').disabled=false;return;}
+            } else {
+                const proceed=await showDuplicateWarning(docId,ep.position||'?');
+                if(!proceed){$('confirmBtn').disabled=false;return;}
+            }
         }
-    } catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
+    } catch(e){console.warn('Duplikat-/Transit-Prüfung fehlgeschlagen:',e);}
 
     // Prüfung ob Stellplatz bereits belegt
     try {
