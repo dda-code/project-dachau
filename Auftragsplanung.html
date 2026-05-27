@@ -5246,7 +5246,8 @@ function _applyFrameOrderModalButtons(){
     set('fo_directBtn', currentCanApprove && !reviewing && !ownerEdit);
     set('fo_rejectBtn', currentCanApprove && reviewing);
     set('fo_withdrawBtn', ownerEdit);
-    set('fo_delete', currentCanApprove && editingApproved);
+    // Delete bei bestehendem Auftrag für ALLE (auch Manager) — Parität zu Assembly (o_delete in editOrder).
+    set('fo_delete', editingApproved);
     const priceWrap=$('fo_priceWrap'); if(priceWrap) priceWrap.style.display=currentCanApprove?'flex':'none';
     const banner=$('fo_reviewBanner'); if(banner) banner.style.display=(reviewing||ownerEdit)?'':'none';
 }
