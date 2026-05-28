@@ -335,6 +335,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .wh-vert-cells { display: flex; flex-direction: column; gap: 2px; width: 100%; }
 .wh-floor-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; padding: 4px 8px; border-bottom: 1px solid #f1f5f9; }
 .wh-floor-row:last-child { border-bottom: none; }
+.wh-floor-row-free { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
+.wh-floor-row-free .wh-floor-label { background: #e0e7ff; color: #6366f1; }
 .wh-floor-label { width: 36px; font-weight: 900; font-size: 1.15rem; color: #4361ee; text-align: center; flex-shrink: 0; background: #eef2ff; border-radius: 4px; padding: 3px 0; }
 .wh-floor-container { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 8px; background: #fafbfc; }
 .wh-floor-cells { display: flex; gap: 3px; flex-wrap: nowrap; flex: 1; min-width: 0; }
@@ -1454,7 +1456,7 @@ const firebaseConfig = {
 const WAREHOUSE_ZONES = Object.freeze({
     halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
     granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
-    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
+    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({O:11,OZ:11,P:11,PZ:11,Q:11,QZ:11,R:11,RZ:11,S:11,SZ:11,T:11,TZ:11,U:11}) })
 });
 const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
 function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
@@ -1839,7 +1841,7 @@ async function loadDashboard(){
     const _cellMng=n=>n>0?n.toLocaleString('de-DE'):_dash;
     const _rowHtml=(nr,d)=>`<tr><td>${nr}</td><td>${ARTIKEL_BEZEICHNUNG[nr]||'-'}</td><td>${_cellPal(d.cntAum)}</td><td>${_cellMng(d.mengeAum)}</td><td>${_cellPal(d.cntKR)}</td><td>${_cellMng(d.mengeKR)}</td><td>${_cellPal(d.cntSP)}</td><td>${_cellMng(d.mengeSP)}</td><td style="font-weight:700">${d.count>0?d.count:'-'}</td><td>${d.menge>0?d.menge.toLocaleString('de-DE'):'-'}</td><td style="color:#10b981;font-weight:600">${d.mengeFrei>0?d.mengeFrei.toLocaleString('de-DE'):'-'}</td><td style="color:#ef4444;font-weight:600">${d.mengeGesperrt>0?d.mengeGesperrt.toLocaleString('de-DE'):'-'}</td></tr>`;
     const _hasBestand=d=>d&&(d.count>0||d.menge>0);
-    const _halbRows=ARTIKEL_NUMMERN.filter(nr=>!nr.startsWith('XO')).map(nr=>({nr,d:artikelMap[nr]||_emptyAgg()})).filter(x=>_hasBestand(x.d));
+    const _halbRows=ARTIKEL_NUMMERN.filter(nr=>!nr.startsWith('XO')).map(nr=>({nr,d:artikelMap[nr]||_emptyAgg()})).filter(x=>_hasBestand(x.d)).sort((a,b)=>{const na=parseInt(a.nr,10),nb=parseInt(b.nr,10);return(isNaN(na)||isNaN(nb))?String(a.nr).localeCompare(String(b.nr)):na-nb;});
     document.getElementById('dashArtikelBody').innerHTML=_halbRows.length?_halbRows.map(x=>_rowHtml(x.nr,x.d)).join(''):'<tr><td colspan="12" class="info-msg">Kein Bestand</td></tr>';
     const fertigNrs=Object.keys(fertigMap).filter(nr=>_hasBestand(fertigMap[nr])).sort();
     document.getElementById('dashFertigBody').innerHTML=fertigNrs.length?fertigNrs.map(nr=>_rowHtml(nr,fertigMap[nr])).join(''):'<tr><td colspan="12" class="info-msg">Keine Fertigware eingelagert</td></tr>';
@@ -1898,10 +1900,10 @@ function formatTimestamp(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new 
 // WAREHOUSE MAP
 // ============================================================
 let _lastPositions=null;
-async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (K — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GB / GS)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (M — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');if(typeof renderFertigpalettenBox==='function')renderFertigpalettenBox();}
-function _renderCell(p,i,o,showField){if(!isValidPosition(p))return '';const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}"><span class="wh-cell-nr">${i}:</span>${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
+async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (K — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (GB / GS)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (O — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');if(typeof renderFertigpalettenBox==='function')renderFertigpalettenBox();}
+function _renderCell(p,i,o,showField,hideNumber){if(!isValidPosition(p))return '';const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${p}${pal?' — '+at:' — Frei'}" data-pos="${p}">${hideNumber?'':`<span class="wh-cell-nr">${i}:</span>`}${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
-function rfr(z,o){const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr'));parts.push('</div></div>');return parts.join('');}
+function rfr(z,o){const isFree=z.zone.length>1&&z.zone.endsWith('Z');const parts=[`<div class="wh-floor-row${isFree?' wh-floor-row-free':''}"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr',isFree));parts.push('</div></div>');return parts.join('');}
 function rgr(o){const parts=[];
 const rows=GRANULATE_SLOT_COUNT/GRANULATE_ROW_SIZE;
 for(let r=0;r<rows;r++){
@@ -2236,7 +2238,7 @@ async function onInboundFile(file){
 
 async function showPositionStep(){
     const occ=await getAllPositions();
-    const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['K','H','G','F','E','D','C','B','A','V'];
+    const zo=currentLabelTyp==='XO Fertigware'?['O','OZ','P','PZ','Q','QZ','R','RZ','S','SZ','T','TZ','U']:['K','H','G','F','E','D','C','B','A','V'];
     const fp=findFreePosition(occ,zo);document.getElementById('suggestedPosition').textContent=fp||'Kein Platz frei!';
     const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
     sel._occSnapshot=occ;
@@ -2611,8 +2613,8 @@ function _sortMonatGruppen(arr){
 
 // Positions-Bereich ermitteln
 const _hZSet=new Set('KHGFEDCBAV'.split(''));
-const _fZSet=new Set('MNOPQRSTU'.split(''));
-function _posToBereich(pos){if(!pos||pos==='-')return'-';if(pos.startsWith('GB')||pos.startsWith('GS'))return'Granulate (GB/GS)';const z=pos.replace(/[0-9]/g,'');if(_hZSet.has(z))return'Halbfabrikate (K–V)';if(_fZSet.has(z))return'Fertigware (M–U)';return'-';}
+const _fZSet=new Set(['O','OZ','P','PZ','Q','QZ','R','RZ','S','SZ','T','TZ','U']);
+function _posToBereich(pos){if(!pos||pos==='-')return'-';if(pos.startsWith('GB')||pos.startsWith('GS'))return'Granulate (GB/GS)';const z=pos.replace(/[0-9]/g,'');if(_hZSet.has(z))return'Halbfabrikate (K–V)';if(_fZSet.has(z))return'Fertigware (O–U)';return'-';}
 
 function _invGetValues(key){
     const idf=p=>p.sscc||p.internalBarcode||p.palettenNr||p.id;
