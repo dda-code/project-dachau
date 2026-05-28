@@ -5062,7 +5062,10 @@ document.querySelectorAll('.section-header[data-section]').forEach(h=>{
                 if(typeof sg_populateLabelOrderDropdown==='function')sg_populateLabelOrderDropdown();
                 if(typeof sg_renderBarcode==='function')sg_renderBarcode();
                 if(typeof _updateSgLastPrintedBox==='function')_updateSgLastPrintedBox();
+                if(typeof _applyPrintPageStyleSg==='function')_applyPrintPageStyleSg();
             }
+            // Label-Sheet neu skalieren sobald Sektion sichtbar ist
+            if(typeof _fitLabelSheets==='function') setTimeout(_fitLabelSheets,30);
         }
         if(target==='protokolle'){
             if(typeof openDruckprotokoll==='function')openDruckprotokoll();
@@ -5094,7 +5097,11 @@ document.querySelectorAll('.label-subtabs .tab[data-labelsub]').forEach(t=>{
     });
 });
 
-// Dynamisches Skalieren des Label-Sheets in den verfügbaren Container-Platz (kein Horizontal-Scroll mehr).
+// Dynamisches Skalieren des Label-Sheets in den verfügbaren Container-Platz.
+// Zusätzlich werden Spritzguss (natürlich 96mm) UND Assembly (natürlich 172mm)
+// auf eine gemeinsame Ziel-Vorschau-Breite skaliert, damit beide Tabs visuell
+// gleich groß erscheinen. Print bleibt unberührt (beforeprint setzt transform=null).
+const _LABEL_PREVIEW_TARGET_PX = 650; // ≈ 172mm @ 96 DPI = natürliche Assembly-Breite
 function _fitLabelSheets(){
     document.querySelectorAll('.label-split-right').forEach(rt=>{
         const sheet=rt.querySelector('.label-sheet');
@@ -5105,11 +5112,15 @@ function _fitLabelSheets(){
         const containerWidth=rt.clientWidth;
         const sheetWidth=sheet.offsetWidth;
         if(!containerWidth || !sheetWidth) return;
-        if(containerWidth < sheetWidth){
-            const scale=Math.max(0.3, containerWidth/sheetWidth);
-            sheet.style.transform='scale('+scale+')';
-            sheet.style.marginBottom=(-sheet.offsetHeight*(1-scale))+'px';
-        }
+        // Ziel-Breite = min(gemeinsame Vorschau-Breite, verfügbarer Container)
+        const targetWidth=Math.min(_LABEL_PREVIEW_TARGET_PX, containerWidth);
+        const scale=Math.max(0.3, targetWidth/sheetWidth);
+        // Kleine Skalierungsänderungen ignorieren (vermeidet sub-pixel-Wackler)
+        if(Math.abs(scale-1)<0.01) return;
+        sheet.style.transform='scale('+scale+')';
+        // Layout-Box bleibt bei transform:scale gleich → marginBottom muss die
+        // visuelle Höhenänderung kompensieren (positiv beim Up-Scale, negativ beim Down-Scale)
+        sheet.style.marginBottom=(-sheet.offsetHeight*(1-scale))+'px';
     });
 }
 window.addEventListener('resize', _fitLabelSheets);
