@@ -285,7 +285,7 @@ const WAREHOUSE_ZONES = Object.freeze({
 });
 const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
 function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
-const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','180006','180007','180008','190009','190024','190032','190033']);
+const ARTIKEL_NUMMERN = Object.freeze(['120025','120026','120027','120028','120030','180006','180007','180008','190009','190024','190032','190033']);
 const GRANULATE_SLOT_COUNT = 25;
 const _zoneSlotMap = {};
 for(const[_,cat] of Object.entries(WAREHOUSE_ZONES)) for(const[zone,count] of Object.entries(cat.zones)) _zoneSlotMap[zone]=count;

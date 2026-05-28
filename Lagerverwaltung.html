@@ -446,9 +446,9 @@ const HALBFABRIKATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.halbfab
 const GRANULATE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.granulate.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 const FERTIGWARE_ZONES = Object.freeze(Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>Object.freeze({zone,slots})));
 // Artikelstamm — wird beim App-Start aus Firestore geladen/ergaenzt (mutable)
-let ARTIKEL_NUMMERN = ['120025','120026','120027','120028','180006','180007','180008','190009','190024','190032','190033'];
+let ARTIKEL_NUMMERN = ['120025','120026','120027','120028','120030','180006','180007','180008','190009','190024','190032','190033'];
 let ARTIKEL_BEZEICHNUNG = {
-    '120025':'Frame Black','120026':'Frame Natural','120027':'Frame Natural','120028':'Frame Natural',
+    '120025':'Frame Black','120026':'Frame Natural','120027':'Frame Natural','120028':'Frame Natural','120030':'Frame Natural',
     '180006':'Inner Slider Black','180007':'Inner Slider Natural','180008':'Inner Slider Transparent',
     '190009':'Outer Slider Black','190024':'Outer Slider Blue','190032':'Outer Slider Green','190033':'Outer Slider White'
 };
