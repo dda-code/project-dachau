@@ -4919,7 +4919,8 @@ let articleMapFrame={};
 
 async function loadFrameArticles(){
     articleMapFrame={};
-    const ingest=rows=>{
+    // Legacy: aus XO-End-Zeilen die Frame Conv. Nr. extrahieren (Bestandsdaten)
+    const ingestXoend=rows=>{
         rows.forEach(r=>{
             const status=String(r['End Status']||'').toLowerCase().trim();
             if(status!=='aktiv' && status!=='active') return;
@@ -4927,16 +4928,43 @@ async function loadFrameArticles(){
             if(fNr && !articleMapFrame[fNr]) articleMapFrame[fNr]={nr:fNr,bezeichnung:'Frame '+(r['Frame Farbe']||'')};
         });
     };
+    // Neu: dedizierte Komponenten-Stammdaten (Lagerverwaltung-V2 Artikelstamm → Frame/Inner/Outer Tab)
+    // Leerer Status wird als aktiv gewertet, damit neue Eintraege sofort im Dropdown stehen.
+    const ingestComponent=(rows,typLabel)=>{
+        rows.forEach(r=>{
+            const status=String(r['Status']||'').toLowerCase().trim();
+            if(status && status!=='aktiv' && status!=='active') return;
+            const nr=String(r['Art-Nr']||'').trim();
+            if(!nr) return;
+            const farbe=String(r['Farbe']||'').trim();
+            // Komponenten-Stammdaten haben Vorrang ueber Legacy-XO-End-Ableitung
+            articleMapFrame[nr]={nr,bezeichnung:typLabel+(farbe?' '+farbe:'')};
+        });
+    };
+    // 1. Komponenten-Master (Primary) — neue Quelle aus Lagerverwaltung-V2 Artikelstamm
+    try{
+        const [frameSnap,innerSnap,outerSnap]=await Promise.all([
+            db.collection('artikelstamm_ta0006').where('_cat','==','frame').get(),
+            db.collection('artikelstamm_ta0006').where('_cat','==','innerslider').get(),
+            db.collection('artikelstamm_ta0006').where('_cat','==','outerslider').get()
+        ]);
+        ingestComponent(frameSnap.docs.map(d=>d.data()),'Frame');
+        ingestComponent(innerSnap.docs.map(d=>d.data()),'Inner Slider');
+        ingestComponent(outerSnap.docs.map(d=>d.data()),'Outer Slider');
+        console.log('[Auftragsplanung] Komponenten-Artikel:',Object.keys(articleMapFrame).length);
+    }catch(e){ console.warn('loadFrameArticles components failed:',e); }
+    // 2. Legacy-XO-End-Ableitung (Fallback fuer Bestandsdaten — nur fuer Nrn die noch nicht im Komponenten-Master sind)
     try{
         const snap=await db.collection('artikelstamm_ta0006').where('_cat','==','xoend').get();
-        ingest(snap.docs.map(d=>d.data()));
+        ingestXoend(snap.docs.map(d=>d.data()));
     }catch(e){ console.warn('loadFrameArticles xoend failed:',e); }
+    // 3. JSON-Fallback (Offline / Initial-Load wenn Firestore unerreichbar)
     if(Object.keys(articleMapFrame).length===0){
         try{
             const res=await fetch('artikelliste_all.json',{cache:'no-store'});
             if(res.ok){
                 const j=await res.json();
-                ingest((j.xoend&&j.xoend.rows)||[]);
+                ingestXoend((j.xoend&&j.xoend.rows)||[]);
                 console.log('[Auftragsplanung] Frame articles from JSON fallback:',Object.keys(articleMapFrame).length);
             }
         }catch(e){ console.warn('Frame articles JSON fallback failed:',e); }
