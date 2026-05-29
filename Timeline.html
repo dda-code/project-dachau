@@ -3194,24 +3194,6 @@ function _emailAllowed(e){ return ALLOWED_EMAILS.indexOf((e||'').toLowerCase())>
 // Editier-Rechte: Admin UND Manager dürfen Gantt bearbeiten.
 function _canEdit(){ return currentRole==='admin' || currentRole==='manager'; }
 
-// ── Idle-Logout (5 Min) ──────────────────────────────────────────────────────
-var IDLE_TIMEOUT_MS = 5*60*1000;
-var _idleTimer = null;
-function _resetIdleTimer(){
-  if(_idleTimer) clearTimeout(_idleTimer);
-  if(!firebase.auth().currentUser) return;
-  _idleTimer = setTimeout(function(){
-    if(firebase.auth().currentUser){
-      try{ _flushSaveView(); }catch(_){}
-      firebase.auth().signOut();
-      alert('Automatisch abgemeldet nach 5 Minuten Inaktivität.');
-    }
-  }, IDLE_TIMEOUT_MS);
-}
-['click','touchstart','keydown','input','change'].forEach(function(ev){
-  document.addEventListener(ev, _resetIdleTimer, {passive:true, capture:true});
-});
-
 // ── Login / Logout ────────────────────────────────────────────────────────────
 function _loginError(msg){
   var err=document.getElementById('login-err');
@@ -3245,7 +3227,6 @@ function doLogout(){
   try{ unregisterPresence(); }catch(_){}
   if(_unsubSessions){ try{_unsubSessions();}catch(_){} _unsubSessions=null; }
   var el=document.getElementById('online-users'); if(el) el.innerHTML='';
-  if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
   try{ releaseLock(); }catch(_){}
   firebase.auth().signOut();
 }
@@ -3317,7 +3298,6 @@ firebase.auth().onAuthStateChanged(function(user){
       var pw=document.getElementById('login-pw'); if(pw) pw.value='';
       var nm=document.getElementById('login-name'); if(nm) nm.value='';
       applyRole();
-      _resetIdleTimer();
       // autoFitLeftColumn + Scroll werden in firebaseStart() nach Promise.all
       // (gantt/state + gantt-views/{uid}) ausgeführt — sonst doppelter Scroll.
     }).catch(function(e){
@@ -3331,7 +3311,6 @@ firebase.auth().onAuthStateChanged(function(user){
       var pw=document.getElementById('login-pw'); if(pw) pw.value='';
       var nm=document.getElementById('login-name'); if(nm) nm.value='';
       applyRole();
-      _resetIdleTimer();
       // autoFitLeftColumn + Scroll werden in firebaseStart() nach Promise.all
       // (gantt/state + gantt-views/{uid}) ausgeführt — sonst doppelter Scroll.
     });
