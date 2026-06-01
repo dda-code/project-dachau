@@ -499,7 +499,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         align-items: center !important;
         justify-content: center !important;
     }
-    .label-sheet { width: 172mm !important; max-width: 172mm !important; margin: 0 !important; box-shadow: none !important; border: 2.5px solid #000 !important; }
+    .label-sheet { width: 172mm !important; max-width: 172mm !important; margin: 0 !important; box-shadow: none !important; border: 2.5px solid #000 !important;
+        /* Vorschau-Skalierung (_fitLabelSheets) im Druck IMMER neutralisieren — CSS-Backstop,
+           falls das JS-beforeprint unter Edge-Kiosk nicht rechtzeitig zurücksetzt. Sonst
+           druckt das Label im verkleinerten Vorschau-Maßstab (z.B. 0.7×). !important schlägt
+           den nicht-important Inline-transform aus _fitLabelSheets. */
+        transform: none !important; margin-bottom: 0 !important; }
     /* Linke Eingabe-Spalte und Layout-Wrapper im Druck komplett aus dem Flow nehmen,
        sonst zwingt deren min-width:600px die Body-Breite über die Seitenbreite und erzeugt
        in der Druckvorschau eine horizontale Scrollbar. */
