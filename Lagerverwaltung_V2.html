@@ -5614,9 +5614,28 @@ function _applyPrintPageStyle(){
         return;
     }
 
-    // A4 / A5: nur Seitengroesse, Layout bleibt wie in globalem @media print (172mm).
-    const size = (paper==='A5') ? 'A5 portrait' : 'A4 portrait';
-    styleEl.textContent='@media print { @page { size: '+size+'; margin: 19mm 6mm; } }';
+    // A5: nur Seitengroesse, Layout bleibt wie Basis-CSS (172mm).
+    if(paper==='A5'){
+        styleEl.textContent='@media print { @page { size: A5 portrait; margin: 12mm 8mm; } }';
+        return;
+    }
+
+    // A4 (Default): Label per `zoom` auf nahezu volle A4-Seite vergroessern, damit es auf
+    // JEDEM Drucker die Seite fast ausfuellt (statt mit grossem Rand klein in der Mitte).
+    // Natuerliche Labelgroesse 172x247mm; Seitenverhaeltnis == nutzbarer A4-Bereich, daher
+    // skaliert EIN Faktor alles (Layout, Schrift, Barcodes) proportional ohne Verzerrung.
+    //   zoom 1.12  -> ~193x277mm
+    //   @page 8mm  -> sicherer Rand (Hardware-Rand praktisch jedes Druckers < 8mm),
+    //                 verhindert zugleich die Browser-"An-Seite-anpassen"-Verkleinerung.
+    // `zoom` (nicht transform) gewaehlt, weil es die Layout-Box mitvergroessert -> Flex-
+    // Zentrierung + Seitenumbruch stimmen automatisch, kein Ueberlauf / keine 2. Seite.
+    // Bei Bedarf justieren: Faktor groesser = naeher an den Rand.
+    const A4_FILL_ZOOM = 1.12;
+    styleEl.textContent=`
+@media print {
+    @page { size: A4 portrait; margin: 8mm; }
+    #labelPrintArea .label-sheet { zoom: ${A4_FILL_ZOOM}; }
+}`;
 }
 
 // Spritzguss-Label: fest auf Zebra ZT231 100 × 150 mm Etikett (203 dpi) skaliert — vollflächig.
