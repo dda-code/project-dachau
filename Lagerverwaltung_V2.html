@@ -5630,7 +5630,7 @@ function _applyPrintPageStyle(){
     //     Raender werden abgeschnitten. Bei 5mm @page-Rand fuellt 1.15 die Seite fast komplett
     //     (172->~198mm breit, 247->~285mm hoch; ~6mm Rand ringsum).
     //   - Echte Randlos-A4 gibt es bei normalen Druckern nicht (Hardware-Rand ~4-6mm).
-    const A4_FILL_ZOOM = 1.15;
+    const A4_FILL_ZOOM = 1.20;
     styleEl.textContent=`
 @media print {
     @page { size: A4 portrait; margin: 5mm; }
