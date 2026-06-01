@@ -875,8 +875,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                     </div>
                     <button class="btn btn-sm btn-secondary" onclick="_clearLastPrinted()" title="Anzeige zurücksetzen" style="font-size:0.78rem">Ausblenden</button>
                 </div>
-                <!-- Zebra Direktdruck (ZPL · randlos · lautlos) — umgeht den System-Druckdialog komplett -->
-                <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:12px;padding:22px 26px">
+                <!-- Zebra Direktdruck (ZPL · randlos · lautlos) — umgeht den System-Druckdialog komplett. Nur für Admin sichtbar (siehe onAuthStateChanged). -->
+                <div id="sgBpPanel" style="display:none;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:12px;padding:22px 26px">
                     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
                         <label style="display:flex;align-items:center;gap:10px;font-weight:700;color:#0f172a;font-size:1.44rem;cursor:pointer;flex:1;min-width:0">
                             <input type="checkbox" id="sgBpEnabledChk" onchange="_sgOnBpToggle(this.checked)" style="width:22px;height:22px;flex:none;cursor:pointer">
@@ -1649,6 +1649,8 @@ auth.onAuthStateChanged(async user=>{
         const _asmPrinterBtn=document.getElementById('btnPrinterSettings');if(_asmPrinterBtn)_asmPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgPrinterBtn=document.getElementById('sgBtnPrinterSettings');if(_sgPrinterBtn)_sgPrinterBtn.style.display=canManage()?'inline-flex':'none';
         const _sgOffsetBtn=document.getElementById('sgBtnPageOffset');if(_sgOffsetBtn)_sgOffsetBtn.style.display=canManage()?'inline-flex':'none';
+        // Zebra-Direktdruck-Panel (ZPL) nur für Admin — Lager/User/QS/Manager sehen es nicht.
+        const _sgBpPanel=document.getElementById('sgBpPanel');if(_sgBpPanel)_sgBpPanel.style.display=isAdmin()?'block':'none';
         // Artikelstamm "+ Neuer Artikel" nur fuer Admin/Manager
         const _artNewBtn=document.getElementById('artNewBtn');if(_artNewBtn)_artNewBtn.style.display=canManage()?'inline-flex':'none';
         // KR: View-only auf Lager-Section — andere Sections + Ein-/Auslagern-Tabs + Export/Daten ausblenden
