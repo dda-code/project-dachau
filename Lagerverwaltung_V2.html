@@ -875,6 +875,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                     </div>
                     <button class="btn btn-sm btn-secondary" onclick="_clearLastPrinted()" title="Anzeige zurücksetzen" style="font-size:0.78rem">Ausblenden</button>
                 </div>
+                <!-- Zebra Direktdruck (ZPL · randlos · lautlos) — umgeht den System-Druckdialog komplett -->
+                <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:12px;padding:22px 26px">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+                        <label style="display:flex;align-items:center;gap:10px;font-weight:700;color:#0f172a;font-size:1.44rem;cursor:pointer;flex:1;min-width:0">
+                            <input type="checkbox" id="sgBpEnabledChk" onchange="_sgOnBpToggle(this.checked)" style="width:22px;height:22px;flex:none;cursor:pointer">
+                            <span>Zebra Direktdruck (ZPL · randlos · lautlos)</span>
+                        </label>
+                        <button class="btn btn-sm btn-secondary" onclick="_sgBpShowSetup()" title="Einrichtungs-Anleitung anzeigen" style="font-size:0.95rem">❓ Einrichtung</button>
+                    </div>
+                    <div style="display:flex;gap:13px;align-items:stretch;flex-wrap:wrap">
+                        <select id="sgBpDeviceSel" class="form-select" onchange="_sgOnBpDeviceChange(this.value)" style="flex:1;min-width:200px;font-size:1.4rem;padding:11px 12px">
+                            <option value="">— Drucker wählen —</option>
+                        </select>
+                        <button class="btn btn-secondary" onclick="_sgBpRefreshDevices()" title="Drucker neu suchen" style="font-size:1.3rem">🔄 Suchen</button>
+                        <button class="btn btn-secondary" onclick="_sgBpTestPrint()" title="Test-Label an gewählten Drucker senden" style="font-size:1.3rem">🖨 Test</button>
+                    </div>
+                    <div id="sgBpStatus" style="margin-top:12px;font-size:1.2rem;color:#64748b;min-height:1.1em">Deaktiviert — Druck läuft über System-Druckdialog (Fallback).</div>
+                </div>
               </div>
               <div class="label-split-right" style="flex:1 1 620px;min-width:0;display:flex;justify-content:center">
                 <div id="sgLabelPrintArea">
