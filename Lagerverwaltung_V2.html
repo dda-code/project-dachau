@@ -5620,29 +5620,21 @@ function _applyPrintPageStyle(){
         return;
     }
 
-    // A4 (Default): Label auf nahezu volle A4-Seite vergroessern, damit es auf JEDEM Drucker
-    // die Seite fast ausfuellt (statt mit grossem Rand klein in der Mitte).
-    // WICHTIG: bewusst EXPLIZITE Maße (Breite in mm + Zeilenhoehen/Schriftgroessen in pt) statt
-    // `zoom` oder `transform` — Chromium/Edge wenden `zoom` im DRUCK NICHT zuverlaessig an
-    // (am Bildschirm schon, daher truegerisch). Diese Methode entspricht 1:1 den im Druck
-    // funktionierenden Etiketten-Zweigen (100x150) und greift garantiert.
-    // Faktor ~1.116 ggue. Basis (172mm -> 192mm Breite); Gesamthoehe ~276mm. Rand 8mm
-    // (= 194x281mm nutzbar) -> Fuellung ~99% Breite / ~98% Hoehe, sicher auf jedem Drucker.
-    // Justieren: alle Werte mit demselben Faktor skalieren (oder Faktor anpassen).
+    // A4 (Default): Label per `zoom` auf nahezu volle A4-Seite vergroessern. `zoom` greift im
+    // Druck dieses Setups (Edge -> Brother) nachweislich (vom Bediener bestaetigt) und skaliert
+    // Layout+Schrift+Barcodes in EINEM Faktor proportional (Seitenverhaeltnis Label ~= A4).
+    //
+    // A4_FILL_ZOOM ist die EINZIGE Stellschraube fuer die Groesse:
+    //   - groesser = naeher an den Rand.
+    //   - Praktisches Maximum ~1.16: darueber wird das Label breiter/hoeher als A4 und die
+    //     Raender werden abgeschnitten. Bei 5mm @page-Rand fuellt 1.15 die Seite fast komplett
+    //     (172->~198mm breit, 247->~285mm hoch; ~6mm Rand ringsum).
+    //   - Echte Randlos-A4 gibt es bei normalen Druckern nicht (Hardware-Rand ~4-6mm).
+    const A4_FILL_ZOOM = 1.15;
     styleEl.textContent=`
 @media print {
-    @page { size: A4 portrait; margin: 8mm; }
-    #labelPrintArea .label-sheet { width: 192mm !important; max-width: 192mm !important; }
-    #labelPrintArea .lbl-tbl td   { font-size: 22pt !important; }
-    #labelPrintArea .lbl-r1  { height: 116pt !important; }
-    #labelPrintArea .lbl-r2  { height: 31pt !important; }
-    #labelPrintArea .lbl-r12 { height: 30.7pt !important; }
-    #labelPrintArea .lbl-r16 { height: 234pt !important; }
-    #labelPrintArea .lbl-title    { font-size: 27pt !important; }
-    #labelPrintArea .lbl-v-big    { font-size: 27pt !important; }
-    #labelPrintArea .lbl-v-gtin   { font-size: 24.5pt !important; }
-    #labelPrintArea .lbl-v-sscc   { font-size: 20pt !important; }
-    #labelPrintArea .lbl-logo-img { height: 96pt !important; }
+    @page { size: A4 portrait; margin: 5mm; }
+    #labelPrintArea .label-sheet { zoom: ${A4_FILL_ZOOM}; }
 }`;
 }
 // Beim Seitenstart einmalig anwenden, damit auch die MANUELLE Druckvorschau (Strg+P)
