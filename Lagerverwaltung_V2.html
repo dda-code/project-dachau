@@ -5620,23 +5620,34 @@ function _applyPrintPageStyle(){
         return;
     }
 
-    // A4 (Default): Label per `zoom` auf nahezu volle A4-Seite vergroessern, damit es auf
-    // JEDEM Drucker die Seite fast ausfuellt (statt mit grossem Rand klein in der Mitte).
-    // Natuerliche Labelgroesse 172x247mm; Seitenverhaeltnis == nutzbarer A4-Bereich, daher
-    // skaliert EIN Faktor alles (Layout, Schrift, Barcodes) proportional ohne Verzerrung.
-    //   zoom 1.12  -> ~193x277mm
-    //   @page 8mm  -> sicherer Rand (Hardware-Rand praktisch jedes Druckers < 8mm),
-    //                 verhindert zugleich die Browser-"An-Seite-anpassen"-Verkleinerung.
-    // `zoom` (nicht transform) gewaehlt, weil es die Layout-Box mitvergroessert -> Flex-
-    // Zentrierung + Seitenumbruch stimmen automatisch, kein Ueberlauf / keine 2. Seite.
-    // Bei Bedarf justieren: Faktor groesser = naeher an den Rand.
-    const A4_FILL_ZOOM = 1.12;
+    // A4 (Default): Label auf nahezu volle A4-Seite vergroessern, damit es auf JEDEM Drucker
+    // die Seite fast ausfuellt (statt mit grossem Rand klein in der Mitte).
+    // WICHTIG: bewusst EXPLIZITE Maße (Breite in mm + Zeilenhoehen/Schriftgroessen in pt) statt
+    // `zoom` oder `transform` — Chromium/Edge wenden `zoom` im DRUCK NICHT zuverlaessig an
+    // (am Bildschirm schon, daher truegerisch). Diese Methode entspricht 1:1 den im Druck
+    // funktionierenden Etiketten-Zweigen (100x150) und greift garantiert.
+    // Faktor ~1.116 ggue. Basis (172mm -> 192mm Breite); Gesamthoehe ~276mm. Rand 8mm
+    // (= 194x281mm nutzbar) -> Fuellung ~99% Breite / ~98% Hoehe, sicher auf jedem Drucker.
+    // Justieren: alle Werte mit demselben Faktor skalieren (oder Faktor anpassen).
     styleEl.textContent=`
 @media print {
     @page { size: A4 portrait; margin: 8mm; }
-    #labelPrintArea .label-sheet { zoom: ${A4_FILL_ZOOM}; }
+    #labelPrintArea .label-sheet { width: 192mm !important; max-width: 192mm !important; }
+    #labelPrintArea .lbl-tbl td   { font-size: 22pt !important; }
+    #labelPrintArea .lbl-r1  { height: 116pt !important; }
+    #labelPrintArea .lbl-r2  { height: 31pt !important; }
+    #labelPrintArea .lbl-r12 { height: 30.7pt !important; }
+    #labelPrintArea .lbl-r16 { height: 234pt !important; }
+    #labelPrintArea .lbl-title    { font-size: 27pt !important; }
+    #labelPrintArea .lbl-v-big    { font-size: 27pt !important; }
+    #labelPrintArea .lbl-v-gtin   { font-size: 24.5pt !important; }
+    #labelPrintArea .lbl-v-sscc   { font-size: 20pt !important; }
+    #labelPrintArea .lbl-logo-img { height: 96pt !important; }
 }`;
 }
+// Beim Seitenstart einmalig anwenden, damit auch die MANUELLE Druckvorschau (Strg+P)
+// schon die korrekte A4-Skalierung zeigt — nicht erst nach Klick auf „Drucken".
+setTimeout(()=>{ if(typeof _applyPrintPageStyle==='function') _applyPrintPageStyle(); }, 0);
 
 // Spritzguss-Label: fest auf Zebra ZT231 100 × 150 mm Etikett (203 dpi) skaliert — vollflächig.
 // 100 × 150 mm mit 2 mm Drucker-Rand → 96 × 146 mm nutzbar (≈ 414 pt Gesamthöhe).
