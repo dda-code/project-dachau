@@ -559,6 +559,8 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   body.print-active #print-root{display:block!important}
   body.print-active #print-root .pr-page{box-shadow:none!important;margin:0!important}
   #print-root svg, #print-root svg *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  /* Fallback: schwebende/interaktive Overlays nie mitdrucken (falls beforeprint mal nicht greift) */
+  .blbl-over,#tt,#link-hint,#multi-hint,.gb-marquee,.tmark-label{display:none!important}
 }
 </style>
 <style id="multisel-styles">
@@ -4328,7 +4330,7 @@ function buildPrintSVG(opt){
   rows.forEach(function(row,i){
     var t=row.task; if(row.isGroup)return;
     var y=rowY(i),by=y+(ROW-barH)/2;
-    function bar(start,end,col,patt,label,pct,done){
+    function bar(start,end,col,patt,label,pct,done,extName){
       var so=offD(start),eo=offD(end),s=Math.max(so,0),e=Math.min(eo,days-1);
       if(e<s)return;
       var w=Math.max((e-s+1)*dayW, MINBAR);
@@ -4338,10 +4340,20 @@ function buildPrintSVG(opt){
       if(typeof pct==='number'&&pct>0&&!patt){
         S.push('<rect x="'+r1(x)+'" y="'+r1(by)+'" width="'+r1(w*Math.min(pct,100)/100)+'" height="'+r1(barH)+'" rx="3.5" fill="rgba(0,0,0,0.20)"/>');
       }
-      // Beschriftung nur, wenn der VOLLE Text passt (kein "…"-Stummel) — der vollständige Name steht ohnehin links.
       var reserve=(typeof pct==='number'&&opt.showProgress&&w>=44)?(barFS*2.4):0;
-      if(String(label).length*barFS*0.56 <= (w-8-reserve))
+      var labW=String(label).length*barFS*0.56;
+      if(label && labW <= (w-8-reserve)){
+        // passt vollständig in den Balken
         S.push('<text x="'+r1(x+6)+'" y="'+r1(by+barH/2+barFS*0.35)+'" font-size="'+r1(barFS)+'" font-weight="600" fill="#ffffff">'+_esc(label)+'</text>');
+      } else if(label && extName){
+        // Eigenname (z.B. Zusatz-Periode) — passt nicht in den Balken → vollständig daneben anzeigen (steht nirgends links)
+        var lx=x+w+4, anc='start';
+        if(lx+labW>natW-2){ lx=x-4; anc='end'; }
+        var bgx=(anc==='start')?(lx-1):(lx-labW-1);
+        S.push('<rect x="'+r1(bgx)+'" y="'+r1(by+barH/2-barFS*0.72)+'" width="'+r1(labW+2)+'" height="'+r1(barFS*1.4)+'" rx="2" fill="#ffffff" opacity="0.82"/>');
+        S.push('<text x="'+r1(lx)+'" y="'+r1(by+barH/2+barFS*0.35)+'" font-size="'+r1(barFS)+'" font-weight="600" fill="#1a1d2e" text-anchor="'+anc+'">'+_esc(label)+'</text>');
+      }
+      // (kein "…"-Stummel: passt der Name nicht und ist kein Eigenname, steht er vollständig in der linken Spalte)
       if(typeof pct==='number'&&opt.showProgress&&w>=44)S.push('<text x="'+r1(x+w-5)+'" y="'+r1(by+barH/2+barFS*0.35)+'" font-size="'+r1(barFS*0.92)+'" fill="rgba(255,255,255,0.85)" text-anchor="end">'+pct+'%</text>');
     }
     if(t.type==='urlaub'||t.type==='meeting'){
@@ -4353,7 +4365,7 @@ function buildPrintSVG(opt){
     var isOverdue=!t.done&&t.end<todayStr;
     var pct=(t.progress||0);
     bar(t.start,t.end, t.color||'#4f6ef7', isOverdue?'url(#pr-ho)':null, t.name, pct, !!t.done);
-    (t.extraPeriods||[]).forEach(function(p){ if(p.start&&p.end)bar(p.start,p.end,p.color||t.color||'#4f6ef7',null,p.name||t.name,null,false); });
+    (t.extraPeriods||[]).forEach(function(p){ if(p.start&&p.end)bar(p.start,p.end,p.color||t.color||'#4f6ef7',null,p.name||t.name,null,false,true); });
     // Marker — Fähnchen + Linie + Text (Text IMMER sichtbar, mit weißem Hintergrund, kippt am rechten Rand nach links)
     if(t.markers&&t.markers.length){
       var mFS=Math.max(8,Math.min(10.5,ROW*0.30));
@@ -4454,6 +4466,43 @@ function doPrint(){
   window.addEventListener('afterprint',after);
   setTimeout(function(){ window.print(); },60);
 }
+
+// ── Auto-Druck: auch der Browser-Druck (Strg+P) nutzt das saubere SVG ──────────
+// Sonst würde die interaktive Live-Ansicht mit überlappenden Floating-Labels gedruckt.
+function _autoPrintOpts(){
+  var rows=_prAllRows(); // alle sichtbaren Aufgaben + Gruppen
+  var minS=null,maxE=null;
+  rows.forEach(function(r){ if(r.isGroup)return; if(r.task.start&&(!minS||r.task.start<minS))minS=r.task.start; if(r.task.end&&(!maxE||r.task.end>maxE))maxE=r.task.end; });
+  if(!minS)minS=fmtD(PS); if(!maxE)maxE=fmtD(PE);
+  var fromY=parseInt(minS.slice(0,4),10),fromM=parseInt(minS.slice(5,7),10)-1;
+  var toY=parseInt(maxE.slice(0,4),10),toM=parseInt(maxE.slice(5,7),10)-1;
+  var span=Math.round((new Date(maxE+'T00:00:00')-new Date(minS+'T00:00:00'))/86400000)+1;
+  var scale=span<=45?'day':(span<=370?'week':'month');
+  return {title:'Project Dachau',paper:'A3',orient:'landscape',margin:10,
+    fromY:fromY,fromM:fromM,toY:toY,toM:toM,scale:scale,
+    showWeekends:true,showToday:true,showDeps:true,showProgress:true,showHolidays:true,rows:rows};
+}
+var _autoPrintActive=false,_autoPrintZoom=null;
+window.addEventListener('beforeprint',function(){
+  if(document.body.classList.contains('print-active'))return; // Dialog-Druck hat schon alles vorbereitet
+  try{
+    var opt=_autoPrintOpts();
+    var res=buildPrintSVG(opt);
+    document.getElementById('print-root').innerHTML=_prPageHTML(res,opt);
+    var rule=document.getElementById('pr-page-rule');
+    if(!rule){ rule=document.createElement('style'); rule.id='pr-page-rule'; document.head.appendChild(rule); }
+    rule.textContent='@page{size:'+res.pw+'mm '+res.ph+'mm;margin:0}';
+    _autoPrintZoom=document.documentElement.style.zoom; document.documentElement.style.zoom='1';
+    document.body.classList.add('print-active');
+    _autoPrintActive=true;
+  }catch(err){ /* im Fehlerfall normalen Druck zulassen */ }
+});
+window.addEventListener('afterprint',function(){
+  if(!_autoPrintActive)return;
+  _autoPrintActive=false;
+  document.body.classList.remove('print-active');
+  document.documentElement.style.zoom=(_autoPrintZoom!==null?_autoPrintZoom:'');
+});
 
 // Vorschau bei Fenster-Resize neu skalieren
 window.addEventListener('resize',function(){ if(document.getElementById('print-modal').classList.contains('open'))renderPrintPreview(); });
