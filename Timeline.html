@@ -561,6 +561,17 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   #print-root svg, #print-root svg *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
 }
 </style>
+<style id="multisel-styles">
+/* ═══ MEHRFACHAUSWAHL & GRUPPENVERSCHIEBUNG (Rechtsklick-Ziehen) ═══ */
+#gb .gb-marquee{position:absolute;border:1.5px dashed #4f6ef7;background:rgba(79,110,247,.12);z-index:6;pointer-events:none;border-radius:2px}
+.bwrap.bar-selected .bar{outline:2.5px solid #4f6ef7;outline-offset:1px;box-shadow:0 0 0 2px rgba(79,110,247,.3),0 2px 8px rgba(0,0,0,.3)!important}
+#right.marquee-active{cursor:crosshair!important}
+#right.marquee-active .bar{cursor:crosshair!important}
+#multi-hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1a1d2e;color:#e8eaf6;font-size:12px;padding:8px 16px;border-radius:20px;z-index:600;box-shadow:0 4px 16px rgba(0,0,0,.25);white-space:nowrap;display:flex;align-items:center;gap:12px;opacity:0;transition:opacity .15s;pointer-events:none}
+#multi-hint.show{opacity:1;pointer-events:auto}
+#multi-hint button{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:12px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:var(--font)}
+#multi-hint button:hover{background:rgba(255,255,255,.3)}
+</style>
 </head>
 <body><div id="app-root">
 
@@ -1587,6 +1598,7 @@ function buildGrid(vrows){
   });
   gb.insertBefore(barFrag,sv);
   drawDeps(vrows,_ppd);buildLeft(vrows);updBadge();
+  applyMultiSelHighlight();
   // Overflow check — deferred with double-rAF to avoid layout thrashing
   requestAnimationFrame(function(){requestAnimationFrame(function(){
     var wraps=gb.querySelectorAll('.bwrap');
@@ -2238,6 +2250,7 @@ var _dragRAF=0;
 function startBarDrag(e,id){
   var t=taskMap.get(id);
   if(!t)return;
+  if(typeof clearMultiSel==='function') clearMultiSel(); // Linke Maustaste = Einzelmodus → Mehrfachauswahl aufheben
   dragBar.active=true;
   dragBar.moved=false;
   dragBar.id=id;
@@ -2435,6 +2448,7 @@ window.addEventListener('resize',function(){
     if(e.target.closest('.bar,.btn,.zbtn,input,#mbg'))return;
     if(dragBar&&dragBar.active)return;
     if(e.button!==0)return;
+    if(typeof clearMultiSel==='function') clearMultiSel(); // Klick/Pan auf leere Fläche hebt Auswahl auf
     pan.active=true;pan.moved=false;
     pan.startX=e.clientX;pan.startY=e.clientY;
     pan.scrollX=el.scrollLeft;pan.scrollY=el.scrollTop;
@@ -2459,6 +2473,171 @@ window.addEventListener('resize',function(){
     }
     pan.active=false;
   });
+})();
+
+// ── MEHRFACHAUSWAHL & GRUPPENVERSCHIEBUNG (Rechtsklick-Ziehen im Diagramm) ──
+var multiSel={ids:[]};
+function applyMultiSelHighlight(){
+  if(typeof multiSel==='undefined')return;
+  var gb=document.getElementById('gb'); if(!gb)return;
+  var prev=gb.querySelectorAll('.bwrap.bar-selected');
+  for(var i=0;i<prev.length;i++)prev[i].classList.remove('bar-selected');
+  if(!multiSel.ids||!multiSel.ids.length)return;
+  multiSel.ids.forEach(function(id){
+    var ws=gb.querySelectorAll('.bwrap[data-id="'+id+'"]');
+    for(var j=0;j<ws.length;j++){ if(!ws[j].classList.contains('extra-bar'))ws[j].classList.add('bar-selected'); }
+  });
+}
+function updateMultiHint(){
+  var h=document.getElementById('multi-hint');
+  if(!h){ h=document.createElement('div'); h.id='multi-hint'; document.body.appendChild(h); }
+  var n=multiSel.ids.length;
+  if(!n){ h.classList.remove('show'); h.innerHTML=''; return; }
+  h.innerHTML='<span>✦ '+n+' Aufgabe'+(n!==1?'n':'')+' ausgewählt — mit <strong>rechter Maustaste ziehen</strong> zum Verschieben</span>'
+    +'<button onclick="clearMultiSel()">Aufheben (ESC)</button>';
+  h.classList.add('show');
+}
+function clearMultiSel(){
+  if(typeof multiSel==='undefined')return;
+  if(!multiSel.ids.length){ updateMultiHint(); return; }
+  multiSel.ids=[];
+  applyMultiSelHighlight();
+  updateMultiHint();
+}
+// Konfliktprüfung (gibt erste gefundene Kollision zurück, statt direkt das Popup zu zeigen)
+function _detectConflict(task){
+  if(!task)return null;
+  if(task.parentId){ var parent=taskMap.get(task.parentId); if(parent&&task.end>parent.end)return {sub:task,parent:parent,type:'sub_after_parent'}; }
+  var late=tasks.filter(function(t){return t.parentId===task.id&&t.end>task.end;});
+  if(late.length)return {sub:late[0],parent:task,type:'sub_after_parent'};
+  if(task.deps&&task.deps.length){ for(var i=0;i<task.deps.length;i++){ var pred=taskMap.get(task.deps[i]); if(pred&&pred.end>task.start)return {sub:task,parent:pred,type:'dep_time_overlap'}; } }
+  var rev=null;
+  tasks.forEach(function(other){ if(!rev&&other.deps&&other.deps.indexOf(task.id)>=0&&other.start<task.end)rev={sub:other,parent:task,type:'dep_time_overlap'}; });
+  return rev;
+}
+(function(){
+  var gb=document.getElementById('gb');
+  var right=document.getElementById('right');
+  if(!gb||!right)return;
+  var marquee={active:false,x0:0,y0:0,el:null};
+  var gmove={active:false,startX:0,moved:false,orig:null};
+  var _rRAF=0;
+
+  function zoomF(){ var z=parseFloat(document.documentElement.style.zoom); return (z>0)?z:1; }
+  function gbX(cx){ return (cx-gb.getBoundingClientRect().left)/zoomF(); }
+  function gbY(cy){ return (cy-gb.getBoundingClientRect().top)/zoomF(); }
+  function suppressNextClick(){ var sup=function(ev){ev.stopPropagation();ev.preventDefault();document.removeEventListener('click',sup,true);}; document.addEventListener('click',sup,true); }
+
+  // Kontextmenü im Diagramm unterdrücken, damit Rechts-Ziehen nutzbar ist
+  right.addEventListener('contextmenu',function(e){ if(e.target.closest('#gb'))e.preventDefault(); });
+
+  gb.addEventListener('mousedown',function(e){
+    if(e.button!==2)return;                 // nur rechte Maustaste
+    if(linkMode)return;
+    if(!_canEdit())return;                   // nur Bearbeiter dürfen verschieben
+    if(e.target.classList.contains('rhl')||e.target.classList.contains('rhr'))return;
+    var wrap=e.target.closest('.bwrap');
+    var onSelected=wrap&&!wrap.classList.contains('extra-bar')&&multiSel.ids.indexOf(+wrap.dataset.id)>=0;
+    if(onSelected)startGroupMove(e); else startMarquee(e);
+    e.preventDefault(); e.stopPropagation();
+  });
+
+  function startMarquee(e){
+    marquee.active=true;
+    marquee.x0=gbX(e.clientX); marquee.y0=gbY(e.clientY);
+    marquee.lastX=marquee.x0; marquee.lastY=marquee.y0; // zurücksetzen, sonst Phantom-Rechteck aus voriger Auswahl
+    clearMultiSel();                                    // neue Aufziehauswahl ersetzt die alte
+    marquee.el=document.createElement('div');
+    marquee.el.className='gb-marquee';
+    marquee.el.style.cssText='left:'+marquee.x0+'px;top:'+marquee.y0+'px;width:0;height:0';
+    gb.appendChild(marquee.el);
+    right.classList.add('marquee-active');
+    document.body.style.userSelect='none';
+  }
+  function startGroupMove(e){
+    gmove.active=true; gmove.moved=false; gmove.startX=e.clientX; gmove.lastDx=0; gmove.orig={};
+    multiSel.ids.forEach(function(id){
+      var t=taskMap.get(id); if(!t)return;
+      gmove.orig[id]={ start:t.start, end:t.end,
+        markers:(t.markers||[]).map(function(m){return {date:m.date,text:m.text};}),
+        extra:(t.extraPeriods||[]).map(function(p){var c={};for(var k in p)c[k]=p[k];return c;}) };
+    });
+    document.body.style.userSelect='none';
+    document.body.style.cursor='grabbing';
+  }
+  function applyGroupMove(dx){
+    if(dx!==0)gmove.moved=true;
+    multiSel.ids.forEach(function(id){
+      var t=taskMap.get(id),o=gmove.orig&&gmove.orig[id]; if(!t||!o)return;
+      var ns=new Date(o.start+'T00:00:00'); ns.setDate(ns.getDate()+dx);
+      var ne=new Date(o.end+'T00:00:00'); ne.setDate(ne.getDate()+dx);
+      t.start=d2s(ns); t.end=d2s(ne);
+      if(o.markers.length)t.markers=o.markers.map(function(m){var md=new Date(m.date+'T00:00:00');md.setDate(md.getDate()+dx);return {date:d2s(md),text:m.text};});
+      if(o.extra.length)t.extraPeriods=o.extra.map(function(p){var c={};for(var k in p)c[k]=p[k];
+        if(p.start){var s=new Date(p.start+'T00:00:00');s.setDate(s.getDate()+dx);c.start=d2s(s);}
+        if(p.end){var en=new Date(p.end+'T00:00:00');en.setDate(en.getDate()+dx);c.end=d2s(en);}
+        return c;});
+    });
+    buildGrid();
+  }
+
+  document.addEventListener('mousemove',function(e){
+    if(marquee.active){
+      // Zustand synchron speichern (Auswahl hängt von der letzten Position ab, nicht vom letzten Frame)
+      marquee.lastX=gbX(e.clientX); marquee.lastY=gbY(e.clientY);
+      if(_rRAF)return;
+      _rRAF=requestAnimationFrame(function(){ _rRAF=0; if(!marquee.active||!marquee.el)return;
+        var L=Math.min(marquee.lastX,marquee.x0),T=Math.min(marquee.lastY,marquee.y0),
+            W=Math.abs(marquee.lastX-marquee.x0),H=Math.abs(marquee.lastY-marquee.y0);
+        marquee.el.style.left=L+'px';marquee.el.style.top=T+'px';marquee.el.style.width=W+'px';marquee.el.style.height=H+'px';
+      });
+    } else if(gmove.active){
+      gmove.lastDx=Math.round(((e.clientX-gmove.startX)/zoomF())/ppd());
+      if(_rRAF)return;
+      _rRAF=requestAnimationFrame(function(){ _rRAF=0; if(!gmove.active)return; applyGroupMove(gmove.lastDx); });
+    }
+  });
+
+  document.addEventListener('mouseup',function(e){
+    if(marquee.active){
+      marquee.active=false; right.classList.remove('marquee-active'); document.body.style.userSelect='';
+      if(_rRAF){cancelAnimationFrame(_rRAF);_rRAF=0;}
+      var x1=(marquee.lastX!==undefined)?marquee.lastX:marquee.x0, y1=(marquee.lastY!==undefined)?marquee.lastY:marquee.y0;
+      var L=Math.min(marquee.x0,x1),T=Math.min(marquee.y0,y1),W=Math.abs(x1-marquee.x0),H=Math.abs(y1-marquee.y0);
+      if(marquee.el){marquee.el.remove();marquee.el=null;}
+      if(W<4&&H<4){ clearMultiSel(); suppressNextClick(); return; } // Mini-Ziehen = Klick → Auswahl leeren
+      var ids=[];
+      var wraps=gb.querySelectorAll('.bwrap');
+      for(var k=0;k<wraps.length;k++){
+        var w=wraps[k];
+        if(w.classList.contains('extra-bar'))continue;
+        var bar=w.firstChild;
+        if(bar&&bar.classList&&(bar.classList.contains('urlaub-bar')||bar.classList.contains('meeting-bar')))continue;
+        var id=+w.dataset.id; var t=taskMap.get(id);
+        if(!t||t.type==='urlaub'||t.type==='meeting')continue;
+        var bl=parseFloat(w.style.left)||0,bt=parseFloat(w.style.top)||0,bw=parseFloat(w.style.width)||0,bh=parseFloat(w.style.height)||30;
+        if(bl<L+W && bl+bw>L && bt<T+H && bt+bh>T){ if(ids.indexOf(id)<0)ids.push(id); }
+      }
+      multiSel.ids=ids;
+      applyMultiSelHighlight();
+      updateMultiHint();
+      suppressNextClick();
+    } else if(gmove.active){
+      if(_rRAF){cancelAnimationFrame(_rRAF);_rRAF=0;}
+      applyGroupMove(gmove.lastDx||0); // finalen Stand synchron anwenden
+      gmove.active=false; document.body.style.userSelect=''; document.body.style.cursor='';
+      if(gmove.moved){
+        triggerSave();
+        var conflict=null;
+        for(var i=0;i<multiSel.ids.length&&!conflict;i++){ conflict=_detectConflict(taskMap.get(multiSel.ids[i])); }
+        if(conflict)showConflictWarning(conflict.sub,conflict.parent,conflict.type);
+        suppressNextClick();
+      }
+    }
+  });
+
+  // ESC hebt die Auswahl auf
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&multiSel.ids.length){ clearMultiSel(); } });
 })();
 
 // ── COLUMN RESIZE ────────────────────────────────────────
