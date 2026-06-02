@@ -750,6 +750,16 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
           </div>
         </div>
         <div class="pr-grp">
+          <label class="pr-lbl">Auflösung (Zeitachse)</label>
+          <div class="pr-field">
+            <select id="pr-scale" onchange="renderPrintPreview()">
+              <option value="month">Monate</option>
+              <option value="week">Kalenderwochen</option>
+              <option value="day">Tage</option>
+            </select>
+          </div>
+        </div>
+        <div class="pr-grp">
           <label class="pr-lbl">Aufgaben</label>
           <div class="pr-tasktools">
             <button onclick="prSelectAll(true)">Alle</button>
@@ -759,8 +769,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
         </div>
         <div class="pr-grp">
           <label class="pr-lbl">Optionen</label>
-          <label class="pr-check"><input type="checkbox" id="pr-opt-weekends" checked onchange="renderPrintPreview()"> Wochenenden schattieren</label>
-          <label class="pr-check"><input type="checkbox" id="pr-opt-weeks" onchange="renderPrintPreview()"> Kalenderwochen anzeigen</label>
+          <label class="pr-check"><input type="checkbox" id="pr-opt-weekends" checked onchange="renderPrintPreview()"> Wochenenden schattieren <span style="color:var(--text3);font-size:10px">(ab KW/Tage)</span></label>
           <label class="pr-check"><input type="checkbox" id="pr-opt-today" checked onchange="renderPrintPreview()"> Heute-Linie</label>
           <label class="pr-check"><input type="checkbox" id="pr-opt-deps" checked onchange="renderPrintPreview()"> Abhängigkeiten</label>
           <label class="pr-check"><input type="checkbox" id="pr-opt-progress" checked onchange="renderPrintPreview()"> Fortschritt (%)</label>
@@ -3917,6 +3926,11 @@ function openPrintDialog(){
   rows.forEach(function(r){ if(r.task.start&&(!minS||r.task.start<minS))minS=r.task.start; if(r.task.end&&(!maxE||r.task.end>maxE))maxE=r.task.end; });
   if(minS){ document.getElementById('pr-from').value=parseInt(minS.slice(0,4),10)+'-'+(parseInt(minS.slice(5,7),10)-1); }
   if(maxE){ document.getElementById('pr-to').value=parseInt(maxE.slice(0,4),10)+'-'+(parseInt(maxE.slice(5,7),10)-1); }
+  // Auflösung sinnvoll vorbelegen: kurze Zeiträume → Tage, mittlere → KW, lange → Monate
+  if(minS&&maxE){
+    var spanDays=Math.round((new Date(maxE+'T00:00:00')-new Date(minS+'T00:00:00'))/86400000)+1;
+    document.getElementById('pr-scale').value = spanDays<=45?'day' : (spanDays<=370?'week':'month');
+  }
   // Auto-Zoom der Seite neutralisieren, damit die mm-Vorschau exakt stimmt
   _prevDocZoom=document.documentElement.style.zoom;
   document.documentElement.style.zoom='1';
@@ -3938,7 +3952,8 @@ function _prReadOpts(){
   return {
     title:v('pr-title').trim(), paper:v('pr-paper'), orient:v('pr-orient'), margin:+v('pr-margin'),
     fromY:fromY,fromM:fromM,toY:toY,toM:toM,
-    showWeekends:ck('pr-opt-weekends'), showWeeks:ck('pr-opt-weeks'), showToday:ck('pr-opt-today'),
+    scale:v('pr-scale'),
+    showWeekends:ck('pr-opt-weekends'), showToday:ck('pr-opt-today'),
     showDeps:ck('pr-opt-deps'), showProgress:ck('pr-opt-progress'), showHolidays:ck('pr-opt-holidays'),
     rows:_prGetSelectedRows()
   };
@@ -3960,7 +3975,9 @@ function buildPrintSVG(opt){
   var areaW=Math.max(20,pw-2*mar), areaH=Math.max(20,ph-2*mar);
 
   // ── logisches Layout (px) ──
-  var FS=13, ROW=34, barH=20, MONH=40, WEEKH=opt.showWeeks?26:0, headerH=MONH+WEEKH;
+  var scale=opt.scale||'month';
+  var showWeeks=(scale==='week'||scale==='day'), showDays=(scale==='day');
+  var FS=13, ROW=34, barH=20, MONH=40, WEEKH=showWeeks?26:0, DAYH=showDays?22:0, headerH=MONH+WEEKH+DAYH;
   var titleH=opt.title?54:16;
   var maxName=160;
   rows.forEach(function(r){
@@ -4023,28 +4040,18 @@ function buildPrintSVG(opt){
     S.push('<text x="3" y="46" font-size="'+r1(subFS)+'" fill="#5a607a">'+_esc(sub)+'</text>');
   }
 
-  // ── Wochenend- / Feiertags-Schattierung (volle Höhe) ──
-  if((opt.showWeekends||opt.showHolidays)&&dayW>=2.5){
-    var shade=[];
-    for(var i2=0;i2<days;i2++){
-      var cur=new Date(MS+i2*86400000),dw=cur.getDay(),hol=HOLIDAYS[fmtD(cur)];
-      if(opt.showHolidays&&hol){ shade.push('<rect x="'+r1(LEFT+i2*dayW)+'" y="'+GTOP+'" width="'+r1(dayW)+'" height="'+r1(natH-GTOP)+'" fill="#fde2e2"/>'); }
-      else if(opt.showWeekends&&(dw===0||dw===6)){ shade.push('<rect x="'+r1(LEFT+i2*dayW)+'" y="'+GTOP+'" width="'+r1(dayW)+'" height="'+r1(natH-GTOP)+'" fill="#eef0f7"/>'); }
-    }
-    S.push(shade.join(''));
-  }
-
-  // ── Header: Monatsband + (optional) KW-Band ──
+  // ── Header: Monatsband + (optional) KW-Band + (optional) Tagesband ──
   S.push('<rect x="0" y="'+titleH+'" width="'+r1(natW)+'" height="'+headerH+'" fill="#f4f6fb"/>');
   S.push('<rect x="0" y="'+titleH+'" width="'+r1(LEFT)+'" height="'+headerH+'" fill="#eceff7"/>');
-  S.push('<text x="10" y="'+(titleH+headerH/2+4)+'" font-size="13" font-weight="700" fill="#5a607a">Aufgabe</text>');
+  S.push('<text x="10" y="'+(titleH+MONH/2+5)+'" font-size="13" font-weight="700" fill="#5a607a">Aufgabe</text>');
+  var monLblY=(showWeeks||showDays)?(titleH+MONH/2+5):(titleH+headerH/2+4);
   segs.forEach(function(s,si){
     var sx=LEFT+s.startOff*dayW, sw=s.days*dayW, cx=sx+sw/2;
-    if(si>0)S.push('<line x1="'+r1(sx)+'" y1="'+titleH+'" x2="'+r1(sx)+'" y2="'+r1(natH)+'" stroke="#c9cfe0" stroke-width="1"/>');
+    if(si>0)S.push('<line x1="'+r1(sx)+'" y1="'+titleH+'" x2="'+r1(sx)+'" y2="'+(titleH+headerH)+'" stroke="#c9cfe0" stroke-width="1"/>');
     var mlabel=(sw<46?MN[s.m]:MF[s.m])+(s.m===0||si===0?" '"+String(s.y).slice(2):'');
-    if(sw>=18)S.push('<text x="'+r1(cx)+'" y="'+(titleH+(WEEKH?17:headerH/2+4))+'" font-size="13" font-weight="700" fill="#1a1d2e" text-anchor="middle">'+_esc(mlabel)+'</text>');
+    if(sw>=18)S.push('<text x="'+r1(cx)+'" y="'+monLblY+'" font-size="13" font-weight="700" fill="#1a1d2e" text-anchor="middle">'+_esc(mlabel)+'</text>');
   });
-  if(opt.showWeeks){
+  if(showWeeks){
     var wy=titleH+MONH;
     S.push('<line x1="0" y1="'+wy+'" x2="'+r1(natW)+'" y2="'+wy+'" stroke="#dde0ea" stroke-width="1"/>');
     var dow0=winStart.getDay(),back=(dow0===0)?6:dow0-1,wd=new Date(winStart); wd.setDate(wd.getDate()-back);
@@ -4052,12 +4059,23 @@ function buildPrintSVG(opt){
       var wo=Math.round((wd-winStart)/86400000), wend=Math.min(wo+7,days), wstart=Math.max(wo,0);
       if(wend>wstart){ var wcx=LEFT+((wstart+wend)/2)*dayW; var ww=(wend-wstart)*dayW;
         if(wo>0)S.push('<line x1="'+r1(LEFT+wo*dayW)+'" y1="'+wy+'" x2="'+r1(LEFT+wo*dayW)+'" y2="'+(wy+WEEKH)+'" stroke="#e3e6f0" stroke-width="1"/>');
-        if(ww>=12)S.push('<text x="'+r1(wcx)+'" y="'+(wy+WEEKH/2+4)+'" font-size="10.5" fill="#5a607a" text-anchor="middle">'+kw(wd)+'</text>');
+        if(ww>=11)S.push('<text x="'+r1(wcx)+'" y="'+(wy+WEEKH/2+4)+'" font-size="10.5" fill="#5a607a" text-anchor="middle">'+(ww>=34?'KW ':'')+kw(wd)+'</text>');
       }
       wd.setDate(wd.getDate()+7);
     }
   }
-  // Header-Unterkante
+  if(showDays){
+    var dyb=titleH+MONH+WEEKH;
+    S.push('<line x1="0" y1="'+dyb+'" x2="'+r1(natW)+'" y2="'+dyb+'" stroke="#dde0ea" stroke-width="1"/>');
+    if(dayW*scaleMM>=3.6){ // Tagesnummern nur, wenn gedruckt genug Platz (≈3.6 mm/Tag) — sonst nur Raster
+      var dfs=Math.max(5.5,Math.min(10,dayW*0.72)); // Schrift an Zellbreite koppeln → keine Überlappung
+      var dn=[];
+      for(var di=0;di<days;di++){ var cd=new Date(MS+di*86400000),cdw=cd.getDay();
+        dn.push('<text x="'+r1(LEFT+(di+0.5)*dayW)+'" y="'+(dyb+DAYH/2+r1(dfs/2.8))+'" font-size="'+r1(dfs)+'" fill="'+((cdw===0||cdw===6)?'#9aa3bd':'#5a607a')+'" text-anchor="middle">'+cd.getDate()+'</text>'); }
+      S.push(dn.join(''));
+    }
+  }
+  // Header-Unterkante + linke Spaltenlinie (volle Höhe)
   S.push('<line x1="0" y1="'+(titleH+headerH)+'" x2="'+r1(natW)+'" y2="'+(titleH+headerH)+'" stroke="#9ba3c0" stroke-width="1.4"/>');
   S.push('<line x1="'+r1(LEFT)+'" y1="'+titleH+'" x2="'+r1(LEFT)+'" y2="'+r1(natH)+'" stroke="#9ba3c0" stroke-width="1.4"/>');
 
@@ -4086,6 +4104,30 @@ function buildPrintSVG(opt){
     S.push('<text x="'+r1(indent)+'" y="'+r1(midY+4)+'" font-size="'+FS+'" font-weight="'+(bold?700:400)+'" fill="'+lblColor+'">'+_esc(icon+fit(String(t.name||''),nameAvail))+'</text>');
     if(pctTxt)S.push('<text x="'+r1(LEFT-6)+'" y="'+r1(midY+4)+'" font-size="10.5" fill="#5a607a" text-anchor="end">'+pctTxt+'</text>');
   });
+
+  // ── Vertikale Gitterlinien + Wochenend-/Feiertags-Schattierung (über Zeilen, unter Balken) ──
+  // Schattierung nur bei KW-/Tages-Auflösung (bei Monats-Ansicht würde sie nur stören).
+  if(scale!=='month' && (opt.showWeekends||opt.showHolidays) && dayW>=2){
+    var shade=[];
+    for(var i2=0;i2<days;i2++){
+      var curS=new Date(MS+i2*86400000),dwS=curS.getDay(),holS=HOLIDAYS[fmtD(curS)];
+      if(opt.showHolidays&&holS) shade.push('<rect x="'+r1(LEFT+i2*dayW)+'" y="'+r1(GTOP)+'" width="'+r1(dayW)+'" height="'+r1(natH-GTOP)+'" fill="#f8c9c9" opacity="0.5"/>');
+      else if(opt.showWeekends&&(dwS===0||dwS===6)) shade.push('<rect x="'+r1(LEFT+i2*dayW)+'" y="'+r1(GTOP)+'" width="'+r1(dayW)+'" height="'+r1(natH-GTOP)+'" fill="#dfe3ef" opacity="0.55"/>');
+    }
+    S.push(shade.join(''));
+  }
+  if(scale==='day' && dayW>=2.2){ // Tagesraster
+    var dl=[];
+    for(var gi=1;gi<days;gi++) dl.push('<line x1="'+r1(LEFT+gi*dayW)+'" y1="'+r1(GTOP)+'" x2="'+r1(LEFT+gi*dayW)+'" y2="'+r1(natH)+'" stroke="#eef0f6" stroke-width="0.6"/>');
+    S.push(dl.join(''));
+  }
+  if(showWeeks){ // Wochenraster (Montage) volle Höhe
+    var wl=[],dow1=winStart.getDay(),bk=(dow1===0)?6:dow1-1,wdg=new Date(winStart); wdg.setDate(wdg.getDate()-bk);
+    while(wdg<=winEnd){ var wog=Math.round((wdg-winStart)/86400000); if(wog>0&&wog<days) wl.push('<line x1="'+r1(LEFT+wog*dayW)+'" y1="'+r1(GTOP)+'" x2="'+r1(LEFT+wog*dayW)+'" y2="'+r1(natH)+'" stroke="#dfe3ee" stroke-width="0.9"/>'); wdg.setDate(wdg.getDate()+7); }
+    S.push(wl.join(''));
+  }
+  // Monats-Trennlinien (volle Höhe, über dem Gitter)
+  segs.forEach(function(s,si){ if(si>0) S.push('<line x1="'+r1(LEFT+s.startOff*dayW)+'" y1="'+r1(GTOP)+'" x2="'+r1(LEFT+s.startOff*dayW)+'" y2="'+r1(natH)+'" stroke="#c9cfe0" stroke-width="1"/>'); });
 
   // ── Heute-Linie ──
   if(opt.showToday){
@@ -4153,7 +4195,7 @@ function buildPrintSVG(opt){
   S.push('<rect x="0.5" y="0.5" width="'+r1(natW-1)+'" height="'+r1(natH-1)+'" fill="none" stroke="#c9cfe0" stroke-width="1"/>');
   S.push('</svg>');
 
-  return {svg:S.join(''),natW:natW,natH:natH,scaleMM:scaleMM,effPt:effPt,days:days,nRows:nRows,pw:pw,ph:ph,areaW:areaW,areaH:areaH};
+  return {svg:S.join(''),natW:natW,natH:natH,scaleMM:scaleMM,effPt:effPt,days:days,nRows:nRows,pw:pw,ph:ph,areaW:areaW,areaH:areaH,scale:scale,dayMM:dayW*scaleMM};
 }
 
 function _prPageHTML(res,opt){
@@ -4182,14 +4224,22 @@ function renderPrintPreview(){
   scaler.style.transform='scale('+s+')';
   // Info + Lesbarkeit
   var info=document.getElementById('pr-info');
+  var scaleLbl=res.scale==='day'?'Tage':(res.scale==='week'?'Kalenderwochen':'Monate');
   info.innerHTML='<span><b>'+opt.paper+'</b> '+(opt.orient==='landscape'?'quer':'hoch')+' · '+Math.round(res.pw)+'×'+Math.round(res.ph)+' mm</span>'
     +'<span><b>'+res.nRows+'</b> Aufgaben</span>'
     +'<span><b>'+res.days+'</b> Tage</span>'
+    +'<span>Auflösung: <b>'+scaleLbl+'</b></span>'
     +'<span>Vorschau '+Math.round(s*100)+'%</span>';
   var warn=document.getElementById('pr-warn'),ok=document.getElementById('pr-legib-ok');
   var pt=res.effPt;
+  // Auflösungsspezifische Prüfung: passt die gewählte Zeiteinheit lesbar aufs Papier?
+  var resWarn='';
+  if(res.scale==='day' && res.dayMM<3.0) resWarn='⚠ Tagesauflösung zu eng ('+res.dayMM.toFixed(1)+' mm/Tag) — Kalenderwochen wählen oder größeres Papier / weniger Monate';
+  else if(res.scale==='week' && res.dayMM*7<5.0) resWarn='⚠ KW-Auflösung zu eng ('+(res.dayMM*7).toFixed(1)+' mm/Woche) — Monate wählen oder größeres Papier';
   if(res.nRows===0){
     warn.textContent='⚠ Keine Aufgaben ausgewählt'; warn.classList.add('show'); ok.style.display='none';
+  } else if(resWarn){
+    warn.textContent=resWarn; warn.classList.add('show'); ok.style.display='none';
   } else if(pt<4.2){
     warn.textContent='⚠ Sehr klein (~'+pt.toFixed(1)+' pt) — größeres Papier oder weniger Monate/Aufgaben wählen'; warn.classList.add('show'); ok.style.display='none';
   } else if(pt<6){
