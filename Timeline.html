@@ -4229,8 +4229,21 @@ function buildPrintSVG(opt){
   segs.forEach(function(s,si){
     var sx=LEFT+s.startOff*dayW, sw=s.days*dayW, cx=sx+sw/2;
     if(si>0)S.push('<line x1="'+r1(sx)+'" y1="'+titleH+'" x2="'+r1(sx)+'" y2="'+(titleH+headerH)+'" stroke="#c9cfe0" stroke-width="1"/>');
-    var mlabel=(sw<46?MN[s.m]:MF[s.m])+(s.m===0||si===0?" '"+String(s.y).slice(2):'');
-    if(sw>=18)S.push('<text x="'+r1(cx)+'" y="'+monLblY+'" font-size="13" font-weight="700" fill="#1a1d2e" text-anchor="middle">'+_esc(mlabel)+'</text>');
+    // Monatslabel: volle Form bevorzugen, sonst Schrift verkleinern / Kurzform — nie überlappen, am Rand einklemmen
+    var yr=(s.m===0||si===0)?(" '"+String(s.y).slice(2)):'';
+    var full=MF[s.m]+yr, shortL=MN[s.m]+yr, avail=sw-6;
+    var label=full, mfs=13;
+    if(full.length*13*0.55>avail){
+      var fsFull=avail/(full.length*0.55);
+      if(fsFull>=8){ label=full; mfs=fsFull; }
+      else { label=shortL; mfs=avail/(shortL.length*0.55); if(mfs<6){ label=MN[s.m]; mfs=(sw-2)/(MN[s.m].length*0.55); } }
+    }
+    mfs=Math.min(13,mfs);
+    if(label && mfs>=5){
+      var halfW=label.length*mfs*0.55/2;
+      var tx=Math.max(LEFT+halfW+1, Math.min(cx, natW-halfW-1));
+      S.push('<text x="'+r1(tx)+'" y="'+monLblY+'" font-size="'+r1(mfs)+'" font-weight="700" fill="#1a1d2e" text-anchor="middle">'+_esc(label)+'</text>');
+    }
   });
   if(showWeeks){
     var wy=titleH+MONH;
@@ -4240,7 +4253,7 @@ function buildPrintSVG(opt){
       var wo=Math.round((wd-winStart)/86400000), wend=Math.min(wo+7,days), wstart=Math.max(wo,0);
       if(wend>wstart){ var wcx=LEFT+((wstart+wend)/2)*dayW; var ww=(wend-wstart)*dayW;
         if(wo>0)S.push('<line x1="'+r1(LEFT+wo*dayW)+'" y1="'+wy+'" x2="'+r1(LEFT+wo*dayW)+'" y2="'+(wy+WEEKH)+'" stroke="#e3e6f0" stroke-width="1"/>');
-        if(ww>=11)S.push('<text x="'+r1(wcx)+'" y="'+(wy+WEEKH/2+4)+'" font-size="10.5" fill="#5a607a" text-anchor="middle">'+(ww>=34?'KW ':'')+kw(wd)+'</text>');
+        if(ww>=13){ var kfs=Math.min(10.5,(ww-3)/(((ww>=40?'KW ':'')+kw(wd)).length*0.58)); S.push('<text x="'+r1(wcx)+'" y="'+(wy+WEEKH/2+4)+'" font-size="'+r1(Math.max(7,kfs))+'" fill="#5a607a" text-anchor="middle">'+(ww>=40?'KW ':'')+kw(wd)+'</text>'); }
       }
       wd.setDate(wd.getDate()+7);
     }
