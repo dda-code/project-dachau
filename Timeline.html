@@ -505,6 +505,62 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   text-transform:none;
 }
 </style>
+<style id="print-styles">
+/* ═══ DRUCK / PRINT-DIALOG ═══════════════════════════════════════════════ */
+#print-modal{position:fixed;inset:0;z-index:9000;background:rgba(15,18,40,.55);display:none}
+#print-modal.open{display:flex}
+.pr-shell{display:flex;flex:1;background:var(--bg);overflow:hidden}
+.pr-side{width:340px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh}
+.pr-side-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.pr-side-head h2{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.pr-side-body{flex:1;overflow-y:auto;padding:14px 16px}
+.pr-side-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;background:var(--bg2)}
+.pr-grp{margin-bottom:16px}
+.pr-grp>label.pr-lbl{display:block;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px}
+.pr-row2{display:flex;gap:8px}
+.pr-row2>div{flex:1}
+.pr-field{margin-bottom:9px}
+.pr-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:3px}
+.pr-field input[type=text],.pr-field select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:12px;font-family:var(--font)}
+.pr-check{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text);padding:3px 0;cursor:pointer}
+.pr-check input{accent-color:var(--accent);cursor:pointer;width:14px;height:14px}
+.pr-tasks{border:1px solid var(--border);border-radius:var(--radius);max-height:230px;overflow-y:auto;background:var(--bg2);padding:4px 0}
+.pr-trow{display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 10px;cursor:pointer;white-space:nowrap;overflow:hidden}
+.pr-trow:hover{background:var(--surface)}
+.pr-trow input{accent-color:var(--accent);cursor:pointer;flex-shrink:0;width:13px;height:13px}
+.pr-trow .pr-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.pr-trow .pr-tnm{overflow:hidden;text-overflow:ellipsis}
+.pr-trow.pr-group{font-weight:700;background:var(--surface)}
+.pr-tasktools{display:flex;gap:6px;margin-bottom:6px}
+.pr-tasktools button{flex:1;font-size:11px;padding:4px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer;font-family:var(--font)}
+.pr-tasktools button:hover{background:var(--surface2);border-color:var(--accent)}
+.pr-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#5b6075}
+.pr-main-bar{padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.pr-info{font-size:11px;color:var(--text2);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.pr-info b{color:var(--text)}
+.pr-warn{font-size:11px;font-weight:600;color:#b45309;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:3px 9px;display:none}
+.pr-warn.show{display:inline-block}
+.pr-ok{font-size:11px;font-weight:600;color:#15803d;background:#dcfce7;border:1px solid #22c55e;border-radius:6px;padding:3px 9px}
+.pr-viewport{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:24px}
+.pr-scaler{transform-origin:top center}
+.pr-page{background:#fff;box-shadow:0 6px 30px rgba(0,0,0,.4);box-sizing:border-box}
+.pr-page svg{display:block;width:100%;height:100%}
+.pr-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)}
+.pr-btn:hover{background:var(--surface2);border-color:var(--accent)}
+.pr-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.pr-btn.primary:hover{background:var(--accent2)}
+/* Druck-Container — am Bildschirm versteckt, nur beim Drucken sichtbar */
+#print-root{display:none}
+@media print{
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important;zoom:1!important}
+  /* #app-root bleibt sichtbar (display:contents) — sonst würde es #print-root mitverstecken.
+     Daher alle direkten Kinder AUSSER #print-root ausblenden. */
+  body.print-active #app-root > :not(#print-root){display:none!important}
+  body.print-active #print-root{display:block!important}
+  body.print-active #print-root .pr-page{box-shadow:none!important;margin:0!important}
+  #print-root svg, #print-root svg *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+</style>
 </head>
 <body><div id="app-root">
 
@@ -551,6 +607,7 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
     <button class="btn" onclick="openAddMeeting()" style="background:#ede9fe;border-color:#8b5cf6;color:#4c1d95">📅 + Meeting</button>
     <div class="sep"></div>
     <button class="btn" id="btn-toggle-all" onclick="toggleAllVisibility()" title="Show or hide all tasks">👁 Filter</button>
+    <button class="btn" onclick="openPrintDialog()" title="Plan drucken oder als PDF speichern (bis DIN A0)">🖨 Druck</button>
     <div class="sep"></div>
     <span id="save-file-info" style="display: inline; font-size: 10px; color: var(--accent); font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; background: rgba(79, 110, 247, 0.1); border-radius: 4px;">Timeline_-_Project_Dachau.html</span>
     <span id="save-ind" style="font-size:11px;color:var(--text3);white-space:nowrap;display:flex;align-items:center;gap:4px">
@@ -644,6 +701,94 @@ body.user-mode .bwrap{cursor:default!important;pointer-events:none!important}
   </div>
 </div>
 <!-- TOOLTIP -->
+<!-- ═══ DRUCK-DIALOG ═══════════════════════════════════════════════════════ -->
+<div id="print-modal">
+  <div class="pr-shell">
+    <div class="pr-side">
+      <div class="pr-side-head">
+        <h2>🖨 Plan drucken</h2>
+        <button class="pr-btn" onclick="closePrintDialog()" title="Schließen" style="padding:4px 10px">✕</button>
+      </div>
+      <div class="pr-side-body">
+        <div class="pr-grp">
+          <label class="pr-lbl">Titel</label>
+          <div class="pr-field"><input type="text" id="pr-title" value="Project Dachau" oninput="renderPrintPreview()"></div>
+        </div>
+        <div class="pr-grp">
+          <label class="pr-lbl">Papierformat</label>
+          <div class="pr-row2">
+            <div class="pr-field"><label>Größe</label>
+              <select id="pr-paper" onchange="renderPrintPreview()">
+                <option value="A4">DIN A4</option>
+                <option value="A3">DIN A3</option>
+                <option value="A2">DIN A2</option>
+                <option value="A1">DIN A1</option>
+                <option value="A0" selected>DIN A0</option>
+              </select>
+            </div>
+            <div class="pr-field"><label>Ausrichtung</label>
+              <select id="pr-orient" onchange="renderPrintPreview()">
+                <option value="landscape" selected>Quer</option>
+                <option value="portrait">Hoch</option>
+              </select>
+            </div>
+          </div>
+          <div class="pr-field"><label>Rand (mm)</label>
+            <select id="pr-margin" onchange="renderPrintPreview()">
+              <option value="5">5 mm</option>
+              <option value="10" selected>10 mm</option>
+              <option value="15">15 mm</option>
+              <option value="20">20 mm</option>
+            </select>
+          </div>
+        </div>
+        <div class="pr-grp">
+          <label class="pr-lbl">Zeitraum (Monate)</label>
+          <div class="pr-row2">
+            <div class="pr-field"><label>Von</label><select id="pr-from" onchange="renderPrintPreview()"></select></div>
+            <div class="pr-field"><label>Bis</label><select id="pr-to" onchange="renderPrintPreview()"></select></div>
+          </div>
+        </div>
+        <div class="pr-grp">
+          <label class="pr-lbl">Aufgaben</label>
+          <div class="pr-tasktools">
+            <button onclick="prSelectAll(true)">Alle</button>
+            <button onclick="prSelectAll(false)">Keine</button>
+          </div>
+          <div class="pr-tasks" id="pr-tasklist"></div>
+        </div>
+        <div class="pr-grp">
+          <label class="pr-lbl">Optionen</label>
+          <label class="pr-check"><input type="checkbox" id="pr-opt-weekends" checked onchange="renderPrintPreview()"> Wochenenden schattieren</label>
+          <label class="pr-check"><input type="checkbox" id="pr-opt-weeks" onchange="renderPrintPreview()"> Kalenderwochen anzeigen</label>
+          <label class="pr-check"><input type="checkbox" id="pr-opt-today" checked onchange="renderPrintPreview()"> Heute-Linie</label>
+          <label class="pr-check"><input type="checkbox" id="pr-opt-deps" checked onchange="renderPrintPreview()"> Abhängigkeiten</label>
+          <label class="pr-check"><input type="checkbox" id="pr-opt-progress" checked onchange="renderPrintPreview()"> Fortschritt (%)</label>
+          <label class="pr-check"><input type="checkbox" id="pr-opt-holidays" checked onchange="renderPrintPreview()"> Feiertage markieren</label>
+        </div>
+      </div>
+      <div class="pr-side-foot">
+        <button class="pr-btn" onclick="closePrintDialog()" style="flex:1">Abbrechen</button>
+        <button class="pr-btn primary" onclick="doPrint()" style="flex:2">🖨 Drucken</button>
+      </div>
+    </div>
+    <div class="pr-main">
+      <div class="pr-main-bar">
+        <div class="pr-info" id="pr-info"></div>
+        <div>
+          <span class="pr-ok" id="pr-legib-ok" style="display:none"></span>
+          <span class="pr-warn" id="pr-warn"></span>
+        </div>
+      </div>
+      <div class="pr-viewport" id="pr-viewport">
+        <div class="pr-scaler" id="pr-scaler"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Druck-Ausgabe (nur beim Drucken sichtbar) -->
+<div id="print-root"></div>
+
 <div id="tt">
   <div id="tt-name"><div id="tt-dot"></div><span id="tt-n"></span></div>
   <div id="tt-rows">
@@ -3678,6 +3823,397 @@ function makeDraggable(dragHandle, movableEl){
   });
   mo.observe(document.body,{childList:true});
 })();
+
+/* ════════════════════════════════════════════════════════════════════════════
+   DRUCK / PRINT  —  Gantt als skalierbares Vektor-SVG bis DIN A0
+   - Monate + Aufgaben auswählbar
+   - Papierformat A4…A0, Quer/Hoch, Rand
+   - WYSIWYG-Vorschau (gleiches SVG, nur herunterskaliert) + Lesbarkeits-Check
+   ════════════════════════════════════════════════════════════════════════════ */
+var PR_PAPER={A4:[210,297],A3:[297,420],A2:[420,594],A1:[594,841],A0:[841,1189]};
+var MM2PX=96/25.4; // mm -> CSS-px bei 96dpi
+var _prevDocZoom=null;
+
+function _prAllRows(){
+  // wie visibleRows(), aber ignoriert 'collapsed' (alles aufgeklappt) — für die Druckauswahl.
+  var rows=[],childrenOf={};
+  tasks.forEach(function(t){ if(t.parentId){ if(!childrenOf[t.parentId])childrenOf[t.parentId]=[]; childrenOf[t.parentId].push(t);} });
+  function add(pid,depth){ var ch=childrenOf[pid]; if(!ch)return; for(var i=0;i<ch.length;i++){ var t=ch[i]; if(t.hidden)continue; rows.push({task:t,depth:depth}); add(t.id,depth+1);} }
+  tasks.forEach(function(t){ if(t.parentId)return; if(t.hidden)return; if(t.type==='urlaub'||t.type==='meeting')return; rows.push({task:t,depth:0}); add(t.id,1); });
+  var ut=tasks.filter(function(t){return t.type==='urlaub'&&!t.hidden;});
+  if(ut.length){ var s=ut.map(function(t){return t.start;}).sort(),e=ut.map(function(t){return t.end;}).sort();
+    rows.push({task:{id:'urlaub-group',name:'Urlaub',type:'urlaub-group',start:s[0],end:e[e.length-1],color:'#f59e0b'},depth:0,isGroup:true});
+    ut.forEach(function(t){rows.push({task:t,depth:1});}); }
+  var mt=tasks.filter(function(t){return t.type==='meeting'&&!t.hidden;});
+  if(mt.length){ var s2=mt.map(function(t){return t.start;}).sort(),e2=mt.map(function(t){return t.end;}).sort();
+    rows.push({task:{id:'meeting-group',name:'Meetings',type:'meeting-group',start:s2[0],end:e2[e2.length-1],color:'#8b5cf6'},depth:0,isGroup:true});
+    mt.forEach(function(t){rows.push({task:t,depth:1});}); }
+  return rows;
+}
+function _prMonthOptions(){
+  var out=[],d=new Date(PS.getFullYear(),PS.getMonth(),1),end=new Date(PE.getFullYear(),PE.getMonth(),1);
+  while(d<=end){ out.push({y:d.getFullYear(),m:d.getMonth(),val:d.getFullYear()+'-'+d.getMonth(),label:MF[d.getMonth()]+' '+d.getFullYear()}); d=new Date(d.getFullYear(),d.getMonth()+1,1); }
+  return out;
+}
+function _prDescendants(id){
+  var res=[]; tasks.forEach(function(t){ if(t.parentId===id){ res.push(t.id); res=res.concat(_prDescendants(t.id)); } }); return res;
+}
+function _prToggleGroupChildren(grpTask,state){
+  var childType=grpTask.type==='urlaub-group'?'urlaub':'meeting';
+  tasks.forEach(function(t){ if(t.type===childType){ var cb=document.querySelector('.pr-cb[data-id="'+t.id+'"]'); if(cb)cb.checked=state; } });
+}
+function _prBuildTaskList(){
+  var box=document.getElementById('pr-tasklist'); box.innerHTML='';
+  _prAllRows().forEach(function(row){
+    var t=row.task;
+    var div=document.createElement('div');
+    div.className='pr-trow'+(row.isGroup?' pr-group':'');
+    div.style.paddingLeft=(8+(row.depth||0)*14)+'px';
+    var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=true; cb.className='pr-cb'; cb.setAttribute('data-id',t.id);
+    cb.addEventListener('change',function(){
+      if(row.isGroup){ _prToggleGroupChildren(t,cb.checked); }
+      else { _prDescendants(t.id).forEach(function(cid){ var c=document.querySelector('.pr-cb[data-id="'+cid+'"]'); if(c)c.checked=cb.checked; }); }
+      renderPrintPreview();
+    });
+    div.appendChild(cb);
+    if(!row.isGroup){ var dot=document.createElement('span'); dot.className='pr-dot';
+      dot.style.background=t.type==='urlaub'?'#f59e0b':(t.type==='meeting'?'#8b5cf6':(t.color||'#4f6ef7')); div.appendChild(dot); }
+    var nm=document.createElement('span'); nm.className='pr-tnm';
+    nm.textContent=(row.isGroup?(t.type==='urlaub-group'?'🏖 ':'📅 '):'')+t.name; div.appendChild(nm);
+    div.addEventListener('click',function(e){ if(e.target.tagName!=='INPUT'){ cb.checked=!cb.checked; cb.dispatchEvent(new Event('change')); } });
+    box.appendChild(div);
+  });
+}
+function prSelectAll(state){
+  document.querySelectorAll('.pr-cb').forEach(function(cb){ cb.checked=state; });
+  renderPrintPreview();
+}
+function _prGetSelectedRows(){
+  var sel={};
+  document.querySelectorAll('.pr-cb').forEach(function(cb){ sel[cb.getAttribute('data-id')]=cb.checked; });
+  var out=[];
+  _prAllRows().forEach(function(row){
+    var t=row.task;
+    if(row.isGroup){
+      var childType=t.type==='urlaub-group'?'urlaub':'meeting';
+      var any=tasks.some(function(x){ return x.type===childType && !x.hidden && sel[x.id]; });
+      if(any)out.push(row);
+    } else if(sel[t.id]){ out.push(row); }
+  });
+  return out;
+}
+
+function openPrintDialog(){
+  // Monats-Dropdowns füllen
+  var opts=_prMonthOptions();
+  var optHtml=opts.map(function(o){return '<option value="'+o.y+'-'+o.m+'">'+_esc(o.label)+'</option>';}).join('');
+  document.getElementById('pr-from').innerHTML=optHtml;
+  document.getElementById('pr-to').innerHTML=optHtml;
+  // Aufgabenliste
+  _prBuildTaskList();
+  // Standard-Zeitraum = Monatsspanne der sichtbaren Aufgaben
+  var rows=_prAllRows().filter(function(r){return !r.isGroup;});
+  var minS=null,maxE=null;
+  rows.forEach(function(r){ if(r.task.start&&(!minS||r.task.start<minS))minS=r.task.start; if(r.task.end&&(!maxE||r.task.end>maxE))maxE=r.task.end; });
+  if(minS){ document.getElementById('pr-from').value=parseInt(minS.slice(0,4),10)+'-'+(parseInt(minS.slice(5,7),10)-1); }
+  if(maxE){ document.getElementById('pr-to').value=parseInt(maxE.slice(0,4),10)+'-'+(parseInt(maxE.slice(5,7),10)-1); }
+  // Auto-Zoom der Seite neutralisieren, damit die mm-Vorschau exakt stimmt
+  _prevDocZoom=document.documentElement.style.zoom;
+  document.documentElement.style.zoom='1';
+  document.getElementById('print-modal').classList.add('open');
+  renderPrintPreview();
+}
+function closePrintDialog(){
+  document.getElementById('print-modal').classList.remove('open');
+  if(_prevDocZoom!==null){ document.documentElement.style.zoom=_prevDocZoom; _prevDocZoom=null; }
+}
+
+function _prReadOpts(){
+  function v(id){return document.getElementById(id).value;}
+  function ck(id){return document.getElementById(id).checked;}
+  var fr=v('pr-from').split('-'),to=v('pr-to').split('-');
+  var fromY=+fr[0],fromM=+fr[1],toY=+to[0],toM=+to[1];
+  // sicherstellen von<=bis
+  if(toY<fromY||(toY===fromY&&toM<fromM)){ toY=fromY; toM=fromM; }
+  return {
+    title:v('pr-title').trim(), paper:v('pr-paper'), orient:v('pr-orient'), margin:+v('pr-margin'),
+    fromY:fromY,fromM:fromM,toY:toY,toM:toM,
+    showWeekends:ck('pr-opt-weekends'), showWeeks:ck('pr-opt-weeks'), showToday:ck('pr-opt-today'),
+    showDeps:ck('pr-opt-deps'), showProgress:ck('pr-opt-progress'), showHolidays:ck('pr-opt-holidays'),
+    rows:_prGetSelectedRows()
+  };
+}
+
+function buildPrintSVG(opt){
+  var rows=opt.rows;
+  var winStart=new Date(opt.fromY,opt.fromM,1);
+  var winEnd=new Date(opt.toY,opt.toM+1,0);
+  var MS=winStart.getTime();
+  var days=Math.max(1,Math.round((winEnd-winStart)/86400000)+1);
+  function offD(ds){ return Math.round((new Date(ds+'T00:00:00').getTime()-MS)/86400000); }
+  var nRows=rows.length;
+
+  // ── Seitengeometrie (mm) ──
+  var pg=PR_PAPER[opt.paper]||PR_PAPER.A0; var pw=pg[0],ph=pg[1];
+  if(opt.orient==='landscape'){ var tmp=pw; pw=ph; ph=tmp; }
+  var mar=opt.margin;
+  var areaW=Math.max(20,pw-2*mar), areaH=Math.max(20,ph-2*mar);
+
+  // ── logisches Layout (px) ──
+  var FS=13, ROW=34, barH=20, MONH=40, WEEKH=opt.showWeeks?26:0, headerH=MONH+WEEKH;
+  var titleH=opt.title?54:16;
+  var maxName=160;
+  rows.forEach(function(r){
+    var indent=(r.depth||0)*16+(r.isGroup?24:20);
+    var w=indent+String(r.task.name||'').length*FS*0.56+54;
+    if(w>maxName)maxName=w;
+  });
+  var LEFT=Math.max(220,Math.min(520,maxName));
+  var natH=titleH+headerH+nRows*ROW+10;
+  // dayW so wählen, dass Inhalts-Seitenverhältnis ≈ Papier-Seitenverhältnis (maximiert Fit-Skalierung → Lesbarkeit)
+  var targetW=natH*(areaW/areaH);
+  var dayW=(targetW-LEFT)/days;
+  dayW=Math.max(1.0,Math.min(48,dayW));
+  var gridW=days*dayW, natW=LEFT+gridW;
+  // Letterbox vertikal füllen: ist der Inhalt breiter als die Seite (dayW am Minimum),
+  // werden die Zeilen höher — die Schrift bleibt exakt gleich groß (Maßstab ist breitenbegrenzt),
+  // aber das Blatt wird sauber ausgefüllt statt einen dünnen Streifen oben zu zeigen.
+  if(nRows>0){
+    var idealH=natW*(areaH/areaW);
+    if(idealH>natH+1){
+      var natH2=Math.min(idealH, natH+(nRows*ROW)*2.4); // Zeilenhöhe max ~3.4x
+      var extraPerRow=(natH2-natH)/nRows;
+      ROW=ROW+extraPerRow;
+      barH=Math.min(barH+extraPerRow*0.55, ROW-10);
+      natH=natH2;
+    }
+  }
+  var scaleMM=Math.min(areaW/natW, areaH/natH); // mm pro logischem px nach Fit
+  var effPt=(FS*scaleMM)/0.3528;
+  var GTOP=titleH+headerH;
+  function X(o){ return LEFT+Math.max(0,Math.min(days,o))*dayW; }
+  function rowY(i){ return GTOP+i*ROW; }
+  function fit(txt,wpx){ var max=Math.floor((wpx-8)/(FS*0.56)); if(max<1)return ''; if(txt.length<=max)return txt; if(max<2)return ''; return txt.slice(0,max-1)+'…'; }
+  var r1=function(n){return Math.round(n*10)/10;};
+
+  // ── Monats-Segmente ──
+  var segs=[],d=new Date(winStart);
+  while(d<=winEnd){ var y=d.getFullYear(),m=d.getMonth(),last=new Date(y,m+1,0),segEnd=(last<winEnd)?last:winEnd;
+    segs.push({y:y,m:m,startOff:Math.round((d-winStart)/86400000),days:Math.round((segEnd-d)/86400000)+1}); d=new Date(y,m+1,1); }
+
+  var S=[];
+  S.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+r1(natW)+' '+r1(natH)+'" preserveAspectRatio="xMidYMin meet" style="font-family:\'Segoe UI\',system-ui,sans-serif">');
+  S.push('<defs>'
+    +'<pattern id="pr-hu" patternUnits="userSpaceOnUse" width="11" height="11" patternTransform="rotate(45)"><rect width="11" height="11" fill="#f59e0b"/><rect width="5.5" height="11" fill="#fcd34d"/></pattern>'
+    +'<pattern id="pr-hm" patternUnits="userSpaceOnUse" width="11" height="11" patternTransform="rotate(45)"><rect width="11" height="11" fill="#8b5cf6"/><rect width="5.5" height="11" fill="#a78bfa"/></pattern>'
+    +'<pattern id="pr-ho" patternUnits="userSpaceOnUse" width="9" height="9" patternTransform="rotate(135)"><rect width="9" height="9" fill="#ef4444"/><rect width="4.5" height="9" fill="#f87171"/></pattern>'
+    +'<marker id="pr-arrow" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#94a3b8"/></marker>'
+    +'</defs>');
+  // weißer Hintergrund
+  S.push('<rect x="0" y="0" width="'+r1(natW)+'" height="'+r1(natH)+'" fill="#ffffff"/>');
+
+  // ── Titel ──
+  if(opt.title){
+    var gen=new Date(); var genStr=('0'+gen.getDate()).slice(-2)+'.'+('0'+(gen.getMonth()+1)).slice(-2)+'.'+gen.getFullYear();
+    var sub='Zeitraum '+MF[opt.fromM]+' '+opt.fromY+' – '+MF[opt.toM]+' '+opt.toY+'  ·  '+nRows+' Aufgaben  ·  erstellt am '+genStr;
+    // Titel-Schrift an Seitenbreite anpassen (kein Überlauf bei schmalen Formaten)
+    var titFS=Math.max(13,Math.min(23,(natW-6)/(String(opt.title).length*0.6)));
+    var subFS=Math.max(8.5,Math.min(12.5,(natW-6)/(sub.length*0.52)));
+    S.push('<text x="2" y="26" font-size="'+r1(titFS)+'" font-weight="700" fill="#1a1d2e">'+_esc(opt.title)+'</text>');
+    S.push('<text x="3" y="46" font-size="'+r1(subFS)+'" fill="#5a607a">'+_esc(sub)+'</text>');
+  }
+
+  // ── Wochenend- / Feiertags-Schattierung (volle Höhe) ──
+  if((opt.showWeekends||opt.showHolidays)&&dayW>=2.5){
+    var shade=[];
+    for(var i2=0;i2<days;i2++){
+      var cur=new Date(MS+i2*86400000),dw=cur.getDay(),hol=HOLIDAYS[fmtD(cur)];
+      if(opt.showHolidays&&hol){ shade.push('<rect x="'+r1(LEFT+i2*dayW)+'" y="'+GTOP+'" width="'+r1(dayW)+'" height="'+r1(natH-GTOP)+'" fill="#fde2e2"/>'); }
+      else if(opt.showWeekends&&(dw===0||dw===6)){ shade.push('<rect x="'+r1(LEFT+i2*dayW)+'" y="'+GTOP+'" width="'+r1(dayW)+'" height="'+r1(natH-GTOP)+'" fill="#eef0f7"/>'); }
+    }
+    S.push(shade.join(''));
+  }
+
+  // ── Header: Monatsband + (optional) KW-Band ──
+  S.push('<rect x="0" y="'+titleH+'" width="'+r1(natW)+'" height="'+headerH+'" fill="#f4f6fb"/>');
+  S.push('<rect x="0" y="'+titleH+'" width="'+r1(LEFT)+'" height="'+headerH+'" fill="#eceff7"/>');
+  S.push('<text x="10" y="'+(titleH+headerH/2+4)+'" font-size="13" font-weight="700" fill="#5a607a">Aufgabe</text>');
+  segs.forEach(function(s,si){
+    var sx=LEFT+s.startOff*dayW, sw=s.days*dayW, cx=sx+sw/2;
+    if(si>0)S.push('<line x1="'+r1(sx)+'" y1="'+titleH+'" x2="'+r1(sx)+'" y2="'+r1(natH)+'" stroke="#c9cfe0" stroke-width="1"/>');
+    var mlabel=(sw<46?MN[s.m]:MF[s.m])+(s.m===0||si===0?" '"+String(s.y).slice(2):'');
+    if(sw>=18)S.push('<text x="'+r1(cx)+'" y="'+(titleH+(WEEKH?17:headerH/2+4))+'" font-size="13" font-weight="700" fill="#1a1d2e" text-anchor="middle">'+_esc(mlabel)+'</text>');
+  });
+  if(opt.showWeeks){
+    var wy=titleH+MONH;
+    S.push('<line x1="0" y1="'+wy+'" x2="'+r1(natW)+'" y2="'+wy+'" stroke="#dde0ea" stroke-width="1"/>');
+    var dow0=winStart.getDay(),back=(dow0===0)?6:dow0-1,wd=new Date(winStart); wd.setDate(wd.getDate()-back);
+    while(wd<=winEnd){
+      var wo=Math.round((wd-winStart)/86400000), wend=Math.min(wo+7,days), wstart=Math.max(wo,0);
+      if(wend>wstart){ var wcx=LEFT+((wstart+wend)/2)*dayW; var ww=(wend-wstart)*dayW;
+        if(wo>0)S.push('<line x1="'+r1(LEFT+wo*dayW)+'" y1="'+wy+'" x2="'+r1(LEFT+wo*dayW)+'" y2="'+(wy+WEEKH)+'" stroke="#e3e6f0" stroke-width="1"/>');
+        if(ww>=12)S.push('<text x="'+r1(wcx)+'" y="'+(wy+WEEKH/2+4)+'" font-size="10.5" fill="#5a607a" text-anchor="middle">'+kw(wd)+'</text>');
+      }
+      wd.setDate(wd.getDate()+7);
+    }
+  }
+  // Header-Unterkante
+  S.push('<line x1="0" y1="'+(titleH+headerH)+'" x2="'+r1(natW)+'" y2="'+(titleH+headerH)+'" stroke="#9ba3c0" stroke-width="1.4"/>');
+  S.push('<line x1="'+r1(LEFT)+'" y1="'+titleH+'" x2="'+r1(LEFT)+'" y2="'+r1(natH)+'" stroke="#9ba3c0" stroke-width="1.4"/>');
+
+  // ── Zeilen-Hintergründe + Trennlinien + linke Labels ──
+  var todayStr=fmtD(new Date());
+  rows.forEach(function(row,i){
+    var t=row.task,y=rowY(i),midY=y+ROW/2;
+    if(i%2===1)S.push('<rect x="0" y="'+r1(y)+'" width="'+r1(natW)+'" height="'+ROW+'" fill="#fbfcfe"/>');
+    if(row.isGroup)S.push('<rect x="0" y="'+r1(y)+'" width="'+r1(natW)+'" height="'+ROW+'" fill="'+(t.type==='urlaub-group'?'#fef6e0':'#efe9fb')+'"/>');
+    S.push('<line x1="0" y1="'+r1(y+ROW)+'" x2="'+r1(natW)+'" y2="'+r1(y+ROW)+'" stroke="#e8eaf2" stroke-width="1"/>');
+    // linkes Label
+    var indent=8+(row.depth||0)*16;
+    var lblColor=row.isGroup?(t.type==='urlaub-group'?'#92400e':'#4c1d95'):'#1a1d2e';
+    var bold=row.isGroup||hasChildren(t.id);
+    var icon=row.isGroup?(t.type==='urlaub-group'?'🏖 ':'📅 '):(t.type==='urlaub'?'🏖 ':(t.type==='meeting'?'📅 ':''));
+    if(!row.isGroup&&t.type!=='urlaub'&&t.type!=='meeting'){
+      S.push('<rect x="'+r1(indent)+'" y="'+r1(midY-4.5)+'" width="9" height="9" rx="2" fill="'+(t.color||'#4f6ef7')+'"/>');
+      indent+=14;
+    }
+    var pctTxt='';
+    if(t.type!=='urlaub'&&t.type!=='meeting'&&!row.isGroup){
+      var pp=hasChildren(t.id)?(cachedChildAvgProgress(t.id)||t.progress||0):(t.progress||0);
+      if(opt.showProgress)pctTxt=pp+'%';
+    }
+    var nameAvail=LEFT-indent-(pctTxt?40:8);
+    S.push('<text x="'+r1(indent)+'" y="'+r1(midY+4)+'" font-size="'+FS+'" font-weight="'+(bold?700:400)+'" fill="'+lblColor+'">'+_esc(icon+fit(String(t.name||''),nameAvail))+'</text>');
+    if(pctTxt)S.push('<text x="'+r1(LEFT-6)+'" y="'+r1(midY+4)+'" font-size="10.5" fill="#5a607a" text-anchor="end">'+pctTxt+'</text>');
+  });
+
+  // ── Heute-Linie ──
+  if(opt.showToday){
+    var no=offD(todayStr);
+    if(no>=0&&no<=days){ var tx=LEFT+no*dayW;
+      S.push('<line x1="'+r1(tx)+'" y1="'+titleH+'" x2="'+r1(tx)+'" y2="'+r1(natH)+'" stroke="#ef4444" stroke-width="1.4" stroke-dasharray="5 4"/>');
+      S.push('<rect x="'+r1(tx+2)+'" y="'+r1(GTOP+3)+'" width="38" height="15" rx="3" fill="#ffffff" opacity="0.85"/>');
+      S.push('<text x="'+r1(tx+5)+'" y="'+r1(GTOP+14)+'" font-size="11" font-weight="700" fill="#ef4444">Heute</text>');
+    }
+  }
+
+  // ── Balken ── (barH oben definiert, ggf. für Letterbox-Füllung vergrößert)
+  rows.forEach(function(row,i){
+    var t=row.task; if(row.isGroup)return;
+    var y=rowY(i),by=y+(ROW-barH)/2;
+    function bar(start,end,col,patt,label,pct,done){
+      var so=offD(start),eo=offD(end),s=Math.max(so,0),e=Math.min(eo,days-1);
+      if(e<s)return;
+      var x=LEFT+s*dayW,w=(e-s+1)*dayW;
+      var op=done?0.6:1;
+      S.push('<rect x="'+r1(x)+'" y="'+r1(by)+'" width="'+r1(w)+'" height="'+barH+'" rx="3.5" fill="'+(patt||col)+'" opacity="'+op+'"/>');
+      if(typeof pct==='number'&&pct>0&&!patt){
+        S.push('<rect x="'+r1(x)+'" y="'+r1(by)+'" width="'+r1(w*Math.min(pct,100)/100)+'" height="'+barH+'" rx="3.5" fill="rgba(0,0,0,0.20)"/>');
+      }
+      var lbl=fit(label,w-(typeof pct==='number'&&opt.showProgress?34:6));
+      if(lbl)S.push('<text x="'+r1(x+6)+'" y="'+r1(by+barH/2+3.5)+'" font-size="11" font-weight="600" fill="#ffffff">'+_esc(lbl)+'</text>');
+      if(typeof pct==='number'&&opt.showProgress&&w>=44)S.push('<text x="'+r1(x+w-5)+'" y="'+r1(by+barH/2+3.5)+'" font-size="10" fill="rgba(255,255,255,0.85)" text-anchor="end">'+pct+'%</text>');
+    }
+    if(t.type==='urlaub'||t.type==='meeting'){
+      var ps=(t.urlaubPeriods&&t.urlaubPeriods.length)?t.urlaubPeriods:[{start:t.start,end:t.end}];
+      var ic=t.type==='urlaub'?'🏖 ':'📅 ', pat=t.type==='urlaub'?'url(#pr-hu)':'url(#pr-hm)';
+      ps.forEach(function(p){ bar(p.start,p.end,null,pat,ic+t.name,null,false); });
+      return;
+    }
+    var isOverdue=!t.done&&t.end<todayStr;
+    var pct=(t.progress||0);
+    bar(t.start,t.end, t.color||'#4f6ef7', isOverdue?'url(#pr-ho)':null, t.name, pct, !!t.done);
+    (t.extraPeriods||[]).forEach(function(p){ if(p.start&&p.end)bar(p.start,p.end,p.color||t.color||'#4f6ef7',null,p.name||t.name,null,false); });
+    // Marker
+    if(t.markers&&t.markers.length){
+      t.markers.forEach(function(mk2){ if(!mk2||!mk2.date)return; var mo2=offD(mk2.date); if(mo2<0||mo2>days)return;
+        var mx=LEFT+(mo2+0.5)*dayW;
+        S.push('<path d="M'+r1(mx)+' '+r1(y+5)+' l5 0 l0 7 l-5 -2.5 z" fill="#ef4444"/><line x1="'+r1(mx)+'" y1="'+r1(y+5)+'" x2="'+r1(mx)+'" y2="'+r1(by+barH)+'" stroke="#ef4444" stroke-width="1"/>');
+        if(mk2.text&&dayW>=4)S.push('<text x="'+r1(mx+6)+'" y="'+r1(y+12)+'" font-size="9.5" fill="#b91c1c">'+_esc(fit(mk2.text,90))+'</text>');
+      });
+    }
+  });
+
+  // ── Abhängigkeiten ──
+  if(opt.showDeps){
+    var idxOf={}; rows.forEach(function(row,i){ if(!row.isGroup)idxOf[row.task.id]=i; });
+    rows.forEach(function(row,i){
+      var t=row.task; if(row.isGroup||!t.deps||!t.deps.length)return;
+      t.deps.forEach(function(depId){
+        if(!(depId in idxOf))return; var pi=idxOf[depId],pred=taskMap.get(depId); if(!pred)return;
+        var peo=offD(pred.end)+1,sso=offD(t.start);
+        var pex=LEFT+Math.max(0,Math.min(days,peo))*dayW, ssx=LEFT+Math.max(0,Math.min(days,sso))*dayW;
+        var py=rowY(pi)+ROW/2, sy=rowY(i)+ROW/2, mx=pex+6;
+        S.push('<path d="M'+r1(pex)+' '+r1(py)+' L'+r1(mx)+' '+r1(py)+' L'+r1(mx)+' '+r1(sy)+' L'+r1(ssx-3)+' '+r1(sy)+'" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#pr-arrow)"/>');
+      });
+    });
+  }
+
+  // Außenrahmen
+  S.push('<rect x="0.5" y="0.5" width="'+r1(natW-1)+'" height="'+r1(natH-1)+'" fill="none" stroke="#c9cfe0" stroke-width="1"/>');
+  S.push('</svg>');
+
+  return {svg:S.join(''),natW:natW,natH:natH,scaleMM:scaleMM,effPt:effPt,days:days,nRows:nRows,pw:pw,ph:ph,areaW:areaW,areaH:areaH};
+}
+
+function _prPageHTML(res,opt){
+  var pg=PR_PAPER[opt.paper]||PR_PAPER.A0; var pw=pg[0],ph=pg[1];
+  if(opt.orient==='landscape'){ var tmp=pw; pw=ph; ph=tmp; }
+  return '<div class="pr-page" style="width:'+pw+'mm;height:'+ph+'mm;padding:'+opt.margin+'mm">'+res.svg+'</div>';
+}
+
+function renderPrintPreview(){
+  var opt=_prReadOpts();
+  var res=buildPrintSVG(opt);
+  var pageHTML=_prPageHTML(res,opt);
+  // Druck-Container (echte mm-Größe)
+  document.getElementById('print-root').innerHTML=pageHTML;
+  // @page-Regel setzen
+  var rule=document.getElementById('pr-page-rule');
+  if(!rule){ rule=document.createElement('style'); rule.id='pr-page-rule'; document.head.appendChild(rule); }
+  rule.textContent='@page{size:'+res.pw+'mm '+res.ph+'mm;margin:0}';
+  // Vorschau (gleiche Seite, herunterskaliert)
+  var scaler=document.getElementById('pr-scaler'); scaler.innerHTML=pageHTML;
+  var vp=document.getElementById('pr-viewport');
+  var pagePxW=res.pw*MM2PX,pagePxH=res.ph*MM2PX;
+  var availW=vp.clientWidth-48,availH=vp.clientHeight-48;
+  var s=Math.min(availW/pagePxW,availH/pagePxH); if(!isFinite(s)||s<=0)s=0.2;
+  scaler.style.width=pagePxW+'px';
+  scaler.style.transform='scale('+s+')';
+  // Info + Lesbarkeit
+  var info=document.getElementById('pr-info');
+  info.innerHTML='<span><b>'+opt.paper+'</b> '+(opt.orient==='landscape'?'quer':'hoch')+' · '+Math.round(res.pw)+'×'+Math.round(res.ph)+' mm</span>'
+    +'<span><b>'+res.nRows+'</b> Aufgaben</span>'
+    +'<span><b>'+res.days+'</b> Tage</span>'
+    +'<span>Vorschau '+Math.round(s*100)+'%</span>';
+  var warn=document.getElementById('pr-warn'),ok=document.getElementById('pr-legib-ok');
+  var pt=res.effPt;
+  if(res.nRows===0){
+    warn.textContent='⚠ Keine Aufgaben ausgewählt'; warn.classList.add('show'); ok.style.display='none';
+  } else if(pt<4.2){
+    warn.textContent='⚠ Sehr klein (~'+pt.toFixed(1)+' pt) — größeres Papier oder weniger Monate/Aufgaben wählen'; warn.classList.add('show'); ok.style.display='none';
+  } else if(pt<6){
+    warn.textContent='ℹ Klein (~'+pt.toFixed(1)+' pt) — noch lesbar, ggf. größeres Papier'; warn.classList.add('show'); ok.style.display='none';
+  } else {
+    warn.classList.remove('show'); ok.textContent='✓ Gut lesbar (~'+pt.toFixed(1)+' pt)'; ok.style.display='inline-block';
+  }
+}
+
+function doPrint(){
+  renderPrintPreview();
+  var rows=_prGetSelectedRows();
+  if(!rows.length){ alert('Bitte mindestens eine Aufgabe auswählen.'); return; }
+  document.body.classList.add('print-active');
+  var html=document.documentElement, savedZoom=html.style.zoom; html.style.zoom='1';
+  function after(){ document.body.classList.remove('print-active'); html.style.zoom=savedZoom; window.removeEventListener('afterprint',after); }
+  window.addEventListener('afterprint',after);
+  setTimeout(function(){ window.print(); },60);
+}
+
+// Vorschau bei Fenster-Resize neu skalieren
+window.addEventListener('resize',function(){ if(document.getElementById('print-modal').classList.contains('open'))renderPrintPreview(); });
+// ESC schließt den Druck-Dialog
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&document.getElementById('print-modal').classList.contains('open'))closePrintDialog(); });
 
 // Initial-Render mit leerem State — echte Daten kommen nach Login via firebaseStart() aus Firestore.
 document.getElementById('zoom-slider').value=zi+1;
