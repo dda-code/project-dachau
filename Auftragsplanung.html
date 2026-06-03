@@ -3659,9 +3659,8 @@ function renderProtocol(){
         const reqEmail=String(r.requestedByEmail||'').replace('@lager.local','');
         const decEmail=String(r.decidedByEmail||'').replace('@lager.local','');
         const note=r.note?`<div style="margin-top:8px;padding:7px 10px;background:#fef3c7;border-radius:6px;font-size:0.8rem;color:#92400e"><strong>Note:</strong> ${escHtml(r.note)}</div>`:'';
-        const adminBtns=isAdmin?`
-            <button class="btn btn-sm btn-secondary" onclick="editProtocolNote('${escHtml(r.id)}')" title="Edit note (Super-Admin only)">Edit note</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteProtocolEntry('${escHtml(r.id)}')" title="Delete entry (Super-Admin only)">🗑 Delete</button>`:'';
+        // Audit-fest (ISO 9001): Freigabe-Protokoll ist unveränderlich — kein Edit/Delete im Frontend.
+        const adminBtns='';
         return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
@@ -3691,7 +3690,7 @@ function renderProtocol(){
             </div>
         </div>`;
     }).join('');
-    $('proto_status').textContent=`${rows.length} of ${protocolRows.length} entries — ${isAdmin?'Super-Admin: edit/delete active.':'Read-only.'}`;
+    $('proto_status').textContent=`${rows.length} of ${protocolRows.length} entries — audit log (read-only, immutable).`;
 }
 function exportProtocolEntryPdf(id){
     const r=protocolRows.find(x=>x.id===id); if(!r){ alert('Entry not found.'); return; }
@@ -3712,32 +3711,8 @@ function exportProtocolEntryPdf(id){
         alert('PDF generation failed: '+e.message);
     }
 }
-async function editProtocolNote(id){
-    if(!_apIsSuperAdmin(currentUserEmail)){ alert('Super-Admin only.'); return; }
-    const r=protocolRows.find(x=>x.id===id); if(!r) return;
-    const newNote=prompt('Edit note/comment:', r.note||'');
-    if(newNote===null) return;
-    try{
-        await db.collection(PROTOCOL_COL).doc(id).update({
-            note:newNote,
-            editedBy:currentUid,
-            editedByEmail:currentUserEmail,
-            editedAt:firebase.firestore.FieldValue.serverTimestamp()
-        });
-        await loadProtocol();
-        showMsg('Note updated.','success');
-    }catch(e){ alert('Error: '+e.message); }
-}
-async function deleteProtocolEntry(id){
-    if(!_apIsSuperAdmin(currentUserEmail)){ alert('Super-Admin only.'); return; }
-    if(!confirm('Really delete this protocol entry? (Audit log!)')) return;
-    try{
-        await db.collection(PROTOCOL_COL).doc(id).delete();
-        protocolRows=protocolRows.filter(r=>r.id!==id);
-        renderProtocol();
-        showMsg('Entry deleted.','success');
-    }catch(e){ alert('Error: '+e.message); }
-}
+// editProtocolNote / deleteProtocolEntry wurden entfernt: Das Freigabe-Protokoll ist
+// audit-fest (ISO 9001) und serverseitig unveränderlich (approval_protocol: update,delete = if false).
 
 // ---------- PDF ----------
 // XO logo as PNG data URL for jsPDF (rendered up front on page load).

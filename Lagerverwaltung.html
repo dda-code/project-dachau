@@ -316,7 +316,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <section class="view" id="view-protokoll">
         <h2>Ein-/Auslagerungs-Protokoll</h2>
         <div class="inv-actions"><button class="btn btn-success" id="protokollExportBtn">Excel exportieren</button></div>
-        <div class="table-wrapper"><table class="data-table"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table></div>
+        <div class="table-wrapper"><table class="data-table"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th></tr></thead><tbody id="protokollBody"></tbody></table></div>
     </section>
 
     <!-- ARTIKELSTAMM -->
@@ -1407,11 +1407,10 @@ async function loadProtokoll(){
     document.getElementById('protokollBody').innerHTML=rows.map(p=>{
         const aktionHtml=p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.labelTyp||'-'))));
         const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
-        return`<tr><td>${aktionHtml}</td><td>${_esc(_formatDDMMYYYYHHMM(_aktionTs(p)))}</td><td>${_esc(_aktionUser(p))}</td><td>${_esc(p.labelTyp||'-')}</td><td>${_esc(p.artikelNr||'-')}</td><td>${_esc(p.sscc||p.internalBarcode||'-')}</td><td>${_esc(p.palettenNr||'-')}</td><td>${_esc(p.produktionsDatum||'-')}</td><td>${_esc(p.menge||'-')}</td><td>${_esc(p.lotNr||'-')}</td><td>${_esc(p.orderNr||'-')}</td><td>${_esc(p.kunde||'-')}</td><td>${_esc(p.schicht||'-')}</td><td>${_esc(p.gtin||'-')}</td><td>${_esc(p.position||'-')}</td><td>${statusHtml}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_esc(p.id)}">Löschen</button>`:''}</td></tr>`;
-    }).join('')||'<tr><td colspan="17" class="info-msg">Noch keine Protokolleinträge</td></tr>';
+        return`<tr><td>${aktionHtml}</td><td>${_esc(_formatDDMMYYYYHHMM(_aktionTs(p)))}</td><td>${_esc(_aktionUser(p))}</td><td>${_esc(p.labelTyp||'-')}</td><td>${_esc(p.artikelNr||'-')}</td><td>${_esc(p.sscc||p.internalBarcode||'-')}</td><td>${_esc(p.palettenNr||'-')}</td><td>${_esc(p.produktionsDatum||'-')}</td><td>${_esc(p.menge||'-')}</td><td>${_esc(p.lotNr||'-')}</td><td>${_esc(p.orderNr||'-')}</td><td>${_esc(p.kunde||'-')}</td><td>${_esc(p.schicht||'-')}</td><td>${_esc(p.gtin||'-')}</td><td>${_esc(p.position||'-')}</td><td>${statusHtml}</td></tr>`;
+    }).join('')||'<tr><td colspan="16" class="info-msg">Noch keine Protokolleinträge</td></tr>';
 }
-document.getElementById('protokollBody').addEventListener('click',e=>{const btn=e.target.closest('[data-delete-protokoll]');if(btn)deleteProtokollEntry(btn.dataset.deleteProtokoll);});
-async function deleteProtokollEntry(docId){if(!isAdmin()){alert('Nur Administratoren dürfen Protokolleinträge löschen.');return;}if(!confirm('Protokolleintrag wirklich löschen?'))return;try{await db.collection('protokoll').doc(docId).delete();loadProtokoll();}catch(e){alert('Fehler: '+e.message);}}
+// Protokoll-Einträge sind audit-fest (ISO 9001 / HACCP) — kein Löschen/Bearbeiten im Frontend.
 function exportProtokoll(){const t=document.querySelector('#view-protokoll .data-table'),wb=XLSX.utils.book_new(),ws=XLSX.utils.table_to_sheet(t);XLSX.utils.book_append_sheet(wb,ws,'Protokoll');XLSX.writeFile(wb,'Protokoll_'+new Date().toISOString().slice(0,10)+'.xlsx');}
 const _deDateRe=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/;
 const _usDateRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/;

@@ -1017,7 +1017,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <button class="btn btn-sm btn-success" id="protokollExportBtn">Excel exportieren</button>
             </div>
             <div class="table-wrapper protokolle-modal-table">
-                <table class="data-table druck-table" id="einauslagerProtokollTable"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th><th></th></tr></thead><tbody id="protokollBody"></tbody></table>
+                <table class="data-table druck-table" id="einauslagerProtokollTable"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th></tr></thead><tbody id="protokollBody"></tbody></table>
             </div>
         </div>
     </div></div>
@@ -2520,15 +2520,15 @@ async function loadProtokoll(){
     rows.sort((a,b)=>{const tA=_aktionTs(a),tB=_aktionTs(b);const mA=tA?.toMillis?tA.toMillis():0,mB=tB?.toMillis?tB.toMillis():0;return mB-mA;});
     _protokollRows=rows;
     document.getElementById('protokollBody').innerHTML=rows.map(p=>{
-        const aktionHtml=p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.labelTyp||'-'))));
+        const aktionHtml=p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.aktion==='korrektur-entfernt'?'<span style="color:#b91c1c;font-weight:700">Korrektur entfernt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.labelTyp||'-')))));
         const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
-        return`<tr><td>${aktionHtml}</td><td>${_escHtml(_formatDDMMYYYYHHMM(_aktionTs(p)))}</td><td>${_escHtml(_aktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td><td>${isAdmin()?`<button class="btn btn-danger btn-sm" data-delete-protokoll="${_escAttr(p.id)}">Löschen</button>`:''}</td></tr>`;
-    }).join('')||'<tr><td colspan="17" class="info-msg">Noch keine Protokolleinträge</td></tr>';
+        return`<tr><td>${aktionHtml}</td><td>${_escHtml(_formatDDMMYYYYHHMM(_aktionTs(p)))}</td><td>${_escHtml(_aktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td></tr>`;
+    }).join('')||'<tr><td colspan="16" class="info-msg">Noch keine Protokolleinträge</td></tr>';
     const cnt=document.getElementById('einauslagerProtokollCount');
     if(cnt)cnt.textContent='Einträge: '+rows.length;
 }
-document.getElementById('protokollBody').addEventListener('click',e=>{const btn=e.target.closest('[data-delete-protokoll]');if(btn)deleteProtokollEntry(btn.dataset.deleteProtokoll);});
-async function deleteProtokollEntry(docId){if(!isAdmin()){alert('Nur Administratoren dürfen Protokolleinträge löschen.');return;}if(!confirm('Protokolleintrag wirklich löschen?'))return;try{await db.collection('protokoll').doc(docId).delete();loadProtokoll();}catch(e){alert('Fehler: '+e.message);}}
+// Protokoll-Einträge sind audit-fest (ISO 9001 / HACCP) — kein Löschen/Bearbeiten im Frontend.
+// Korrekturen erfolgen append-only über neue Einträge (z. B. Aktion 'korrektur-entfernt').
 async function exportProtokoll(){
     // Sicherstellen dass die Rows frisch geladen sind
     if(!_protokollRows || _protokollRows.length===0){
@@ -2894,7 +2894,21 @@ async function maybeRunWarGesperrtMigration(){
         if(toUpdate.length>0&&typeof loadInventory==='function')loadInventory();
     }catch(e){console.warn('[Migration] warGesperrt-Backfill fehlgeschlagen:',e);}
 }
-async function deleteInventoryItem(docId){if(!canDeletePalette()){alert('Keine Berechtigung.');return;}if(!confirm('Palette wirklich löschen?'))return;try{await db.collection('paletten').doc(docId).delete();loadInventory();loadDashboard();}catch(e){alert('Fehler: '+e.message);}}
+async function deleteInventoryItem(docId){
+    if(!canDeletePalette()){alert('Keine Berechtigung.');return;}
+    const grund=prompt('Grund für das Entfernen dieser Palette (Pflicht – z. B. Fehlbuchung, Duplikat, Korrektur):');
+    if(grund===null)return;
+    if(!grund.trim()){alert('Ein Grund ist erforderlich – Vorgang abgebrochen.');return;}
+    try{
+        const snap=await db.collection('paletten').doc(docId).get();
+        if(!snap.exists){alert('Palette nicht gefunden (evtl. bereits entfernt).');loadInventory();loadDashboard();return;}
+        const pd=snap.data()||{};
+        // ISO 9001 (8.7/7.5.3): Audit-Eintrag VOR dem Löschen — kein spurloses Verschwinden von Bestand.
+        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});
+        await db.collection('paletten').doc(docId).delete();
+        loadInventory();loadDashboard();
+    }catch(e){alert('Fehler: '+e.message);}
+}
 
 // Sperren/Freigeben einer Fertigpalette direkt aus der Bestandsliste
 async function toggleFertigpaletteGesperrt(fsId,newVal){
