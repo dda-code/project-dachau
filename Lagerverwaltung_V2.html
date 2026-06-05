@@ -337,6 +337,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .wh-floor-row:last-child { border-bottom: none; }
 .wh-floor-row-free { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; }
 .wh-floor-row-free .wh-floor-label { background: #e0e7ff; color: #6366f1; }
+.wh-floor-split-rows { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .wh-floor-label { width: 36px; font-weight: 900; font-size: 1.15rem; color: #4361ee; text-align: center; flex-shrink: 0; background: #eef2ff; border-radius: 4px; padding: 3px 0; }
 .wh-floor-container { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 8px; background: #fafbfc; }
 .wh-floor-cells { display: flex; gap: 3px; flex-wrap: nowrap; flex: 1; min-width: 0; }
@@ -1479,7 +1480,7 @@ const firebaseConfig = {
 const WAREHOUSE_ZONES = Object.freeze({
     halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
     granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
-    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({O:11,OZ:11,P:11,PZ:11,Q:11,QZ:11,R:11,RZ:11,S:11,SZ:11,T:11,TZ:11,U:11}) })
+    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({O:11,OZ:14,P:11,PZ:14,Q:11,QZ:14,R:11,RZ:14,S:11,SZ:14,T:11,TZ:14,U:11}) })
 });
 const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
 function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
@@ -1795,6 +1796,15 @@ const _fT=Object.entries(WAREHOUSE_ZONES.fertigware.zones).reduce((a,[z,c])=>{fo
 const _grT=Object.values(WAREHOUSE_ZONES.granulate.zones).reduce((a,b)=>a+b,0);
 const _zoneSlotMap={};
 for(const[_,cat]of Object.entries(WAREHOUSE_ZONES))for(const[zone,count]of Object.entries(cat.zones))_zoneSlotMap[zone]=count;
+// Physische links→rechts-Reihenfolge der Fertigware-Zonen (Haupt- + Zwischenreihen verschachtelt).
+// Für Auftrags-Clustering: lineare Koordinate, damit "nah beieinander" = physisch nah.
+const _FW_PHYS_ORDER=Object.freeze(['O','OZ','P','PZ','Q','QZ','R','RZ','S','SZ','T','TZ','U']);
+function _fwLin(pos){
+    const m=String(pos||'').match(/^([A-Z]+)(\d+)$/);if(!m)return null;
+    const zi=_FW_PHYS_ORDER.indexOf(m[1]);if(zi<0)return null;
+    let off=0;for(let k=0;k<zi;k++)off+=(_zoneSlotMap[_FW_PHYS_ORDER[k]]||0);
+    return off+parseInt(m[2],10);
+}
 // Granulate: 5 Reihen à 5 Paare = 25 Boden (GB1–GB25) + 25 gestapelt (GS1–GS25) = 50 Plätze
 const GRANULATE_SLOT_COUNT=25;
 const GRANULATE_ROW_SIZE=5;
@@ -1818,7 +1828,7 @@ async function loadDashboard(){
     };
     const _emptyAgg=()=>({count:0,cntAum:0,cntKR:0,cntSP:0,menge:0,mengeAum:0,mengeKR:0,mengeSP:0,mengeFrei:0,mengeGesperrt:0});
     const _addStdMenge=(d,sk,m)=>{ if(sk==='aum')d.mengeAum+=m; else if(sk==='kr')d.mengeKR+=m; else if(sk==='sp')d.mengeSP+=m; };
-    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');const isFertig=pos.startsWith('GB')||pos.startsWith('GS')?false:_fZ.has(z);
+    for(const p of paletten){const pos=p.position||'';const z=pos.replace(_numRe,'');const isFertig=pos.startsWith('GB')||pos.startsWith('GS')?false:(_fZ.has(z)||(z.length>1&&z.endsWith('Z')&&_fZ.has(z[0])));
         // Lagerkarten-Zähler (nur Aumundswiese — Außenlager haben keine position)
         const isAumStored=_stdKey(p)==='aum';
         if(isAumStored){
@@ -1899,7 +1909,30 @@ function _normalizeArtikelNr(nr){
     return nr;
 }
 async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
-function findFreePosition(occ,zo){
+function findFreePosition(occ,zo,orderNr){
+    // Alle freien, gültigen Plätze in zo-Reihenfolge sammeln.
+    const free=[];
+    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))free.push(p);}}
+    if(!free.length)return null;
+    // Harte Tier-Regel: Zwischenreihen (Zone endet auf 'Z') erst, wenn keine nummerierte Hauptreihe mehr frei ist.
+    const _zoneOf=p=>p.replace(/\d+$/,'');
+    const _isZ=p=>{const z=_zoneOf(p);return z.length>1&&z.endsWith('Z');};
+    const numberedFree=free.filter(p=>!_isZ(p));
+    const candidates=numberedFree.length?numberedFree:free;
+    // Auftrags-Clustering (nur Fertigware): unter den erlaubten Plätzen den physisch nächsten
+    // zu einer bereits eingelagerten Palette derselben Auftragsnummer wählen.
+    const ord=String(orderNr||'').trim();
+    if(ord){
+        const sameOrder=[];
+        for(const p in occ){if(occ[p]&&String(occ[p].orderNr||'').trim()===ord){const li=_fwLin(p);if(li!=null)sameOrder.push(li);}}
+        if(sameOrder.length){
+            let best=null,bestD=Infinity;
+            for(const p of candidates){const li=_fwLin(p);if(li==null)continue;let d=Infinity;for(const s of sameOrder)d=Math.min(d,Math.abs(li-s));if(d<bestD){bestD=d;best=p;}}
+            if(best)return best;
+        }
+    }
+    // Fallback: bisherige "weiter wo zuletzt eingelagert"-Heuristik, aber auf erlaubte Plätze beschränkt.
+    const candSet=new Set(candidates);
     const lastPos=localStorage.getItem('lastStoredPosition');
     if(lastPos){
         const m=lastPos.match(/^([A-Z]+)(\d+)$/);
@@ -1907,12 +1940,12 @@ function findFreePosition(occ,zo){
             const lastZone=m[1], lastNum=parseInt(m[2]);
             const maxSlot=_zoneSlotMap[lastZone];
             if(maxSlot && zo.includes(lastZone)){
-                for(let i=lastNum+1;i<=maxSlot;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
-                for(let i=1;i<=lastNum;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+                for(let i=lastNum+1;i<=maxSlot;i++){const p=lastZone+i;if(candSet.has(p))return p;}
+                for(let i=1;i<=lastNum;i++){const p=lastZone+i;if(candSet.has(p))return p;}
             }
         }
     }
-    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))return p;}}return null;
+    return candidates[0];
 }
 function findFreeGranulatePosition(occ){
 // Zuerst freie Bodenplätze (GB), dann Stapelplätze (GS) nur wenn GB belegt
@@ -1933,7 +1966,25 @@ function _posLabel(pos){if(!pos)return pos;const m=String(pos).match(/^(GB|GS)(\
 async function renderWarehouseMap(){const c=document.getElementById('warehouseMap');const o=await getAllPositions();_lastPositions=o;const parts=['<div class="wh-layout"><div class="wh-section"><div class="wh-section-title">Halbfabrikate (K — V)</div><div class="wh-vertical-row">'];for(const f of HALBFABRIKATE_ZONES)parts.push(rvz(f,o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Granulate (G-Unten / G-Oben)</div><div class="wh-floor-container">');parts.push(rgr(o));parts.push('</div></div><div class="wh-section"><div class="wh-section-title">Fertigware (O — U)</div><div class="wh-floor-container">');for(const f of FERTIGWARE_ZONES)parts.push(rfr(f,o));parts.push('</div></div></div>');c.innerHTML=parts.join('');if(typeof renderFertigpalettenBox==='function')renderFertigpalettenBox();}
 function _renderCell(p,i,o,showField,hideNumber){if(!isValidPosition(p))return '';const pal=o[p],cl=pal?(pal.gesperrt?'wh-blocked':'wh-occupied'):'wh-free',at=pal?(showField==='palettenNr'?(pal.palettenNr||''):pal.artikelNr):'';return`<div class="wh-cell ${cl}" title="${_posLabel(p)}${pal?' — '+at:' — Frei'}" data-pos="${p}">${hideNumber?'':`<span class="wh-cell-nr">${i}:</span>`}${at?`<span class="wh-cell-art">${at}</span>`:''}</div>`;}
 function rvz(z,o){const parts=[`<div class="wh-vert-zone"><div class="wh-vert-label">${z.zone}</div><div class="wh-vert-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o));parts.push('</div></div>');return parts.join('');}
-function rfr(z,o){const isFree=z.zone.length>1&&z.zone.endsWith('Z');const parts=[`<div class="wh-floor-row${isFree?' wh-floor-row-free':''}"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr',isFree));parts.push('</div></div>');return parts.join('');}
+function rfr(z,o){
+    const isFree=z.zone.length>1&&z.zone.endsWith('Z');
+    if(isFree){
+        // Zwischenreihe: zwei Reihen à ceil(slots/2) Plätze, ohne Einzelplatz-Nummern.
+        const per=Math.ceil(z.slots/2);
+        const parts=[`<div class="wh-floor-row wh-floor-row-free"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-split-rows">`];
+        for(let r=0;r<2;r++){
+            parts.push('<div class="wh-floor-cells">');
+            for(let i=r*per+1;i<=Math.min((r+1)*per,z.slots);i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr',true));
+            parts.push('</div>');
+        }
+        parts.push('</div></div>');
+        return parts.join('');
+    }
+    const parts=[`<div class="wh-floor-row"><div class="wh-floor-label">${z.zone}</div><div class="wh-floor-cells">`];
+    for(let i=1;i<=z.slots;i++)parts.push(_renderCell(z.zone+i,i,o,'palettenNr',false));
+    parts.push('</div></div>');
+    return parts.join('');
+}
 function rgr(o){const parts=[];
 const rows=GRANULATE_SLOT_COUNT/GRANULATE_ROW_SIZE;
 for(let r=0;r<rows;r++){
@@ -2268,8 +2319,8 @@ async function onInboundFile(file){
 
 async function showPositionStep(){
     const occ=await getAllPositions();
-    const zo=currentLabelTyp==='XO Fertigware'?['O','OZ','P','PZ','Q','QZ','R','RZ','S','SZ','T','TZ','U']:['K','H','G','F','E','D','C','B','A','V'];
-    const fp=findFreePosition(occ,zo);const _sugEl=document.getElementById('suggestedPosition');_sugEl.textContent=fp?_posLabel(fp):'Kein Platz frei!';_sugEl.dataset.pos=fp||'';
+    const zo=currentLabelTyp==='XO Fertigware'?['O','P','Q','R','S','T','U','OZ','PZ','QZ','RZ','SZ','TZ']:['K','H','G','F','E','D','C','B','A','V'];
+    const fp=findFreePosition(occ,zo,inboundData?.orderNr||'');const _sugEl=document.getElementById('suggestedPosition');_sugEl.textContent=fp?_posLabel(fp):'Kein Platz frei!';_sugEl.dataset.pos=fp||'';
     const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
     sel._occSnapshot=occ;
     for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){
