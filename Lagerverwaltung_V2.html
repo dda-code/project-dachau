@@ -267,6 +267,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .inv-filter-popup .inv-fp-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; padding: 8px 8px 4px; border-top: 1px solid #e2e8f0; margin-top: 6px; }
 .inv-filter-popup .inv-fp-actions .btn { padding: 5px 10px; font-size: 0.78rem; white-space: nowrap; }
 .inv-filter-row td { padding: 4px !important; vertical-align: middle; text-align: center; }
+/* ===== Eventprotokoll: kombinierte Spaltenfilter (Text + Dropdown + von/bis) ===== */
+.prot-filter-row td { padding: 4px 3px !important; vertical-align: middle; background: #f8fafc; border-bottom: 2px solid #cbd5e1; }
+.prot-filter-btn { background: none; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.7rem; color: #475569; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; width: 100%; justify-content: space-between; }
+.prot-filter-btn:hover { background: #f0f4ff; border-color: #4361ee; }
+.prot-filter-btn.active { background: #eef2ff; border-color: #4361ee; color: #4361ee; font-weight: 700; }
+.prot-filter-popup { position: fixed; z-index: 3000; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.18); padding: 10px; min-width: 240px; max-width: 300px; max-height: 72vh; display: flex; flex-direction: column; gap: 8px; }
+.prot-filter-popup .pf-title { font-weight: 700; font-size: 0.85rem; color: #334155; }
+.prot-filter-popup .pf-sec-title { font-weight: 700; font-size: 0.74rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
+.prot-filter-popup input[type="text"], .prot-filter-popup input[type="number"], .prot-filter-popup input[type="date"] { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; box-sizing: border-box; }
+.prot-filter-popup .pf-range { display: flex; gap: 6px; }
+.prot-filter-popup .pf-range > div { flex: 1; }
+.prot-filter-popup .pf-range label { font-size: 0.72rem; color: #64748b; display: block; margin-bottom: 2px; }
+.prot-filter-popup .pf-quickbtns { display: flex; gap: 6px; }
+.prot-filter-popup .pf-quickbtns button { flex: 1; padding: 4px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; cursor: pointer; font-size: 0.78rem; }
+.prot-filter-popup .pf-quickbtns button:hover { background: #eef2ff; border-color: #4361ee; }
+.prot-filter-popup .pf-list { max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; scrollbar-width: thin; }
+.prot-filter-popup .pf-list label { display: flex; align-items: center; gap: 6px; padding: 3px 2px; font-size: 0.82rem; cursor: pointer; }
+.prot-filter-popup .pf-list label:hover { color: #4361ee; }
+.prot-filter-popup input[type="checkbox"] { width: 15px; height: 15px; accent-color: #4361ee; flex-shrink: 0; }
+.prot-filter-popup .pf-actions { display: flex; gap: 6px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+.prot-filter-popup .pf-actions .btn { flex: 1; padding: 6px; font-size: 0.8rem; }
+.prot-filter-popup hr.pf-divider { border: none; border-top: 1px solid #e2e8f0; margin: 1px 0; }
 #view-protokoll { max-width: 100%; }
 #view-protokoll .table-wrapper { overflow-x: auto; }
 #view-protokoll .data-table { table-layout: auto; width: 100%; }
@@ -1064,9 +1086,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         <div class="modal-body">
             <div class="protokolle-modal-toolbar">
                 <button class="btn btn-sm btn-success" id="protokollExportBtn">Excel exportieren</button>
+                <button class="btn btn-sm btn-secondary" id="protokollClearFiltersBtn" style="display:none">Alle Filter zurücksetzen</button>
+                <span id="protokollFilterInfo" style="font-size:0.85rem;color:#64748b;margin-left:auto"></span>
             </div>
             <div class="table-wrapper protokolle-modal-table">
-                <table class="data-table druck-table" id="einauslagerProtokollTable"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th></tr></thead><tbody id="protokollBody"></tbody></table>
+                <table class="data-table druck-table" id="einauslagerProtokollTable"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th></tr>
+                <tr class="prot-filter-row"><td><button type="button" class="prot-filter-btn" data-pcol="aktion">Aktion <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="zeitpunkt">Zeitpunkt <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="benutzer">Benutzer <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="typ">Typ <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="artikelNr">Artikel <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="sscc">SSCC <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="palettenNr">Pal-Nr <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="produktionsDatum">Datum <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="menge">Menge <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="lotNr">Lot-Nr <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="orderNr">Order <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="kunde">Kunde <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="schicht">Schicht <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="gtin">GTIN <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="position">Position <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="status">Status <span>&#9662;</span></button></td></tr></thead><tbody id="protokollBody"></tbody></table>
             </div>
         </div>
     </div></div>
@@ -1954,7 +1979,17 @@ function _buildArtikelMapsFromTA0006(){
 // entfernt; alle Nummern + Bezeichnungen kommen aus `_buildArtikelMapsFromTA0006()`.
 async function refreshArtikelMaps(){ _buildArtikelMapsFromTA0006(); }
 
-function initApp(){refreshArtikelMaps().then(()=>{loadDashboard();});initInbound();initOutbound();initInventory();initRemoteScanListener();_initRealtimeListeners();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);if(typeof maybeRunWarGesperrtMigration==='function')maybeRunWarGesperrtMigration();}
+function initApp(){refreshArtikelMaps().then(()=>{loadDashboard();});initInbound();initOutbound();initInventory();initRemoteScanListener();_initRealtimeListeners();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);initProtokollFilters();if(typeof maybeRunWarGesperrtMigration==='function')maybeRunWarGesperrtMigration();}
+// Eventprotokoll-Spaltenfilter verdrahten (einmalig)
+function initProtokollFilters(){
+    const head=document.getElementById('einauslagerProtokollTable')?.querySelector('thead');
+    if(head)head.addEventListener('click',e=>{const b=e.target.closest('.prot-filter-btn');if(b){e.stopPropagation();openProtFilterPopup(b,b.dataset.pcol);}});
+    document.getElementById('protokollClearFiltersBtn')?.addEventListener('click',clearAllProtokollFilters);
+    // Klick außerhalb schließt das Filter-Popup
+    document.addEventListener('click',e=>{if(_protFilterPopup&&!_protFilterPopup.contains(e.target))closeProtFilterPopup();});
+    // ESC schließt zuerst das Filter-Popup (nicht das Modal) — Capture-Phase, damit der Modal-ESC-Handler nicht greift
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&_protFilterPopup){e.stopPropagation();closeProtFilterPopup();}},true);
+}
 
 const _numRe=/[0-9]/g;
 const _separatorRe=/[.,]/g;
@@ -2694,22 +2729,180 @@ function _aktionLabel(a){
         default:                                return String(a||'').trim() || '-';
     }
 }
+// ===== Eventprotokoll — gemeinsame Spaltenwert-Helfer (für Anzeige, Dropdown-Werte, Filter & Export identisch) =====
+// Aktionszeitpunkt: einlagern→einlagDatum, alle anderen→auslagDatum
+function _protAktionTs(p){return p.aktion==='einlagern'?(p.einlagDatum||null):(p.auslagDatum||p.einlagDatum||null);}
+function _protAktionUser(p){return p.aktion==='einlagern'?(p.eingelagertVon||'-'):(p.ausgelagertVon||p.eingelagertVon||'-');}
+function _protTsToDate(ts){if(!ts)return null;const d=ts.toDate?ts.toDate():new Date(ts);return isNaN(d)?null:d;}
+function _protFmtTs(ts){const d=_protTsToDate(ts);if(!d)return'-';const dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),yy=d.getFullYear(),hh=String(d.getHours()).padStart(2,'0'),mi=String(d.getMinutes()).padStart(2,'0');return dd+'.'+mm+'.'+yy+' '+hh+':'+mi;}
+function _protStatusOf(p){return p.aktion==='gesperrt'?'Gesperrt':(p.aktion==='freigegeben'?'Freigegeben':'-');}
+function _protMengeNum(m){if(m==null||m==='')return null;const n=parseInt(String(m).replace(/[^0-9-]/g,''),10);return isNaN(n)?null:n;}
+function _protProdDate(p){const d=parseProdDatum(p.produktionsDatum||'');return d.getFullYear()>9000?null:d;}
+function _dayMs(d){return d?new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime():null;}
+
+// Spaltendefinition: key = data-pcol, label = Popup-Titel, val = Anzeige-/Filterstring,
+// range = 'datetime' | 'date' | 'num' (aktiviert zusätzlich von/bis), rangeVal = Vergleichswert.
+const _PROT_COLS=[
+    {key:'aktion',          label:'Aktion',         val:p=>_aktionLabel(p.aktion)},
+    {key:'zeitpunkt',       label:'Zeitpunkt',      val:p=>_protFmtTs(_protAktionTs(p)), range:'datetime', rangeVal:p=>_dayMs(_protTsToDate(_protAktionTs(p)))},
+    {key:'benutzer',        label:'Benutzer',       val:p=>_protAktionUser(p)},
+    {key:'typ',             label:'Typ',            val:p=>p.labelTyp||'-'},
+    {key:'artikelNr',       label:'Artikelnr.',     val:p=>p.artikelNr||'-'},
+    {key:'sscc',            label:'SSCC / Barcode', val:p=>p.sscc||p.internalBarcode||'-'},
+    {key:'palettenNr',      label:'Paletten-Nr.',   val:p=>p.palettenNr||'-'},
+    {key:'produktionsDatum',label:'Prod.-Datum',    val:p=>p.produktionsDatum||'-', range:'date', rangeVal:p=>_dayMs(_protProdDate(p))},
+    {key:'menge',           label:'Menge',          val:p=>(p.menge!=null&&p.menge!=='')?String(p.menge):'-', range:'num', rangeVal:p=>_protMengeNum(p.menge)},
+    {key:'lotNr',           label:'Lot-Nr.',        val:p=>p.lotNr||'-'},
+    {key:'orderNr',         label:'Order-Nr.',      val:p=>p.orderNr||'-'},
+    {key:'kunde',           label:'Kunde',          val:p=>p.kunde||'-'},
+    {key:'schicht',         label:'Schicht',        val:p=>p.schicht||'-'},
+    {key:'gtin',            label:'GTIN',           val:p=>p.gtin||'-'},
+    {key:'position',        label:'Position',       val:p=>p.position?_posLabel(p.position):'-'},
+    {key:'status',          label:'Status',         val:p=>_protStatusOf(p)}
+];
+const _PROT_COL_BY_KEY=Object.fromEntries(_PROT_COLS.map(c=>[c.key,c]));
+// Filter-State pro Spalte: {text:string|null, set:Set|null, from:number|null, to:number|null}
+const _protFilters={};
+let _protokollFiltered=[];
+let _protFilterPopup=null;
+
+function _protColActive(key){const f=_protFilters[key];return !!(f&&(f.text||f.set||f.from!=null||f.to!=null));}
+// Prüft, ob eine Zeile alle aktiven Spaltenfilter erfüllt (UND-Verknüpfung)
+function _protPassesFilters(p){
+    for(const c of _PROT_COLS){
+        const f=_protFilters[c.key]; if(!f)continue;
+        const disp=String(c.val(p));
+        if(f.text && !disp.toLowerCase().includes(f.text))return false;
+        if(f.set && !f.set.has(disp))return false;
+        if(c.range && (f.from!=null||f.to!=null)){
+            const v=c.rangeVal(p);
+            if(v==null)return false;
+            if(f.from!=null && v<f.from)return false;
+            if(f.to!=null && v>f.to)return false;
+        }
+    }
+    return true;
+}
+
 async function loadProtokoll(){
     const s=await db.collection('protokoll').get();const rows=[];s.forEach(d=>rows.push({id:d.id,...d.data()}));
-    // Aktionszeitpunkt bestimmen: einlagern→einlagDatum, alle anderen→auslagDatum
-    function _aktionTs(p){return p.aktion==='einlagern'?(p.einlagDatum||null):(p.auslagDatum||p.einlagDatum||null);}
-    function _aktionUser(p){return p.aktion==='einlagern'?(p.eingelagertVon||'-'):(p.ausgelagertVon||p.eingelagertVon||'-');}
-    function _formatDDMMYYYYHHMM(ts){if(!ts)return'-';const d=ts.toDate?ts.toDate():new Date(ts);if(isNaN(d))return'-';const dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),yy=d.getFullYear(),hh=String(d.getHours()).padStart(2,'0'),mi=String(d.getMinutes()).padStart(2,'0');return dd+'.'+mm+'.'+yy+' '+hh+':'+mi;}
-    rows.sort((a,b)=>{const tA=_aktionTs(a),tB=_aktionTs(b);const mA=tA?.toMillis?tA.toMillis():0,mB=tB?.toMillis?tB.toMillis():0;return mB-mA;});
+    rows.sort((a,b)=>{const tA=_protAktionTs(a),tB=_protAktionTs(b);const mA=tA?.toMillis?tA.toMillis():0,mB=tB?.toMillis?tB.toMillis():0;return mB-mA;});
     _protokollRows=rows;
+    renderProtokollTable();
+    const cnt=document.getElementById('einauslagerProtokollCount');
+    if(cnt)cnt.textContent='Einträge: '+rows.length;
+}
+function renderProtokollTable(){
+    const rows=(_protokollRows||[]).filter(_protPassesFilters);
+    _protokollFiltered=rows;
     document.getElementById('protokollBody').innerHTML=rows.map(p=>{
         const _spg=p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':'';
         const aktionHtml=p.aktion==='gesperrt'?('<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+_spg):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.aktion==='korrektur-entfernt'?('<span style="color:#b91c1c;font-weight:700">Korrektur entfernt</span>'+_spg):_escHtml(_aktionLabel(p.aktion))));
         const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
-        return`<tr><td>${aktionHtml}</td><td>${_escHtml(_formatDDMMYYYYHHMM(_aktionTs(p)))}</td><td>${_escHtml(_aktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td></tr>`;
-    }).join('')||'<tr><td colspan="16" class="info-msg">Noch keine Protokolleinträge</td></tr>';
-    const cnt=document.getElementById('einauslagerProtokollCount');
-    if(cnt)cnt.textContent='Einträge: '+rows.length;
+        return`<tr><td>${aktionHtml}</td><td>${_escHtml(_protFmtTs(_protAktionTs(p)))}</td><td>${_escHtml(_protAktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td></tr>`;
+    }).join('')||('<tr><td colspan="16" class="info-msg">'+((_protokollRows&&_protokollRows.length)?'Keine Einträge für die aktuelle Filterung':'Noch keine Protokolleinträge')+'</td></tr>');
+    // Aktiv-Markierung der Filter-Buttons aktualisieren
+    const anyActive=_PROT_COLS.some(c=>_protColActive(c.key));
+    _PROT_COLS.forEach(c=>{const b=document.querySelector('.prot-filter-btn[data-pcol="'+c.key+'"]');if(b)b.classList.toggle('active',_protColActive(c.key));});
+    const clearBtn=document.getElementById('protokollClearFiltersBtn');if(clearBtn)clearBtn.style.display=anyActive?'':'none';
+    const info=document.getElementById('protokollFilterInfo');
+    if(info)info.textContent=anyActive?('Angezeigt: '+rows.length+' von '+(_protokollRows?_protokollRows.length:0)):'';
+}
+function clearAllProtokollFilters(){
+    Object.keys(_protFilters).forEach(k=>delete _protFilters[k]);
+    closeProtFilterPopup();
+    renderProtokollTable();
+}
+function closeProtFilterPopup(){if(_protFilterPopup){_protFilterPopup.remove();_protFilterPopup=null;}}
+function _positionProtPopup(popup,btn){
+    const rect=btn.getBoundingClientRect();
+    const pw=popup.offsetWidth||260,ph=popup.offsetHeight||300;
+    let top=rect.bottom+4,left=rect.left;
+    if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+    if(left<8)left=8;
+    if(top+ph>window.innerHeight-8 && rect.top-ph-4>8)top=rect.top-ph-4;
+    if(top<8)top=8;
+    popup.style.top=top+'px';popup.style.left=left+'px';popup.style.visibility='visible';
+}
+function _msToDateInput(ms){if(ms==null)return'';const d=new Date(ms);const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+da;}
+function openProtFilterPopup(btn,key){
+    closeProtFilterPopup();
+    const col=_PROT_COL_BY_KEY[key]; if(!col)return;
+    const cur=_protFilters[key]||{};
+    // Distinkte, in der Spalte vorhandene Werte (für die Dropdown-Auswahl)
+    const valuesSet=new Set();
+    (_protokollRows||[]).forEach(p=>valuesSet.add(String(col.val(p))));
+    const values=[...valuesSet].sort((a,b)=>a.localeCompare(b,'de',{numeric:true}));
+    const selected=cur.set; // Set | undefined
+    const popup=document.createElement('div');
+    popup.className='prot-filter-popup';
+    popup.style.visibility='hidden';
+    _protFilterPopup=popup;
+
+    let rangeHtml='';
+    if(col.range){
+        const inType=col.range==='num'?'number':'date';
+        const fromVal=col.range==='num'?(cur.from!=null?cur.from:''):_msToDateInput(cur.from);
+        const toVal  =col.range==='num'?(cur.to  !=null?cur.to  :''):_msToDateInput(cur.to);
+        rangeHtml=`<hr class="pf-divider"><div class="pf-sec-title">Von / Bis</div>
+            <div class="pf-range">
+              <div><label>Von</label><input type="${inType}" class="pf-from" value="${_escAttr(String(fromVal))}"></div>
+              <div><label>Bis</label><input type="${inType}" class="pf-to" value="${_escAttr(String(toVal))}"></div>
+            </div>`;
+    }
+    let listHtml='';
+    values.forEach(v=>{const checked=!selected||selected.has(v);listHtml+=`<label><input type="checkbox" value="${_escAttr(v)}"${checked?' checked':''}> ${_escHtml(v)}</label>`;});
+
+    popup.innerHTML=`<div class="pf-title">Filter: ${_escHtml(col.label)}</div>
+        <div class="pf-sec-title">Textsuche (enthält)</div>
+        <input type="text" class="pf-text" placeholder="Text eingeben…" value="${_escAttr(cur.text||'')}">
+        ${rangeHtml}
+        <hr class="pf-divider"><div class="pf-sec-title">Werte auswählen</div>
+        <input type="text" class="pf-listsearch" placeholder="Liste durchsuchen…">
+        <div class="pf-quickbtns"><button type="button" class="pf-all">Alle</button><button type="button" class="pf-none">Keine</button></div>
+        <div class="pf-list">${listHtml}</div>
+        <div class="pf-actions">
+          <button type="button" class="btn btn-primary pf-apply">Anwenden</button>
+          <button type="button" class="btn btn-secondary pf-reset">Zurücksetzen</button>
+        </div>`;
+    document.body.appendChild(popup);
+    _positionProtPopup(popup,btn);
+    popup.addEventListener('click',e=>e.stopPropagation());
+
+    const listEl=popup.querySelector('.pf-list');
+    const itemCbs=()=>[...listEl.querySelectorAll('input[type="checkbox"]')];
+    // Listen-Suche: blendet nur Einträge ein/aus (verändert nicht die Auswahl)
+    popup.querySelector('.pf-listsearch').addEventListener('input',function(){
+        const q=this.value.toLowerCase();
+        listEl.querySelectorAll('label').forEach(l=>{l.style.display=l.textContent.toLowerCase().includes(q)?'':'none';});
+    });
+    popup.querySelector('.pf-all').addEventListener('click',()=>itemCbs().forEach(cb=>{if(cb.closest('label').style.display!=='none')cb.checked=true;}));
+    popup.querySelector('.pf-none').addEventListener('click',()=>itemCbs().forEach(cb=>{if(cb.closest('label').style.display!=='none')cb.checked=false;}));
+
+    popup.querySelector('.pf-apply').addEventListener('click',()=>{
+        const f={};
+        const text=popup.querySelector('.pf-text').value.trim().toLowerCase();
+        if(text)f.text=text;
+        if(col.range){
+            const fromEl=popup.querySelector('.pf-from'),toEl=popup.querySelector('.pf-to');
+            const fromRaw=fromEl.value,toRaw=toEl.value;
+            if(col.range==='num'){
+                if(fromRaw!=='')f.from=parseInt(fromRaw,10);
+                if(toRaw!=='')f.to=parseInt(toRaw,10);
+            }else{
+                if(fromRaw){const d=new Date(fromRaw+'T00:00:00');if(!isNaN(d))f.from=_dayMs(d);}
+                if(toRaw){const d=new Date(toRaw+'T00:00:00');if(!isNaN(d))f.to=_dayMs(d);}
+            }
+        }
+        const checked=itemCbs().filter(cb=>cb.checked).map(cb=>cb.value);
+        if(checked.length<values.length)f.set=new Set(checked); // nur einschränken, wenn nicht alle gewählt
+        if(Object.keys(f).length)_protFilters[key]=f; else delete _protFilters[key];
+        closeProtFilterPopup();renderProtokollTable();
+    });
+    popup.querySelector('.pf-reset').addEventListener('click',()=>{
+        delete _protFilters[key];closeProtFilterPopup();renderProtokollTable();
+    });
+    popup.querySelector('.pf-text').focus();
 }
 // Protokoll-Einträge sind audit-fest (ISO 9001 / HACCP) — kein Löschen/Bearbeiten im Frontend.
 // Korrekturen erfolgen append-only über neue Einträge (z. B. Aktion 'korrektur-entfernt').
@@ -2718,22 +2911,16 @@ async function exportProtokoll(){
     if(!_protokollRows || _protokollRows.length===0){
         try{ await loadProtokoll(); }catch(e){ console.warn('Protokoll-Reload:',e); }
     }
-    if(!_protokollRows || _protokollRows.length===0){alert('Keine Einträge zum Exportieren.');return;}
-    const fmt=(ts)=>{
-        if(!ts)return '';
-        const d=ts.toDate?ts.toDate():(ts instanceof Date?ts:null);
-        return d?d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-    };
-    const aktionTs=p=>p.aktion==='einlagern'?(p.einlagDatum||null):(p.auslagDatum||p.einlagDatum||null);
-    const aktionUser=p=>p.aktion==='einlagern'?(p.eingelagertVon||'-'):(p.ausgelagertVon||p.eingelagertVon||'-');
+    // Export folgt der aktuellen Filterung (was sichtbar ist, wird exportiert)
+    const src=(_protokollRows||[]).filter(_protPassesFilters);
+    if(!src.length){alert('Keine Einträge zum Exportieren.');return;}
+    const fmt=ts=>{const d=_protTsToDate(ts);return d?d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';};
     // Nur die in der Tabelle sichtbaren Spalten (Aktion | Zeitpunkt | Benutzer | Typ | Artikelnr. | SSCC/Barcode | Paletten-Nr. | Prod.-Datum | Menge | Lot-Nr. | Order-Nr. | Kunde | Schicht | GTIN | Position | Status)
     const header=['Aktion','Zeitpunkt','Benutzer','Typ','Artikelnr.','SSCC / Barcode','Paletten-Nr.','Prod.-Datum','Menge','Lot-Nr.','Order-Nr.','Kunde','Schicht','GTIN','Position','Status'];
-    const statusOf=p=>p.aktion==='gesperrt'?'Gesperrt':(p.aktion==='freigegeben'?'Freigegeben':'-');
-    const aktionLabel=p=>_aktionLabel(p.aktion);
-    const data=_protokollRows.map(p=>[
-        aktionLabel(p),
-        fmt(aktionTs(p)),
-        aktionUser(p),
+    const data=src.map(p=>[
+        _aktionLabel(p.aktion),
+        fmt(_protAktionTs(p)),
+        _protAktionUser(p),
         p.labelTyp||'-',
         p.artikelNr||'-',
         p.sscc||p.internalBarcode||'-',
@@ -2746,7 +2933,7 @@ async function exportProtokoll(){
         p.schicht||'-',
         p.gtin||'-',
         p.position?_posLabel(p.position):'-',
-        statusOf(p)
+        _protStatusOf(p)
     ]);
     const ws=XLSX.utils.aoa_to_sheet([header,...data]);
     const wb=XLSX.utils.book_new();
