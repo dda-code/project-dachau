@@ -5740,7 +5740,12 @@ window.addEventListener('afterprint',()=>setTimeout(_fitLabelSheets,30));
 // Dashboard, Produktionsplan) weiterwirken und auf winziges Papier drucken. Dieses Override
 // erzwingt A4, sobald KEIN Label-Druck läuft (body.label-printing nicht gesetzt).
 (function(){
-    const A4_RULE='@media print{ @page{ size: A4 portrait; margin: 12mm; } }';
+    // A4-Override für NICHT-Label-Drucke (normales Strg+P UND Produktionsplan-Druck).
+    // Margin identisch zum statischen @page (19mm 6mm) — so behält der Produktionsplan-Druck
+    // seine vorgesehenen Ränder, und das geleakte Etiketten-@page (100×150mm aus #_dynPrintStyle)
+    // wird in BEIDEN Fällen sicher überschrieben. (Würde man den Override beim Produktionsplan
+    // weglassen, fiele dessen Druck auf das geleakte 100×150mm zurück.)
+    const A4_RULE='@media print{ @page{ size: A4 portrait; margin: 19mm 6mm; } }';
     let _el=null;
     function _ensure(){
         if(!_el){ _el=document.createElement('style'); _el.id='_normalPrintPage'; }
@@ -5750,11 +5755,14 @@ window.addEventListener('afterprint',()=>setTimeout(_fitLabelSheets,30));
         return _el;
     }
     window.addEventListener('beforeprint',()=>{
-        // Bei Label-Druck KEIN Override (Etiketten-@page soll gelten); sonst A4 erzwingen.
+        // Nur bei aktivem Label-Druck KEIN Override (Etiketten-@page soll gelten);
+        // sonst — normal UND Produktionsplan — A4 erzwingen.
         _ensure().textContent=document.body.classList.contains('label-printing')?'':A4_RULE;
     });
-    // Nach dem Druck A4 für den nächsten (i.d.R. normalen) Druck vorhalten.
-    window.addEventListener('afterprint',()=>{ _ensure().textContent=A4_RULE; });
+    // Nach dem Druck A4 vorhalten — aber NICHT während eines laufenden Label-Drucks: bei
+    // Mehrfachkopien feuert afterprint pro Kopie, während label-printing noch gesetzt ist.
+    // Die jeweils nächste beforeprint setzt den korrekten Wert ohnehin neu.
+    window.addEventListener('afterprint',()=>{ if(!document.body.classList.contains('label-printing')) _ensure().textContent=A4_RULE; });
     document.addEventListener('DOMContentLoaded',()=>{ _ensure().textContent=A4_RULE; });
 })();
 
