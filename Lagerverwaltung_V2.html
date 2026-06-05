@@ -1141,8 +1141,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <span id="protokollFilterInfo" style="font-size:0.85rem;color:#64748b;margin-left:auto"></span>
             </div>
             <div class="table-wrapper protokolle-modal-table">
-                <table class="data-table druck-table" id="einauslagerProtokollTable"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Position</th><th>Status</th></tr>
-                <tr class="prot-filter-row"><td><button type="button" class="prot-filter-btn" data-pcol="aktion">Aktion <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="zeitpunkt">Zeitpunkt <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="benutzer">Benutzer <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="typ">Typ <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="artikelNr">Artikel <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="sscc">SSCC <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="palettenNr">Pal-Nr <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="produktionsDatum">Datum <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="menge">Menge <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="lotNr">Lot-Nr <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="orderNr">Order <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="kunde">Kunde <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="schicht">Schicht <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="gtin">GTIN <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="position">Position <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="status">Status <span>&#9662;</span></button></td></tr></thead><tbody id="protokollBody"></tbody></table>
+                <table class="data-table druck-table" id="einauslagerProtokollTable"><thead><tr><th>Aktion</th><th>Zeitpunkt</th><th>Benutzer</th><th>Typ</th><th>Artikelnr.</th><th>SSCC / Barcode</th><th>Paletten-Nr.</th><th>Prod.-Datum</th><th>Menge</th><th>Lot-Nr.</th><th>Order-Nr.</th><th>Kunde</th><th>Schicht</th><th>GTIN</th><th>Lagerort</th><th>Position</th><th>Status</th></tr>
+                <tr class="prot-filter-row"><td><button type="button" class="prot-filter-btn" data-pcol="aktion">Aktion <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="zeitpunkt">Zeitpunkt <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="benutzer">Benutzer <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="typ">Typ <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="artikelNr">Artikel <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="sscc">SSCC <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="palettenNr">Pal-Nr <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="produktionsDatum">Datum <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="menge">Menge <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="lotNr">Lot-Nr <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="orderNr">Order <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="kunde">Kunde <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="schicht">Schicht <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="gtin">GTIN <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="lagerort">Lagerort <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="position">Position <span>&#9662;</span></button></td><td><button type="button" class="prot-filter-btn" data-pcol="status">Status <span>&#9662;</span></button></td></tr></thead><tbody id="protokollBody"></tbody></table>
             </div>
         </div>
     </div></div>
@@ -2269,7 +2269,7 @@ async function showPosDetail(pos){
 async function _logGesperrt(docId,newVal,sperrgrund){
     const snap=await db.collection('paletten').doc(docId).get();const pd=snap.exists?snap.data():{};
     const aktion=newVal?'gesperrt':'freigegeben';
-    await db.collection('protokoll').add({aktion,docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername(),sperrgrund:sperrgrund||''});
+    await db.collection('protokoll').add({aktion,docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',standort:pd.standort||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername(),sperrgrund:sperrgrund||''});
     await db.collection('log').add({aktion,docId,artikelNr:pd.artikelNr||'',position:pd.position||'',user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp(),sperrgrund:sperrgrund||''});
 }
 async function toggleGesperrt(docId,newVal,pos,sperrgrund){
@@ -2645,7 +2645,7 @@ async function confirmInbound(){
     }
     console.log('EINLAGERN data:',JSON.stringify(data));console.log('EINLAGERN menge:',data.menge,'artikelNr:',data.artikelNr,'docId:',docId);
     try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
-    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
+    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,standort:data.standort||'',eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
     await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
     localStorage.setItem('lastStoredPosition', pos);
     renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();}catch(e){alert('Fehler: '+e.message);}
@@ -2771,7 +2771,7 @@ async function onArtikelSelect(){
 
 async function confirmOutbound(){
     const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;document.getElementById('confirmOutboundBtn').disabled=true;
-    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
+    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',standort:pd.standort||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
     try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.warn(e);}
     document.getElementById('outboundResult').style.display='none';const sd=document.getElementById('outboundSuccess');sd.innerHTML=`<p class="success-msg">Palette entnommen von Stellplatz <strong>${_escHtml(_posLabel(pd.position||''))}</strong></p>`;sd.style.display='block';
@@ -2803,6 +2803,9 @@ function _protAktionUser(p){return p.aktion==='einlagern'?(p.eingelagertVon||'-'
 function _protTsToDate(ts){if(!ts)return null;const d=ts.toDate?ts.toDate():new Date(ts);return isNaN(d)?null:d;}
 function _protFmtTs(ts){const d=_protTsToDate(ts);if(!d)return'-';const dd=String(d.getDate()).padStart(2,'0'),mm=String(d.getMonth()+1).padStart(2,'0'),yy=d.getFullYear(),hh=String(d.getHours()).padStart(2,'0'),mi=String(d.getMinutes()).padStart(2,'0');return dd+'.'+mm+'.'+yy+' '+hh+':'+mi;}
 function _protStatusOf(p){return p.aktion==='gesperrt'?'Gesperrt':(p.aktion==='freigegeben'?'Freigegeben':'-');}
+// Lagerort eines Protokoll-Eintrags. Reihenfolge: gespeicherter standort → Umlagerungs-Quelle/Ziel
+// (standortVon/standortNach, von index-extern geschrieben) → Default Aumundswiese (wie _lagerortOf).
+function _protLagerort(p){const s=String(p.standort||'').trim();if(s)return s;const v=String(p.standortVon||'').trim();if(v)return v;const n=String(p.standortNach||'').trim();if(n)return n;return 'Aumundswiese';}
 function _protMengeNum(m){if(m==null||m==='')return null;const n=parseInt(String(m).replace(/[^0-9-]/g,''),10);return isNaN(n)?null:n;}
 function _protProdDate(p){const d=parseProdDatum(p.produktionsDatum||'');return d.getFullYear()>9000?null:d;}
 function _dayMs(d){return d?new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime():null;}
@@ -2824,6 +2827,7 @@ const _PROT_COLS=[
     {key:'kunde',           label:'Kunde',          val:p=>p.kunde||'-'},
     {key:'schicht',         label:'Schicht',        val:p=>p.schicht||'-'},
     {key:'gtin',            label:'GTIN',           val:p=>p.gtin||'-'},
+    {key:'lagerort',        label:'Lagerort',       val:p=>_protLagerort(p)},
     {key:'position',        label:'Position',       val:p=>p.position?_posLabel(p.position):'-'},
     {key:'status',          label:'Status',         val:p=>_protStatusOf(p)}
 ];
@@ -2866,8 +2870,8 @@ function renderProtokollTable(){
         const _spg=p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':'';
         const aktionHtml=p.aktion==='gesperrt'?('<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+_spg):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.aktion==='korrektur-entfernt'?('<span style="color:#b91c1c;font-weight:700">Korrektur entfernt</span>'+_spg):_escHtml(_aktionLabel(p.aktion))));
         const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
-        return`<tr><td>${aktionHtml}</td><td>${_escHtml(_protFmtTs(_protAktionTs(p)))}</td><td>${_escHtml(_protAktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td></tr>`;
-    }).join('')||('<tr><td colspan="16" class="info-msg">'+((_protokollRows&&_protokollRows.length)?'Keine Einträge für die aktuelle Filterung':'Noch keine Protokolleinträge')+'</td></tr>');
+        return`<tr><td>${aktionHtml}</td><td>${_escHtml(_protFmtTs(_protAktionTs(p)))}</td><td>${_escHtml(_protAktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(_protLagerort(p))}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td></tr>`;
+    }).join('')||('<tr><td colspan="17" class="info-msg">'+((_protokollRows&&_protokollRows.length)?'Keine Einträge für die aktuelle Filterung':'Noch keine Protokolleinträge')+'</td></tr>');
     // Aktiv-Markierung der Filter-Buttons aktualisieren
     const anyActive=_PROT_COLS.some(c=>_protColActive(c.key));
     _PROT_COLS.forEach(c=>{const b=document.querySelector('.prot-filter-btn[data-pcol="'+c.key+'"]');if(b)b.classList.toggle('active',_protColActive(c.key));});
@@ -2982,8 +2986,8 @@ async function exportProtokoll(){
     const src=(_protokollRows||[]).filter(_protPassesFilters);
     if(!src.length){alert('Keine Einträge zum Exportieren.');return;}
     const fmt=ts=>{const d=_protTsToDate(ts);return d?d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';};
-    // Nur die in der Tabelle sichtbaren Spalten (Aktion | Zeitpunkt | Benutzer | Typ | Artikelnr. | SSCC/Barcode | Paletten-Nr. | Prod.-Datum | Menge | Lot-Nr. | Order-Nr. | Kunde | Schicht | GTIN | Position | Status)
-    const header=['Aktion','Zeitpunkt','Benutzer','Typ','Artikelnr.','SSCC / Barcode','Paletten-Nr.','Prod.-Datum','Menge','Lot-Nr.','Order-Nr.','Kunde','Schicht','GTIN','Position','Status'];
+    // Nur die in der Tabelle sichtbaren Spalten (Aktion | Zeitpunkt | Benutzer | Typ | Artikelnr. | SSCC/Barcode | Paletten-Nr. | Prod.-Datum | Menge | Lot-Nr. | Order-Nr. | Kunde | Schicht | GTIN | Lagerort | Position | Status)
+    const header=['Aktion','Zeitpunkt','Benutzer','Typ','Artikelnr.','SSCC / Barcode','Paletten-Nr.','Prod.-Datum','Menge','Lot-Nr.','Order-Nr.','Kunde','Schicht','GTIN','Lagerort','Position','Status'];
     const data=src.map(p=>[
         _aktionLabel(p.aktion),
         fmt(_protAktionTs(p)),
@@ -2999,6 +3003,7 @@ async function exportProtokoll(){
         p.kunde||'-',
         p.schicht||'-',
         p.gtin||'-',
+        _protLagerort(p),
         p.position?_posLabel(p.position):'-',
         _protStatusOf(p)
     ]);
@@ -3346,7 +3351,7 @@ async function deleteInventoryItem(docId){
         if(!snap.exists){alert('Palette nicht gefunden (evtl. bereits entfernt).');loadInventory();loadDashboard();return;}
         const pd=snap.data()||{};
         // ISO 9001 (8.7/7.5.3): Audit-Eintrag VOR dem Löschen — kein spurloses Verschwinden von Bestand.
-        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});
+        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',standort:pd.standort||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});
         await db.collection('paletten').doc(docId).delete();
         loadInventory();loadDashboard();
     }catch(e){alert('Fehler: '+e.message);}
@@ -3378,7 +3383,7 @@ async function deleteFertigpaletteFromInv(fsId){
     if(!grund.trim()){alert('Ein Grund ist erforderlich – Vorgang abgebrochen.');return;}
     try{
         // ISO 9001 (8.7/7.5.3): Audit-Eintrag VOR der Bestandsänderung.
-        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId:fsId,artikelNr:p.artikelNr||'',labelTyp:p.labelTyp||'',sscc:p.sscc||'',internalBarcode:p.internalBarcode||'',palettenNr:p.palettenNr||'',menge:p.menge||'',produktionsDatum:p.produktionsDatum||p.datum||'',lotNr:p.lotNr||'',orderNr:p.orderNr||'',kunde:p.kunde||'',schicht:p.schicht||'',gtin:p.gtin||'',position:p.position||'',sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});
+        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId:fsId,artikelNr:p.artikelNr||'',labelTyp:p.labelTyp||'',sscc:p.sscc||'',internalBarcode:p.internalBarcode||'',palettenNr:p.palettenNr||'',menge:p.menge||'',produktionsDatum:p.produktionsDatum||p.datum||'',lotNr:p.lotNr||'',orderNr:p.orderNr||'',kunde:p.kunde||'',schicht:p.schicht||'',gtin:p.gtin||'',position:p.position||'',standort:p.standort||'',sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});
         // NICHT löschen — nur aus dem Bestand nehmen.
         await db.collection(_FS_FP_COLL).doc(fsId).set({removedFromStock:true,removedFromStockAt:firebase.firestore.FieldValue.serverTimestamp(),removedFromStockBy:getCurrentUsername(),removedFromStockGrund:grund.trim()},{merge:true});
         loadInventory();loadDashboard();
