@@ -95,8 +95,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .wh-minicell.occ { background: #fef3c7; border-color: #fde68a; }
 .wh-minicell.blocked { background: #fee2e2; border-color: #fca5a5; }
 .wh-minicell.selected { background: #4361ee; border-color: #3b54d4; box-shadow: 0 0 0 2px rgba(67,97,238,0.4); }
-.wh-gran-row { margin-bottom: 6px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 5px; background: #fafbfc; }
-.wh-gran-label { font-weight: 700; font-size: 0.8rem; color: #334155; text-align: center; margin-bottom: 3px; }
 
 /* History */
 .history-section { padding: 0 20px 20px; }
@@ -303,8 +301,7 @@ const $ = id => document.getElementById(id);
 
 const WAREHOUSE_ZONES = Object.freeze({
     halbfabrikate: Object.freeze({ label:'Halbfabrikate', zones:Object.freeze({K:27,H:27,G:26,F:26,E:26,D:26,C:26,B:26,A:26,V:26}) }),
-    granulate: Object.freeze({ label:'Granulate', zones:Object.freeze({GB:25, GS:25}) }),
-    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({M:11,N:11,O:11,P:11,Q:11,R:11,S:11,T:11,U:11}) })
+    fertigware: Object.freeze({ label:'Fertigware', zones:Object.freeze({O:11,OZ:14,P:11,PZ:14,Q:11,QZ:14,R:11,RZ:14,S:11,SZ:14,T:11,TZ:14,U:11}) })
 });
 const EXCLUDED_POSITIONS = Object.freeze(new Set(['G24','G25','G26','F24','F25','F26','E1','E2','E3','E4','E5','D1','D2','D3','D4','D5']));
 function isValidPosition(p){ return !EXCLUDED_POSITIONS.has(p); }
@@ -318,9 +315,16 @@ const ARTIKEL_NUMMERN = Object.freeze([
     '190001','190002','190003','190004','190005','190006','190007','190008','190009',
     '190011','190012','190013','190014','190015','190016','190017','190024','190032','190033'
 ]);
-const GRANULATE_SLOT_COUNT = 25;
 const _zoneSlotMap = {};
 for(const[_,cat] of Object.entries(WAREHOUSE_ZONES)) for(const[zone,count] of Object.entries(cat.zones)) _zoneSlotMap[zone]=count;
+// Physische Reihenfolge der Fertigware-Zonen (Haupt- + Zwischenreihen) für Auftrags-Clustering.
+const _FW_PHYS_ORDER=Object.freeze(['O','OZ','P','PZ','Q','QZ','R','RZ','S','SZ','T','TZ','U']);
+function _fwLin(pos){
+    const m=String(pos||'').match(/^([A-Z]+)(\d+)$/);if(!m)return null;
+    const zi=_FW_PHYS_ORDER.indexOf(m[1]);if(zi<0)return null;
+    let off=0;for(let k=0;k<zi;k++)off+=(_zoneSlotMap[_FW_PHYS_ORDER[k]]||0);
+    return off+parseInt(m[2],10);
+}
 
 // ============================================================
 // AUTH
@@ -647,14 +651,39 @@ async function scanLabel(file){
 // POSITION LOGIC
 // ============================================================
 async function getAllPositions(){
-    const s=await db.collection('paletten').get();
     const o={};
+    const s=await db.collection('paletten').get();
     s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
+    // Fertigpaletten mit echtem Stellplatz ebenfalls als belegt führen (Lagerkarte/Belegung vereinheitlicht).
+    try{
+        const fs=await db.collection('fertigpaletten').get();
+        fs.forEach(d=>{const dt=d.data();const p=dt.position;if(p && /^[A-Z]+\d+$/.test(p) && isValidPosition(p) && !o[p]) o[p]={sscc:d.id,...dt,_src:'fp'};});
+    }catch(e){console.warn('getAllPositions fertigpaletten:',e);}
     return o;
 }
 
-function findFreePosition(occ,zo){
-    // Smart-Vorschlag: nächsten freien Platz nach der letzten Einlagerung vorschlagen
+function findFreePosition(occ,zo,orderNr){
+    const free=[];
+    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))free.push(p);}}
+    if(!free.length)return null;
+    // Harte Tier-Regel: Zwischenreihen (Zone endet auf 'Z') erst, wenn keine nummerierte Hauptreihe mehr frei ist.
+    const _zoneOf=p=>p.replace(/\d+$/,'');
+    const _isZ=p=>{const z=_zoneOf(p);return z.length>1&&z.endsWith('Z');};
+    const numberedFree=free.filter(p=>!_isZ(p));
+    const candidates=numberedFree.length?numberedFree:free;
+    // Auftrags-Clustering: unter den erlaubten Plätzen den physisch nächsten zu einer Palette derselben orderNr.
+    const ord=String(orderNr||'').trim();
+    if(ord){
+        const sameOrder=[];
+        for(const p in occ){if(occ[p]&&String(occ[p].orderNr||'').trim()===ord){const li=_fwLin(p);if(li!=null)sameOrder.push(li);}}
+        if(sameOrder.length){
+            let best=null,bestD=Infinity;
+            for(const p of candidates){const li=_fwLin(p);if(li==null)continue;let d=Infinity;for(const s of sameOrder)d=Math.min(d,Math.abs(li-s));if(d<bestD){bestD=d;best=p;}}
+            if(best)return best;
+        }
+    }
+    // Fallback: "weiter wo zuletzt eingelagert", aber auf erlaubte Plätze beschränkt.
+    const candSet=new Set(candidates);
     const lastPos=localStorage.getItem('lastStoredPosition');
     if(lastPos){
         const m=lastPos.match(/^([A-Z]+)(\d+)$/);
@@ -662,21 +691,14 @@ function findFreePosition(occ,zo){
             const lastZone=m[1], lastNum=parseInt(m[2]);
             const maxSlot=_zoneSlotMap[lastZone];
             if(maxSlot && zo.includes(lastZone)){
-                for(let i=lastNum+1;i<=maxSlot;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
-                for(let i=1;i<=lastNum;i++){const p=lastZone+i;if(!occ[p]&&isValidPosition(p))return p;}
+                for(let i=lastNum+1;i<=maxSlot;i++){const p=lastZone+i;if(candSet.has(p))return p;}
+                for(let i=1;i<=lastNum;i++){const p=lastZone+i;if(candSet.has(p))return p;}
             }
         }
     }
-    for(const z of zo){const count=_zoneSlotMap[z];if(!count)continue;for(let i=1;i<=count;i++){const p=z+i;if(!occ[p]&&isValidPosition(p))return p;}}return null;
+    return candidates[0];
 }
 
-function findFreeGranulatePosition(occ){
-    for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;if(!occ[p])return p;}
-    for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const pb='GB'+i,ps='GS'+i;if(occ[pb]&&!occ[ps])return ps;}
-    return null;
-}
-
-function gsToGb(nr){return 'GB'+nr;}
 
 const _deDateRe=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/;
 const _usDateRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
@@ -687,7 +709,6 @@ function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDat
 // ============================================================
 const HALBFABRIKATE_ZONES=Object.entries(WAREHOUSE_ZONES.halbfabrikate.zones).map(([zone,slots])=>({zone,slots}));
 const FERTIGWARE_ZONES=Object.entries(WAREHOUSE_ZONES.fertigware.zones).map(([zone,slots])=>({zone,slots}));
-const GRANULATE_ROW_SIZE=5;
 
 function renderMiniMap(occ, selectedPos){
     const c=$('warehouseMapContainer');
@@ -705,28 +726,15 @@ function renderMiniMap(occ, selectedPos){
         h+='</div></div>';
     }
     h+='</div></div>';
-    // Granulate
-    let g='<div class="wh-section"><div class="wh-section-label">Granulate (GB / GS)</div>';
-    const rows=GRANULATE_SLOT_COUNT/GRANULATE_ROW_SIZE;
-    for(let r=0;r<rows;r++){
-        const start=r*GRANULATE_ROW_SIZE+1, end=start+GRANULATE_ROW_SIZE-1;
-        g+=`<div class="wh-gran-row"><div class="wh-gran-label">Reihe ${r+1}</div>`;
-        g+=`<div class="wh-floor-row"><div class="wh-floor-lbl">GB</div><div class="wh-floor-cells">`;
-        for(let i=start;i<=end;i++) g+=mc('GB'+i);
-        g+=`</div></div><div class="wh-floor-row"><div class="wh-floor-lbl">GS</div><div class="wh-floor-cells">`;
-        for(let i=start;i<=end;i++) g+=mc('GS'+i);
-        g+='</div></div></div>';
-    }
-    g+='</div>';
     // Fertigware
-    let f='<div class="wh-section"><div class="wh-section-label">Fertigware (M — U)</div>';
+    let f='<div class="wh-section"><div class="wh-section-label">Fertigware (O — U)</div>';
     for(const z of FERTIGWARE_ZONES){
         f+=`<div class="wh-floor-row"><div class="wh-floor-lbl">${z.zone}</div><div class="wh-floor-cells">`;
         for(let i=1;i<=z.slots;i++) f+=mc(z.zone+i);
         f+='</div></div>';
     }
     f+='</div>';
-    c.innerHTML=h+g+f;
+    c.innerHTML=h+f;
     // Click on cell to select position
     c.addEventListener('click', e=>{
         const cell=e.target.closest('.wh-minicell');
@@ -905,33 +913,11 @@ $('toStep3Btn').addEventListener('click', async ()=>{
     if(!inboundData.artikelNr||inboundData.artikelNr==='FEHLER'){alert('Artikelnummer fehlt oder ungültig!');return;}
 
     $('toStep3Btn').disabled=true;
-    // Fertigware-Modus: Kein Stellplatz — direkt in fertigpaletten-Collection speichern
-    if(currentMode==='fertigware'){
-        try {
-            const docId=inboundData.sscc||inboundData.palettenNr||('pal_'+Date.now());
-            await db.collection('fertigpaletten').doc(docId).set({
-                ...inboundData,
-                scanMode:'fertigware',
-                scannedAt:firebase.firestore.FieldValue.serverTimestamp(),
-                scannedBy:getCurrentUsername(),
-                status:'fertig',
-                position:'',
-                gesperrt:false
-            });
-            $('successDetail').textContent=(inboundData.artikelNr||'')+' — Palette '+(inboundData.palettenNr||docId)+' erfasst';
-            scanHistory.unshift({time:new Date(),artikelNr:inboundData.artikelNr,position:'Fertigware'});
-            renderHistory();
-            showStep('step4');
-        } catch(e){
-            alert('Fehler beim Speichern: '+e.message);
-        }
-        $('toStep3Btn').disabled=false;
-        return;
-    }
+    // Auch XO-Ends (Fertigware) durchläuft jetzt die Stellplatz-Auswahl (Step 3).
     try {
         const occ=await getAllPositions();
-        const zo=currentLabelTyp==='XO Fertigware'?['M','N','O','P','Q','R','S','T','U']:['K','H','G','F','E','D','C','B','A','V'];
-        const fp=findFreePosition(occ,zo);
+        const zo=currentLabelTyp==='XO Fertigware'?['O','P','Q','R','S','T','U','OZ','PZ','QZ','RZ','SZ','TZ']:['K','H','G','F','E','D','C','B','A','V'];
+        const fp=findFreePosition(occ,zo,inboundData?.orderNr||'');
         $('suggestedPos').textContent=fp||'Kein Platz frei!';
 
         // Populate dropdown – alle Plätze anzeigen, belegte markiert aber wählbar
@@ -939,17 +925,10 @@ $('toStep3Btn').addEventListener('click', async ()=>{
         sel._occSnapshot=occ; // Belegung merken für spätere Warnung
         const frag=document.createDocumentFragment();
         for(const[ck,cat] of Object.entries(WAREHOUSE_ZONES)){
-            if(ck==='granulate'){
-                const og=document.createElement('optgroup');og.label=cat.label;
-                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const p='GB'+i;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}
-                for(let i=1;i<=GRANULATE_SLOT_COUNT;i++){const ps='GS'+i;const o=document.createElement('option');o.value=ps;o.textContent=occ[ps]?'\u26a0\ufe0f '+ps+' (belegt)':ps;if(occ[ps])o.style.color='#dc2626';if(ps===fp)o.selected=true;og.appendChild(o);}
-                frag.appendChild(og);
-            } else {
-                const og=document.createElement('optgroup');og.label=cat.label;
-                for(const[z,cnt] of Object.entries(cat.zones)){
-                    for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}}
-                frag.appendChild(og);
-            }
+            const og=document.createElement('optgroup');og.label=cat.label;
+            for(const[z,cnt] of Object.entries(cat.zones)){
+                for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}}
+            frag.appendChild(og);
         }
         sel.innerHTML='';sel.appendChild(frag);
         renderMiniMap(occ, fp);
@@ -990,7 +969,8 @@ $('confirmBtn').addEventListener('click', async ()=>{
 
     // Duplikat-/Transit-Prüfung
     try {
-        const existing=await db.collection('paletten').doc(docId).get();
+        const _coll=currentMode==='fertigware'?'fertigpaletten':'paletten';
+        const existing=await db.collection(_coll).doc(docId).get();
         if(existing.exists){
             const ep=existing.data();
             if(ep.transitTo){
@@ -1014,18 +994,6 @@ $('confirmBtn').addEventListener('click', async ()=>{
         }
     } catch(e){console.warn('Belegungsprüfung fehlgeschlagen:',e);}
 
-    // FIFO-Prüfung für Granulate
-    if(pos.startsWith('GS')){
-        const nr=parseInt(pos.replace('GS',''),10);
-        const bodenPos=gsToGb(nr);
-        try {
-            const occ=await getAllPositions();const bodenPal=occ[bodenPos];
-            if(!bodenPal){alert('Fehler: Bodenplatz '+bodenPos+' ist leer! Zuerst den unteren Platz belegen.');$('confirmBtn').disabled=false;return;}
-            const neuDatum=parseProdDatum(data.datum||'');const bodenDatum=parseProdDatum(bodenPal.produktionsDatum||bodenPal.datum||'');
-            if(neuDatum.getTime()>bodenDatum.getTime()){alert('FIFO-Verstoß: Die gestapelte Palette (Prod.-Datum: '+(data.datum||'?')+') muss älter sein als die Bodenpalette (Prod.-Datum: '+(bodenPal.produktionsDatum||bodenPal.datum||'?')+').');$('confirmBtn').disabled=false;return;}
-        } catch(e){console.warn('FIFO-Prüfung fehlgeschlagen:',e);}
-    }
-
     // Auto-Menge für Halbfabrikate
     if(!data.artikelNr.startsWith('XO')){
         if(data.artikelNr.startsWith('12'))data.menge='92.400';
@@ -1035,9 +1003,14 @@ $('confirmBtn').addEventListener('click', async ()=>{
 
     // Save to Firestore
     try {
+        if(currentMode==='fertigware'){
+            // XO-Ends: bleibt im Fertigware-Protokoll (fertigpaletten), jetzt MIT gewähltem Stellplatz.
+            await db.collection('fertigpaletten').doc(docId).set({...data,position:pos,scanMode:'fertigware',scannedAt:firebase.firestore.FieldValue.serverTimestamp(),scannedBy:getCurrentUsername(),status:'fertig',gesperrt:false});
+        } else {
         await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
         await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
         await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+        }
 
         // Letzte Position merken für Smart-Vorschlag
         localStorage.setItem('lastStoredPosition', pos);

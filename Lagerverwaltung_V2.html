@@ -2023,7 +2023,10 @@ function _normalizeArtikelNr(nr){
     if(/^(12|18|19)\d+/.test(digits))return digits.slice(0,6);
     return nr;
 }
-async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});return o;}
+async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
+    // Fertigpaletten mit echtem Stellplatz ebenfalls als belegt führen (gleiche Lagerkarte/Belegung wie paletten).
+    if(typeof FERTIGPALETTEN_DATA!=='undefined'){FERTIGPALETTEN_DATA.forEach(p=>{const pos=p.position;if(pos && /^[A-Z]+\d+$/.test(pos) && isValidPosition(pos) && !o[pos])o[pos]={sscc:p._fsId||p.sscc||'',...p,_src:'fp'};});}
+    return o;}
 function findFreePosition(occ,zo,orderNr){
     // Alle freien, gültigen Plätze in zo-Reihenfolge sammeln.
     const free=[];
