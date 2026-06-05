@@ -1181,11 +1181,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <div style="font-size:0.78rem;color:#64748b;margin-top:6px">Sales-Order-Vorlage f&uuml;llt Artikel/Order/Kunde/Menge/Label-Typ. Palettennummer-Vorlage f&uuml;llt zus&auml;tzlich Pal-Nr + SSCC aus einer bestehenden Lager-Palette.</div>
             </div>
             <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+                <div class="form-group"><label for="fpAddDatum">Produktionsdatum *</label><input type="date" id="fpAddDatum" class="form-input"></div>
                 <div class="form-group"><label for="fpAddPalNr">Palettennummer *</label><input type="text" id="fpAddPalNr" class="form-input" placeholder="z.B. C26-0502" oninput="_fpAddLookupProdplan()"><div id="fpAddProdStatus" style="font-size:0.78rem;color:#4361ee;margin-top:4px;min-height:1.1em"></div></div>
                 <div class="form-group"><label for="fpAddArtikel">Artikelnummer *</label><input type="text" id="fpAddArtikel" class="form-input"></div>
-                <div class="form-group"><label for="fpAddOrder">Sales Order</label><input type="text" id="fpAddOrder" class="form-input"></div>
+                <div class="form-group"><label for="fpAddOrder">Sales Order *</label><input type="text" id="fpAddOrder" class="form-input"></div>
                 <div class="form-group"><label for="fpAddSscc">SSCC (automatisch aus Pal-Nr)</label><input type="text" id="fpAddSscc" class="form-input" readonly tabindex="-1" style="background:#f1f5f9;color:#475569;cursor:not-allowed" placeholder="— wird nach Palettennummer gesetzt —"></div>
-                <div class="form-group"><label for="fpAddMenge">Menge</label><input type="number" id="fpAddMenge" class="form-input"></div>
+                <div class="form-group"><label for="fpAddMenge">Menge (Unit/PAL) *</label><input type="number" id="fpAddMenge" class="form-input"></div>
                 <div class="form-group"><label for="fpAddKunde">Kunde</label><input type="text" id="fpAddKunde" class="form-input"></div>
                 <div class="form-group"><label for="fpAddSchicht">Schicht</label><input type="text" id="fpAddSchicht" class="form-input"></div>
                 <div class="form-group"><label for="fpAddGtin">GTIN</label><input type="text" id="fpAddGtin" class="form-input"></div>
@@ -8959,6 +8960,9 @@ let _fpAddLabelTypInternal='';
 function openFpAdd(){
     const ids=['fpAddPalNr','fpAddArtikel','fpAddOrder','fpAddSscc','fpAddMenge','fpAddKunde','fpAddSchicht','fpAddGtin'];
     ids.forEach(id=>{const e=document.getElementById(id); if(e)e.value='';});
+    // Produktionsdatum auf heute vorbelegen (häufigster Fall: heutige Produktion) — änderbar.
+    const _dt=document.getElementById('fpAddDatum');
+    if(_dt){const t=new Date();_dt.value=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');}
     _fpAddLabelTypInternal='';
     const status=document.getElementById('fpAddProdStatus'); if(status)status.textContent='';
     const err=document.getElementById('fpAddError'); if(err)err.style.display='none';
@@ -9058,6 +9062,10 @@ function _fpAddFromPalTemplate(){
     set('fpAddKunde', r.customer||'');
     set('fpAddSchicht', r.shift||'');
     set('fpAddGtin', r.gtin||'');
+    // Produktionsdatum aus dem Druckprotokoll übernehmen (DD.MM.YYYY → YYYY-MM-DD fürs date-Input)
+    const _rd=String(r.produktionsDatum||r.datum||'').trim();
+    const _rdm=_rd.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if(_rdm)set('fpAddDatum', _rdm[3]+'-'+_rdm[2].padStart(2,'0')+'-'+_rdm[1].padStart(2,'0'));
     const t=String(r.labelType||'').toLowerCase();
     if(t==='frame')_fpAddLabelTypInternal='Frame';
     else if(t==='end')_fpAddLabelTypInternal='XO Fertigware';
@@ -9140,9 +9148,21 @@ async function saveFpAdd(){
     const showErr=(msg)=>{if(err){err.textContent=msg;err.style.display='block';}};
     const palNr=(document.getElementById('fpAddPalNr')?.value||'').trim();
     const artikelNr=(document.getElementById('fpAddArtikel')?.value||'').trim();
+    // Produktionsdatum (Pflicht) — ist der Gruppierungs-Schlüssel des Kalenders. Ohne gültiges
+    // datum (DD.MM.YYYY) taucht die Palette NICHT im Produktions-Kalender auf.
+    const datumIso=(document.getElementById('fpAddDatum')?.value||'').trim(); // YYYY-MM-DD vom date-Input
+    if(!datumIso){showErr('Produktionsdatum ist Pflicht.');return;}
+    const _dm=datumIso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!_dm){showErr('Ungültiges Produktionsdatum.');return;}
+    const datumDe=_dm[3]+'.'+_dm[2]+'.'+_dm[1]; // DD.MM.YYYY für den Kalender
     if(!palNr){showErr('Palettennummer ist Pflicht.');return;}
     if(/^FR/i.test(palNr)){showErr('Frame-Paletten (FR26…) gehören nicht ins Fertigware-Protokoll.');return;}
     if(!artikelNr){showErr('Artikelnummer ist Pflicht.');return;}
+    // Order + Menge sind Pflicht — füllen die Kalender-Spalten "XO order" bzw. "Unit/PAL"/"Units".
+    const orderNr=(document.getElementById('fpAddOrder')?.value||'').trim();
+    const menge=(document.getElementById('fpAddMenge')?.value||'').trim();
+    if(!orderNr){showErr('Sales Order ist Pflicht.');return;}
+    if(!menge){showErr('Menge (Unit/PAL) ist Pflicht.');return;}
     const sscc=(document.getElementById('fpAddSscc')?.value||'').trim();
     const docId=sscc||palNr;
     // Doppelt anlegen verhindern
@@ -9152,9 +9172,11 @@ async function saveFpAdd(){
         palettenNr: palNr,
         artikelNr,
         sscc,
-        orderNr: (document.getElementById('fpAddOrder')?.value||'').trim(),
+        datum: datumDe,
+        produktionsDatum: datumDe,
+        orderNr,
         labelTyp: _fpAddLabelTypInternal || 'XO Fertigware',
-        menge: (document.getElementById('fpAddMenge')?.value||'').trim(),
+        menge,
         kunde: (document.getElementById('fpAddKunde')?.value||'').trim(),
         schicht: (document.getElementById('fpAddSchicht')?.value||'').trim(),
         gtin: (document.getElementById('fpAddGtin')?.value||'').trim(),
