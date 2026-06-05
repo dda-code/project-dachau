@@ -518,6 +518,36 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     /* Hintergrundfarben im Druck beibehalten (nötig für die grauen Header) */
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
+/* ===== Produktionsplan-Druck (A4-Auftragsblatt + Paletten-Abhakliste) ===== */
+.prod-print-sheet{ background:#fff; color:#0f172a; border:1px solid #cbd5e1; border-radius:6px; padding:16mm 12mm; max-width:190mm; margin:14px auto 0; font-size:0.82rem; }
+.prod-print-head{ display:flex; align-items:flex-start; gap:16px; border-bottom:2px solid #0f172a; padding-bottom:10px; margin-bottom:14px; }
+.prod-print-brand{ font-weight:900; font-size:1.8rem; letter-spacing:-1px; }
+.prod-print-title{ font-size:1.05rem; font-weight:700; }
+.prod-print-so{ font-size:1.6rem; font-weight:900; letter-spacing:0.5px; }
+.prod-print-meta{ margin-left:auto; font-size:0.72rem; color:#475569; text-align:right; }
+.prod-print-grid{ display:grid; grid-template-columns:1fr 1fr; gap:2px 24px; margin-bottom:16px; }
+.prod-print-cell{ display:flex; justify-content:space-between; gap:10px; border-bottom:1px dotted #cbd5e1; padding:2px 0; }
+.prod-print-cell .ppk{ color:#475569; font-weight:600; }
+.prod-print-cell .ppv{ font-weight:700; text-align:right; }
+.prod-print-pal-title{ font-weight:800; font-size:0.95rem; margin:6px 0 8px; }
+.prod-print-pal-table{ width:100%; border-collapse:collapse; }
+.prod-print-pal-table th, .prod-print-pal-table td{ padding:3px 6px; font-size:0.8rem; }
+.prod-print-pal-table .pp-cb, .prod-print-pal-table .pp-cb-h{ width:20px; text-align:center; }
+.prod-print-pal-table .pp-nr-h{ text-align:left; font-size:0.7rem; color:#64748b; border-bottom:1px solid #94a3b8; }
+.prod-cb{ display:inline-block; width:13px; height:13px; border:1.6px solid #000; border-radius:2px; vertical-align:middle; }
+.prod-print-pal-table .pp-nr{ font-family:'Consolas','Courier New',monospace; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
+.prod-print-pal-table .pp-blocked{ text-decoration:line-through; color:#94a3b8; }
+.prod-print-pal-table .pp-bl{ font-size:0.7rem; color:#dc2626; }
+@media print {
+  body.prod-printing #labelPrintArea, body.prod-printing #sgLabelPrintArea { display:none !important; visibility:hidden !important; }
+  body.prod-printing #prodPrintModal { background:none !important; position:static !important; }
+  body.prod-printing #prodPrintModal .modal { box-shadow:none !important; max-width:none !important; width:auto !important; height:auto !important; padding:0 !important; }
+  body.prod-printing #prodPrintModal .modal-header, body.prod-printing #prodPrintModal .form-group, body.prod-printing #prodPrintModal .btn { display:none !important; }
+  body.prod-printing #prodPrintArea, body.prod-printing #prodPrintArea * { visibility:visible !important; }
+  body.prod-printing #prodPrintArea { position:absolute !important; left:0; top:0; right:0; width:100% !important; max-width:none !important; border:none !important; border-radius:0 !important; padding:0 !important; margin:0 !important; }
+  body.prod-printing .prod-print-pal-row { page-break-inside:avoid; }
+  body.prod-printing .prod-print-pal-table thead { display:table-header-group; }
+}
 /* Spritzguss-Label — gleiche Basis-Styles wie Assembly-Label, minimale Abweichungen */
 .sg-lbl-tbl { width:100%; border-collapse:collapse; table-layout:fixed; }
 .sg-lbl-tbl col.col-a { width:50%; }
@@ -685,6 +715,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 </div>
                 <div class="prod-filters">
                     <button class="btn btn-success" id="prodNewBtn" style="font-size:0.85rem;padding:8px 14px">+ Neuer Auftrag</button>
+                    <button type="button" class="btn btn-secondary" onclick="openProdPrint('asm')" style="font-size:0.85rem;padding:8px 14px">🖨 Drucken</button>
                     <input type="text" id="prodSearch" class="form-input" placeholder="Suche Auftrag, Artikel, Kunde ..." style="min-width:220px">
                     <details class="prod-multi" id="prodStatusFilter">
                         <summary>Status <span class="prod-multi-count">2/5</span></summary>
@@ -720,6 +751,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 </div>
                 <div class="prod-filters">
                     <button class="btn btn-success" id="sgProdNewBtn" style="font-size:0.85rem;padding:8px 14px">+ Neuer Auftrag</button>
+                    <button type="button" class="btn btn-secondary" onclick="openProdPrint('sg')" style="font-size:0.85rem;padding:8px 14px">🖨 Drucken</button>
                     <input type="text" id="sgProdSearch" class="form-input" placeholder="Suche Auftrag, Artikel ..." style="min-width:220px">
                     <details class="prod-multi" id="sgProdStatusFilter">
                         <summary>Status <span class="prod-multi-count">2/5</span></summary>
@@ -1244,6 +1276,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </div></div>
 
     <!-- USER MANAGEMENT MODAL (outside view sections) -->
+    <div class="modal-overlay" id="prodPrintModal" style="display:none"><div class="modal" style="max-width:900px;width:96vw">
+        <div class="modal-header"><h3 id="prodPrintTitle">Produktionsauftrag drucken</h3><button class="modal-close" onclick="closeProdPrint()">&times;</button></div>
+        <div class="modal-body">
+            <div class="form-group"><label>Auftrag auswählen</label><select id="prodPrintSelect" class="form-select" onchange="_prodPrintRender()"></select></div>
+            <div style="display:flex;gap:10px;margin:10px 0">
+                <button class="btn btn-primary" onclick="printProdSheet()">🖨 Drucken</button>
+                <button class="btn btn-secondary" onclick="closeProdPrint()">Abbrechen</button>
+            </div>
+            <div id="prodPrintArea" class="prod-print-sheet"></div>
+        </div>
+    </div></div>
     <div class="modal-overlay" id="orderPinModal" style="display:none"><div class="modal" style="max-width:460px">
         <div class="modal-header"><h3>Order-Nummer-PIN</h3><button class="modal-close" onclick="closeOrderPinModal()">&times;</button></div>
         <div class="modal-body">
@@ -4253,6 +4296,118 @@ function _prodPalEffective(o,origPal){
 function _prodPalIsBlocked(o,origPal){
     const st=(o._palStates||{})[origPal];
     return !!(st&&st.blocked);
+}
+// ===== Produktionsplan-Druck: Auftrag → A4-Blatt + Paletten-Abhakliste =====
+const _prodLetzte=o=>(typeof _prodLetzteGefertigte==='function'?_prodLetzteGefertigte(o):'')||o['letzte gefertigte Palettennummer']||'';
+const _PROD_PRINT_FIELDS=[
+    {l:'Sales Order',          v:o=>_prodEsc(o['Sales Order - PALETTENLABEL'])},
+    {l:'Sales Order XO',       v:o=>_prodEsc(o['Sales Order XO'])},
+    {l:'Veredelung',           v:o=>_prodEsc(o['veredelung'])},
+    {l:'Kunde',                v:o=>_prodEsc(o['Kunde'])},
+    {l:'Pick-Up Deadline',     v:o=>_prodEsc(o['Pick-Up Deadline']?_prodFmtDate(o['Pick-Up Deadline']):'')},
+    {l:'Palettenformat',       v:o=>_prodEsc(o['Palettenformat'])},
+    {l:'Ends pro Palette',     v:o=>_prodNum(o['Ends pro Palette'])},
+    {l:'Artikelnummer',        v:o=>_prodEsc(o['Artikelnummer'])},
+    {l:'Kundenreferenz',       v:o=>_prodEsc(o['Kundenreferenz'])},
+    {l:'Palettentyp',          v:o=>_prodEsc(o['Palettentyp'])},
+    {l:'Sleevetyp',            v:o=>_prodEsc(o['Sleevetyp'])},
+    {l:'Shell',                v:o=>_prodEsc(o['Shell'])},
+    {l:'Frame',                v:o=>_prodEsc(o['Frame'])},
+    {l:'Inner-Slider',         v:o=>_prodEsc(o['Inner-Slider'])},
+    {l:'Outer-Slider',         v:o=>_prodEsc(o['Outer-Slider'])},
+    {l:'TP-Band',              v:o=>_prodEsc(o['TP-Band'])},
+    {l:'Laser Code',           v:o=>_prodEsc(o['Laser Code'])},
+    {l:'Status Produktion',    v:o=>_prodEsc(_prodStatusLabel(o['Status Produktion']))},
+    {l:'Anzahl Paletten',      v:o=>_prodNum(o['Anzahl Paletten'])},
+    {l:'Paletten offen',       v:o=>_prodNum(o['Anzahl Paletten offen'])},
+    {l:'Menge Auftrag offen',  v:o=>_prodNum(o['Menge Auftrag offen'])},
+    {l:'Menge Auftrag Gesamt', v:o=>_prodNum(o['Menge Auftrag Gesamt'])},
+    {l:'Menge + 5% Ausschuss', v:o=>_prodNum(o['Menge Auftrag Gesamt + 5% Ausschuss'])},
+    {l:'letzte gefertigte Pal-Nr.', v:o=>_prodEsc(_prodLetzte(o))},
+    {l:'Pal-Nr. START',        v:o=>_prodEsc(o['Paletten Nummer START Auftrag'])},
+    {l:'Pal-Nr. ENDE',         v:o=>_prodEsc(o['Paletten Nummer ENDE Auftrag'])},
+    {l:'Zusatzpaletten',       v:o=>_prodEsc(o['Zusatzpaletten'])}
+];
+const _SG_PROD_PRINT_FIELDS=[
+    {l:'Sales Order XO',       v:o=>_prodEsc(o['Sales Order XO'])},
+    {l:'Artikelnummer',        v:o=>_prodEsc(o['Artikelnummer'])},
+    {l:'Frames pro Palette',   v:o=>_prodNum(o['Frames pro Palette'])},
+    {l:'Status Produktion',    v:o=>_prodEsc(_prodStatusLabel(o['Status Produktion']))},
+    {l:'Anzahl Paletten',      v:o=>_prodNum(o['Anzahl Paletten'])},
+    {l:'Menge Auftrag offen',  v:o=>_prodNum(o['Menge Auftrag offen'])},
+    {l:'Menge Auftrag Gesamt', v:o=>_prodNum(o['Menge Auftrag Gesamt'])},
+    {l:'letzte gefertigte Pal-Nr.', v:o=>_prodEsc(_prodLetzte(o))},
+    {l:'Pal-Nr. START',        v:o=>_prodEsc(o['Paletten Nummer START Auftrag'])},
+    {l:'Pal-Nr. ENDE',         v:o=>_prodEsc(o['Paletten Nummer ENDE Auftrag'])}
+];
+let _prodPrintPlan='asm';
+function _prodPrintCfg(){
+    return _prodPrintPlan==='sg'
+        ? {arr:(typeof PRODUKTIONSPLAN_SG_DATA!=='undefined'?PRODUKTIONSPLAN_SG_DATA:[]), idKey:'Sales Order XO', fields:_SG_PROD_PRINT_FIELDS, title:'Produktionsauftrag — Spritzguss'}
+        : {arr:(typeof PRODUKTIONSPLAN_DATA!=='undefined'?PRODUKTIONSPLAN_DATA:[]), idKey:'Sales Order - PALETTENLABEL', fields:_PROD_PRINT_FIELDS, title:'Produktionsauftrag — Assembly'};
+}
+function openProdPrint(plan){
+    _prodPrintPlan=(plan==='sg')?'sg':'asm';
+    const cfg=_prodPrintCfg();
+    const t=document.getElementById('prodPrintTitle'); if(t)t.textContent=cfg.title+' — drucken';
+    const sel=document.getElementById('prodPrintSelect');
+    const arr=cfg.arr.slice().map((o,i)=>({o,i,so:String(o[cfg.idKey]||'').trim()})).filter(x=>x.so);
+    arr.sort(_labelOrderCompare);
+    const seen=new Set();
+    const opts=['<option value="">— Auftrag wählen —</option>'];
+    arr.forEach(({o,so})=>{ if(seen.has(so))return; seen.add(so); const extra=[o['Kunde'],o['Artikelnummer']].filter(Boolean).join(' · '); opts.push('<option value="'+_prodEsc(so)+'">'+_prodEsc(so)+(extra?' — '+_prodEsc(extra):'')+'</option>'); });
+    sel.innerHTML=opts.join('');
+    sel.value=arr.length?arr[0].so:'';
+    _prodPrintRender();
+    document.getElementById('prodPrintModal').style.display='flex';
+}
+function closeProdPrint(){ const m=document.getElementById('prodPrintModal'); if(m)m.style.display='none'; }
+function _prodPrintRender(){
+    const cfg=_prodPrintCfg();
+    const area=document.getElementById('prodPrintArea'); if(!area)return;
+    const so=(document.getElementById('prodPrintSelect')?.value||'').trim();
+    const o=cfg.arr.find(x=>String(x[cfg.idKey]||'').trim()===so);
+    if(!o){ area.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8">Bitte einen Auftrag wählen.</div>'; return; }
+    const now=new Date();
+    const stamp=now.toLocaleDateString('de-DE')+' '+now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+    const user=(typeof getCurrentUsername==='function'?getCurrentUsername():'')||'';
+    let html='<div class="prod-print-head"><div class="prod-print-brand">XO</div><div><div class="prod-print-title">'+_prodEsc(cfg.title)+'</div><div class="prod-print-so">'+_prodEsc(so)+'</div></div><div class="prod-print-meta">gedruckt: '+_prodEsc(stamp)+(user?'<br>von: '+_prodEsc(user):'')+'</div></div>';
+    html+='<div class="prod-print-grid">';
+    cfg.fields.forEach(f=>{ const val=f.v(o); html+='<div class="prod-print-cell"><span class="ppk">'+_prodEsc(f.l)+'</span><span class="ppv">'+((val===''||val==null)?'–':val)+'</span></div>'; });
+    html+='</div>';
+    const pals=_prodPalGenerate(o['Paletten Nummer START Auftrag'], o['Anzahl Paletten']);
+    html+='<div class="prod-print-pal-section"><div class="prod-print-pal-title">Paletten abhaken ('+pals.length+')</div>';
+    if(!pals.length){ html+='<div style="color:#94a3b8">Keine Paletten (Start-Nr. / Anzahl fehlt).</div>'; }
+    else {
+        const cols=4;
+        html+='<table class="prod-print-pal-table"><thead><tr>';
+        for(let c=0;c<cols;c++) html+='<th class="pp-cb-h"></th><th class="pp-nr-h">Palette</th>';
+        html+='</tr></thead><tbody>';
+        const rowN=Math.ceil(pals.length/cols);
+        for(let r=0;r<rowN;r++){
+            html+='<tr class="prod-print-pal-row">';
+            for(let c=0;c<cols;c++){
+                const idx=r*cols+c;
+                if(idx<pals.length){
+                    const p=pals[idx]; const eff=_prodPalEffective(o,p); const blocked=_prodPalIsBlocked(o,p);
+                    html+='<td class="pp-cb"><span class="prod-cb"></span></td><td class="pp-nr'+(blocked?' pp-blocked':'')+'">'+_prodEsc(eff)+(blocked?' <span class="pp-bl">(gesperrt)</span>':'')+'</td>';
+                } else { html+='<td></td><td></td>'; }
+            }
+            html+='</tr>';
+        }
+        html+='</tbody></table>';
+    }
+    html+='</div>';
+    area.innerHTML=html;
+}
+function printProdSheet(){
+    const area=document.getElementById('prodPrintArea');
+    if(!area||!area.innerHTML.trim()||!document.getElementById('prodPrintSelect')?.value){ alert('Bitte zuerst einen Auftrag wählen.'); return; }
+    const cleanup=()=>{ document.body.classList.remove('prod-printing'); window.removeEventListener('afterprint',cleanup); };
+    window.addEventListener('afterprint',cleanup);
+    document.body.classList.add('prod-printing');
+    window.print();
+    setTimeout(cleanup,60000);
 }
 function _prodRenderPalList(o){
     const pals=_prodPalGenerate(o['Paletten Nummer START Auftrag'],o['Anzahl Paletten']);

@@ -1017,7 +1017,7 @@ $('confirmBtn').addEventListener('click', async ()=>{
 
         // Success
         $('successDetail').textContent=data.artikelNr+' auf '+pos;
-        scanHistory.unshift({time:new Date(),artikelNr:data.artikelNr,position:pos});
+        scanHistory.unshift({time:new Date(),artikelNr:data.artikelNr,palettenNr:data.palettenNr,position:pos});
         renderHistory();
         showStep('step4');
     } catch(e) {
@@ -1081,7 +1081,7 @@ function renderHistory(){
     $('historySection').style.display='block';
     $('historyList').innerHTML=scanHistory.slice(0,10).map(h=>{
         const ts=h.time.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
-        return `<div class="history-item"><span><strong>${_escAttr(h.artikelNr)}</strong> &rarr; ${_escAttr(h.position)}</span><span class="history-time">${ts}</span></div>`;
+        return `<div class="history-item"><span><strong>${_escAttr(h.palettenNr||h.artikelNr||'-')}</strong> &rarr; ${_escAttr(h.position)}</span><span class="history-time">${ts}</span></div>`;
     }).join('');
 }
 
