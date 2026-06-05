@@ -561,6 +561,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .prod-print-sheet{ background:#fff; color:#0f172a; border:1px solid #cbd5e1; border-radius:6px; padding:16mm 12mm; max-width:190mm; margin:14px auto 0; font-size:0.82rem; }
 .prod-print-head{ display:flex; align-items:flex-start; gap:16px; border-bottom:2px solid #0f172a; padding-bottom:10px; margin-bottom:14px; }
 .prod-print-brand{ font-weight:900; font-size:1.8rem; letter-spacing:-1px; }
+.prod-print-logo{ height:46px; width:auto; max-width:190px; display:block; }
 .prod-print-title{ font-size:1.05rem; font-weight:700; }
 .prod-print-so{ font-size:1.6rem; font-weight:900; letter-spacing:0.5px; }
 .prod-print-meta{ margin-left:auto; font-size:0.72rem; color:#475569; text-align:right; }
@@ -583,8 +584,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
      jetzt hinter body.label-printing liegt und hier sonst nicht greifen würde. */
   body.prod-printing * { visibility:hidden !important; }
   body.prod-printing #labelPrintArea, body.prod-printing #sgLabelPrintArea { display:none !important; visibility:hidden !important; }
-  body.prod-printing #prodPrintModal { background:none !important; position:static !important; }
-  body.prod-printing #prodPrintModal .modal { box-shadow:none !important; max-width:none !important; width:auto !important; height:auto !important; padding:0 !important; }
+  /* WICHTIG: .modal-overlay hat `contain:strict` (size+layout+paint). Das macht das Modal zum
+     Containing-Block des absolut positionierten #prodPrintArea UND beschneidet/kollabiert es im
+     Druck auf 0 → leere Seiten. `contain:none` + `overflow:visible` heben das auf, sodass das
+     Auftragsblatt relativ zur SEITE positioniert und nicht geclippt wird. */
+  body.prod-printing #prodPrintModal { background:none !important; position:static !important; contain:none !important; overflow:visible !important; }
+  body.prod-printing #prodPrintModal .modal { box-shadow:none !important; max-width:none !important; width:auto !important; height:auto !important; max-height:none !important; overflow:visible !important; contain:none !important; padding:0 !important; }
   body.prod-printing #prodPrintModal .modal-header, body.prod-printing #prodPrintModal .form-group, body.prod-printing #prodPrintModal .btn { display:none !important; }
   body.prod-printing #prodPrintArea, body.prod-printing #prodPrintArea * { visibility:visible !important; }
   body.prod-printing #prodPrintArea * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
@@ -4614,7 +4619,11 @@ function _prodPrintRender(){
     const now=new Date();
     const stamp=now.toLocaleDateString('de-DE')+' '+now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
     const user=(typeof getCurrentUsername==='function'?getCurrentUsername():'')||'';
-    let html='<div class="prod-print-head"><div class="prod-print-brand">XO</div><div><div class="prod-print-title">'+_prodEsc(cfg.title)+'</div><div class="prod-print-so">'+_prodEsc(so)+'</div></div><div class="prod-print-meta">gedruckt: '+_prodEsc(stamp)+(user?'<br>von: '+_prodEsc(user):'')+'</div></div>';
+    // EXAKT dasselbe Logo wie auf den Palettenlabels verwenden (das <img> aus #labelSheet).
+    // Fallback auf den Text "XO", falls das Label-Sheet (noch) kein Logo enthält.
+    const logoSrc=(document.querySelector('#labelSheet img')||{}).src||'';
+    const brand=logoSrc?'<img class="prod-print-logo" src="'+_prodEsc(logoSrc)+'" alt="XO">':'<div class="prod-print-brand">XO</div>';
+    let html='<div class="prod-print-head">'+brand+'<div><div class="prod-print-title">'+_prodEsc(cfg.title)+'</div><div class="prod-print-so">'+_prodEsc(so)+'</div></div><div class="prod-print-meta">gedruckt: '+_prodEsc(stamp)+(user?'<br>von: '+_prodEsc(user):'')+'</div></div>';
     html+='<div class="prod-print-grid">';
     cfg.fields.forEach(f=>{ const val=f.v(o); html+='<div class="prod-print-cell"><span class="ppk">'+_prodEsc(f.l)+'</span><span class="ppv">'+((val===''||val==null)?'–':val)+'</span></div>'; });
     html+='</div>';
