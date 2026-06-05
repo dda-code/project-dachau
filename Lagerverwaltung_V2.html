@@ -1625,7 +1625,9 @@ if(['127.0.0.1','localhost'].includes(location.hostname)){
 <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
-<script src="xlsx.full.min.js"></script>
+<!-- xlsx-js-style: SheetJS 0.18.5 + Zell-Formatierung (Drop-in-Superset). Ersetzt das frühere
+     xlsx.full.min.js — liefert XLSX für ALLE Exporte und ermöglicht das formatierte Fertigware-Excel. -->
+<script src="xlsx-js-style.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
 <script>
@@ -9199,11 +9201,11 @@ async function saveFpAdd(){
 function _ensureXlsxLoaded(){
     return new Promise((resolve,reject)=>{
         if(typeof XLSX!=='undefined' && XLSX.utils) return resolve();
-        // Dynamisch nachladen (Fallback wenn CDN beim Page-Load blockiert wurde)
+        // Dynamisch nachladen (Fallback wenn die lokale Datei beim Page-Load fehlte).
+        // xlsx-js-style (SheetJS 0.18.5 + Styling) — Voraussetzung für das formatierte Fertigware-Excel.
         const urls=[
-            'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-            'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+            'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
+            'https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
         ];
         let i=0;
         const tryNext=()=>{
@@ -9226,68 +9228,108 @@ async function exportFertigpaletten(){
         return;
     }
     try{
-    const y=_fwCalendarYear, mo=_fwCalendarMonth;
-    const monthName=new Date(y,mo,1).toLocaleDateString('de-DE',{month:'long',year:'numeric'});
-    const mLabel=new Date(y,mo,1).toLocaleDateString('de-DE',{month:'long'});
+    // ===== Formatierung exakt wie die Originaldatei "Production XO Aumundswiese" =====
+    const MONTHS=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+    const CY='FF00B0F0', YE='FFFFFF00', GREY='FFA6A6A6', BLK='FF000000';
+    const NF_INT='#,##0';
+    const NF_ACC='_-* #,##0_-;\\-* #,##0_-;_-* "-"??_-;_-@_-';
+    const NF_DATE='[$-F800]dddd\\, mmmm dd\\, yyyy';
+    const thin={style:'thin',color:{rgb:BLK}}, med={style:'medium',color:{rgb:BLK}};
+    const allB=b=>({top:b,bottom:b,left:b,right:b});
+    const baseFont={name:'Calibri',sz:11,color:{rgb:BLK}};
+    const hStyle=(fill,align)=>({fill:{patternType:'solid',fgColor:{rgb:fill}},font:{name:'Calibri',sz:10,bold:true,color:{rgb:BLK}},alignment:{horizontal:align,vertical:'top',wrapText:true},border:allB(med)});
+    const fillG=g=>g?{patternType:'solid',fgColor:{rgb:GREY}}:undefined;
+    const dCenter=g=>({font:baseFont,alignment:{horizontal:'center',vertical:'center'},border:allB(thin),fill:fillG(g)});
+    const dDate =()=>({font:baseFont,alignment:{horizontal:'right',vertical:'center'},numFmt:NF_DATE,border:allB(thin)});
+    const dLeft =g=>({font:baseFont,alignment:{horizontal:'left',vertical:'center'},border:allB(thin),fill:fillG(g)});
+    const dNum  =g=>({font:baseFont,alignment:{horizontal:'center',vertical:'center'},numFmt:NF_INT,border:allB(thin),fill:fillG(g)});
+    const dAcc  =g=>({font:baseFont,alignment:{horizontal:'right',vertical:'center'},numFmt:NF_ACC,border:allB(thin),fill:fillG(g)});
+    const sTotal={font:baseFont,alignment:{horizontal:'right',vertical:'center'},numFmt:NF_ACC};
+    const sNote ={font:baseFont,alignment:{horizontal:'left',vertical:'center',wrapText:true}};
+    const serial=(y,m,d)=>Math.round((Date.UTC(y,m,d)-Date.UTC(1899,11,30))/86400000);
+    const enc=(r,c)=>XLSX.utils.encode_cell({r,c});
+
+    // ===== Daten nach Tag gruppieren; kumulierte "Complete"-Zählung je Order chronologisch =====
     const valid=FERTIGPALETTEN_DATA.filter(p=>p.datum && /^\d{1,2}\.\d{1,2}\.\d{4}$/.test(p.datum));
-    valid.sort((a,b)=>{const da=_fwParseDeDate(a.datum),dB=_fwParseDeDate(b.datum);return (da?.getTime()||0)-(dB?.getTime()||0);});
+    if(!valid.length){alert('Keine Fertigpaletten mit Produktionsdatum vorhanden.');return;}
     const byDay=new Map();
-    valid.forEach(p=>{const d=_fwParseDeDate(p.datum); if(!d)return; const k=_fwDateKey(d); if(!byDay.has(k))byDay.set(k,[]); byDay.get(k).push(p);});
-    const monthStart=new Date(y,mo,1);
-    const runningByOrder=new Map();
-    valid.forEach(p=>{const d=_fwParseDeDate(p.datum); if(!d||d>=monthStart)return; const o=String(p.orderNr||'').trim(); if(o)runningByOrder.set(o,(runningByOrder.get(o)||0)+1);});
-    const header=['Production Date','Prod code','XO order','Shell','Frame','Inner Slider','Outer Slider','T.P.','Laser','Unit/PAL','Pallets','Complete','Units','label no.','Notiz'];
-    const daysInMonth=new Date(y,mo+1,0).getDate();
-    const xlsxRows=[];
-    for(let day=1; day<=daysInMonth; day++){
-        const d=new Date(y,mo,day);
-        const key=_fwDateKey(d);
-        const weekday=d.toLocaleDateString('de-DE',{weekday:'long'});
-        const dateLabel=weekday+', '+day+'. '+mLabel;
-        const note=PRODUKTIONS_NOTIZEN[key]||'';
-        const dayRows=byDay.get(key)||[];
-        if(dayRows.length===0){
-            xlsxRows.push([dateLabel,'','','','','','','','','','','','','',note]);
-            continue;
-        }
-        const groups=new Map();
-        dayRows.forEach(p=>{
-            const art=String(p.artikelNr||'').trim();
-            const ord=String(p.orderNr||'').trim();
-            const gk=art+'||'+ord;
-            if(!groups.has(gk))groups.set(gk,{art,ord,rows:[]});
-            groups.get(gk).rows.push(p);
-        });
-        [...groups.values()].forEach(g=>{
-            const n=g.rows.length;
-            const unitPal=parseInt(g.rows[0].menge,10)||0;
-            const units=n*unitPal;
+    valid.forEach(p=>{const d=_fwParseDeDate(p.datum);if(!d)return;const k=_fwDateKey(d);if(!byDay.has(k))byDay.set(k,[]);byDay.get(k).push(p);});
+    const running=new Map(), groupsByDay=new Map();
+    [...byDay.keys()].sort().forEach(k=>{
+        const gmap=new Map();
+        byDay.get(k).forEach(p=>{const art=String(p.artikelNr||'').trim(),ord=String(p.orderNr||'').trim(),gk=art+'||'+ord;if(!gmap.has(gk))gmap.set(gk,{art,ord,rows:[]});gmap.get(gk).rows.push(p);});
+        groupsByDay.set(k,[...gmap.values()].map(g=>{
+            const n=g.rows.length, unitPal=parseInt(g.rows[0].menge,10)||0;
             const xoRow=_fwFindXoendByArticleNr(g.art);
-            const shellRaw=xoRow?String(xoRow['Shell Art']||'').trim():'';
-            const sm=shellRaw.match(/^(\d+\s+\S+)/);
-            const shell=sm?sm[1]:shellRaw;
-            const frame=xoRow?(xoRow['Frame Farbe']||'').trim():'';
-            const inner=xoRow?(xoRow['Innerslider Farbe']||'').trim():'';
-            const outer=xoRow?(xoRow['Outerslider Farbe']||'').trim():'';
-            const tp=xoRow?(xoRow['TP-Band Farbe']||'').trim():'';
-            const laser=xoRow?_fwLaserKurz(xoRow['Laser Code Beschreibung']||''):'';
-            runningByOrder.set(g.ord,(runningByOrder.get(g.ord)||0)+n);
-            const cum=runningByOrder.get(g.ord);
-            const total=_fwFindOrderTotal(g.ord);
-            const complete=total>0?(cum+' of '+total):String(cum);
-            // Gesperrte Paletten im Text markieren + Sperrgrund hinten anfügen
-            const sortedRowsX=g.rows.slice().filter(p=>p.palettenNr).sort((a,b)=>String(a.palettenNr).localeCompare(String(b.palettenNr)));
-            const palNrs=sortedRowsX.map(p=>p.gesperrt?('🔒 '+p.palettenNr):p.palettenNr).join(', ');
-            const blockedInfoX=sortedRowsX.filter(p=>p.gesperrt).map(p=>p.palettenNr+(p.sperrgrund?': '+p.sperrgrund:'')).join(' · ');
-            const palCellX=blockedInfoX?(palNrs+'\nGESPERRT — '+blockedInfoX):palNrs;
-            const xoOrder=g.ord?('XO-20'+g.ord):'';
-            xlsxRows.push([dateLabel,g.art,xoOrder,shell,frame,inner,outer,tp,laser,unitPal||'',n,complete,units||'',palCellX,note]);
-        });
-    }
-    const ws=XLSX.utils.aoa_to_sheet([header,...xlsxRows]);
+            const shellRaw=xoRow?String(xoRow['Shell Art']||'').trim():''; const sm=shellRaw.match(/^(\d+\s+\S+)/);
+            running.set(g.ord,(running.get(g.ord)||0)+n); const cum=running.get(g.ord), total=_fwFindOrderTotal(g.ord);
+            const sorted=g.rows.slice().filter(p=>p.palettenNr).sort((a,b)=>String(a.palettenNr).localeCompare(String(b.palettenNr)));
+            const palNrs=sorted.map(p=>p.gesperrt?('🔒 '+p.palettenNr):p.palettenNr).join(', ');
+            const blk=sorted.filter(p=>p.gesperrt).map(p=>p.palettenNr+(p.sperrgrund?': '+p.sperrgrund:'')).join(' · ');
+            return {art:g.art, xoOrder:g.ord?('XO-20'+g.ord):'', shell:sm?sm[1]:shellRaw,
+                frame:xoRow?(xoRow['Frame Farbe']||'').trim():'', inner:xoRow?(xoRow['Innerslider Farbe']||'').trim():'',
+                outer:xoRow?(xoRow['Outerslider Farbe']||'').trim():'', tp:xoRow?(xoRow['TP-Band Farbe']||'').trim():'',
+                laser:xoRow?_fwLaserKurz(xoRow['Laser Code Beschreibung']||''):'', unitPal, n,
+                complete: total>0?(cum+' of '+total):String(cum), units:n*unitPal,
+                palNr: blk?(palNrs+'  —  GESPERRT: '+blk):palNrs};
+        }));
+    });
+    // Monate (chronologisch) bestimmen — je Monat ein Tabellenblatt
+    const monthsMap=new Map();
+    valid.forEach(p=>{const d=_fwParseDeDate(p.datum);const mk=d.getFullYear()+'-'+d.getMonth();if(!monthsMap.has(mk))monthsMap.set(mk,{y:d.getFullYear(),mo:d.getMonth()});});
+    const monthList=[...monthsMap.values()].sort((a,b)=>(a.y-b.y)||(a.mo-b.mo));
+
+    const HEAD=['Production Date','Ilsemann prod code','XO order','Shell','Frame','Inner Slider','Outer Slider','T.P.','Laser Code','Unit / PAL','Pallets','Complete','Units','label no.'];
+    // Spaltenbreiten exakt wie Original (E–L = Default); O = Notizspalte.
+    // SheetJS speichert die Breite ~0.83 Zeichen breiter als wch → kompensiert, damit die
+    // gespeicherte Breite exakt der Originaldatei entspricht (A 27.54, B 16.45, …).
+    const _w=v=>({wch:Math.round((v-0.83)*100)/100});
+    const COLW=[_w(27.54),_w(16.45),_w(25),_w(13.45),undefined,undefined,undefined,undefined,undefined,undefined,undefined,undefined,_w(12.36),_w(67.91),{wch:60}];
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,('Fertigware '+monthName).slice(0,31));
-    XLSX.writeFile(wb,'Fertigware_'+y+'-'+String(mo+1).padStart(2,'0')+'.xlsx');
+    const years=new Set();
+    monthList.forEach(({y,mo})=>{
+        years.add(y);
+        const ws={};
+        HEAD.forEach((h,c)=>{ ws[enc(0,c)]={t:'s',v:h,s:hStyle(c<2?CY:YE, c===0?'right':'center')}; });
+        let r=1; const dataStart=r;
+        const daysInMonth=new Date(y,mo+1,0).getDate();
+        for(let day=1; day<=daysInMonth; day++){
+            const d=new Date(y,mo,day), key=_fwDateKey(d), wknd=(d.getDay()===0||d.getDay()===6);
+            const note=PRODUKTIONS_NOTIZEN[key]||'', groups=groupsByDay.get(key)||[], ser=serial(y,mo,day);
+            if(groups.length===0){
+                ws[enc(r,0)]={t:'n',v:ser,s:dDate()};
+                for(let c=1;c<=13;c++) ws[enc(r,c)]={t:'s',v:'',s:dCenter(wknd)};
+                if(note) ws[enc(r,14)]={t:'s',v:note,s:sNote};
+                r++; continue;
+            }
+            groups.forEach((g,gi)=>{
+                const xr=r+1; // 1-basierte Excel-Zeile für Formel
+                ws[enc(r,0)]={t:'n',v:ser,s:dDate()};
+                ws[enc(r,1)]={t:'s',v:g.art,s:dCenter(wknd)};
+                ws[enc(r,2)]={t:'s',v:g.xoOrder,s:dCenter(wknd)};
+                ws[enc(r,3)]={t:'s',v:g.shell,s:dCenter(wknd)};
+                ws[enc(r,4)]={t:'s',v:g.frame,s:dCenter(wknd)};
+                ws[enc(r,5)]={t:'s',v:g.inner,s:dCenter(wknd)};
+                ws[enc(r,6)]={t:'s',v:g.outer,s:dCenter(wknd)};
+                ws[enc(r,7)]={t:'s',v:g.tp,s:dCenter(wknd)};
+                ws[enc(r,8)]={t:'s',v:g.laser,s:dCenter(wknd)};
+                ws[enc(r,9)]= g.unitPal?{t:'n',v:g.unitPal,s:dNum(wknd)}:{t:'s',v:'',s:dNum(wknd)};
+                ws[enc(r,10)]={t:'n',v:g.n,s:dCenter(wknd)};
+                ws[enc(r,11)]={t:'s',v:g.complete,s:dCenter(wknd)};
+                ws[enc(r,12)]={t:'n',f:'J'+xr+'*K'+xr,v:g.units,s:dAcc(wknd)};
+                ws[enc(r,13)]={t:'s',v:g.palNr,s:dLeft(wknd)};
+                if(gi===0 && note) ws[enc(r,14)]={t:'s',v:note,s:sNote};
+                r++;
+            });
+        }
+        const lastData=r-1, totalRow=r+1;
+        ws[enc(totalRow,12)]={t:'n',f:'SUM(M'+(dataStart+1)+':M'+(lastData+1)+')',v:0,s:sTotal};
+        ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:totalRow,c:14}});
+        ws['!cols']=COLW;
+        XLSX.utils.book_append_sheet(wb,ws,(MONTHS[mo]+' '+String(y%100).padStart(2,'0')).slice(0,31));
+    });
+    const yrs=[...years].sort();
+    XLSX.writeFile(wb,'Production XO Aumundswiese '+(yrs.length===1?yrs[0]:(yrs[0]+'-'+yrs[yrs.length-1]))+'.xlsx');
     }catch(e){
         console.error('exportFertigpaletten:',e);
         alert('Excel-Export fehlgeschlagen: '+(e&&e.message?e.message:e));
