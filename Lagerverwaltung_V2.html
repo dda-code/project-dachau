@@ -496,23 +496,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 #druckEditForm .label-sheet { box-shadow: 0 4px 16px rgba(0,0,0,0.10); margin: 0 auto; border: 1px solid #000; }
 #druckEditForm .lbl-bar svg { width: 100%; height: 100%; display: block; }
 
-/* Druck: nur Label, ohne UI-Drumherum — A4 Portrait */
+/* Druck: nur Label, ohne UI-Drumherum — A4 Portrait.
+   WICHTIG: Diese Label-Only-Regeln greifen NUR während eines echten Label-Drucks
+   (body.label-printing). Ohne diese Klasse — also bei normalem Strg+P, Eventprotokoll,
+   Dashboard usw. — bleibt die sichtbare Seite druckbar (sonst: nur leere Seiten, weil
+   `body * { visibility:hidden }` alles ausblendet). Label- und Produktionsplan-Druck
+   setzen ihre jeweilige Klasse selbst (label-printing / prod-printing). */
 @media print {
     @page { size: A4 portrait; margin: 19mm 6mm; }
-    /* Grauen App-Hintergrund im Druck komplett entfernen */
-    html, body, #appView, .section-wrap, .label-page-wrap,
-    #labelPrintArea, #sgLabelPrintArea, .label-sheet,
-    .label-sheet td, .lbl-tbl, .sg-lbl-tbl, .lbl-val { background: #fff !important; }
+    /* Grauen App-Hintergrund im Label-Druck komplett entfernen */
+    body.label-printing, body.label-printing #appView, body.label-printing .section-wrap, body.label-printing .label-page-wrap,
+    body.label-printing #labelPrintArea, body.label-printing #sgLabelPrintArea, body.label-printing .label-sheet,
+    body.label-printing .label-sheet td, body.label-printing .lbl-tbl, body.label-printing .sg-lbl-tbl, body.label-printing .lbl-val { background: #fff !important; }
     /* Alles visuell ausblenden ... */
-    body * { visibility: hidden !important; }
+    body.label-printing * { visibility: hidden !important; }
     /* ... außer der Druckbereich und dessen Inhalt */
-    #labelPrintArea, #labelPrintArea *, #sgLabelPrintArea, #sgLabelPrintArea * { visibility: visible !important; }
+    body.label-printing #labelPrintArea, body.label-printing #labelPrintArea *, body.label-printing #sgLabelPrintArea, body.label-printing #sgLabelPrintArea * { visibility: visible !important; }
     /* Graue Header-Zellen aber behalten */
-    .label-sheet .lbl-h, .label-sheet .sg-lbl-h { background: #D9D9D9 !important; }
-    #section-label { display: block !important; }
+    body.label-printing .label-sheet .lbl-h, body.label-printing .label-sheet .sg-lbl-h { background: #D9D9D9 !important; }
+    body.label-printing #section-label { display: block !important; }
     /* Druck-Bereich spannt den gesamten Druckbereich auf (A4 abzgl. @page margins)
        und zentriert das Label mittels Flexbox horizontal + vertikal. */
-    #labelPrintArea, #sgLabelPrintArea {
+    body.label-printing #labelPrintArea, body.label-printing #sgLabelPrintArea {
         position: absolute !important;
         left: 0 !important; right: 0 !important;
         top: 0 !important; bottom: 0 !important;
@@ -522,7 +527,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
         align-items: center !important;
         justify-content: center !important;
     }
-    .label-sheet { width: 172mm !important; max-width: 172mm !important; margin: 0 !important; box-shadow: none !important; border: 2.5px solid #000 !important;
+    body.label-printing .label-sheet { width: 172mm !important; max-width: 172mm !important; margin: 0 !important; box-shadow: none !important; border: 2.5px solid #000 !important;
         /* Vorschau-Skalierung (_fitLabelSheets) im Druck IMMER neutralisieren — CSS-Backstop,
            falls das JS-beforeprint unter Edge-Kiosk nicht rechtzeitig zurücksetzt. Sonst
            druckt das Label im verkleinerten Vorschau-Maßstab (z.B. 0.7×). !important schlägt
@@ -531,14 +536,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     /* Linke Eingabe-Spalte und Layout-Wrapper im Druck komplett aus dem Flow nehmen,
        sonst zwingt deren min-width:600px die Body-Breite über die Seitenbreite und erzeugt
        in der Druckvorschau eine horizontale Scrollbar. */
-    .label-split-left, .label-toolbar, #labelPrinterInfo, #sgLabelPrinterInfo,
-    #lastPrintedBox, #sgLastPrintedBox { display: none !important; }
-    .label-split-layout { display: block !important; gap: 0 !important; }
-    .label-split-right { display: block !important; flex: none !important; min-width: 0 !important; max-width: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
-    .label-page-wrap { max-width: none !important; margin: 0 !important; padding: 0 !important; }
-    html, body { overflow: hidden !important; width: auto !important; }
-    /* Hintergrundfarben im Druck beibehalten (nötig für die grauen Header) */
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body.label-printing .label-split-left, body.label-printing .label-toolbar, body.label-printing #labelPrinterInfo, body.label-printing #sgLabelPrinterInfo,
+    body.label-printing #lastPrintedBox, body.label-printing #sgLastPrintedBox { display: none !important; }
+    body.label-printing .label-split-layout { display: block !important; gap: 0 !important; }
+    body.label-printing .label-split-right { display: block !important; flex: none !important; min-width: 0 !important; max-width: none !important; overflow: visible !important; padding: 0 !important; margin: 0 !important; }
+    body.label-printing .label-page-wrap { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+    body.label-printing { overflow: hidden !important; width: auto !important; }
+    /* html-Hintergrund im Druck immer weiß (App-Chrome ist nie Inhalt) */
+    html { background: #fff !important; }
+    /* Hintergrundfarben im Label-Druck beibehalten (nötig für die grauen Header) */
+    body.label-printing * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 /* ===== Produktionsplan-Druck (A4-Auftragsblatt + Paletten-Abhakliste) ===== */
 .prod-print-sheet{ background:#fff; color:#0f172a; border:1px solid #cbd5e1; border-radius:6px; padding:16mm 12mm; max-width:190mm; margin:14px auto 0; font-size:0.82rem; }
@@ -5726,6 +5733,31 @@ window.addEventListener('beforeprint',()=>{
 });
 window.addEventListener('afterprint',()=>setTimeout(_fitLabelSheets,30));
 
+// ===== Normaler (Nicht-Label-)Druck: A4-Seitenformat erzwingen =====
+// Hintergrund: _applyPrintPageStyle()/_applyPrintPageStyleSg() schreiben ein GLOBALES @page
+// (z.B. 100mm×150mm fürs Zebra-Etikett, schon beim Seitenstart) in #_dynPrintStyle. Ohne
+// Gegenmaßnahme würde dieses Etiketten-@page auch bei einem normalen Strg+P (Eventprotokoll,
+// Dashboard, Produktionsplan) weiterwirken und auf winziges Papier drucken. Dieses Override
+// erzwingt A4, sobald KEIN Label-Druck läuft (body.label-printing nicht gesetzt).
+(function(){
+    const A4_RULE='@media print{ @page{ size: A4 portrait; margin: 12mm; } }';
+    let _el=null;
+    function _ensure(){
+        if(!_el){ _el=document.createElement('style'); _el.id='_normalPrintPage'; }
+        // Immer ans ENDE von <head> hängen → dieses @page überschreibt das ggf. geleakte
+        // Etiketten-@page aus #_dynPrintStyle (Quellreihenfolge entscheidet bei @page).
+        document.head.appendChild(_el);
+        return _el;
+    }
+    window.addEventListener('beforeprint',()=>{
+        // Bei Label-Druck KEIN Override (Etiketten-@page soll gelten); sonst A4 erzwingen.
+        _ensure().textContent=document.body.classList.contains('label-printing')?'':A4_RULE;
+    });
+    // Nach dem Druck A4 für den nächsten (i.d.R. normalen) Druck vorhalten.
+    window.addEventListener('afterprint',()=>{ _ensure().textContent=A4_RULE; });
+    document.addEventListener('DOMContentLoaded',()=>{ _ensure().textContent=A4_RULE; });
+})();
+
 // ============================================================
 // LABEL DRUCKEN — Dropdown, Barcode-Rendering, Druck-Trigger
 // ============================================================
@@ -6062,9 +6094,16 @@ async function printLabel(){
     window.addEventListener('afterprint', onAfterPrint);
 
     // Kopien per JS-Loop (window.print kennt keinen Kopien-Parameter)
-    for(let i=0; i<copies; i++){
-        await new Promise(r=>setTimeout(r, i===0?200:800));
-        window.print();
+    // label-printing: aktiviert die Label-Only-Druck-CSS (sonst druckt der Browser die volle UI).
+    // Klasse bleibt über ALLE Kopien gesetzt und wird erst nach der letzten Kopie entfernt.
+    document.body.classList.add('label-printing');
+    try{
+        for(let i=0; i<copies; i++){
+            await new Promise(r=>setTimeout(r, i===0?200:800));
+            window.print();
+        }
+    } finally {
+        document.body.classList.remove('label-printing');
     }
 
     // Safety-Net: falls afterprint nie feuert (sehr alte Browser) nach 60s aufraeumen
@@ -6988,9 +7027,16 @@ async function sg_printLabel(){
     };
     window.addEventListener('afterprint', onAfterPrint);
 
-    for(let i=0; i<copies; i++){
-        await new Promise(r=>setTimeout(r, i===0?200:800));
-        window.print();
+    // label-printing: aktiviert die Label-Only-Druck-CSS (siehe @media print). Bleibt über
+    // alle Kopien gesetzt, erst nach der letzten Kopie wieder entfernen.
+    document.body.classList.add('label-printing');
+    try{
+        for(let i=0; i<copies; i++){
+            await new Promise(r=>setTimeout(r, i===0?200:800));
+            window.print();
+        }
+    } finally {
+        document.body.classList.remove('label-printing');
     }
     setTimeout(()=>window.removeEventListener('afterprint', onAfterPrint), 60000);
 }
