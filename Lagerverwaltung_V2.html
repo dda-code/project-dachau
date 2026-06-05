@@ -210,6 +210,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .fw-cal-table .fw-nowrap { white-space:nowrap; }
 .fw-cal-table .fw-cal-note { cursor:pointer; font-size:0.78rem; }
 .fw-cal-table .fw-cal-note:hover { background:#fef3c7 !important; color:#92400e; }
+/* Palettennummer im Kalender: für Manager/Admin klickbar zum Bearbeiten */
+.fw-cal-table .fw-pal-edit { cursor:pointer; border-bottom:1px dotted #94a3b8; }
+.fw-cal-table .fw-pal-edit:hover { color:#4361ee; border-bottom-color:#4361ee; background:#eef2ff; }
+/* Aus dem Bestand entfernte (aber produzierte) Palette — bleibt im Kalender */
+.fw-cal-table .fw-pal-removed { color:#94a3b8; text-decoration:line-through; }
 /* Spaltenbreiten proportional (Summe 100%) — damit nichts horizontal scrollt */
 .fw-cal-table col.fw-c-date   { width:12%; }
 .fw-cal-table col.fw-c-art    { width:7%; }
@@ -2115,6 +2120,7 @@ async function loadDashboard(){
     // → diese liegen physisch in Aumundswiese, daher cntAum / mengeAum hochzählen
     if(typeof FERTIGPALETTEN_DATA!=='undefined' && FERTIGPALETTEN_DATA.length){
         FERTIGPALETTEN_DATA.forEach(p=>{
+            if(p.removedFromStock)return; // aus Bestand entfernt → zählt nicht mehr zum Bestand
             const nr=_normalizeArtikelNr(p.artikelNr||'');
             if(!nr)return;
             if(!fertigMap[nr])fertigMap[nr]=_emptyAgg();
@@ -2164,7 +2170,7 @@ function _normalizeArtikelNr(nr){
 }
 async function getAllPositions(){const s=await db.collection('paletten').get();const o={};s.forEach(d=>{if(_isConfigDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
     // Fertigpaletten mit echtem Stellplatz ebenfalls als belegt führen (gleiche Lagerkarte/Belegung wie paletten).
-    if(typeof FERTIGPALETTEN_DATA!=='undefined'){FERTIGPALETTEN_DATA.forEach(p=>{const pos=p.position;if(pos && /^[A-Z]+\d+$/.test(pos) && isValidPosition(pos) && !o[pos])o[pos]={sscc:p._fsId||p.sscc||'',...p,_src:'fp'};});}
+    if(typeof FERTIGPALETTEN_DATA!=='undefined'){FERTIGPALETTEN_DATA.forEach(p=>{if(p.removedFromStock)return;const pos=p.position;if(pos && /^[A-Z]+\d+$/.test(pos) && isValidPosition(pos) && !o[pos])o[pos]={sscc:p._fsId||p.sscc||'',...p,_src:'fp'};});}
     return o;}
 function findFreePosition(occ,zo,orderNr){
     // Alle freien, gültigen Plätze in zo-Reihenfolge sammeln.
@@ -3206,6 +3212,7 @@ async function loadInventory(){
     // Gescannte Fertigware (XO-Ends Scanner) zusätzlich in die Bestandsliste aufnehmen
     if(typeof FERTIGPALETTEN_DATA!=='undefined' && FERTIGPALETTEN_DATA.length){
         FERTIGPALETTEN_DATA.forEach(p=>{
+            if(p.removedFromStock)return; // aus Bestand entfernt → nur noch im Produktions-Kalender
             _invAllRows.push({
                 id: p._fsId,
                 _src: 'fp',
@@ -3358,13 +3365,23 @@ async function toggleFertigpaletteGesperrt(fsId,newVal){
         loadInventory();
     }catch(e){alert('Fehler: '+e.message);}
 }
-// Löschen einer Fertigpalette direkt aus der Bestandsliste — nur admin/manager/qs.
+// Fertigpalette aus dem BESTAND nehmen — NICHT löschen. Der Produktions-Kalender
+// (Protokoll Fertigware) ist ein append-only Produktionsnachweis: einmal gescannte
+// Paletten bleiben dort erhalten, auch wenn sie aus dem Lagerbestand entfernt werden.
+// Markiert daher nur removedFromStock=true (Bestand/Dashboard/Lagerkarte blenden sie aus,
+// der Kalender zeigt sie weiter) + ISO-9001-Audit-Eintrag im Eventprotokoll.
 async function deleteFertigpaletteFromInv(fsId){
     if(!canDeletePalette()){alert('Keine Berechtigung.');return;}
-    if(!confirm('Fertigpalette wirklich löschen?'))return;
+    const p=(typeof FERTIGPALETTEN_DATA!=='undefined'?FERTIGPALETTEN_DATA.find(x=>x._fsId===fsId):null)||{};
+    const grund=prompt('Grund für das Entfernen aus dem Bestand (Pflicht).\nDie Palette bleibt im Produktions-Kalender (Protokoll Fertigware) erhalten:');
+    if(grund===null)return;
+    if(!grund.trim()){alert('Ein Grund ist erforderlich – Vorgang abgebrochen.');return;}
     try{
-        await db.collection(_FS_FP_COLL).doc(fsId).delete();
-        loadInventory();
+        // ISO 9001 (8.7/7.5.3): Audit-Eintrag VOR der Bestandsänderung.
+        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId:fsId,artikelNr:p.artikelNr||'',labelTyp:p.labelTyp||'',sscc:p.sscc||'',internalBarcode:p.internalBarcode||'',palettenNr:p.palettenNr||'',menge:p.menge||'',produktionsDatum:p.produktionsDatum||p.datum||'',lotNr:p.lotNr||'',orderNr:p.orderNr||'',kunde:p.kunde||'',schicht:p.schicht||'',gtin:p.gtin||'',position:p.position||'',sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});
+        // NICHT löschen — nur aus dem Bestand nehmen.
+        await db.collection(_FS_FP_COLL).doc(fsId).set({removedFromStock:true,removedFromStockAt:firebase.firestore.FieldValue.serverTimestamp(),removedFromStockBy:getCurrentUsername(),removedFromStockGrund:grund.trim()},{merge:true});
+        loadInventory();loadDashboard();
     }catch(e){alert('Fehler: '+e.message);}
 }
 
@@ -8870,12 +8887,21 @@ function renderFertigpalettenBox(){
             // Pal-Nrn: gesperrte rot/durchgestrichen mit Sperrgrund-Tooltip; Sperrgrund-Info unter der Liste
             const sortedRows=g.rows.slice().filter(p=>p.palettenNr).sort((a,b)=>String(a.palettenNr).localeCompare(String(b.palettenNr)));
             const blockedInGroup=sortedRows.filter(p=>p.gesperrt);
+            const _canEditFp=(typeof canManage==='function'&&canManage());
             const palNrHtml=sortedRows.map(p=>{
+                const id=String(p._fsId||'').replace(/'/g,"\\'");
+                const clickAttr=(_canEditFp&&id)?' onclick="openFertigpaletteEditFromCal(\''+id+'\')"':'';
+                const editCls=(_canEditFp&&id)?' fw-pal-edit':'';
+                const editHint=_canEditFp?' — klicken zum Bearbeiten (Manager/Admin)':'';
                 if(p.gesperrt){
-                    const titleAttr=p.sperrgrund?' title="Gesperrt: '+_fsEscFP(p.sperrgrund)+'"':' title="Gesperrt"';
-                    return '<span style="color:#991b1b;font-weight:700;text-decoration:line-through"'+titleAttr+'>🔒 '+_fsEscFP(p.palettenNr)+'</span>';
+                    const t='Gesperrt'+(p.sperrgrund?': '+p.sperrgrund:'')+editHint;
+                    return '<span class="'+editCls.trim()+'" style="color:#991b1b;font-weight:700;text-decoration:line-through" title="'+_fsEscFP(t)+'"'+clickAttr+'>🔒 '+_fsEscFP(p.palettenNr)+'</span>';
                 }
-                return _fsEscFP(p.palettenNr);
+                if(p.removedFromStock){
+                    const t='Aus Bestand entfernt'+(p.removedFromStockBy?' von '+p.removedFromStockBy:'')+(p.removedFromStockGrund?' ('+p.removedFromStockGrund+')':'')+editHint;
+                    return '<span class="fw-pal-removed'+editCls+'" title="'+_fsEscFP(t)+'"'+clickAttr+'>'+_fsEscFP(p.palettenNr)+'</span>';
+                }
+                return '<span class="'+editCls.trim()+'"'+(_canEditFp?' title="Bearbeiten (Manager/Admin)"':'')+clickAttr+'>'+_fsEscFP(p.palettenNr)+'</span>';
             }).join(', ');
             const blockedInfo=blockedInGroup.length
                 ?'<div style="font-size:0.7rem;color:#991b1b;font-weight:600;margin-top:3px">🔒 '+blockedInGroup.map(p=>_fsEscFP(p.palettenNr)+(p.sperrgrund?': '+_fsEscFP(p.sperrgrund):'')).join(' · ')+'</div>'
@@ -8910,6 +8936,14 @@ function renderFertigpalettenBox(){
     const tableHtml='<div class="fw-cal-table-wrap"><table class="druck-table fw-cal-table">'+colsHtml+headHtml+'<tbody>'+bodyRows.join('')+'</tbody></table></div>';
     const html=nav+tableHtml;
     if(modalBox)modalBox.innerHTML=html;
+}
+// Bearbeiten einer Fertigpalette direkt aus dem Produktions-Kalender (Klick auf die
+// Palettennummer). Nur Manager/Admin. Öffnet dasselbe Label-Formular wie in der Bestandsliste;
+// die abgeleiteten Spalten (Shell/Frame/Laser/Complete/Units) ergeben sich aus Artikel-Stammdaten
+// bzw. Aggregation und aktualisieren sich nach dem Speichern automatisch.
+function openFertigpaletteEditFromCal(fsId){
+    if(typeof canManage!=='function' || !canManage()){ alert('Nur Manager/Admin können hier bearbeiten.'); return; }
+    if(typeof openFertigpaletteEdit==='function') openFertigpaletteEdit(fsId);
 }
 // ------------------------------------------------------------
 // Manuelles Hinzufügen einer Fertigpalette (mit Vorlage + Produktionsplan-Lookup)
