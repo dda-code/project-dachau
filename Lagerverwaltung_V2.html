@@ -5626,6 +5626,39 @@ function renderLabelBarcodes(){
     }catch(e){console.warn('SSCC-Barcode:',e);}
 }
 
+// ===== Doppeldruck-Warnung beim Labeldruck =====
+// Einmal-Flag: wird vom bewussten Nachdruck (saveAndReprintDruckEdit) gesetzt, damit
+// dieser ohne Warnung druckt. Normaler Labeldruck setzt es nie → Warnung aktiv.
+let _skipDoublePrintWarn=false;
+// Liest die bisherige Druckanzahl einer Pal-Nr. (operator-lesbares sscc_liste zuerst,
+// Fallback druck_protokoll). Lesefehler → 0 (fail-open, blockiert den Druck nie).
+async function _wasLabelPrinted(palNr){
+    if(!palNr||palNr==='—'||palNr==='-') return 0;
+    let n=0;
+    try{ const a=await db.collection('sscc_liste').doc(palNr).get();      if(a.exists) n=Math.max(n,Number(a.data().printCount||0)); }catch(e){}
+    try{ const b=await db.collection('druck_protokoll').doc(palNr).get(); if(b.exists) n=Math.max(n,Number(b.data().printCount||0)); }catch(e){}
+    return n;
+}
+// Rotes Warn-Popup (Muster wie showDuplicateWarning). resolve(true)=trotzdem drucken, false=abbrechen.
+function showAlreadyPrintedWarning(palNr,count){
+    return new Promise(resolve=>{
+        const overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2000;';
+        overlay.innerHTML=`<div style="background:white;border-radius:14px;padding:30px;max-width:480px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
+            <div style="font-size:3.5rem;color:#ef4444;line-height:1;margin-bottom:10px;">&#9888;</div>
+            <p style="color:#ef4444;font-weight:800;font-size:1.2rem;margin-bottom:14px;">ACHTUNG: Label bereits gedruckt!</p>
+            <p style="color:#ef4444;font-weight:700;font-size:0.98rem;margin-bottom:18px;">Das Label für Palette <strong>${_escHtml(palNr)}</strong> wurde bereits gedruckt${count>1?' ('+count+'×)':''}.</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:22px;">Möchten Sie das Label trotzdem erneut drucken?</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger" id="_appOk">Trotzdem drucken</button>
+                <button class="btn btn-secondary" id="_appCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#_appOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
+        overlay.querySelector('#_appCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
+    });
+}
 async function printLabel(){
     // Im Bearbeitungs-Modus: Datum/Zeit NICHT automatisch ueberschreiben -
     // der User darf sie ggf. manuell geaendert haben.
@@ -5638,6 +5671,13 @@ async function printLabel(){
     const isEdit = !!_labelEditingPalNr;
     // Diff gegen Original-Snapshot (Edit-Modus) berechnen, bevor afterprint feuert
     const diff   = isEdit ? _computeLabelDiff(_labelEditSnapshot, _collectLabelFromDOM()) : [];
+
+    // Doppeldruck-Warnung (nur normaler Labeldruck; Nachdruck setzt das Skip-Flag).
+    const _skipWarn=(_skipDoublePrintWarn===true); _skipDoublePrintWarn=false;
+    if(!_skipWarn){
+        const _pc=await _wasLabelPrinted(palNr);
+        if(_pc>=1){ const _ok=await showAlreadyPrintedWarning(palNr,_pc); if(!_ok) return; }
+    }
 
     // Protokoll erst NACH dem Schliessen des Druckdialogs schreiben (afterprint-Event).
     // Da der Browser nicht zwischen "Drucken bestaetigt" und "Abgebrochen" unterscheiden kann,
@@ -6545,6 +6585,13 @@ async function sg_printLabel(){
     const copies = Math.max(1, Math.min(20, parseInt(localStorage.getItem(LS_PRINT_COPIES)||'1',10)||1));
     const palNr  = (document.getElementById('sg_lbl_pallet')?.textContent||'').trim();
 
+    // Doppeldruck-Warnung (nur normaler Labeldruck; Nachdruck setzt das Skip-Flag). Vor beiden Druck-Routen.
+    const _skipWarn=(_skipDoublePrintWarn===true); _skipDoublePrintWarn=false;
+    if(!_skipWarn){
+        const _pc=await _wasLabelPrinted(palNr);
+        if(_pc>=1){ const _ok=await showAlreadyPrintedWarning(palNr,_pc); if(!_ok) return; }
+    }
+
     // -------- Route B: Zebra Browser Print (natives ZPL, silent) --------
     if(_bpIsEnabled()){
         try{
@@ -7091,6 +7138,7 @@ async function saveAndReprintDruckEdit(){
         if(sgTab) sgTab.click();
         document.getElementById('druckEditModal').style.display='none';
         _druckEditRow = null;
+        _skipDoublePrintWarn=true;   // bewusster Nachdruck → keine Doppeldruck-Warnung
         if(typeof sg_printLabel==='function') sg_printLabel();
         return;
     }
@@ -7111,6 +7159,7 @@ async function saveAndReprintDruckEdit(){
     document.getElementById('druckEditModal').style.display='none';
     _druckEditRow = null;
     renderLabelBarcodes();
+    _skipDoublePrintWarn=true;   // bewusster Nachdruck → keine Doppeldruck-Warnung
     printLabel();
 }
 
