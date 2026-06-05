@@ -712,11 +712,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     <!-- EINLAGERN -->
     <section class="view" id="view-inbound">
-        <div class="section-frame">
-            <h3>Palette scannen & einlagern</h3>
-            <div style="text-align:center;margin-bottom:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><input type="file" id="inboundFileInput" accept="image/*" capture="environment" hidden><button class="btn btn-primary" id="inboundUploadBtn" style="font-size:1rem;padding:12px 28px">Foto aus Datei auswählen</button><button class="btn btn-secondary" id="manualEntryBtn" style="font-size:1rem;padding:12px 28px">Palette manuell eingeben</button></div>
-            <div class="inbound-step" id="inboundStep1" style="margin:0;box-shadow:none;padding:0"><div class="upload-area" id="inboundDropZone" style="display:none"><p>Foto des Labels hochladen</p></div><div class="progress-section" id="inboundProgress" style="display:none"><div class="progress-bar"><div class="progress-fill" id="inboundProgressFill"></div></div><p id="inboundProgressText">OCR läuft...</p></div></div>
-        </div>
+        <!-- "Palette scannen & einlagern" entfernt — Labels werden ausschließlich über index_V2 erfasst. -->
         <div class="section-frame">
             <h3>Lager-Karte</h3>
             <div class="wh-legend"><span class="wh-legend-item"><span class="wh-dot wh-free"></span> Frei</span><span class="wh-legend-item"><span class="wh-dot wh-occupied"></span> Belegt</span><span class="wh-legend-item"><span class="wh-dot wh-blocked"></span> Gesperrt</span></div>
@@ -1334,25 +1330,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </div></div>
 
     <!-- SCAN RESULT MODAL -->
-    <div class="modal-overlay" id="scanResultModal" style="display:none"><div class="modal" style="max-width:95vw;width:1100px">
-        <div class="modal-header"><h3>Palette einlagern</h3><button class="modal-close" id="scanModalClose">&times;</button></div>
-        <div class="modal-body">
-            <div class="scan-modal-layout">
-                <div class="scan-modal-left"><img id="inboundPreview" alt="Label-Foto" style="display:none"></div>
-                <div class="scan-modal-right" id="inboundStep2"><h3 style="margin-bottom:12px">2. Daten prüfen</h3><div class="form-grid" id="inboundForm"></div></div>
-            </div>
-            <div class="scan-modal-bottom" id="inboundStep3" style="display:none">
-                <h3 style="margin-bottom:12px">3. Stellplatz wählen</h3>
-                <div class="form-group"><label>Vorgeschlagener Stellplatz:</label><div class="position-suggestion"><span id="suggestedPosition" class="position-badge">-</span><button class="btn btn-sm btn-secondary" id="changePositionBtn">Anderen wählen</button></div></div>
-                <select id="positionSelect" class="form-select" style="display:none"></select>
-                <div style="display:flex;gap:10px;margin-top:12px">
-                    <button class="btn btn-primary btn-full" id="confirmInboundBtn">Einlagern</button>
-                    <button class="btn btn-secondary btn-full" id="inboundResetBtn">Neue Palette scannen</button>
-                </div>
-                <p class="success-msg" id="inboundSuccess" style="display:none">Palette erfolgreich eingelagert!</p>
-            </div>
-        </div>
-    </div></div>
 
     <!-- EDIT PALETTE MODAL -->
     <div class="modal-overlay" id="editPalModal" style="display:none"><div class="modal" style="max-width:550px">
@@ -2048,7 +2025,7 @@ function _buildArtikelMapsFromTA0006(){
 // entfernt; alle Nummern + Bezeichnungen kommen aus `_buildArtikelMapsFromTA0006()`.
 async function refreshArtikelMaps(){ _buildArtikelMapsFromTA0006(); }
 
-function initApp(){refreshArtikelMaps().then(()=>{loadDashboard();});initInbound();initOutbound();initInventory();initRemoteScanListener();_initRealtimeListeners();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);initProtokollFilters();if(typeof maybeRunWarGesperrtMigration==='function')maybeRunWarGesperrtMigration();}
+function initApp(){refreshArtikelMaps().then(()=>{loadDashboard();});initOutbound();initInventory();_initRealtimeListeners();document.getElementById('protokollExportBtn')?.addEventListener('click',exportProtokoll);initProtokollFilters();if(typeof maybeRunWarGesperrtMigration==='function')maybeRunWarGesperrtMigration();}
 // Eventprotokoll-Spaltenfilter verdrahten (einmalig)
 function initProtokollFilters(){
     const head=document.getElementById('einauslagerProtokollTable')?.querySelector('thead');
@@ -2478,263 +2455,8 @@ const INBOUND_FIELDS_ALPLA=[
 ];
 function getInboundFields(typ){if(typ==='ALPLA Halbfabrikate')return INBOUND_FIELDS_ALPLA;if(typ==='XO Halbfabrikate')return INBOUND_FIELDS_XO_HALB;if(typ==='XO Fertigware')return INBOUND_FIELDS_XO_FERTIG;return INBOUND_FIELDS_BASE;}
 const ALL_STORE_KEYS=['labelTyp','artikelNr','sscc','datum','uhrzeit','menge','mengePerSleeve','palettenNr','lotNr','orderNr','internalBarcode','kunde','schicht','gtin'];
-let inboundData=null,currentLabelTyp=null;
-
-function initInbound(){
-    const fi=document.getElementById('inboundFileInput');
-    document.getElementById('inboundUploadBtn').addEventListener('click',e=>{e.stopPropagation();fi.click();});
-    document.getElementById('inboundDropZone').addEventListener('click',e=>{if(e.target.id==='inboundUploadBtn')return;fi.click();});
-    fi.addEventListener('change',()=>{if(fi.files.length)onInboundFile(fi.files[0]);fi.value='';});
-    document.getElementById('confirmInboundBtn').addEventListener('click',confirmInbound);
-    document.getElementById('inboundResetBtn').addEventListener('click',resetInbound);
-    document.getElementById('changePositionBtn').addEventListener('click',()=>{document.getElementById('positionSelect').style.display='block';});
-    document.getElementById('scanModalClose').addEventListener('click',resetInbound);
-    document.getElementById('manualEntryBtn').addEventListener('click',openManualEntry);
-}
-
-function openManualEntry(){
-    // Show modal with type selection first
-    const typOptions=['ALPLA Halbfabrikate','XO Halbfabrikate','XO Fertigware'];
-    const overlay=document.createElement('div');
-    overlay.className='modal-overlay';overlay.id='manualEntryModal';overlay.style.display='flex';
-    overlay.innerHTML=`<div class="modal" style="max-width:500px">
-        <div class="modal-header"><h3>Palette manuell eingeben</h3><button class="modal-close" id="manualEntryClose">&times;</button></div>
-        <div class="modal-body">
-            <div class="form-group"><label>Label-Typ auswählen:</label><select id="manualTypSelect" class="form-select">
-                <option value="">-- Typ wählen --</option>
-                ${typOptions.map(t=>`<option value="${t}">${t}</option>`).join('')}
-            </select></div>
-            <div id="manualFieldsContainer" style="display:none">
-                <h3 style="margin:14px 0 10px">Daten eingeben:</h3>
-                <div class="form-grid" id="manualFields"></div>
-                <button class="btn btn-primary btn-full" id="manualEntrySubmit" style="margin-top:14px">Weiter zur Einlagerung</button>
-            </div>
-        </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    overlay.querySelector('#manualEntryClose').addEventListener('click',()=>overlay.remove());
-    overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
-    const typSel=overlay.querySelector('#manualTypSelect');
-    typSel.addEventListener('change',()=>{
-        const typ=typSel.value;
-        if(!typ){overlay.querySelector('#manualFieldsContainer').style.display='none';return;}
-        const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
-        overlay.querySelector('#manualFields').innerHTML=fields.map(f=>
-            `<div class="form-group"><label>${f.label}</label><input type="text" id="manual-${f.key}" placeholder="${f.label}"></div>`
-        ).join('');
-        overlay.querySelector('#manualFieldsContainer').style.display='block';
-    });
-    overlay.querySelector('#manualEntrySubmit').addEventListener('click',async()=>{
-        const typ=typSel.value;
-        if(!typ){alert('Bitte Label-Typ auswählen!');return;}
-        const fields=getInboundFields(typ).filter(f=>f.key!=='labelTyp');
-        const data={labelTyp:typ};
-        ALL_STORE_KEYS.forEach(k=>data[k]=data[k]||'');
-        fields.forEach(f=>{data[f.key]=overlay.querySelector('#manual-'+f.key)?.value.trim()||'';});
-        if(!data.artikelNr){alert('Artikelnummer muss ausgefüllt werden!');return;}
-        overlay.remove();
-        // Reuse the scan modal for position selection
-        inboundData=data;currentLabelTyp=typ;
-        document.getElementById('inboundPreview').style.display='none';
-        const allFields=getInboundFields(typ);
-        document.getElementById('inboundForm').innerHTML=allFields.map(f=>{
-            const val=f.key==='labelTyp'?typ:(data[f.key]||'');
-            const roStyle=f.readonly?'background:#f1f5f9;font-weight:700':'';
-            return`<div class="form-group"><label>${f.label}</label><input type="text" id="inbound-${f.key}" value="${_escAttr(val)}"${f.readonly?' readonly':''}${roStyle?' style="'+roStyle+'"':''}></div>`;
-        }).join('');
-        document.getElementById('scanResultModal').style.display='flex';
-        document.getElementById('inboundStep2').style.display='block';
-        await showPositionStep();
-    });
-}
-
-async function onInboundFile(file){
-    const ps=document.getElementById('inboundProgress'),pf=document.getElementById('inboundProgressFill'),pt=document.getElementById('inboundProgressText');
-    ps.style.display='block';pf.style.width='20%';pt.textContent='Label wird gescannt...';
-    try{
-        const result=await scanLabel(file);inboundData=result.data;currentLabelTyp=inboundData.labelTyp||'ALPLA Halbfabrikate';
-        const preview=document.getElementById('inboundPreview');if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);preview._objUrl=URL.createObjectURL(file);preview.src=preview._objUrl;preview.style.display='block';
-        const fields=getInboundFields(currentLabelTyp);
-        document.getElementById('inboundForm').innerHTML=fields.map(f=>{const isErr=inboundData[f.key]==='FEHLER';const errStyle=isErr?'color:#ef4444;font-weight:800;border-color:#ef4444':'';const roStyle=f.readonly?'background:#f1f5f9;font-weight:700':'';const style=[errStyle,roStyle].filter(Boolean).join(';');return`<div class="form-group"><label>${f.label}</label><input type="text" id="inbound-${f.key}" value="${_escAttr(inboundData[f.key])}"${f.readonly?' readonly':''}${style?' style="'+style+'"':''}></div>`;}).join('');
-        ps.style.display='none';document.getElementById('scanResultModal').style.display='flex';document.getElementById('inboundStep2').style.display='block';await showPositionStep();
-    }catch(err){pt.textContent='Fehler: '+err.message;pf.style.width='0%';}
-}
-
-async function showPositionStep(){
-    const occ=await getAllPositions();
-    const zo=currentLabelTyp==='XO Fertigware'?['O','P','Q','R','S','T','U','OZ','PZ','QZ','RZ','SZ','TZ']:['K','H','G','F','E','D','C','B','A','V'];
-    const fp=findFreePosition(occ,zo,inboundData?.orderNr||'');const _sugEl=document.getElementById('suggestedPosition');_sugEl.textContent=fp?_posLabel(fp):'Kein Platz frei!';_sugEl.dataset.pos=fp||'';
-    const sel=document.getElementById('positionSelect');const frag=document.createDocumentFragment();
-    sel._occSnapshot=occ;
-    for(const[ck,cat]of Object.entries(WAREHOUSE_ZONES)){
-        const og=document.createElement('optgroup');og.label=cat.label;for(const[z,cnt]of Object.entries(cat.zones)){for(let i=1;i<=cnt;i++){const p=z+i;if(!isValidPosition(p))continue;const o=document.createElement('option');o.value=p;o.textContent=occ[p]?'\u26a0\ufe0f '+p+' (belegt)':p;if(occ[p])o.style.color='#dc2626';if(p===fp)o.selected=true;og.appendChild(o);}}frag.appendChild(og);
-    }sel.innerHTML='';sel.appendChild(frag);
-    document.getElementById('inboundStep3').style.display='block';document.getElementById('inboundResetBtn').style.display='block';
-}
-
-function showDuplicateWarning(docId,position){
-    return new Promise(resolve=>{
-        const overlay=document.createElement('div');
-        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2000;';
-        overlay.innerHTML=`<div style="background:white;border-radius:14px;padding:30px;max-width:460px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
-            <div style="font-size:3.5rem;color:#ef4444;line-height:1;margin-bottom:10px;">&#9888;</div>
-            <p style="color:#ef4444;font-weight:800;font-size:1.15rem;margin-bottom:14px;">ACHTUNG: Palette bereits eingelagert!</p>
-            <p style="color:#ef4444;font-weight:700;font-size:0.95rem;margin-bottom:20px;">Diese Palette (<strong>${_escAttr(docId)}</strong>) ist bereits auf Stellplatz <strong>${_escAttr(_posLabel(position))}</strong> eingelagert!</p>
-            <p style="color:#475569;font-size:0.9rem;margin-bottom:20px;">Trotzdem einlagern und bestehenden Eintrag überschreiben?</p>
-            <div style="display:flex;gap:10px;justify-content:center;">
-                <button class="btn btn-danger" id="_dupOk">Trotzdem einlagern</button>
-                <button class="btn btn-secondary" id="_dupCancel">Abbrechen</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-        overlay.querySelector('#_dupOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
-        overlay.querySelector('#_dupCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
-    });
-}
-
-function showOccupiedWarning(pos, existingPal){
-    return new Promise(resolve=>{
-        const art=existingPal.artikelNr||'?';
-        const datum=existingPal.produktionsDatum||existingPal.datum||'?';
-        const overlay=document.createElement('div');
-        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:2000;';
-        overlay.innerHTML=`<div style="background:white;border-radius:14px;padding:30px;max-width:460px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
-            <div style="font-size:3.5rem;color:#f59e0b;line-height:1;margin-bottom:10px;">&#9888;</div>
-            <p style="color:#f59e0b;font-weight:800;font-size:1.15rem;margin-bottom:14px;">Stellplatz ${_escAttr(_posLabel(pos))} ist bereits belegt!</p>
-            <p style="color:#475569;font-size:0.9rem;margin-bottom:6px;">Aktuelle Palette auf diesem Platz:</p>
-            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:4px;">Artikel: ${_escAttr(art)}</p>
-            <p style="color:#1e293b;font-weight:700;font-size:0.95rem;margin-bottom:20px;">Datum: ${_escAttr(datum)}</p>
-            <p style="color:#dc2626;font-size:0.85rem;font-weight:600;margin-bottom:20px;">Die bestehende Palette wird &uuml;berschrieben!</p>
-            <div style="display:flex;gap:10px;justify-content:center;">
-                <button class="btn btn-danger" id="_occOk">Trotzdem belegen</button>
-                <button class="btn btn-secondary" id="_occCancel">Abbrechen</button>
-            </div>
-        </div>`;
-        document.body.appendChild(overlay);
-        overlay.querySelector('#_occOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
-        overlay.querySelector('#_occCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
-    });
-}
-
-async function confirmInbound(){
-    const fields=getInboundFields(currentLabelTyp);const data={};ALL_STORE_KEYS.forEach(k=>data[k]=inboundData?.[k]||'');fields.forEach(f=>{data[f.key]=document.getElementById('inbound-'+f.key)?.value.trim()||data[f.key]||'';});
-    const ps=document.getElementById('positionSelect'),_sugEl=document.getElementById('suggestedPosition'),pos=ps.style.display!=='none'&&ps.value?ps.value:(_sugEl.dataset.pos||_sugEl.textContent);
-    const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
-    if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');return;}
-    if(!ARTIKEL_NUMMERN.includes(data.artikelNr)&&!data.artikelNr.startsWith('XO')){alert('Artikelnummer "'+data.artikelNr+'" ist nicht im Artikelstamm. Bitte zuerst im Artikelstamm anlegen oder korrigieren.');return;}
-    if(!data.datum||data.datum==='FEHLER'){alert('Produktionsdatum fehlt!');return;}
-    if(currentLabelTyp==='XO Fertigware'&&(!data.menge||data.menge==='FEHLER')){alert('Menge fehlt!');return;}
-    if(!pos||pos==='Kein Platz frei!'){alert('Kein Stellplatz!');return;}
-    // Duplikat-Prüfung
-    try{const existing=await db.collection('paletten').doc(docId).get();
-        if(existing.exists){
-            const ep=existing.data();
-            const proceed=await showDuplicateWarning(docId,ep.position||'?');
-            if(!proceed)return;
-        }
-    }catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
-    // Prüfung ob Stellplatz bereits belegt
-    try{const occSnap=ps._occSnapshot||await getAllPositions();
-        if(occSnap[pos]){
-            const proceed=await showOccupiedWarning(pos, occSnap[pos]);
-            if(!proceed)return;
-        }
-    }catch(e){console.warn('Belegungsprüfung fehlgeschlagen:',e);}
-    // Stückzahl je Palette automatisch setzen (nur für ALPLA/XO Halbfabrikate, nicht XO Fertigware)
-    if(!data.artikelNr.startsWith('XO')){
-        if(data.artikelNr.startsWith('12'))data.menge='92.400';
-        else if(data.artikelNr.startsWith('18'))data.menge='420.672';
-        else if(data.artikelNr.startsWith('19'))data.menge='196.224';
-    }
-    console.log('EINLAGERN data:',JSON.stringify(data));console.log('EINLAGERN menge:',data.menge,'artikelNr:',data.artikelNr,'docId:',docId);
-    try{await db.collection('paletten').doc(docId).set({...data,position:pos,produktionsDatum:data.datum,einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),qc:false,gesperrt:false,eingelagertVon:getCurrentUsername()});
-    await db.collection('protokoll').add({aktion:'einlagern',docId,artikelNr:data.artikelNr||'',labelTyp:data.labelTyp||'',sscc:data.sscc||'',internalBarcode:data.internalBarcode||'',palettenNr:data.palettenNr||'',menge:data.menge||'',mengePerSleeve:data.mengePerSleeve||'',produktionsDatum:data.datum||'',lotNr:data.lotNr||'',orderNr:data.orderNr||'',kunde:data.kunde||'',schicht:data.schicht||'',gtin:data.gtin||'',position:pos,standort:data.standort||'',eingelagertVon:getCurrentUsername(),einlagDatum:firebase.firestore.FieldValue.serverTimestamp(),auslagDatum:null,ausgelagertVon:''});
-    await db.collection('log').add({aktion:'einlagern',docId,artikelNr:data.artikelNr,labelTyp:data.labelTyp,position:pos,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
-    localStorage.setItem('lastStoredPosition', pos);
-    renderWarehouseMap();loadDashboard();alert('Palette erfolgreich eingelagert!');resetInbound();}catch(e){alert('Fehler: '+e.message);}
-}
-
-function resetInbound(){inboundData=null;currentLabelTyp=null;_currentScanDocId=null;document.getElementById('scanResultModal').style.display='none';['inboundStep3','inboundSuccess','inboundProgress','inboundPreview'].forEach(id=>{document.getElementById(id).style.display='none';});document.getElementById('positionSelect').style.display='none';document.getElementById('confirmInboundBtn').disabled=false;}
-
-// ============================================================
-// REMOTE SCAN LISTENER (PWA Scanner-App)
-// ============================================================
-let _remoteScanUnsub=null;
-let _currentScanDocId=null;
-
-function initRemoteScanListener(){
-    if(_remoteScanUnsub)_remoteScanUnsub();
-    _remoteScanUnsub=db.collection('scans').where('status','==','pending').onSnapshot({includeMetadataChanges:false},snap=>{
-        snap.docChanges().forEach(change=>{
-            if(change.type==='added'){
-                const scanDoc={id:change.doc.id,...change.doc.data()};
-                // Nur verarbeiten wenn kein anderer Scan gerade läuft
-                if(!_currentScanDocId&&document.getElementById('scanResultModal').style.display!=='flex'){
-                    onRemoteScan(scanDoc);
-                }
-            }
-        });
-    },err=>{if(err.code!=='permission-denied')console.warn('Remote-Scan Listener Fehler:',err);});
-}
-function _teardownRemoteScanListener(){if(_remoteScanUnsub){try{_remoteScanUnsub();}catch(e){}_remoteScanUnsub=null;}}
-
-async function onRemoteScan(scanDoc){
-    _currentScanDocId=scanDoc.id;
-    // Status auf "processing" setzen
-    try{await db.collection('scans').doc(scanDoc.id).update({status:'processing'});}catch(e){}
-
-    const ps=document.getElementById('inboundProgress'),pf=document.getElementById('inboundProgressFill'),pt=document.getElementById('inboundProgressText');
-    ps.style.display='block';pf.style.width='20%';pt.textContent='Remote-Scan wird verarbeitet...';
-
-    // Zum Wareneingang-Tab wechseln
-    document.querySelectorAll('#section-lager .tab').forEach(t=>t.classList.remove('active'));
-    document.querySelectorAll('#section-lager .view').forEach(v=>v.classList.remove('active'));
-    const inboundTab=document.querySelector('.tab[data-tab="inbound"]')||document.querySelectorAll('.tab')[1];
-    if(inboundTab)inboundTab.classList.add('active');
-    document.getElementById('view-inbound').classList.add('active');
-
-    try{
-        // Base64 zu Blob konvertieren für scanLabel
-        const base64=scanDoc.imageBase64;
-        const resp=await fetch(base64);
-        const blob=await resp.blob();
-        const file=new File([blob],'remote-scan.jpg',{type:'image/jpeg'});
-
-        const result=await scanLabel(file);
-        inboundData=result.data;
-        currentLabelTyp=inboundData.labelTyp||'ALPLA Halbfabrikate';
-
-        // Vorschaubild setzen
-        const preview=document.getElementById('inboundPreview');
-        if(preview._objUrl)URL.revokeObjectURL(preview._objUrl);
-        preview._objUrl=URL.createObjectURL(blob);
-        preview.src=preview._objUrl;
-        preview.style.display='block';
-
-        // Formular rendern
-        const fields=getInboundFields(currentLabelTyp);
-        document.getElementById('inboundForm').innerHTML=fields.map(f=>{
-            const isErr=inboundData[f.key]==='FEHLER';
-            const errStyle=isErr?'color:#ef4444;font-weight:800;border-color:#ef4444':'';
-            const roStyle=f.readonly?'background:#f1f5f9;font-weight:700':'';
-            const style=[errStyle,roStyle].filter(Boolean).join(';');
-            return`<div class="form-group"><label>${f.label}</label><input type="text" id="inbound-${f.key}" value="${_escAttr(inboundData[f.key])}"${f.readonly?' readonly':''}${style?' style="'+style+'"':''}></div>`;
-        }).join('');
-
-        ps.style.display='none';
-        document.getElementById('scanResultModal').style.display='flex';
-        document.getElementById('inboundStep2').style.display='block';
-        await showPositionStep();
-
-        // Scan-Dokument bereinigen
-        try{await db.collection('scans').doc(scanDoc.id).update({status:'done'});}catch(e){}
-
-    }catch(err){
-        pt.textContent='Fehler: '+err.message;pf.style.width='0%';
-        try{await db.collection('scans').doc(scanDoc.id).update({status:'error',error:err.message});}catch(e){}
-        _currentScanDocId=null;
-    }
-}
+// "Palette scannen & einlagern" wurde entfernt (Foto-OCR, manuelle Eingabe, Remote-Scan-Listener).
+// Labels werden ausschließlich über index_V2 erfasst. Geteilte Helfer (Lagerkarte/Positionen) bleiben erhalten.
 
 // ============================================================
 // OUTBOUND + PROTOKOLL
