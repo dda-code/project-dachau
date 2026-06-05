@@ -2631,6 +2631,23 @@ async function confirmOutbound(){
 }
 
 let _protokollRows=[];
+// Mappt einen Protokoll-Aktionswert auf ein lesbares deutsches Aktion-Label.
+// WICHTIG: Fallback ist die ROHE Aktion (niemals labelTyp) — sonst stünde z.B.
+// "XO Fertigware" (ein Typ, keine Aktion) in der Aktion-Spalte. Deckt auch die
+// von der externen App geschriebenen Aktionen ab (gleiche protokoll-Collection).
+function _aktionLabel(a){
+    switch(String(a||'').trim()){
+        case 'einlagern':                       return 'Einlagerung';
+        case 'auslagern':                       return 'Auslagerung';
+        case 'einlagern-extern':                return 'Einlagerung (extern)';
+        case 'auslagern-extern-versand':        return 'Auslagerung (extern, Versand)';
+        case 'umlagern-extern-zu-aumundswiese': return 'Umlagerung (extern → Aumundswiese)';
+        case 'korrektur-entfernt':              return 'Korrektur entfernt';
+        case 'gesperrt':                        return 'Gesperrt';
+        case 'freigegeben':                     return 'Freigegeben';
+        default:                                return String(a||'').trim() || '-';
+    }
+}
 async function loadProtokoll(){
     const s=await db.collection('protokoll').get();const rows=[];s.forEach(d=>rows.push({id:d.id,...d.data()}));
     // Aktionszeitpunkt bestimmen: einlagern→einlagDatum, alle anderen→auslagDatum
@@ -2640,7 +2657,8 @@ async function loadProtokoll(){
     rows.sort((a,b)=>{const tA=_aktionTs(a),tB=_aktionTs(b);const mA=tA?.toMillis?tA.toMillis():0,mB=tB?.toMillis?tB.toMillis():0;return mB-mA;});
     _protokollRows=rows;
     document.getElementById('protokollBody').innerHTML=rows.map(p=>{
-        const aktionHtml=p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.aktion==='korrektur-entfernt'?'<span style="color:#b91c1c;font-weight:700">Korrektur entfernt</span>'+(p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':''):(p.labelTyp||'-')))));
+        const _spg=p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':'';
+        const aktionHtml=p.aktion==='gesperrt'?('<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+_spg):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.aktion==='korrektur-entfernt'?('<span style="color:#b91c1c;font-weight:700">Korrektur entfernt</span>'+_spg):_escHtml(_aktionLabel(p.aktion))));
         const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
         return`<tr><td>${aktionHtml}</td><td>${_escHtml(_formatDDMMYYYYHHMM(_aktionTs(p)))}</td><td>${_escHtml(_aktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td></tr>`;
     }).join('')||'<tr><td colspan="16" class="info-msg">Noch keine Protokolleinträge</td></tr>';
@@ -2665,7 +2683,7 @@ async function exportProtokoll(){
     // Nur die in der Tabelle sichtbaren Spalten (Aktion | Zeitpunkt | Benutzer | Typ | Artikelnr. | SSCC/Barcode | Paletten-Nr. | Prod.-Datum | Menge | Lot-Nr. | Order-Nr. | Kunde | Schicht | GTIN | Position | Status)
     const header=['Aktion','Zeitpunkt','Benutzer','Typ','Artikelnr.','SSCC / Barcode','Paletten-Nr.','Prod.-Datum','Menge','Lot-Nr.','Order-Nr.','Kunde','Schicht','GTIN','Position','Status'];
     const statusOf=p=>p.aktion==='gesperrt'?'Gesperrt':(p.aktion==='freigegeben'?'Freigegeben':'-');
-    const aktionLabel=p=>p.aktion==='einlagern'?'Einlagerung':(p.aktion==='auslagern'?'Auslagerung':(p.aktion==='gesperrt'?'Gesperrt':(p.aktion==='freigegeben'?'Freigegeben':(p.labelTyp||'-'))));
+    const aktionLabel=p=>_aktionLabel(p.aktion);
     const data=_protokollRows.map(p=>[
         aktionLabel(p),
         fmt(aktionTs(p)),
