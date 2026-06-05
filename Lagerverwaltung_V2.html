@@ -963,7 +963,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             </button>
             <button type="button" class="protokolle-bar" onclick="openProtokollPopup('einauslager')">
                 <span class="bar-icon">📋</span>
-                <span class="bar-title">Ein-/Auslagerungs-Protokoll</span>
+                <span class="bar-title">Eventprotokoll</span>
                 <span class="bar-count" id="einauslagerProtokollCount">—</span>
                 <span class="bar-action">Öffnen &rarr;</span>
             </button>
@@ -1012,7 +1012,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </div></div>
 
     <div class="modal-overlay protokolle-modal" id="einauslagerProtokollModal" style="display:none"><div class="modal">
-        <div class="modal-header"><h3>Ein-/Auslagerungs-Protokoll</h3><button class="modal-close" onclick="closeProtokollPopup('einauslager')">&times;</button></div>
+        <div class="modal-header"><h3>Eventprotokoll</h3><button class="modal-close" onclick="closeProtokollPopup('einauslager')">&times;</button></div>
         <div class="modal-body">
             <div class="protokolle-modal-toolbar">
                 <button class="btn btn-sm btn-success" id="protokollExportBtn">Excel exportieren</button>
@@ -1712,7 +1712,7 @@ function _initRealtimeListeners(){
         else if(tab==='inventory'){loadInventory();}
         else{renderWarehouseMap();}
     },err=>{if(err.code!=='permission-denied')console.warn('paletten listener:',err);}));
-    // Protokoll-Collection: Ein-/Auslagerungs-Protokoll im Reiter "Protokolle & Artikel" aktualisieren
+    // Protokoll-Collection: Eventprotokoll im Reiter "Protokolle & Artikel" aktualisieren
     _realtimeUnsubs.push(db.collection('protokoll').onSnapshot(()=>{
         const protWrap=document.getElementById('section-protokolle');
         if(protWrap && protWrap.classList.contains('active'))loadProtokoll();
@@ -2558,8 +2558,8 @@ async function exportProtokoll(){
     ]);
     const ws=XLSX.utils.aoa_to_sheet([header,...data]);
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,'Protokoll');
-    XLSX.writeFile(wb,'Protokoll_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    XLSX.utils.book_append_sheet(wb,ws,'Eventprotokoll');
+    XLSX.writeFile(wb,'Eventprotokoll_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 const _deDateRe=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/;
 const _usDateRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
@@ -2599,7 +2599,10 @@ function initInventory(){
         const edBtn=e.target.closest('[data-edit-id]');
         if(edBtn){
             const id=edBtn.dataset.editId, src=edBtn.dataset.src||'pal';
-            if(src==='fp')openFertigpaletteEdit(id); else openEditPal(id);
+            const _row=_invAllRows.find(x=>String(x.id)===String(id) && (x._src||'pal')===src);
+            if(_row && _invIsRichEdit(_row)){ openRichInvEdit(id,src); }
+            else if(src==='fp'){ openFertigpaletteEdit(id); }
+            else { openEditPal(id); }
             return;
         }
     });
@@ -2974,6 +2977,32 @@ async function saveEditPal(){
     }catch(e){
         const err=document.getElementById('editPalError');err.textContent='Fehler: '+e.message;err.style.display='block';
     }
+}
+// ===== Rich-Edit (Druckprotokoll-Oberfläche) für Fertigware/Frame aus der Bestandsliste =====
+function _invIsFrame(r){ return /^FR/i.test(String(r&&r.palettenNr||'')); }
+function _invIsFertig(r){ return !!(r && (r.labelTyp==='XO Fertigware' || r._src==='fp' || /^C\d{2}-/i.test(String(r.palettenNr||'')))); }
+function _invIsRichEdit(r){ return _invIsFrame(r) || _invIsFertig(r); }
+// Baut aus einer Bestandszeile ein Label-Row-Objekt und öffnet das Druckprotokoll-Edit-Modal.
+function openRichInvEdit(invId, src){
+    if(!canManageQS())return;
+    const r=_invAllRows.find(x=>String(x.id)===String(invId) && (x._src||'pal')===(src||'pal'));
+    if(!r){alert('Palette nicht gefunden.');return;}
+    const row = _invIsFrame(r)
+        ? {labelType:'frame', datum:r.produktionsDatum||r.datum||'', uhrzeit:r.uhrzeit||'', orderNr:r.orderNr||'', shift:r.schicht||'', articleNr:r.artikelNr||'', palettenNr:r.palettenNr||'', internalBarcode:r.internalBarcode||''}
+        : {customer:r.kunde||'', crc:r.lotNr||'', datum:r.produktionsDatum||r.datum||'', uhrzeit:r.uhrzeit||'', orderNr:r.orderNr||'', shift:r.schicht||'', qtyPallet:r.menge||'', qtySleeve:r.mengePerSleeve||'', articleNr:r.artikelNr||'', palettenNr:r.palettenNr||'', gtin:r.gtin||'', sscc:r.sscc||''};
+    row._invId=invId; row._invSrc=(src||'pal');
+    _openDruckEditModal(row);
+}
+// Spiegelt die Label-Werte zurück in die Bestands-Collection (paletten/fertigpaletten).
+async function _writeInventoryFromLabel(src, invId, v, opts){
+    if(!invId)return;
+    const isFrame=!!(opts&&opts.isFrame);
+    const upd = isFrame
+        ? {artikelNr:v.articleNr||'', produktionsDatum:v.datum||'', datum:v.datum||'', uhrzeit:v.uhrzeit||'', orderNr:v.orderNr||'', schicht:v.shift||'', palettenNr:v.palettenNr||'', internalBarcode:v.internalBarcode||''}
+        : {artikelNr:v.articleNr||'', produktionsDatum:v.datum||'', datum:v.datum||'', uhrzeit:v.uhrzeit||'', orderNr:v.orderNr||'', schicht:v.shift||'', kunde:v.customer||'', lotNr:v.crc||'', menge:v.qtyPallet||'', mengePerSleeve:v.qtySleeve||'', palettenNr:v.palettenNr||'', gtin:v.gtin||'', sscc:v.sscc||''};
+    const coll = src==='fp' ? 'fertigpaletten' : 'paletten';
+    await db.collection(coll).doc(invId).set(upd,{merge:true});
+    try{ await db.collection('log').add({aktion:'bearbeitet',docId:invId,artikelNr:upd.artikelNr,position:'',user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){}
 }
 function exportInventory(){
     if(isLagerAccount()){alert('Der Sammel-Account "Lager" darf die Bestandsliste nicht exportieren.');return;}
@@ -6870,6 +6899,7 @@ async function saveDruckEdit(){
     try{
         await _writeDruckEntryFields(newPalNr, newVals, {isFrame});
         if(diff.length>0) await _appendEditHistory(newPalNr, diff);
+        if(row._invId) await _writeInventoryFromLabel(row._invSrc, row._invId, newVals, {isFrame});
     }catch(e){
         _druckEditSetStatus('Fehler: '+e.message,'#b91c1c');
         return;
@@ -6881,8 +6911,10 @@ async function saveDruckEdit(){
         row.editHistory = Array.isArray(row.editHistory) ? row.editHistory.slice() : [];
         row.editHistory.push({editedAt:{toDate:()=>new Date()}, editedBy:(auth.currentUser?.email||'unbekannt'), changes:diff});
     }
+    const _wasInv = !!row._invId;
     closeDruckEdit();
-    renderDruckprotokoll();
+    if(_wasInv){ if(typeof loadInventory==='function') loadInventory(); }
+    else { renderDruckprotokoll(); }
 }
 
 function _druckEditSetStatus(text,color){
@@ -6909,6 +6941,7 @@ async function saveAndReprintDruckEdit(){
             _druckEditSetStatus('Frame-Palettennummer muss Format FR26XXXX haben.','#b91c1c');
             return;
         }
+        if(row._invId){ try{ await _writeInventoryFromLabel(row._invSrc,row._invId,newVals,{isFrame:true}); if(typeof loadInventory==='function') loadInventory(); }catch(e){console.warn('Inv-Spiegel (Druck) fehlgeschlagen:',e);} }
         // Spritzguss-Label-DOM mit den neuen Werten befuellen
         const setTxt=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=(v==null||v==='')?'—':String(v);};
         setTxt('sg_lbl_date',    newVals.datum);
@@ -6934,6 +6967,7 @@ async function saveAndReprintDruckEdit(){
         _druckEditSetStatus('Palettennummer fehlt oder ist ungueltig (Format C26-XXXX).','#b91c1c');
         return;
     }
+    if(row._invId){ try{ await _writeInventoryFromLabel(row._invSrc,row._invId,newVals,{isFrame:false}); if(typeof loadInventory==='function') loadInventory(); }catch(e){console.warn('Inv-Spiegel (Druck) fehlgeschlagen:',e);} }
     Object.entries(_LBL_FIELD_MAP).forEach(([id,meta])=>{
         const v = newVals[meta.field];
         const el = document.getElementById(id);
