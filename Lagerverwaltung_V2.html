@@ -161,6 +161,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .prod-pal-chip.blocked:hover { background:#dc2626; color:white; }
 .prod-pal-chip.fertig { background:#d1fae5; border-color:#6ee7b7; color:#065f46; font-weight:700; }
 .prod-pal-chip.fertig:hover { background:#10b981; color:white; }
+/* Auftrag-aufteilen: Palettennummern-Zuordnung (zusammenhängender Block) */
+.split-dir-toggle { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:0.85rem; margin:2px 0 8px; color:#334155; }
+.split-dir-toggle label { display:inline-flex; align-items:center; gap:5px; cursor:pointer; }
+.split-pal-legend { display:flex; gap:14px; align-items:center; font-size:0.76rem; color:#475569; margin:0 0 6px; flex-wrap:wrap; }
+.split-pal-legend .swatch { display:inline-block; width:13px; height:13px; border-radius:3px; vertical-align:middle; margin-right:5px; border:1px solid; }
+.split-pal-list { display:flex; flex-wrap:wrap; gap:4px; max-height:150px; overflow-y:auto; padding:8px; border:1px solid #e2e8f0; border-radius:8px; background:#f8fafc; }
+.split-pal-chip { display:inline-block; padding:3px 7px; font-size:0.72rem; border-radius:4px; cursor:pointer; user-select:none; border:1px solid; font-family:'Consolas','Courier New',monospace; }
+.split-pal-chip.p1 { background:#dbeafe; border-color:#60a5fa; color:#1e3a8a; }
+.split-pal-chip.p2 { background:#f1f5f9; border-color:#cbd5e1; color:#475569; }
+.split-pal-chip:hover { outline:2px solid #4361ee; outline-offset:1px; }
 .fp-list { display:flex; flex-direction:column; gap:6px; padding:8px 4px; }
 .fp-item { display:flex; flex-direction:column; gap:2px; background:#d1fae5; border:1px solid #6ee7b7; border-radius:6px; padding:8px 12px; position:relative; }
 .fp-item .fp-main { font-size:0.9rem; color:#065f46; }
@@ -1274,6 +1284,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                     <label for="splitPart2Name">Sales Order Part 2</label>
                     <input type="text" id="splitPart2Name">
                 </div>
+            </div>
+            <div id="splitPalWrap" style="margin-top:16px">
+                <label style="font-size:0.78rem;font-weight:700;color:#334155;display:block;margin-bottom:6px">Palettennummern zuordnen</label>
+                <div class="split-dir-toggle">
+                    <span style="color:#64748b">Part&nbsp;1 erhält die</span>
+                    <label><input type="radio" name="splitDir" value="erste" checked onchange="_splitProdSetDir('erste')"> ersten</label>
+                    <label><input type="radio" name="splitDir" value="letzte" onchange="_splitProdSetDir('letzte')"> letzten</label>
+                    <span style="color:#64748b">Paletten.</span>
+                </div>
+                <div class="split-pal-legend">
+                    <span><span class="swatch" style="background:#dbeafe;border-color:#60a5fa"></span>Part&nbsp;1</span>
+                    <span><span class="swatch" style="background:#f1f5f9;border-color:#cbd5e1"></span>Part&nbsp;2</span>
+                    <span style="color:#94a3b8">Palette anklicken setzt die Trennstelle.</span>
+                </div>
+                <div id="splitPalPreview" class="split-pal-list"></div>
             </div>
             <p id="splitProdError" class="error-msg" style="display:none;margin-top:10px"></p>
             <div style="display:flex;gap:10px;margin-top:16px">
@@ -4909,6 +4934,7 @@ function saveProdEdit(){
 // Splittet einen bestehenden Auftrag in zwei Teilauftraege (z.B. 4444 -> 4444-Part1 + 4444-Part2)
 // mit individueller Paletten-Aufteilung. Nur Manager/Admin.
 let _splitProdSourceIdx=-1;
+let _splitProdDir='erste'; // 'erste' = Part 1 bekommt die ersten N Paletten, 'letzte' = die letzten N
 function openSplitProdOrder(){
     if(!canManage()){ alert('Nur Manager/Admin koennen Auftraege aufteilen.'); return; }
     if(_prodEditIdx<0 || _prodEditIsNew) return;
@@ -4930,6 +4956,11 @@ function openSplitProdOrder(){
     document.getElementById('splitPart2Pal').value=totalPal-half;
     document.getElementById('splitPart1Name').value=baseSo+'-Part1';
     document.getElementById('splitPart2Name').value=baseSo+'-Part2';
+    // Richtung zurücksetzen + Palettennummern-Vorschau aufbauen
+    _splitProdDir='erste';
+    const dirEl=document.querySelector('input[name="splitDir"][value="erste"]');
+    if(dirEl)dirEl.checked=true;
+    _splitProdRenderPals();
     document.getElementById('splitProdError').style.display='none';
     document.getElementById('splitProdModal').style.display='flex';
 }
@@ -4946,6 +4977,53 @@ function _splitProdRecalc(){
     const p1=parseInt(document.getElementById('splitPart1Pal').value,10);
     if(isNaN(p1)){ document.getElementById('splitPart2Pal').value=''; return; }
     document.getElementById('splitPart2Pal').value=Math.max(0,total-p1);
+    _splitProdRenderPals();
+}
+// Hilfsfunktion: aktueller Gesamt-Paletten-Wert (Form-Eingabe hat Vorrang)
+function _splitProdTotal(o){
+    const palInputEl=document.getElementById('prodEdit_Anzahl_Paletten');
+    return parseInt(palInputEl?palInputEl.value:o['Anzahl Paletten'],10)||0;
+}
+// Richtung umschalten (Part 1 = erste / letzte Paletten) und Vorschau neu zeichnen
+function _splitProdSetDir(dir){
+    _splitProdDir=(dir==='letzte')?'letzte':'erste';
+    _splitProdRenderPals();
+}
+// Live-Vorschau: alle Palettennummern, eingefärbt nach Part 1 / Part 2 (zusammenhängender Block)
+function _splitProdRenderPals(){
+    if(_splitProdSourceIdx<0) return;
+    const o=PRODUKTIONSPLAN_DATA[_splitProdSourceIdx]; if(!o) return;
+    const box=document.getElementById('splitPalPreview'); if(!box) return;
+    const start=String(o['Paletten Nummer START Auftrag']||'').trim();
+    const total=_splitProdTotal(o);
+    const pals=_prodPalGenerate(start,total);
+    if(!pals.length){
+        box.innerHTML='<span style="color:#94a3b8;font-size:0.8rem">Keine Palettennummern (START-Nr. fehlt) — es wird nur die Menge aufgeteilt.</span>';
+        return;
+    }
+    let p1=parseInt(document.getElementById('splitPart1Pal').value,10);
+    if(isNaN(p1)||p1<1)p1=1;
+    if(p1>total-1)p1=total-1;
+    const p2=total-p1;
+    // Part-1-Nummern je nach Richtung (immer ein zusammenhängender Block)
+    const part1Set=_splitProdDir==='erste' ? new Set(pals.slice(0,p1)) : new Set(pals.slice(p2));
+    box.innerHTML=pals.map((p,i)=>{
+        const inP1=part1Set.has(p);
+        return '<span class="split-pal-chip '+(inP1?'p1':'p2')+'" onclick="_splitProdSetBoundary('+i+')" title="Trennstelle hier setzen">'+_prodEsc(p)+'</span>';
+    }).join('');
+}
+// Klick auf eine Palette setzt die Trennstelle (passt die Part-1-Anzahl an)
+function _splitProdSetBoundary(i){
+    if(_splitProdSourceIdx<0) return;
+    const o=PRODUKTIONSPLAN_DATA[_splitProdSourceIdx]; if(!o) return;
+    const total=_splitProdTotal(o);
+    if(total<2) return;
+    // 'erste': Part 1 = Paletten 0..i  → p1 = i+1
+    // 'letzte': Part 1 = Paletten i..Ende → p1 = total-i
+    let p1=_splitProdDir==='erste' ? (i+1) : (total-i);
+    p1=Math.max(1,Math.min(total-1,p1));
+    document.getElementById('splitPart1Pal').value=p1;
+    _splitProdRecalc();
 }
 async function confirmSplitProdOrder(){
     if(_splitProdSourceIdx<0) return;
@@ -4971,20 +5049,35 @@ async function confirmSplitProdOrder(){
         errEl.textContent='Sales-Order-Namen muessen sich unterscheiden.';
         errEl.style.display='block'; return;
     }
-    // Pal-Nr.-Bereich aufteilen, falls START gesetzt
+    // Pal-Nr.-Bereich aufteilen, je nach gewählter Richtung (immer ein zusammenhängender Block):
+    //   'erste'  → Part 1 = erste p1 Nummern, Part 2 = restliche p2 Nummern
+    //   'letzte' → Part 1 = letzte p1 Nummern, Part 2 = erste p2 Nummern
     const startStr=String(o['Paletten Nummer START Auftrag']||'').trim();
-    let part1Start=startStr;
-    let part2Start='';
+    const origPals=_prodPalGenerate(startStr,total);
+    let part1Start='', part2Start='';
     if(startStr){
-        const m=startStr.match(/^([A-Z]*)(\d+)$/i);
+        // Gleiche Zerlegung wie _prodPalGenerate/_prodPalNrEnde: beliebiger Präfix + trailing Ziffern
+        // (z.B. "C26-0505" → Präfix "C26-", Nummer 0505). Die alte Regex /^([A-Z]*)(\d+)$/ matchte
+        // dieses Format NICHT → die Palettennummern wurden früher gar nicht korrekt aufgeteilt.
+        const m=startStr.match(/^(.*?)(\d+)$/);
         if(m){
-            const prefix=m[1];
-            const startNum=parseInt(m[2],10);
-            const pad=m[2].length;
-            const part2Num=startNum+p1;
-            part2Start=prefix+String(part2Num).padStart(pad,'0');
+            const prefix=m[1], startNum=parseInt(m[2],10), pad=m[2].length;
+            const at=k=>prefix+String(startNum+k).padStart(pad,'0');
+            if(_splitProdDir==='erste'){ part1Start=startStr; part2Start=at(p1); }
+            else                       { part2Start=startStr; part1Start=at(p2); }
         }
     }
+    // Konkrete Palettennummern je Teil (für die _palStates-Aufteilung)
+    const part1PalSet=new Set(_splitProdDir==='erste' ? origPals.slice(0,p1) : origPals.slice(p2));
+    const part2PalSet=new Set(_splitProdDir==='erste' ? origPals.slice(p1) : origPals.slice(0,p2));
+    // _palStates (einzelne Paletten: gesperrt / umbenannt) auf die Teile aufteilen
+    const origStates=o._palStates||{};
+    const p1States={}, p2States={};
+    for(const k in origStates){
+        if(part1PalSet.has(k)) p1States[k]=origStates[k];
+        else p2States[k]=origStates[k]; // Part-2-Nummern + unbekannte/außerhalb → beim bestehenden Doc behalten
+    }
+    const deadline=o['Pick-Up Deadline']||''; // vom Approver gesetzt → auf BEIDE Teile übernehmen
     const ends=parseFloat(o['Ends pro Palette'])||0;
     // Part 2 = Update des bestehenden Docs (behaelt _fsId)
     o['Sales Order - PALETTENLABEL']=name2;
@@ -4996,6 +5089,7 @@ async function confirmSplitProdOrder(){
     if(part2Start) o['Paletten Nummer START Auftrag']=part2Start;
     o['Paletten Nummer ENDE Auftrag']=_prodPalNrEnde(o['Paletten Nummer START Auftrag']||'',p2);
     o['letzte gefertigte Palettennummer']='';
+    o['Pick-Up Deadline']=deadline;
     // Part 1 = neuer Auftrag mit kopierten Daten
     const part1=Object.assign({},o);
     delete part1._fsId;
@@ -5009,6 +5103,10 @@ async function confirmSplitProdOrder(){
     part1['Paletten Nummer START Auftrag']=part1Start;
     part1['Paletten Nummer ENDE Auftrag']=_prodPalNrEnde(part1Start,p1);
     part1['letzte gefertigte Palettennummer']='';
+    part1['Pick-Up Deadline']=deadline;
+    // _palStates getrennt zuweisen (frische Objekte → keine geteilte Referenz zwischen den Teilen)
+    o._palStates=p2States;
+    part1._palStates=p1States;
     // Persistieren: Part 2 (update existing) + Part 1 (neu)
     try{
         // Part 2 Update
