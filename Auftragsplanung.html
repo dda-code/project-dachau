@@ -221,6 +221,9 @@ tr.row-gap td.cell-day input{color:#be123c;font-weight:700}
 .transfer-badge.done{background:#d1fae5;color:#065f46}
 .transfer-new-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700;background:#dbeafe;color:#1e40af}
 .transfer-redo-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:700;background:#fef3c7;color:#92400e;cursor:help}
+/* LV→AP: Auftrag in der Lagerverwaltung gelöscht/geändert — rot, klickbar zum Quittieren */
+.lv-change-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:0.68rem;font-weight:800;line-height:1.2;white-space:nowrap;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;cursor:pointer}
+.lv-change-badge:hover{background:#fecaca;border-color:#f87171}
 tr.transfer-row-redo td{background:#fffbeb}
 tr.transfer-row-redo:hover td{background:#fef3c7}
 .transfer-table{width:100%;border-collapse:collapse;font-size:0.82rem}
@@ -818,6 +821,35 @@ let _editingOwnPendingId=null; // ID einer eigenen Pending-Anfrage, die der Mana
 let _pendingUnsub=null;       // Listener unsubscribe for pending list (badge, all tabs)
 let _gridPendingUnsub=null;   // Listener unsubscribe for grid refresh (current tab only)
 let _gridSalesUnsub=null;     // Listener unsubscribe for grid refresh on sales plan changes
+// LV→AP-Rückmeldung: gespiegelter Produktionsplan-Stand der Lagerverwaltung + Quittierungen.
+let _gridProdUnsub=null, _gridAckUnsub=null;
+let _lvProdById={}, _lvAckById={}, _lvProdLoaded=false;
+function _apNum(v){const n=parseInt(String(v==null?'':v).replace(/[^\d-]/g,''),10);return isNaN(n)?0:n;}
+// Status-Klassen wie in Lagerverwaltung_V2 (_prodStatusClass): normaler Fortschritt vs. Storno/Stopp.
+function _apProdStatusClass(s){s=String(s||'').toLowerCase().trim();if(s==='done')return'done';if(s==='open'||s==='offen')return'open';if(s.indexOf('in production')===0)return'inprod';if(s.indexOf('cancelled')===0||s.indexOf('shifted')===0)return'cancelled';if(s.indexOf('stopped')===0)return'stopped';return'';}
+// Abweichung eines transferierten Auftrags gegenüber der Lagerverwaltung.
+// gelöscht (Doc fehlt) | Anzahl Paletten / Menge geändert ggü. Transfer-Snapshot | storniert/gestoppt.
+// Termin bleibt in der Auftragsplanung; Pal-Nr START ist beim Transfer leer (Produktion vergibt sie) → nicht ausgewertet.
+function _lvDivergence(prodId){
+    if(!prodId || !_lvProdLoaded) return null;
+    const lv=_lvProdById[prodId];
+    if(!lv) return {type:'del', label:'In Produktion gelöscht', sig:'del'};
+    const r=[];
+    if(lv.snapPal!=null && lv.pal!==lv.snapPal) r.push('Paletten '+lv.snapPal+'→'+lv.pal);
+    if(lv.snapMenge!=null && lv.menge!==lv.snapMenge) r.push('Menge '+lv.snapMenge+'→'+lv.menge);
+    if(lv.statusClass==='cancelled') r.push('Storniert/Verschoben');
+    else if(lv.statusClass==='stopped') r.push('Gestoppt');
+    if(!r.length) return null;
+    return {type:'chg', label:'In Produktion geändert: '+r.join(', '), sig:'chg:'+r.join('|')};
+}
+// "Quittieren" — Bestätigung pro Produktionsplan-Doc-ID; gleiche Signatur ⇒ Marker bleibt aus,
+// eine NEUE Abweichung erzeugt eine neue Signatur ⇒ Marker erscheint erneut.
+async function ackLvChange(prodId,sig){
+    if(!prodId) return;
+    if(!confirm('Änderung/Löschung durch die Produktion zur Kenntnis nehmen und die Markierung entfernen?')) return;
+    try{ await db.collection('lv_change_ack').doc(prodId).set({sig:sig||'',ackAt:firebase.firestore.FieldValue.serverTimestamp(),ackBy:currentUid||''},{merge:true}); }
+    catch(e){ alert('Quittieren fehlgeschlagen: '+(e&&e.message?e.message:e)); }
+}
 let _gridReloadTimer=null;
 function _scheduleGridReload(){
     if(_gridReloadTimer) return;
@@ -831,6 +863,9 @@ function _scheduleGridReload(){
 function startGridLiveListeners(){
     if(_gridPendingUnsub){ try{ _gridPendingUnsub(); }catch(_){} _gridPendingUnsub=null; }
     if(_gridSalesUnsub){   try{ _gridSalesUnsub();   }catch(_){} _gridSalesUnsub=null; }
+    if(_gridProdUnsub){    try{ _gridProdUnsub();    }catch(_){} _gridProdUnsub=null; }
+    if(_gridAckUnsub){     try{ _gridAckUnsub();     }catch(_){} _gridAckUnsub=null; }
+    _lvProdById={}; _lvAckById={}; _lvProdLoaded=false;
     if(!currentUid || !currentTab) return;
     let firstP=true, firstS=true;
     _gridPendingUnsub=db.collection(_pendingColForTab(currentTab))
@@ -842,6 +877,23 @@ function startGridLiveListeners(){
             .where('datum','>=',rng.from).where('datum','<=',rng.to)
             .onSnapshot(()=>{ if(firstS){ firstS=false; return; } _scheduleGridReload(); }, err=>console.warn('grid sales listener:',err));
     }
+    // LV-Produktionsplan des aktuellen Tabs live spiegeln (Existenz + Werte je Doc-ID) →
+    // gelöschte/geänderte transferierte Aufträge im Kalender rot markieren.
+    _gridProdUnsub=db.collection(TAB_CONFIG[currentTab].prodCol)
+        .onSnapshot(snap=>{
+            _lvProdById={};
+            snap.forEach(d=>{ const x=d.data()||{}; _lvProdById[d.id]={
+                pal:_apNum(x['Anzahl Paletten']),
+                menge:_apNum(x['Menge Auftrag Gesamt']),
+                snapPal:(x._apSnapPaletten!=null?_apNum(x._apSnapPaletten):null),
+                snapMenge:(x._apSnapMenge!=null?_apNum(x._apSnapMenge):null),
+                statusClass:_apProdStatusClass(x['Status Produktion'])
+            }; });
+            _lvProdLoaded=true; _scheduleGridReload();
+        }, err=>console.warn('grid prod listener:',err));
+    _gridAckUnsub=db.collection('lv_change_ack')
+        .onSnapshot(snap=>{ _lvAckById={}; snap.forEach(d=>{ _lvAckById[d.id]=(d.data()||{}).sig||''; }); _scheduleGridReload(); },
+            err=>console.warn('grid ack listener:',err));
 }
 let usersCache={};
 async function loadUsersCache(){
@@ -1767,11 +1819,12 @@ function renderGrid(){
                 const doc=slot.doc;
                 if(doc && doc.uebernommen){
                     const ts=doc.uebernommenAm;
-                    if(!soTransferred[so]) soTransferred[so]={ts};
+                    if(!soTransferred[so]) soTransferred[so]={ts,prodId:doc.uebernommenAlsProd||''};
                     else {
                         const oldMs=soTransferred[so].ts&&soTransferred[so].ts.toMillis?soTransferred[so].ts.toMillis():0;
                         const newMs=ts&&ts.toMillis?ts.toMillis():0;
                         if(newMs && (!oldMs || newMs<oldMs)) soTransferred[so].ts=ts;
+                        if(!soTransferred[so].prodId && doc.uebernommenAlsProd) soTransferred[so].prodId=doc.uebernommenAlsProd;
                     }
                 }
             });
@@ -1836,12 +1889,25 @@ function renderGrid(){
                         let badge='';
                         const isFirstOfSo=(soForIso && soSpans[soForIso] && soSpans[soForIso].firstIso===iso);
                         if(isFirstOfSo && soTransferred[soForIso]){
-                            const dt=_fmtTransferDateTimeFull(soTransferred[soForIso].ts);
-                            if(dt){
-                                const title=`Transferred to production plan on ${dt.date} ${dt.time}`;
-                                badge=`<span class="transfer-cell-badge" title="${escHtml(title)}">✓ ${escHtml(dt.date)}<br>${escHtml(dt.time)}</span>`;
+                            const _pid=soTransferred[soForIso].prodId||'';
+                            const _div=_lvDivergence(_pid);
+                            const _acked=!!(_div && _lvAckById[_pid]===_div.sig);
+                            if(_div && !_acked){
+                                // Rot: in der Lagerverwaltung gelöscht/geändert (klicken zum Quittieren)
+                                const _icon=_div.type==='del'?'✗':'⚠';
+                                const _word=_div.type==='del'?'gelöscht':'geändert';
+                                const _t='Lagerverwaltung: '+_div.label+' — klicken zum Quittieren';
+                                const _pa=String(_pid).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+                                const _sa=String(_div.sig).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+                                badge=`<span class="lv-change-badge" title="${escHtml(_t)}" onclick="ackLvChange('${_pa}','${_sa}')">${_icon} ${_word}</span>`;
                             } else {
-                                badge='<span class="transfer-cell-badge" title="Transferred to production plan">✓</span>';
+                                const dt=_fmtTransferDateTimeFull(soTransferred[soForIso].ts);
+                                if(dt){
+                                    const title=`Transferred to production plan on ${dt.date} ${dt.time}`;
+                                    badge=`<span class="transfer-cell-badge" title="${escHtml(title)}">✓ ${escHtml(dt.date)}<br>${escHtml(dt.time)}</span>`;
+                                } else {
+                                    badge='<span class="transfer-cell-badge" title="Transferred to production plan">✓</span>';
+                                }
                             }
                         }
                         // Changeover badge: show on the FIRST slot of a new order when the preceding visible slot
@@ -5320,6 +5386,9 @@ async function _frameAutoTransferToProduktionsplan(payload,docId){
         'Menge Auftrag Gesamt':            payload.mengeGesamt||0,
         'Menge Auftrag offen':             payload.mengeGesamt||0,
         'Status Produktion':               'open',
+        // Transfer-Snapshot für die LV→AP-Abweichungserkennung (überlebt LV-Edits als Zusatzfeld)
+        _apSnapPaletten:                   payload.anzahlPaletten||0,
+        _apSnapMenge:                      payload.mengeGesamt||0,
         'Paletten Nummer START Auftrag':   '',
         'Paletten Nummer ENDE Auftrag':    '',
         'letzte gefertigte Palettennummer':'',
@@ -6606,6 +6675,9 @@ function _buildProdDocFromOrder(order, isUpdate){
         'Anzahl Paletten offen': '',
         'Menge Auftrag offen': '',
         'Menge Auftrag Gesamt': Math.round(order.sumQty)||0,
+        // Transfer-Snapshot für die LV→AP-Abweichungserkennung (überlebt LV-Edits als Zusatzfeld)
+        _apSnapPaletten: Math.round(order.sumPal)||0,
+        _apSnapMenge: Math.round(order.sumQty)||0,
         'Menge Auftrag Gesamt + 5% Ausschuss': '',
         'letzte gefertigte Palettennummer': '',
         'Paletten Nummer START Auftrag': '',
