@@ -186,6 +186,11 @@ tr.row-gap td.cell-day input{color:#be123c;font-weight:700}
 .ov-table .ov-id{font-weight:800;color:#9a3412}
 .ov-table .ov-r{text-align:right;font-variant-numeric:tabular-nums}
 .ov-foot{margin-top:8px;font-size:0.78rem;color:#64748b}
+.ov-table .ov-row{cursor:pointer}
+.ov-table .ov-act{white-space:nowrap;text-align:right}
+.ov-edit-btn,.ov-del-btn{background:none;border:1px solid transparent;border-radius:5px;cursor:pointer;font-size:0.95rem;padding:2px 6px;line-height:1}
+.ov-edit-btn:hover{background:#eff6ff;border-color:#bfdbfe}
+.ov-del-btn:hover{background:#fee2e2;border-color:#fecaca}
 .orders-empty{text-align:center;color:#64748b;padding:30px;font-size:0.9rem;width:100%}
 .sp-section{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:12px}
 .sp-section-title{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px}
@@ -3669,18 +3674,29 @@ async function _logProtocol(action, pendingId, tab, pendDoc, note){
     try{
         const payload=pendDoc?.payload||{};
         const h=payload.header||{};
+        // Injection Frame uses a FLAT payload (ioNr/artikelNr/startDate/…); Assembly uses payload.header.*
+        const isFrame=(tab==='frame') || (!!payload.ioNr && !h.so);
+        const _fmtN=v=>{ const s=String(v==null?'':v); return /^\d+$/.test(s)?formatThousands(s):s; };
+        const so       = isFrame ? (payload.ioNr||'')             : (h.so||'');
+        const customer = isFrame ? ''                             : (h.cust||'');
+        const articleNr= isFrame ? (payload.artikelNr||'')        : (h.art||'');
+        const qty      = isFrame ? _fmtN(payload.mengeGesamt)     : (h.qty||'');
+        const pal      = isFrame ? String(payload.anzahlPaletten||'') : (h.pal||'');
+        const startIso = isFrame ? (payload.startDate||'')        : (h.start||'');
+        const endIso   = isFrame ? (payload.endDate||'')          : (h.end||'');
+        const days     = isFrame ? String(payload.plannedWorkdays||'') : (h.days||'');
         await db.collection(PROTOCOL_COL).add({
             action,                  // 'approved' | 'rejected'
             tab,
             pendingId,
-            so:h.so||'',
-            customer:h.cust||'',
-            articleNr:h.art||'',
-            qty:h.qty||'',
-            pal:h.pal||'',
-            startIso:h.start||'',
-            endIso:h.end||'',
-            days:h.days||'',
+            so:so,
+            customer:customer,
+            articleNr:articleNr,
+            qty:qty,
+            pal:pal,
+            startIso:startIso,
+            endIso:endIso,
+            days:days,
             payload,                 // kompletter Snapshot zum Zeitpunkt der Entscheidung
             requestedBy:pendDoc?.requestedBy||null,
             requestedByEmail:pendDoc?.requestedByEmail||'',
@@ -3718,8 +3734,12 @@ function renderProtocol(){
     const filt=$('proto_filter')?.value||'all';
     let rows=protocolRows;
     if(filt!=='all') rows=rows.filter(r=>r.action===filt);
-    if(q) rows=rows.filter(r=>['so','customer','articleNr','requestedByEmail','decidedByEmail','note']
-        .some(f=>String(r[f]||'').toLowerCase().includes(q)));
+    if(q) rows=rows.filter(r=>{
+        const P=r.payload||{}, H=P.header||{};
+        const hay=[r.so,r.customer,r.articleNr,r.requestedByEmail,r.decidedByEmail,r.note,P.ioNr,P.artikelNr,H.so,H.art,H.cust]
+            .map(x=>String(x||'').toLowerCase()).join(' ');
+        return hay.includes(q);
+    });
     if(!rows.length){
         $('proto_list').innerHTML='<div style="padding:18px;text-align:center;color:#64748b">No entries.</div>';
         $('proto_status').textContent=`${protocolRows.length} entries total.`;
@@ -3745,11 +3765,25 @@ function renderProtocol(){
         const note=r.note?`<div style="margin-top:8px;padding:7px 10px;background:#fef3c7;border-radius:6px;font-size:0.8rem;color:#92400e"><strong>Note:</strong> ${escHtml(r.note)}</div>`:'';
         // Audit-fest (ISO 9001): Freigabe-Protokoll ist unveränderlich — kein Edit/Delete im Frontend.
         const adminBtns='';
+        // Resolve display values from the denormalized columns, falling back to the stored payload.
+        // Frame's payload is FLAT (no header.*) → this also fixes older Frame entries logged before the fix.
+        const P=r.payload||{}, H=P.header||{};
+        const isFrame=(r.tab==='frame') || (!!P.ioNr && !H.so);
+        const _fmtN=v=>{ const s=String(v==null?'':v); return /^\d+$/.test(s)?formatThousands(s):s; };
+        const _oid  = r.so || (isFrame?P.ioNr:H.so) || '';
+        const _art  = r.articleNr || (isFrame?P.artikelNr:H.art) || '';
+        const _cust = r.customer || (isFrame?'':H.cust) || '';
+        const _start= r.startIso || (isFrame?P.startDate:H.start) || '';
+        const _end  = r.endIso || (isFrame?P.endDate:H.end) || '';
+        const _days = r.days || (isFrame?P.plannedWorkdays:H.days) || '';
+        const _qty  = r.qty || _fmtN(isFrame?P.mengeGesamt:H.qty) || '';
+        const _pal  = r.pal || String((isFrame?P.anzahlPaletten:H.pal)||'') || '';
+        const idPrefix = isFrame ? '' : 'SO '; // IO# already contains "IO"; Assembly SO# gets the "SO " prefix
         return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
                 <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
                     ${badge}
-                    <strong style="font-size:1rem;color:#0f172a;word-break:break-all">SO ${escHtml(r.so||'–')}</strong>
+                    <strong style="font-size:1rem;color:#0f172a;word-break:break-all">${escHtml(_oid?idPrefix+_oid:'–')}</strong>
                     <span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700">${escHtml(TAB_CONFIG[r.tab]?.title||r.tab||'?')}</span>
                 </div>
                 <div style="font-size:0.76rem;color:#64748b;text-align:right">
@@ -3758,13 +3792,13 @@ function renderProtocol(){
                 </div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 18px;margin-bottom:8px">
-                ${cellLabel('Article',escHtml(r.articleNr))}
-                ${cellLabel('Customer',escHtml(r.customer))}
-                ${cellLabel('Start',escHtml(r.startIso))}
-                ${cellLabel('End',escHtml(r.endIso))}
-                ${cellLabel('Duration (days)',escHtml(r.days))}
-                ${cellLabel('Quantity',escHtml(r.qty))}
-                ${cellLabel('Pallets',escHtml(r.pal))}
+                ${cellLabel('Article',escHtml(_art))}
+                ${cellLabel('Customer',escHtml(_cust))}
+                ${cellLabel('Start',escHtml(_start))}
+                ${cellLabel('End',escHtml(_end))}
+                ${cellLabel('Duration (days)',escHtml(_days))}
+                ${cellLabel('Quantity',escHtml(_qty))}
+                ${cellLabel('Pallets',escHtml(_pal))}
                 ${cellLabel('Requester',escHtml(reqEmail))}
             </div>
             ${note}
@@ -5272,8 +5306,17 @@ function _wireFrameOrderInputs(){
 // { iso: [{ioNr, art, qty}, ...] } — multiple entries when several orders share a day.
 let _frameExistingByIso={};
 let _frameExistingExcludeIo=null; // IO# of the order currently being edited (its own qty must NOT count)
+let _frameCacheFrom='', _frameCacheTo=''; // covered ISO range of _frameExistingByIso (for self-healing reload)
+function _frameCacheCovers(startIso){
+    if(!startIso || !_frameCacheFrom || !_frameCacheTo) return false;
+    const s=new Date(startIso+'T00:00:00'); if(isNaN(s.getTime())) return false;
+    const need0=toIsoDate(new Date(s.getTime()-7*86400000));
+    const need1=toIsoDate(new Date(s.getTime()+70*86400000)); // 4-week preview + buffer
+    return _frameCacheFrom<=need0 && _frameCacheTo>=need1;
+}
 async function _frameLoadExistingForRange(fromIso, toIso){
     _frameExistingByIso={};
+    _frameCacheFrom=fromIso; _frameCacheTo=toIso;
     try{
         const snap=await db.collection(TAB_CONFIG.frame.salesCol)
             .where('datum','>=',fromIso).where('datum','<=',toIso).get();
@@ -5294,22 +5337,25 @@ async function _frameLoadExistingForRange(fromIso, toIso){
         });
     }catch(e){ console.warn('_frameLoadExistingForRange:',e); }
 }
-// Returns {usedQty, lastArt} for an ISO date, optionally excluding orders that match _frameExistingExcludeIo.
+// Returns {usedQty, lastArt, ios} for an ISO date, excluding orders that match _frameExistingExcludeIo.
 function _frameDayUsage(iso){
     const arr=_frameExistingByIso[iso]||[];
-    let usedQty=0, lastArt='';
+    let usedQty=0, lastArt='', ios=[];
     arr.forEach(e=>{
         if(_frameExistingExcludeIo && e.ioNr===_frameExistingExcludeIo) return;
         usedQty+=e.qty;
         if(e.art) lastArt=e.art;
+        if(e.ioNr) ios.push(e.ioNr);
     });
-    return {usedQty, lastArt};
+    return {usedQty, lastArt, ios};
 }
 
 // Roll out a frame production plan day-by-day starting from startIso.
 // Now respects existing day-occupancy (backfill) and changeover hours.
 // On empty result, `diag` carries a human-readable reason (no plan / no shifts / output=0 / day full).
-function _frameComputeProductionPlan(startIso, totalQty, newArt){
+// enforceBlock=true (modal context): a fully-booked WORKING day is a HARD BLOCK (not silently skipped) →
+// exact parity with Assembly's computeOrderPlan. enforceBlock=false (pending overlay / transfer): legacy skip.
+function _frameComputeProductionPlan(startIso, totalQty, newArt, enforceBlock){
     if(!startIso || totalQty<=0) return null;
     const seq=[];
     const d=new Date(startIso+'T00:00:00');
@@ -5318,6 +5364,7 @@ function _frameComputeProductionPlan(startIso, totalQty, newArt){
     let safety=0;
     const diag={noPlanDays:0, zeroShiftDays:0, zeroOutputDays:0, fullDays:0, samplePlanName:'', sampleKpi:null};
     let isFirstScheduled=true; // changeover deduction only on the day the new order actually starts producing
+    let feasible=true, blocked=null;
     while(remaining>0 && safety<400){
         const iso=toIsoDate(d);
         if(isWorkDay(d)){
@@ -5335,8 +5382,15 @@ function _frameComputeProductionPlan(startIso, totalQty, newArt){
                         const usage=_frameDayUsage(iso);
                         const coLoss=isFirstScheduled?_changeoverPiecesLoss(sp, usage.lastArt, newArt||'', shifts):0;
                         const availableCap=Math.max(0, fullCap - usage.usedQty - coLoss);
-                        if(availableCap<=0){ diag.fullDays++; }
-                        else {
+                        if(availableCap<=0){
+                            diag.fullDays++;
+                            if(enforceBlock && usage.usedQty>0){
+                                // Working day fully booked by other order(s) → not acceptable, must NOT skip over it.
+                                feasible=false;
+                                blocked={iso, ios:Array.from(new Set(usage.ios||[])), used:usage.usedQty, cap:fullCap};
+                                break;
+                            }
+                        } else {
                             const dayQty=Math.min(availableCap,remaining);
                             seq.push({iso, date:new Date(d), shifts, capacity:availableCap, fullCapacity:fullCap, usedByOthers:usage.usedQty, changeoverLoss:coLoss, qty:dayQty});
                             remaining-=dayQty;
@@ -5349,7 +5403,38 @@ function _frameComputeProductionPlan(startIso, totalQty, newArt){
         d.setDate(d.getDate()+1);
         safety++;
     }
-    return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining, diag};
+    return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining, diag, feasible, blocked};
+}
+// First working day on/after startIso with free frame capacity (earliest-free-start hint).
+function _frameFirstFreeStartFrom(startIso, newArt){
+    if(!startIso) return '';
+    const d=new Date(startIso+'T00:00:00'); if(isNaN(d.getTime())) return '';
+    let safety=0;
+    while(safety<400){
+        const iso=toIsoDate(d);
+        if(isWorkDay(d)){
+            const sp=getShiftPlanForIso(iso);
+            if(sp){
+                let shifts=getPlanShiftForDow(sp,d.getDay());
+                if(isHoliday(iso)) shifts=0;
+                if(shifts>0){
+                    const fullCap=computeOutputDayFromKpi(sp.kpi||{},shifts);
+                    if(fullCap>0 && (fullCap-_frameDayUsage(iso).usedQty)>0) return iso;
+                }
+            }
+        }
+        d.setDate(d.getDate()+1); safety++;
+    }
+    return '';
+}
+function _setFrameActionsEnabled(enabled){
+    ['fo_requestBtn','fo_updateBtn','fo_approveBtn','fo_directBtn'].forEach(id=>{
+        const b=$(id); if(!b) return;
+        b.disabled=!enabled;
+        b.style.opacity=enabled?'':'0.5';
+        b.style.cursor=enabled?'':'not-allowed';
+        b.title=enabled?'':'Blocked: a required production day is fully booked — choose a start date with free capacity.';
+    });
 }
 
 function _frameRenderPreview(plan){
@@ -5366,8 +5451,14 @@ function _frameRenderPreview(plan){
     const startD=new Date(start+'T00:00:00');
     if(isNaN(startD.getTime())){ cal.innerHTML=''; if(summary) summary.textContent='Invalid start date.'; return; }
     const monday=mondayOf(startD);
-    const planDates=new Set();
-    if(plan && plan.seq) plan.seq.forEach(s=>planDates.add(s.iso));
+    const planByIso={};
+    if(plan && plan.seq) plan.seq.forEach(s=>planByIso[s.iso]=s);
+    const blockedIso=(plan&&plan.blocked)?plan.blocked.iso:'';
+    const ioPrefix=($('fo_ioPrefix')?.textContent||'').trim();
+    const ioSuffix=($('fo_so')?.value||'').trim();
+    const newIo=ioSuffix?(ioPrefix+ioSuffix):'(new)';
+    const newArt=$('fo_art')?.value.trim()||'';
+    const todayIso=toIsoDate(new Date());
     let html='';
     for(let w=0;w<4;w++){
         for(let i=0;i<7;i++){
@@ -5375,12 +5466,31 @@ function _frameRenderPreview(plan){
             const iso=toIsoDate(d);
             const dow=d.getDay();
             const isWe=(dow===0||dow===6);
-            const isHol=isHoliday(iso);
-            const isPlan=planDates.has(iso);
+            const holName=getHolidayName(iso);
+            const isNew=!!planByIso[iso];
+            const isBlocked=(iso===blockedIso);
             const cls=['mini-cell'];
-            if(isPlan) cls.push('new-slot');
-            else if(isWe||isHol) cls.push('weekend');
-            html+=`<div class="${cls.join(' ')}" data-iso="${iso}" title="${iso}${isHol?' · '+escHtml(isHol||''):''}">${d.getDate()}.${d.getMonth()+1}.</div>`;
+            if(iso===todayIso) cls.push('today');
+            if(isWe) cls.push('weekend');
+            if(holName) cls.push('holiday');
+            // One chip per order on this day: existing scheduled order(s) (excl. the one being edited) + the new order.
+            const existing=(_frameExistingByIso[iso]||[]).filter(e=>!(_frameExistingExcludeIo && e.ioNr===_frameExistingExcludeIo));
+            const chips=[];
+            existing.forEach(e=>chips.push({io:e.ioNr, art:e.art, kind:'sched', blocked:isBlocked}));
+            if(isNew) chips.push({io:newIo, art:newArt, kind:'new', shifts:planByIso[iso].shifts});
+            const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0');
+            const chipsHtml=chips.map(o=>{
+                const occ='oc oc-'+o.kind+(o.blocked?' oc-blocked':'');
+                const shb=(o.kind==='new'&&o.shifts)?`<span class="oc-shift s-${Math.min(3,Math.max(0,o.shifts))}" title="${o.shifts} shift(s)">${o.shifts}S</span>`:'';
+                return `<div class="${occ}">`+shb
+                    +(o.io?`<span class="oc-so">${escHtml(o.io)}</span>`:'')
+                    +(o.art?`<span class="oc-art">${escHtml(o.art)}</span>`:'')
+                    +`</div>`;
+            }).join('');
+            const titleSuffix=(holName?' · Holiday: '+holName:'')+(isNew?' · new order':'')+(isBlocked?' · FULL — no free capacity':'');
+            html+=`<div class="${cls.join(' ')}" data-iso="${iso}" title="${iso}${titleSuffix}"><span class="dt">${dd}.${mm}</span>`
+                +(holName?`<span class="holi">${escHtml(holName)}</span>`:'')
+                +chipsHtml+`</div>`;
         }
     }
     cal.innerHTML=html;
@@ -5389,15 +5499,22 @@ function _frameRenderPreview(plan){
         kwLbl.textContent='KW '+String(iw.week).padStart(2,'0')+'/'+iw.year;
     }
     if(summary){
-        if(plan && plan.days>0){
+        if(plan && !plan.feasible && plan.blocked){
+            const b=plan.blocked;
+            const ioTxt=(b.ios&&b.ios.length)?Array.from(new Set(b.ios)).join(', '):'another order';
+            const free=_frameFirstFreeStartFrom(start, newArt);
+            summary.innerHTML=`⛔ <b>Cannot be scheduled:</b> ${escHtml(b.iso)} is fully booked by ${escHtml(ioTxt)} `
+                +`(${formatThousands(String(b.used))}/${formatThousands(String(b.cap))} pcs.) — no free capacity.`
+                +(free?` Choose a start date with free capacity (earliest: <b>${escHtml(free)}</b>).`:``);
+        } else if(plan && plan.days>0){
             const remTxt=plan.remaining>0?` · ${formatThousands(String(plan.remaining))} pcs. unscheduled (extend horizon)`:'';
-            // Backfill / changeover info: highlight days where another order already occupies part of the day's capacity
+            // Shared days: highlight where another order already occupies part of the day's capacity (allowed backfill)
             const backfillDays=plan.seq.filter(s=>s.usedByOthers>0||s.changeoverLoss>0);
             let backfillTxt='';
             if(backfillDays.length>0){
                 const b=backfillDays[0];
                 const coNote=b.changeoverLoss>0?` · setup −${formatThousands(String(b.changeoverLoss))}`:'';
-                backfillTxt=` · backfill on ${backfillDays.length} day(s) (e.g. ${b.iso}: ${formatThousands(String(b.usedByOthers))}/${formatThousands(String(b.fullCapacity))} pcs. already planned${coNote})`;
+                backfillTxt=` · shares ${backfillDays.length} day(s) (e.g. ${b.iso}: ${formatThousands(String(b.usedByOthers))}/${formatThousands(String(b.fullCapacity))} pcs. already planned${coNote})`;
             }
             summary.textContent=`${plan.days} workday(s) · End: ${plan.endIso || '—'}${backfillTxt}${remTxt}`;
         } else {
@@ -5428,12 +5545,18 @@ function recalcFrame(){
     const totalQty=fpp*pal;
     if($('fo_framesPerPal')) $('fo_framesPerPal').value=_frameFmtThousands(fpp);
     if($('fo_totalQty')) $('fo_totalQty').value=_frameFmtThousands(totalQty);
+    // Self-heal: ensure the existing-orders cache covers the current start (handles new/edit/review without per-path reloads).
+    if(start && !_frameCacheCovers(start)){
+        _frameReloadExistingCache().then(()=>recalcFrame()).catch(()=>{});
+    }
     let plan=null;
     if(start && totalQty>0){
-        plan=_frameComputeProductionPlan(start,totalQty,art);
+        plan=_frameComputeProductionPlan(start,totalQty,art,true); // enforceBlock=true in the modal (Assembly parity)
     }
     if($('fo_days')) $('fo_days').value=(plan&&plan.days>0)?String(plan.days):'';
     if($('fo_end')) $('fo_end').value=(plan&&plan.endIso)?plan.endIso:'';
+    // Hard-block gate (parity with Assembly): disable action buttons when a required day is fully booked.
+    _setFrameActionsEnabled(!(plan && plan.feasible===false && plan.blocked));
     _frameRenderPreview(plan);
 }
 // Refresh the existing-orders cache used by _frameComputeProductionPlan for backfill awareness.
@@ -5688,7 +5811,15 @@ async function saveFrameOrder(mode){
     // Compute the day-by-day plan once and snapshot it onto the payload so:
     //  1) Approver sees the same projected horizon (gridData) as the requester
     //  2) loadWeek's pending-overlay can render the request as grey-hatched draft cells
-    const plan=_frameComputeProductionPlan(payload.startDate, payload.mengeGesamt, payload.artikelNr||'');
+    const plan=_frameComputeProductionPlan(payload.startDate, payload.mengeGesamt, payload.artikelNr||'', true);
+    // Capacity HARD BLOCK (parity with Assembly): a required working day is fully booked by another order.
+    if(plan && !plan.feasible && plan.blocked){
+        const b=plan.blocked;
+        const ioTxt=(b.ios&&b.ios.length)?Array.from(new Set(b.ios)).join(', '):'another order';
+        const free=_frameFirstFreeStartFrom(payload.startDate, payload.artikelNr||'');
+        alert('⛔ Order cannot be accepted.\n\n'+b.iso+' is fully booked by '+ioTxt+' ('+formatThousands(String(b.used))+'/'+formatThousands(String(b.cap))+' pcs.) — no free production capacity on that day.\n\n'+(free?('Choose a start date with free capacity (earliest: '+free+').'):'Choose a start date with free capacity.'));
+        return;
+    }
     if(!plan || plan.days===0){
         alert('No workdays/capacity in 4-week horizon. Check shift plan or holidays before requesting approval.');
         return;
@@ -6359,10 +6490,11 @@ function renderOrdersOverview(){
     const orders=ordersOverviewData.orders||[];
     const isFrame=ordersOverviewData.isFrame;
     if(!orders.length){ c.innerHTML='<div class="orders-empty">No orders found in the calendar.</div>'; return; }
+    const canDel=!!currentCanApprove;  // delete gated on approver right (matches sales_plan write rule)
     const fmtD=iso=>{ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+'.'+m[2]+'.'+m[1]):(iso||'–'); };
     const fmtN=n=>n>0?Number(Math.round(n)).toLocaleString('de-DE'):'–';
     const fmtPal=n=>n>0?(Number.isInteger(n)?String(n):(Math.round(n*10)/10).toString().replace('.',',')):'–';
-    const rows=orders.map((o,i)=>'<tr>'
+    const rows=orders.map((o,i)=>'<tr class="ov-row" onclick="ovEditByIdx('+i+')" title="Click to open / edit order">'
         +'<td class="ov-num">'+(i+1)+'</td>'
         +'<td>'+fmtD(o.start)+'</td>'
         +'<td>'+fmtD(o.end)+'</td>'
@@ -6373,13 +6505,77 @@ function renderOrdersOverview(){
         +'<td class="ov-r">'+fmtN(o.qty)+'</td>'
         +'<td class="ov-r">'+o.days+'</td>'
         +'<td>'+fmtD(o.pickup)+'</td>'
+        +'<td class="ov-act">'
+            +'<button class="ov-edit-btn" onclick="event.stopPropagation();ovEditByIdx('+i+')" title="Edit order">✏️</button>'
+            +(canDel?'<button class="ov-del-btn" onclick="event.stopPropagation();ovDeleteByIdx('+i+')" title="Delete order">🗑</button>':'')
+        +'</td>'
         +'</tr>').join('');
     c.innerHTML='<table class="ov-table"><thead><tr>'
         +'<th></th><th>Start</th><th>End</th><th>'+(isFrame?'IO #':'SO #')+'</th><th>Article</th>'
         +(isFrame?'':'<th>Customer</th>')
-        +'<th class="ov-r">Pallets</th><th class="ov-r">Qty</th><th class="ov-r">Days</th><th>Pick-Up</th>'
+        +'<th class="ov-r">Pallets</th><th class="ov-r">Qty</th><th class="ov-r">Days</th><th>Pick-Up</th><th></th>'
         +'</tr></thead><tbody>'+rows+'</tbody></table>'
-        +'<div class="ov-foot">'+orders.length+' order(s) · sorted by start date · '+escHtml((TAB_CONFIG[currentTab]||{}).title||currentTab)+'</div>';
+        +'<div class="ov-foot">'+orders.length+' order(s) · sorted by start date · '+escHtml((TAB_CONFIG[currentTab]||{}).title||currentTab)+' · click a row to edit'+(canDel?' · 🗑 to delete':'')+'</div>';
+}
+function ovEditByIdx(i){ const o=(ordersOverviewData.orders||[])[i]; if(o) _ovEditOrder(o); }
+function ovDeleteByIdx(i){ const o=(ordersOverviewData.orders||[])[i]; if(o) ovDeleteOrder(o.id); }
+// Open an order from the overview for editing/deleting. Navigates the grid to the order's start week
+// first (editOrder reads the in-memory 14-day weekDocs), then opens the existing edit modal
+// (which carries the Delete Order + Save/Request/Approve actions).
+async function _ovEditOrder(order){
+    closeOrdersOverview();
+    try{
+        if(order.start) currentAnchor=mondayOf(new Date(order.start+'T00:00:00'));
+        if(typeof startGridLiveListeners==='function') startGridLiveListeners();
+        await loadWeek();
+        if(currentTab==='frame') await editFrameOrder(order.id, order.start);
+        else editOrder(order.id, order.start);
+    }catch(e){ console.error('Open order from overview:',e); alert('Could not open order: '+e.message); }
+}
+// Direct delete from the overview (approver only). Self-contained + audit-logged; window-independent.
+async function ovDeleteOrder(id){
+    if(!id) return;
+    if(!currentCanApprove){ alert('No permission to delete.'); return; }
+    if(!confirm('Really delete order '+id+'?\nAll associated days will be removed completely.')) return;
+    try{
+        const tab=currentTab, isFrame=(tab==='frame');
+        const salesCol=TAB_CONFIG[tab].salesCol;
+        const docs=[];
+        if(isFrame){
+            const snap=await db.collection(salesCol).where('ioNr','==',id).get();
+            snap.forEach(d=>{ const dt=d.data(); docs.push({iso:dt.datum, fields:dt.fields||{}, ref:d.ref}); });
+        } else {
+            const today=new Date(); today.setHours(0,0,0,0);
+            const from=new Date(today); from.setDate(today.getDate()-365);
+            const to=new Date(today); to.setDate(today.getDate()+540);
+            const idKey=fieldKey('Production Plan','','SO #');
+            const snap=await db.collection(salesCol).where('datum','>=',toIsoDate(from)).where('datum','<=',toIsoDate(to)).get();
+            snap.forEach(d=>{ const dt=d.data(); if(dt.fields && dt.fields[idKey]===id) docs.push({iso:dt.datum, fields:dt.fields, ref:d.ref}); });
+        }
+        if(!docs.length){ alert('No matching days found.'); return; }
+        docs.sort((a,b)=>String(a.iso).localeCompare(String(b.iso)));
+        const batch=db.batch();
+        docs.forEach(m=>batch.delete(m.ref));
+        await batch.commit();
+        // Frame: also clean the Spritzguss production plan (mirror deleteFrameOrder)
+        if(isFrame){
+            try{
+                const sgCol=TAB_CONFIG.frame.prodCol;
+                const sg=await db.collection(sgCol).where('Sales Order XO','==',id).get();
+                const b2=db.batch(); sg.forEach(d=>b2.delete(d.ref)); await b2.commit();
+                try{ await db.collection(sgCol).doc(id.replace(/[^A-Za-z0-9_-]/g,'_')).delete(); }catch(_){}
+            }catch(e){ console.warn('Spritzguss cleanup:',e); }
+        }
+        // Audit protocol (append-only)
+        try{
+            const f=docs[0].fields||{};
+            const headerSnap={ so:id, cust:f[fieldKey('Production Plan','','Customer')]||'', art:f[fieldKey('Production Plan','','Art #')]||'', po:f[fieldKey('Production Plan','','PO #')]||'', qty:f[fieldKey('Production Plan','','Total QTY')]||'', pal:f[fieldKey('Production Plan','','PAL')]||'', pickup:f[fieldKey('Production Plan','','Pick-Up (Deadline)')]||'', start:docs[0].iso, end:docs[docs.length-1].iso, days:String(docs.length) };
+            await _logProtocol('order_deleted', null, tab, {payload:{header:headerSnap}, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null}, docs.length+' day(s) removed (Orders Overview)');
+        }catch(e){ console.warn('protocol log (order_deleted):',e); }
+        showMsg('Order '+id+' deleted ('+docs.length+' day(s)).','success');
+        await loadWeek();
+        await openOrdersOverview();
+    }catch(e){ console.error('ovDeleteOrder:',e); alert('Delete failed: '+e.message); }
 }
 
 async function flushPending(){
