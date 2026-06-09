@@ -3847,6 +3847,20 @@ function generateOrderPdf(payload, kind, meta){
     }[kind]||{label:'REQUEST',color:[249,115,22],sectNo:'A.00'};
     const h=payload.header||{};
     const tabTitle=TAB_CONFIG[payload.tab]?.title||payload.tab||'';
+    // Injection-Frame orders are internal (IO #, single component article, no customer/price) → own layout.
+    const isFrame=(payload.tab==='frame');
+    const fr=isFrame?{
+        io: payload.ioNr||'',
+        art: payload.artikelNr||'',
+        artDesc: (typeof articleMapFrame!=='undefined' && articleMapFrame[String(payload.artikelNr||'').trim()] ? articleMapFrame[String(payload.artikelNr||'').trim()].bezeichnung : ''),
+        framesPerPal: payload.framesProPalette,
+        pal: payload.anzahlPaletten,
+        totalQty: payload.mengeGesamt,
+        start: payload.startDate,
+        end: payload.endDate,
+        days: payload.plannedWorkdays,
+        comment: payload.comment||''
+    }:null;
 
     // ---- Helpers ----
     const setColor=(c,kind='fill')=>{ if(kind==='fill') doc.setFillColor(c[0],c[1],c[2]); else if(kind==='draw') doc.setDrawColor(c[0],c[1],c[2]); else doc.setTextColor(c[0],c[1],c[2]); };
@@ -3902,7 +3916,9 @@ function generateOrderPdf(payload, kind, meta){
     // Subtitle
     setColor(C.mid,'text');
     doc.setFont('helvetica','normal'); doc.setFontSize(10);
-    doc.text(`Area: ${tabTitle}  ·  SO ${h.so||'–'}  ·  Article ${h.art||'–'}`, titleX, 86);
+    doc.text(isFrame
+        ? `Area: ${tabTitle}  ·  IO ${fr.io||'–'}  ·  Article ${fr.art||'–'}`
+        : `Area: ${tabTitle}  ·  SO ${h.so||'–'}  ·  Article ${h.art||'–'}`, titleX, 86);
     // Status badge (oben rechts)
     const badgeW=140, badgeH=30, badgeX=PAGE_W-M-badgeW, badgeY=44;
     setColor(ACTION.color,'fill'); doc.roundedRect(badgeX,badgeY,badgeW,badgeH,4,4,'F');
@@ -3964,6 +3980,66 @@ function generateOrderPdf(payload, kind, meta){
         });
         y=startY+rowsPerCol*16+10;
     };
+
+    // ===== INJECTION FRAME variant (internal order — no customer / no pricelist) =====
+    if(isFrame){
+        sectionHeader('01','ORDER DETAILS');
+        kvGrid([
+            ['IO #', fr.io],
+            ['Article', fr.art+(fr.artDesc?'  ·  '+fr.artDesc:'')],
+            ['Frames / PAL', fmtDe(fr.framesPerPal)],
+            ['Pallets', fr.pal],
+            ['Total Qty', fmtDe(fr.totalQty)],
+            ['Duration (days)', fr.days],
+            ['Start date', fmtDateDe(fr.start)],
+            ['End date', fmtDateDe(fr.end)],
+        ]);
+        let secNo=2;
+        if(fr.comment){
+            sectionHeader(('0'+secNo),'COMMENT'); secNo++;
+            setColor(C.charcoal,'text'); doc.setFont('helvetica','normal'); doc.setFontSize(10);
+            const cl=doc.splitTextToSize(String(fr.comment), PAGE_W-2*M);
+            doc.text(cl.slice(0,6), M, y);
+            y+=Math.min(cl.length,6)*14+10;
+        }
+        // ---- AUDIT TRAIL ----
+        sectionHeader(('0'+secNo),'AUDIT TRAIL');
+        const reqEmailF=String(meta?.requestedByEmail||'').replace('@lager.local','')||'–';
+        const decEmailF=String(meta?.decidedByEmail||meta?.approvedByEmail||'').replace('@lager.local','')||'–';
+        const auditRowsF=[
+            ['Status', ACTION.label],
+            ['Requested by', reqEmailF],
+            ['Request submitted', fmtTsDe(meta?.requestedAt)],
+        ];
+        if(kind==='approved'||kind==='rejected'){
+            auditRowsF.push(['Decision by', decEmailF]);
+            auditRowsF.push(['Decision at', fmtTsDe(meta?.decidedAt||meta?.approvedAt||new Date())]);
+        }
+        auditRowsF.push(['Pending ID', meta?.id||'–']);
+        if(meta?.note) auditRowsF.push(['Note / Reason', String(meta.note)]);
+        kvGrid(auditRowsF);
+        if(kind==='rejected' && meta?.note){
+            if(y>PAGE_H-110){ doc.addPage(); y=M; }
+            setColor([254,242,242],'fill'); doc.rect(M,y,PAGE_W-2*M,42,'F');
+            setColor([239,68,68],'draw'); doc.setLineWidth(1); doc.line(M,y,M,y+42);
+            setColor([153,27,27],'text'); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+            doc.text('REJECTION REASON', M+10, y+15);
+            doc.setFont('helvetica','normal'); doc.setFontSize(10);
+            const nl=doc.splitTextToSize(String(meta.note), PAGE_W-2*M-20);
+            doc.text(nl.slice(0,2), M+10, y+30);
+            y+=52;
+        }
+        // ---- FOOTER ----
+        setColor(C.lite,'draw'); doc.setLineWidth(0.5); doc.line(M, PAGE_H-50, PAGE_W-M, PAGE_H-50);
+        setColor(C.mid,'text'); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+        const nowStrF=new Date().toLocaleString('en-GB');
+        doc.text(`Order Approval – ${ACTION.label}  ·  Generated: ${nowStrF}`, M, PAGE_H-32);
+        doc.text(`Xolution Germany GmbH  ·  Emmy-Noether-Strasse 7  ·  85221 Dachau`, M, PAGE_H-20);
+        const psF='Page 1 / 1'; doc.text(psF, PAGE_W-M-doc.getTextWidth(psF), PAGE_H-20);
+        const stubF={approved:'approved',rejected:'rejected',request:'request'}[kind]||'request';
+        doc.save(`Order_${String(fr.io||'no-IO').replace(/[^\w-]+/g,'_')}_${stubF}_${new Date().toISOString().slice(0,10)}.pdf`);
+        return;
+    }
 
     // ---- 1. ORDER DETAILS ----
     sectionHeader('01','ORDER DETAILS');
@@ -5097,6 +5173,9 @@ let _frameEditingPendingId=null;   // own pending request id (manager edit)
 let _frameReviewingPendingId=null; // pending id under approver review
 let _frameInputsWired=false;
 let articleMapFrame={};
+// Diese Maschine (Injection Frame) produziert ausschließlich diese Artikel —
+// nur diese sind im New-Order-Dropdown wählbar.
+const FRAME_ALLOWED_ARTS=['120030'];
 
 async function loadFrameArticles(){
     articleMapFrame={};
@@ -5155,11 +5234,18 @@ async function loadFrameArticles(){
 function _renderFrameArticleSelect(){
     const sel=document.getElementById('fo_art');
     if(!sel) return;
-    // Frame-Auftragsplanung: nur Spritzguss-Komponenten (Prefix 12* = Frame, 18* = Inner Slider, 19* = Outer Slider)
-    const list=Object.values(articleMapFrame)
-        .filter(r=>{ const p=String(r.nr||''); return p.startsWith('12')||p.startsWith('18')||p.startsWith('19'); })
-        .sort((a,b)=>String(a.nr).localeCompare(String(b.nr)));
     const cur=sel.value;
+    // Diese Maschine produziert ausschließlich Frame 120030 → nur erlaubte Artikel sind wählbar.
+    const list=Object.values(articleMapFrame)
+        .filter(r=>FRAME_ALLOWED_ARTS.includes(String(r.nr||'')));
+    // Erlaubte Artikel IMMER anbieten, auch wenn (noch) kein Stammdatensatz existiert.
+    FRAME_ALLOWED_ARTS.forEach(nr=>{ if(!list.some(r=>String(r.nr)===nr)) list.push({nr, bezeichnung:'Frame'}); });
+    // Beim Bearbeiten eines Altauftrags mit abweichendem Artikel: aktuellen Wert beibehalten (nicht still überschreiben).
+    if(cur && !list.some(r=>String(r.nr)===cur)){
+        const ex=articleMapFrame[cur];
+        list.push({nr:cur, bezeichnung:(ex&&ex.bezeichnung)||''});
+    }
+    list.sort((a,b)=>String(a.nr).localeCompare(String(b.nr)));
     sel.innerHTML='<option value="">– Select Frame Article –</option>'+list.map(r=>{
         const nr=escHtml(String(r.nr||''));
         const bz=escHtml(String(r.bezeichnung||''));
@@ -5494,7 +5580,15 @@ function applyFramePayload(p){
     } else if($('fo_so')) {
         $('fo_so').value=fullIo;
     }
-    if($('fo_art')) $('fo_art').value=p.artikelNr||'';
+    if($('fo_art')){
+        const _sel=$('fo_art'), _a=p.artikelNr||'';
+        // Beim Bearbeiten eines (Alt-)Auftrags mit nicht-erlaubtem Artikel: Option injizieren, damit der Wert erhalten bleibt.
+        if(_a && ![..._sel.options].some(o=>o.value===_a)){
+            const _ex=articleMapFrame[_a];
+            _sel.insertAdjacentHTML('beforeend','<option value="'+escHtml(_a)+'">'+escHtml(_a)+(_ex&&_ex.bezeichnung?'  ·  '+escHtml(_ex.bezeichnung):'')+'</option>');
+        }
+        _sel.value=_a;
+    }
     if($('fo_start')) $('fo_start').value=p.startDate||'';
     if($('fo_pal')) $('fo_pal').value=p.anzahlPaletten?String(p.anzahlPaletten):'';
     if($('fo_comment')) $('fo_comment').value=p.comment||'';
@@ -5703,14 +5797,21 @@ async function saveFrameOrder(mode){
         await writeBatch.commit();
         const docId=baseDocId; // used by transfer/protocol below for stable per-order identity
 
+        // Audit info for the approval PDF (captured before the pending state is cleared).
+        const _pdfMeta={ id:(_frameReviewingPendingId||docId), requestedByEmail:currentUserEmail, requestedAt:null, approvedByEmail:currentUserEmail, approvedAt:new Date() };
         if(mode==='approve' && _frameReviewingPendingId){
             const pendingId=_frameReviewingPendingId;
             let pendDocSnap=null;
             try{ const s=await db.collection(_pendingColForTab('frame')).doc(pendingId).get(); if(s.exists) pendDocSnap=s.data(); }catch(_){}
+            _pdfMeta.id=pendingId;
+            if(pendDocSnap){ _pdfMeta.requestedByEmail=pendDocSnap.requestedByEmail||currentUserEmail; _pdfMeta.requestedAt=pendDocSnap.requestedAt||null; }
             try{ await _logProtocol('approved',pendingId,'frame',{payload,requestedBy:pendDocSnap?.requestedBy,requestedByEmail:pendDocSnap?.requestedByEmail,requestedAt:pendDocSnap?.requestedAt},''); }catch(_){}
             try{ await db.collection(_pendingColForTab('frame')).doc(pendingId).delete(); }catch(e){ console.warn('Deleting pending failed:',e); }
             _frameReviewingPendingId=null;
         }
+        // PDF protocol on approval — parity with Assembly.
+        try{ generateOrderPdf(payload,'approved',_pdfMeta); }
+        catch(e){ console.warn('Frame approval PDF generation failed:',e); }
 
         let transferMsg='';
         try{
