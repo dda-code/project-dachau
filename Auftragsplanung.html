@@ -121,6 +121,9 @@ td.cell-dropdown input{background:transparent}
 .mini-cell .dt{font-weight:700;font-size:0.68rem;color:#64748b}
 .mini-cell .so{font-weight:700;font-size:0.72rem;line-height:1.1;word-break:break-all}
 .mini-cell .cust{font-size:0.68rem;line-height:1.1;color:#475569}
+.mini-cell .po{font-size:0.66rem;line-height:1.1;color:#1e3a8a;font-weight:700}
+.mini-cell .so-new{color:#1e3a8a}
+.mini-cell .ord-sep{display:block;height:1px;background:#cbd5e1;margin:3px 0}
 .mini-cell.planned{background:#fef3c7}
 .mini-cell.pending{background:repeating-linear-gradient(135deg,#e5e7eb 0,#e5e7eb 5px,#fed7aa 5px,#fed7aa 10px) !important;border-color:#f97316;color:#7c2d12;font-style:italic}
 .mini-cell.pending .so{color:#9a3412;font-weight:800;font-style:normal}
@@ -2352,7 +2355,12 @@ async function saveDay(iso){
         });
         const existing=weekData[iso];
         const hasAny=Object.keys(fields).length>0;
-        const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(iso);
+        // Inline edit targets the day's slot-0 order: update its existing doc in place; for a newly
+        // filled Assembly day use a composite {iso}__{SO} id so it can coexist with other orders.
+        const _soInline=fields[fieldKey('Production Plan','','SO #')]||'';
+        const docId=(existing&&existing._id)?existing._id
+            :((currentTab==='assembly'&&_soInline)?_assemblyDayDocId(iso,_soInline):iso);
+        const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(docId);
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         const dObj=new Date(iso+'T00:00:00');
         const iw=getIsoWeek(dObj);
@@ -2367,7 +2375,7 @@ async function saveDay(iso){
                 updatedBy:currentUid,
                 ...(existing?{}:{ createdAt:ts, createdBy:currentUid })
             },{merge:true});
-            weekData[iso]={...(existing||{}), datum:iso, jahr:iw.year, kw:iw.week, fields:fields, _id:iso};
+            weekData[iso]={...(existing||{}), datum:iso, jahr:iw.year, kw:iw.week, fields:fields, _id:docId};
         } else if(existing){
             await ref.delete();
             delete weekData[iso];
@@ -2388,7 +2396,7 @@ async function saveDay(iso){
     }
 }
 // ---------- Auftrags-Modal ----------
-let orderPreviewDocs={}; // iso -> fields map (4-week preview)
+let orderPreviewDocs={}; // iso -> [ {fields,_so,_docId,_pendingId}, ... ]  (4-week preview; multiple orders/day)
 let orderGridData={}; // iso -> {fields:{key:value}}
 let _syncingQtyPal=false;
 function endsForOrderArt(){
@@ -3579,7 +3587,10 @@ async function approvePendingInline(id, tab){
             Object.entries(fields).forEach(([k,v])=>{ if(v!==''&&v!=null) cleanFields[k]=v; });
             let iw={year:0,week:0};
             try{ iw=getIsoWeek(new Date(iso+'T00:00:00')); }catch(_){}
-            batch.set(db.collection(TAB_CONFIG[tab].salesCol).doc(iso),{
+            // Assembly: composite {iso}__{SO} key so this order coexists with others sharing the day.
+            const _so=cleanFields[fieldKey('Production Plan','','SO #')]||'';
+            const _docId=(tab==='assembly')?_assemblyDayDocId(iso,_so):iso;
+            batch.set(db.collection(TAB_CONFIG[tab].salesCol).doc(_docId),{
                 datum:iso, jahr:iw.year, kw:iw.week,
                 fields:cleanFields,
                 updatedAt:ts, updatedBy:currentUid,
@@ -4124,17 +4135,41 @@ function getShiftsForDay(iso){
     if(iso in perDayShifts) return perDayShifts[iso];
     return getBaseShifts();
 }
-// Assembly per-day usage from the 4-week preview cache (orderPreviewDocs), respecting editingOrderSo.
+// Composite day-doc id so MULTIPLE orders can occupy the same day in Assembly's sales_plan
+// (key = {iso}__{SO}). Legacy single-order days live under the plain {iso} key and remain readable
+// (loadWeek groups by the `datum` field, not the doc id); they migrate lazily when re-saved.
+// Only Assembly uses composite keys — Frame/others keep the plain {iso} key unchanged.
+function _orderDaySlug(orderId){ return String(orderId||'').trim().replace(/[^A-Za-z0-9_-]/g,'_'); }
+function _assemblyDayDocId(iso, orderId){
+    const slug=_orderDaySlug(orderId);
+    return slug ? (iso+'__'+slug) : iso;
+}
+// orderPreviewDocs[iso] is a LIST of orders occupying that day (multi-order-per-day support).
+// Robust accessor: tolerates legacy single-object entries.
+function _previewDayList(iso){
+    const v=orderPreviewDocs[iso];
+    if(!v) return [];
+    if(Array.isArray(v)) return v;
+    // legacy single fields-map → wrap
+    const soK=fieldKey('Production Plan','','SO #');
+    return [{fields:v, _so:v[soK]||'', _docId:null, _pendingId:null}];
+}
+// Assembly per-day usage from the 4-week preview cache — COMBINED across all OTHER orders on the day
+// (the order currently being edited is excluded so re-planning frees its own capacity).
 function _assemblyDayUsage(iso){
-    const f=orderPreviewDocs[iso]||{};
-    const soKey=fieldKey('Production Plan','','SO #');
     const qtyKey=fieldKey('Production Plan','','Qty');
     const artKey=fieldKey('Production Plan','','Art #');
-    const existSo=f[soKey]||'';
-    if(!existSo) return {usedQty:0, lastArt:''};
-    if(editingOrderSo && existSo===editingOrderSo) return {usedQty:0, lastArt:''};
-    const q=parseInt(String(f[qtyKey]||'').replace(/[^\d]/g,''),10)||0;
-    return {usedQty:q, lastArt:f[artKey]||''};
+    let usedQty=0, lastArt='', sos=[];
+    _previewDayList(iso).forEach(e=>{
+        const f=e.fields||{};
+        const so=e._so||'';
+        if(editingOrderSo && so===editingOrderSo) return;
+        const q=parseInt(String(f[qtyKey]||'').replace(/[^\d]/g,''),10)||0;
+        usedQty+=q;
+        if(f[artKey]) lastArt=f[artKey];
+        if(so) sos.push(so);
+    });
+    return {usedQty, lastArt, sos};
 }
 function computeOrderPlan(){
     const qty=parseThousands($('o_qty').value);
@@ -4142,7 +4177,7 @@ function computeOrderPlan(){
     const start=$('o_start').value;
     const baseShifts=getBaseShifts();
     const newArt=$('o_art')?.value.trim()||'';
-    const res={qty, outDay, baseShifts, days:0, seq:[], endIso:'', remaining:qty};
+    const res={qty, outDay, baseShifts, days:0, seq:[], endIso:'', remaining:qty, feasible:true, blocked:null};
     if(!start || qty<=0 || outDay<=0 || baseShifts<=0) return res;
     const d=new Date(start+'T00:00:00');
     let remaining=qty, safety=0;
@@ -4174,6 +4209,14 @@ function computeOrderPlan(){
                         res.seq.push({iso, shifts, capacity:availableCap, fullCapacity:fullCap, usedByOthers:usage.usedQty, changeoverLoss:coLoss, qty:dayQty, date:new Date(d)});
                         remaining-=dayQty;
                         isFirstScheduled=false;
+                    } else if(usage.usedQty>0 && !editingOrderSo){
+                        // NEW order, working day fully booked by other order(s): cannot be produced here and
+                        // must NOT silently skip over it. Hard block (capacity rule) → order not acceptable.
+                        // (When EDITING an existing order, full days are skipped as before — colliding
+                        //  follow-up orders are shifted backwards afterwards via compactOrdersAfter.)
+                        res.feasible=false;
+                        res.blocked={iso, sos:Array.from(new Set(usage.sos)), used:usage.usedQty, cap:fullCap};
+                        break;
                     }
                 }
             }
@@ -4212,25 +4255,72 @@ document.addEventListener('click',e=>{
     if(e.target.closest('.mini-cell.new-slot')) return;
     hideShiftPopover();
 });
+// Enable/disable the order modal's action buttons (used to hard-block a capacity collision).
+function _setOrderActionsEnabled(enabled){
+    ['o_requestBtn','o_updateBtn','o_approveBtn','o_directBtn'].forEach(id=>{
+        const b=$(id); if(!b) return;
+        b.disabled=!enabled;
+        b.style.opacity=enabled?'':'0.5';
+        b.style.cursor=enabled?'':'not-allowed';
+        b.title=enabled?'':'Blocked: a required production day is fully booked — choose a start date with free capacity.';
+    });
+}
+// First working day on/after startIso that still has free capacity (for a helpful "earliest free start" hint).
+function _firstFreeStartFrom(startIso){
+    if(!startIso) return '';
+    const outDay=parseThousands($('o_outday').value);
+    const baseShifts=getBaseShifts();
+    if(outDay<=0||baseShifts<=0) return '';
+    const d=new Date(startIso+'T00:00:00');
+    let safety=0;
+    while(safety<400){
+        if(isWorkDay(d)){
+            const iso=toIsoDate(d);
+            const shifts=getShiftsForDay(iso);
+            if(shifts>0){
+                const fullCap=Math.max(0,Math.round(outDay*shifts/baseShifts));
+                if(fullCap>0 && (fullCap-_assemblyDayUsage(iso).usedQty)>0) return iso;
+            }
+        }
+        d.setDate(d.getDate()+1);
+        safety++;
+    }
+    return '';
+}
 function recalcOrder(rebuildGrid){
     const qty=parseThousands($('o_qty').value);
     const outDay=parseThousands($('o_outday').value);
     const start=$('o_start').value;
     const art=$('o_art').value.trim();
     const calc=$('o_calc');
-    let days=0, endIso='';
+    let days=0, endIso='', plan=null;
     if(qty>0 && outDay>0 && start){
-        const plan=computeOrderPlan();
+        plan=computeOrderPlan();
         days=plan.days;
         endIso=plan.endIso;
     }
     $('o_days').value=days?String(days):'';
     $('o_end').value=endIso;
+    // Capacity HARD BLOCK: a required working day is fully booked by another order → not acceptable.
+    if(plan && !plan.feasible && plan.blocked){
+        const b=plan.blocked;
+        const soTxt=(b.sos&&b.sos.length)?b.sos.join(', '):'another order';
+        const free=_firstFreeStartFrom(start);
+        calc.className='calc-row warn';
+        calc.innerHTML=`⛔ <b>Cannot be scheduled:</b> ${escHtml(b.iso)} is fully booked by ${escHtml(soTxt)} `
+            +`(${formatThousands(String(b.used))}/${formatThousands(String(b.cap))} pcs.) — no free capacity.<br>`
+            +(free?`Choose a start date with free capacity (earliest: <b>${escHtml(free)}</b>).`:`Choose a start date with free capacity.`);
+        calc.style.display='block';
+        _setOrderActionsEnabled(false);
+        renderOrderPreview();
+        if(rebuildGrid) renderOrderGrid();
+        return;
+    }
+    _setOrderActionsEnabled(true);
     if(qty>0 && outDay>0 && start){
         const ends=endsForArtFallback(art);
         const totalPal=ends?Math.ceil(qty/ends):0;
         const coll=getCollisionInfo();
-        const plan=computeOrderPlan();
         const overflow=plan.remaining>0;
         // Identify backfill days where the new order shares capacity with existing orders
         const backfillDays=plan.seq.filter(s=>s.usedByOthers>0).map(s=>({iso:s.iso, used:s.usedByOthers, co:s.changeoverLoss||0, qty:s.qty, cap:s.fullCapacity}));
@@ -4419,8 +4509,14 @@ async function loadPreview4w(){
             .where('datum','>=',fromIso)
             .where('datum','<=',toIso)
             .get();
-        snap.forEach(d=>{ const dt=d.data(); if(dt.datum) orderPreviewDocs[dt.datum]=dt.fields||{}; });
-        // Additionally show pending orders (grey-orange) — approved wins
+        const _soK=fieldKey('Production Plan','','SO #');
+        snap.forEach(d=>{
+            const dt=d.data(); if(!dt.datum) return;
+            const fields=dt.fields||{};
+            if(!orderPreviewDocs[dt.datum]) orderPreviewDocs[dt.datum]=[];
+            orderPreviewDocs[dt.datum].push({fields, _so:fields[_soK]||'', _docId:d.id, _pendingId:null});
+        });
+        // Additionally show pending orders (grey-orange) as SEPARATE day-entries so they also occupy capacity.
         try{
             const pSnap=await db.collection(_pendingColForTab(currentTab))
                 .where('status','==','pending').get();
@@ -4430,30 +4526,35 @@ async function loadPreview4w(){
                 const reqEmail=(data.requestedByEmail||'').replace('@lager.local','');
                 Object.entries(grid).forEach(([iso,entry])=>{
                     if(iso<fromIso || iso>toIso) return;
-                    if(orderPreviewDocs[iso]) return; // approved Vorrang
-                    if(entry&&entry.fields) orderPreviewDocs[iso]={...entry.fields};
-                    orderPreviewPendingIso[iso]={pendingId:doc.id, requestedByEmail:reqEmail};
+                    const fields=(entry&&entry.fields)?entry.fields:{};
+                    const pso=fields[_soK]||'';
+                    if(!orderPreviewDocs[iso]) orderPreviewDocs[iso]=[];
+                    // Skip if the SAME order (same SO #) is already present (approved) on this day.
+                    if(pso && orderPreviewDocs[iso].some(e=>e._so===pso)) return;
+                    orderPreviewDocs[iso].push({fields, _so:pso, _docId:null, _pendingId:doc.id});
+                    if(!orderPreviewPendingIso[iso]) orderPreviewPendingIso[iso]={pendingId:doc.id, requestedByEmail:reqEmail};
                 });
             });
         }catch(e){ console.warn('Preview pending load:',e); }
     }catch(e){ console.warn('Preview-Load:',e); }
 }
+// Shared days: working days where the NEW order coexists with an existing order but capacity allows it
+// (partial share). With multi-order-per-day persistence these are permitted — informational only.
 function getCollisionInfo(){
     const newStart=$('o_start').value;
     const days=parseInt($('o_days').value||'0',10)||0;
     if(!newStart || days<=0) return {hits:[], sos:new Set()};
-    const soKey=fieldKey('Production Plan','','SO #');
     const custKey=fieldKey('Production Plan','','Customer');
     const hits=[];
     const sos=new Set();
     computeOrderPlan().seq.forEach(s=>{
-        const iso=s.iso;
-        const f=orderPreviewDocs[iso]||{};
-        const existSo=f[soKey];
-        if(existSo && existSo!==editingOrderSo){
-            hits.push({iso, so:existSo, cust:f[custKey]||''});
-            sos.add(existSo);
-        }
+        _previewDayList(s.iso).forEach(e=>{
+            const existSo=e._so;
+            if(existSo && existSo!==editingOrderSo){
+                hits.push({iso:s.iso, so:existSo, cust:(e.fields||{})[custKey]||''});
+                sos.add(existSo);
+            }
+        });
     });
     return {hits, sos};
 }
@@ -4475,64 +4576,78 @@ function renderOrderPreview(){
     let anchor=new Date(previewAnchor);
     anchor.setHours(0,0,0,0);
     const windowDays=28; // immer 4 Wochen — Navigation via ◀ ▶ / Pfeiltasten
-    // Kollisionen bestimmen
-    const coll=getCollisionInfo();
-    const collIsoSet=new Set(coll.hits.map(h=>h.iso));
-    // Active slots of the new order (weekends optionally skipped, shift override honored)
-    const plan=(newStart && days>0)?computeOrderPlan():{seq:[]};
+    // New order plan (computed even when seq is empty, so a blocked start day can be flagged red).
+    const plan=newStart?computeOrderPlan():{seq:[],blocked:null};
     const newSlotIsoSet=new Set(plan.seq.map(s=>s.iso));
     const shiftsByIso={}; plan.seq.forEach(s=>{ shiftsByIso[s.iso]=s.shifts; });
+    const blockedIso=(plan&&plan.blocked)?plan.blocked.iso:'';
     const baseShifts=getBaseShifts();
     const soKey=fieldKey('Production Plan','','SO #');
     const custKey=fieldKey('Production Plan','','Customer');
     const artKey=fieldKey('Production Plan','','Art #');
-    // Collect best values for Customer / Art # per SO# across all days (fallback resolution)
+    const poKey=fieldKey('Production Plan','','PO #');
+    // Collect best values for Customer / Art # / PO # per SO# across all days (fallback resolution)
     const soResolved={};
-    Object.values(orderPreviewDocs).forEach(f=>{
-        const so=f[soKey]; if(!so) return;
-        if(!soResolved[so]) soResolved[so]={cust:'', art:''};
-        if(!soResolved[so].cust && f[custKey]) soResolved[so].cust=f[custKey];
-        if(!soResolved[so].art && f[artKey]) soResolved[so].art=f[artKey];
+    Object.values(orderPreviewDocs).forEach(list=>{
+        (Array.isArray(list)?list:[list]).forEach(e=>{
+            const f=(e&&e.fields)||e||{};
+            const so=f[soKey]; if(!so) return;
+            if(!soResolved[so]) soResolved[so]={cust:'', art:'', po:''};
+            if(!soResolved[so].cust && f[custKey]) soResolved[so].cust=f[custKey];
+            if(!soResolved[so].art && f[artKey]) soResolved[so].art=f[artKey];
+            if(!soResolved[so].po && f[poKey]) soResolved[so].po=f[poKey];
+        });
     });
+    const newPo=$('o_po')?$('o_po').value.trim():'';
+    const newSo=$('o_so')?$('o_so').value.trim():'';
     let html='';
     for(let i=0;i<windowDays;i++){
         const d=new Date(anchor); d.setDate(anchor.getDate()+i);
         const iso=toIsoDate(d);
-        const f=orderPreviewDocs[iso]||{};
-        const existSo=f[soKey]||'';
-        let art=f[artKey]|| (existSo && soResolved[existSo] ? soResolved[existSo].art : '')||'';
-        let cust=f[custKey]|| (existSo && soResolved[existSo] ? soResolved[existSo].cust : '')||'';
+        const dayList=_previewDayList(iso);
         const dow=d.getDay();
         const holiName=getHolidayName(iso);
+        const isPending=!!orderPreviewPendingIso[iso];
+        const isNew=newSlotIsoSet.has(iso);
         let cls='mini-cell';
         if(iso===todayIso) cls+=' today';
         if(dow===0||dow===6) cls+=' weekend';
         if(holiName) cls+=' holiday';
-        const isPending=!!orderPreviewPendingIso[iso];
-        if(art||cust||existSo) cls+=(isPending?' planned pending':' planned');
+        if(dayList.length>0) cls+=(isPending?' planned pending':' planned');
         else if(isPending) cls+=' pending';
-        if(collIsoSet.has(iso)) cls+=' collision';
-        let isNew=false;
-        if(newSlotIsoSet.has(iso)){ cls+=' new-slot'; isNew=true; }
-        if(isNew){
-            if(newArt) art=newArt;
-            if(newCust) cust=newCust;
-        }
+        if(iso===blockedIso) cls+=' collision';   // red = blocked (fully-booked) day the new order cannot use
+        if(isNew) cls+=' new-slot';
+        // Order lines: existing order(s) on this day + (optionally) the new order. Each shows Art # + PO + Customer.
+        const lines=[];
+        dayList.forEach(e=>{
+            const f=e.fields||{};
+            const so=e._so||'';
+            const art=f[artKey]||(so&&soResolved[so]?soResolved[so].art:'')||'';
+            const po=f[poKey]||(so&&soResolved[so]?soResolved[so].po:'')||'';
+            const cust=f[custKey]||(so&&soResolved[so]?soResolved[so].cust:'')||'';
+            lines.push({art:art||so, po, cust, isNew:false});
+        });
+        if(isNew) lines.push({art:(newArt||newSo), po:newPo, cust:newCust, isNew:true});
         const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0');
-        const primary=art||existSo;
         let badge='';
         if(isNew){
             const sh=(iso in shiftsByIso)?shiftsByIso[iso]:baseShifts;
             badge=`<span class="shift-badge s-${Math.min(3,Math.max(0,sh))}" title="${sh} shift(s)">${sh}S</span>`;
         }
+        const existSoTitle=dayList.map(e=>e._so).filter(Boolean).join(', ');
         const pendInfo=isPending?orderPreviewPendingIso[iso]:null;
-        const titleSuffix=`${existSo?' · '+existSo:''}${holiName?' · Holiday: '+holiName:''}${isNew?' · Click for shifts':''}${pendInfo?' · Approval pending (by '+(pendInfo.requestedByEmail||'?')+')':''}`;
+        const titleSuffix=`${existSoTitle?' · '+existSoTitle:''}${holiName?' · Holiday: '+holiName:''}${isNew?' · Click for shifts':''}${pendInfo?' · Approval pending (by '+(pendInfo.requestedByEmail||'?')+')':''}`;
+        const linesHtml=lines.map(l=>{
+            const soTxt=l.art?`<span class="so${l.isNew?' so-new':''}">${escHtml(l.art)}</span>`:'';
+            const poTxt=l.po?`<span class="po">PO ${escHtml(l.po)}</span>`:'';
+            const custTxt=l.cust?`<span class="cust">${escHtml(l.cust)}</span>`:'';
+            return soTxt+poTxt+custTxt;
+        }).join('<span class="ord-sep"></span>');
         html+=`<div class="${cls}" data-iso="${iso}" title="${iso}${titleSuffix}">`+
               badge+
               `<span class="dt">${dd}.${mm}</span>`+
               (holiName?`<span class="holi">${escHtml(holiName)}</span>`:'')+
-              (primary?`<span class="so">${escHtml(primary)}</span>`:'')+
-              (cust?`<span class="cust">${escHtml(cust)}</span>`:'')+
+              linesHtml+
               `</div>`;
     }
     container.innerHTML=html;
@@ -4813,8 +4928,16 @@ async function saveOrder(mode){
     if(mode==='approve' && !currentCanApprove){
         alert('No permission to approve.'); return;
     }
-    // Check shift plan collision (user can still confirm = exception)
+    // Capacity HARD BLOCK (new orders): a required working day is fully booked by another order.
     const plan=computeOrderPlan();
+    if(!plan.feasible && plan.blocked){
+        const b=plan.blocked;
+        const soTxt=(b.sos&&b.sos.length)?b.sos.join(', '):'another order';
+        const free=_firstFreeStartFrom($('o_start').value);
+        alert(`⛔ Order cannot be accepted.\n\n${b.iso} is fully booked by ${soTxt} (${formatThousands(String(b.used))}/${formatThousands(String(b.cap))} pcs.) — no free production capacity on that day.\n\n`+(free?`Choose a start date with free capacity (earliest: ${free}).`:`Choose a start date with free capacity.`));
+        return;
+    }
+    // Check shift plan collision (user can still confirm = exception)
     const spCheck=await checkShiftPlanConflicts(plan.seq);
     if(spCheck.shifts.length>0){
         const dowLabel={mon:'Mo',tue:'Di',wed:'Mi',thu:'Do',fri:'Fr',sat:'Sa',sun:'So'};
@@ -4829,35 +4952,33 @@ async function saveOrder(mode){
     }
     const coll=getCollisionInfo();
     let preloadedFollowers=[];
-    if(coll.hits.length>0){
+    // NEW orders: partial-capacity shares are allowed and stored as SEPARATE day entries (no overwrite) — no confirm.
+    // EDITING an order that overlaps follow-up orders: those followers are shifted backwards (data preserved).
+    if(coll.hits.length>0 && editingOrderSo){
         const soList=Array.from(coll.sos).join(', ');
-        if(editingOrderSo){
-            if(!confirm(`⚠ Collision!\nThe extended order overlaps on ${coll.hits.length} day(s) with following order(s) (${soList}).\n\nThose following orders will be shifted backwards automatically — their data is preserved.\n\nContinue?`)) return;
-            // Preload colliding follow-up orders fully (so they can be re-placed after the write)
-            try{
-                const soKey=fieldKey('Production Plan','','SO #');
-                const todayX=new Date(); todayX.setHours(0,0,0,0);
-                const fromX=new Date(todayX); fromX.setDate(todayX.getDate()-30);
-                const toX=new Date(todayX); toX.setDate(todayX.getDate()+540);
-                const snap=await db.collection(TAB_CONFIG[currentTab].salesCol)
-                    .where('datum','>=',toIsoDate(fromX))
-                    .where('datum','<=',toIsoDate(toX))
-                    .get();
-                const bySo={};
-                snap.forEach(doc=>{
-                    const d=doc.data();
-                    if(!d.fields) return;
-                    const so=d.fields[soKey];
-                    if(!so || !coll.sos.has(so)) return;
-                    if(!bySo[so]) bySo[so]={so, days:[]};
-                    bySo[so].days.push({iso:d.datum, fields:d.fields});
-                });
-                preloadedFollowers=Object.values(bySo);
-                preloadedFollowers.forEach(o=>o.days.sort((a,b)=>a.iso.localeCompare(b.iso)));
-            }catch(e){ console.warn('Follower-Preload:',e); }
-        } else {
-            if(!confirm(`⚠ Collision!\nThe planned order overlaps on ${coll.hits.length} day(s) with an existing order (${soList}).\n\nSave anyway? The existing daily values will be overwritten.`)) return;
-        }
+        if(!confirm(`⚠ Collision!\nThe extended order overlaps on ${coll.hits.length} day(s) with following order(s) (${soList}).\n\nThose following orders will be shifted backwards automatically — their data is preserved.\n\nContinue?`)) return;
+        // Preload colliding follow-up orders fully (so they can be re-placed after the write)
+        try{
+            const soKey=fieldKey('Production Plan','','SO #');
+            const todayX=new Date(); todayX.setHours(0,0,0,0);
+            const fromX=new Date(todayX); fromX.setDate(todayX.getDate()-30);
+            const toX=new Date(todayX); toX.setDate(todayX.getDate()+540);
+            const snap=await db.collection(TAB_CONFIG[currentTab].salesCol)
+                .where('datum','>=',toIsoDate(fromX))
+                .where('datum','<=',toIsoDate(toX))
+                .get();
+            const bySo={};
+            snap.forEach(doc=>{
+                const d=doc.data();
+                if(!d.fields) return;
+                const so=d.fields[soKey];
+                if(!so || !coll.sos.has(so)) return;
+                if(!bySo[so]) bySo[so]={so, days:[]};
+                bySo[so].days.push({iso:d.datum, fields:d.fields, _docId:doc.id});
+            });
+            preloadedFollowers=Object.values(bySo);
+            preloadedFollowers.forEach(o=>o.days.sort((a,b)=>a.iso.localeCompare(b.iso)));
+        }catch(e){ console.warn('Follower-Preload:',e); }
     }
     // Snapshot aktueller Grid-Inputs ins orderGridData mergen
     // orderGridData was already populated by renderOrderGrid() with autofill + Qty/PAL split
@@ -4865,21 +4986,24 @@ async function saveOrder(mode){
         const batch=db.batch();
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         const seq=computeOrderPlan().seq.map(s=>s.date);
-        const newIsoSet=new Set(seq.map(d=>toIsoDate(d)));
-        // On edit: delete this order's old days that are no longer in the new plan
+        const soVal=$('o_so').value.trim();
+        const _isAssembly=(currentTab==='assembly');
+        const _dayId=(iso,so)=> _isAssembly ? _assemblyDayDocId(iso,so) : iso;
+        // On edit: delete ALL of this order's existing day docs by their REAL doc id (handles both legacy
+        // {iso} docs and composite {iso}__{SO} docs → clean lazy migration), then re-write the new plan below.
         if(editingOrderSo){
-            const soKey=fieldKey('Production Plan','','SO #');
-            Object.entries(orderPreviewDocs).forEach(([iso,f])=>{
-                if(f && f[soKey]===editingOrderSo && !newIsoSet.has(iso)){
-                    const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(iso);
-                    batch.delete(ref);
-                }
+            Object.values(orderPreviewDocs).forEach(list=>{
+                (Array.isArray(list)?list:[list]).forEach(e=>{
+                    if(e && e._so===editingOrderSo && e._docId){
+                        batch.delete(db.collection(TAB_CONFIG[currentTab].salesCol).doc(e._docId));
+                    }
+                });
             });
         }
-        // Colliding follow-up orders: delete old days from the DB (will be re-placed after compactOrdersAfter)
+        // Colliding follow-up orders: delete old days by their REAL doc id (re-placed after compactOrdersAfter)
         preloadedFollowers.forEach(o=>{
             o.days.forEach(d=>{
-                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(d.iso);
+                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(d._docId||d.iso);
                 batch.delete(ref);
             });
         });
@@ -4890,7 +5014,7 @@ async function saveOrder(mode){
             const rawFields=(orderGridData[iso]&&orderGridData[iso].fields)||{};
             const cleanFields={};
             Object.entries(rawFields).forEach(([k,v])=>{ if(v!==''&&v!=null) cleanFields[k]=v; });
-            const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(iso);
+            const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(_dayId(iso, soVal));
             batch.set(ref,{
                 datum:iso, jahr:iw.year, kw:iw.week,
                 fields:cleanFields,
@@ -4899,7 +5023,6 @@ async function saveOrder(mode){
             },{merge:true});
         }
         await batch.commit();
-        const soVal=$('o_so').value.trim();
         // After saving an edited order: shift subsequent orders gap-free to the new end
         let shiftedInfo='';
         if(editingOrderSo){
@@ -5938,7 +6061,7 @@ async function compactOrdersAfter(newEndIso, editedSo, preloadedFollowers){
             if(so===editedSo) return;
             if(so in bySo) return; // bereits vorgeladen
             if(!bySo[so]) bySo[so]={so, days:[]};
-            bySo[so].days.push({iso:d.datum, fields:d.fields});
+            bySo[so].days.push({iso:d.datum, fields:d.fields, _docId:doc.id});
         });
         const orders=Object.values(bySo).map(o=>{
             o.days.sort((a,b)=>a.iso.localeCompare(b.iso));
@@ -5978,15 +6101,16 @@ async function compactOrdersAfter(newEndIso, editedSo, preloadedFollowers){
                 cursor=new Date(lastP); cursor.setDate(cursor.getDate()+1);
                 continue;
             }
-            // Delete old docs
+            // Delete old docs by their REAL doc id (legacy {iso} or composite {iso}__{SO})
             o.days.forEach(d=>{
-                batch.delete(db.collection(TAB_CONFIG[currentTab].salesCol).doc(d.iso));
+                batch.delete(db.collection(TAB_CONFIG[currentTab].salesCol).doc(d._docId||d.iso));
             });
-            // Neue Docs auf den placements schreiben (Field-Daten 1:1)
+            // Neue Docs auf den placements schreiben (Field-Daten 1:1) — composite key (Assembly) je Auftrag
             placements.forEach((nd,i)=>{
                 const iso=toIsoDate(nd);
                 const iw=getIsoWeek(nd);
-                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(iso);
+                const _did=(currentTab==='assembly')?_assemblyDayDocId(iso,o.so):iso;
+                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(_did);
                 batch.set(ref,{
                     datum:iso, jahr:iw.year, kw:iw.week,
                     fields:o.days[i].fields,
@@ -6100,7 +6224,7 @@ async function openOrdersManager(){
             const so=d.fields[soKey];
             if(!so) return;
             if(!bySo[so]) bySo[so]={so, days:[]};
-            bySo[so].days.push({iso:d.datum, fields:d.fields});
+            bySo[so].days.push({iso:d.datum, fields:d.fields, _docId:doc.id});
         });
         const orders=Object.values(bySo).map(o=>{
             o.days.sort((a,b)=>a.iso.localeCompare(b.iso));
@@ -6193,10 +6317,10 @@ async function saveOrdersSequence(){
         const anchor=new Date(anchorIso+'T00:00:00');
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         const batch=db.batch();
-        // First: delete all old days of all affected orders
+        // First: delete all old days of all affected orders by their REAL doc id
         orders.forEach(o=>{
             o.days.forEach(d=>{
-                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(d.iso);
+                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(d._docId||d.iso);
                 batch.delete(ref);
             });
         });
@@ -6223,7 +6347,8 @@ async function saveOrdersSequence(){
             placements.forEach((nd,i)=>{
                 const iso=toIsoDate(nd);
                 const iw=getIsoWeek(nd);
-                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(iso);
+                const _did=(currentTab==='assembly')?_assemblyDayDocId(iso,o.so):iso;
+                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(_did);
                 batch.set(ref,{
                     datum:iso, jahr:iw.year, kw:iw.week,
                     fields:o.days[i].fields,
@@ -6315,10 +6440,13 @@ async function saveWeek(){
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         for(const d of dates){
             const iso=toIsoDate(d);
-            const docId=iso;
             const fields=byDate[iso]||{};
             const existing=weekData[iso];
             const hasAny=Object.keys(fields).length>0;
+            // Slot-0 order: update its existing doc in place; new Assembly day → composite {iso}__{SO} id.
+            const _soInline=fields[fieldKey('Production Plan','','SO #')]||'';
+            const docId=(existing&&existing._id)?existing._id
+                :((currentTab==='assembly'&&_soInline)?_assemblyDayDocId(iso,_soInline):iso);
             const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(docId);
             if(hasAny){
                 const iwB=getIsoWeek(d);
@@ -6440,7 +6568,7 @@ async function loadTransferCandidates(){
         const so=(d.fields[soKey]||'').toString().trim();
         if(!so) return;
         if(!bySo[so]) bySo[so]={ so, days:[], sumQty:0, sumPal:0, customer:'', art:'', firstFields:null, statuses:new Set() };
-        bySo[so].days.push({ iso:d.datum, fields:d.fields });
+        bySo[so].days.push({ iso:d.datum, fields:d.fields, _docId:doc.id });
         bySo[so].sumQty += _transferParseNum(d.fields[qtyKey]);
         bySo[so].sumPal += _transferParseNum(d.fields[palKey]);
         const st=(d.fields[stKey]||'').toString().trim().toLowerCase();
@@ -6502,7 +6630,7 @@ async function _autoTransferAfterApprove(payload, gridData, tab){
     const ts=firebase.firestore.FieldValue.serverTimestamp();
     let b=db.batch(), ops=0;
     for(const iso of isos){
-        b.set(db.collection(TAB_CONFIG.assembly.salesCol).doc(iso),
+        b.set(db.collection(TAB_CONFIG.assembly.salesCol).doc(_assemblyDayDocId(iso, orderShape.so)),
             { uebernommen:true, uebernommenAm:ts, uebernommenVon:currentUid, uebernommenAlsProd:prodRef.id },
             {merge:true});
         if(++ops>=400){ await b.commit(); b=db.batch(); ops=0; }
@@ -6722,7 +6850,7 @@ async function confirmTransferSelection(){
             batch.set(prodRef, _buildProdDocFromOrder(order, !!existing)); ops++;
             if(existing) redo++; else neu++;
             for(const day of order.days){
-                const srcRef=db.collection(TAB_CONFIG.assembly.salesCol).doc(day.iso);
+                const srcRef=db.collection(TAB_CONFIG.assembly.salesCol).doc(day._docId||day.iso);
                 batch.set(srcRef,{ uebernommen:true, uebernommenAm:ts, uebernommenVon:currentUid, uebernommenAlsProd:prodRef.id },{merge:true});
                 ops++;
                 if(ops>=MAX_OPS){ await batch.commit(); batch=db.batch(); ops=0; }
