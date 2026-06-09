@@ -175,20 +175,17 @@ tr.row-gap td.cell-day input{color:#be123c;font-weight:700}
 .pal-stepper .pal-btn{width:32px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:6px;font-size:1.1rem;font-weight:800;color:#1a1a2e;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none}
 .pal-stepper .pal-btn:hover{background:#e0e7ff;border-color:#4361ee;color:#4361ee}
 .pal-stepper .pal-btn:active{background:#c7d2fe}
-.orders-scroll{display:flex;gap:10px;overflow-x:auto;padding:8px 4px 14px;min-height:260px;background:#f1f5f9;border-radius:8px}
-.order-card{flex:0 0 220px;background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:12px 12px 10px;display:flex;flex-direction:column;gap:4px;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .1s,box-shadow .1s,border-color .1s;position:relative}
-.order-card:hover{box-shadow:0 3px 10px rgba(0,0,0,.12);border-color:#4361ee}
-.order-card.dragging{opacity:.4;cursor:grabbing}
-.order-card.drag-over{border-color:#4361ee;border-width:2px;background:#eff6ff}
-.order-card .o-so{font-weight:800;color:#9a3412;font-size:1rem;background:#fed7aa;padding:3px 6px;border-radius:4px;text-align:center;margin-bottom:2px}
-.order-card .o-lbl{font-size:0.7rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
-.order-card .o-val{font-size:0.82rem;color:#1a1a2e;font-weight:600;word-break:break-word}
-.order-card .o-dates{background:#f1f5f9;padding:4px 6px;border-radius:4px;font-size:0.72rem;color:#475569;margin-top:auto;text-align:center;font-weight:600}
-.order-card .o-idx{position:absolute;top:-14px;left:-10px;width:36px;height:36px;border-radius:50%;background:#4361ee;color:#fff;font-weight:800;font-size:1.05rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(67,97,238,.4);border:3px solid #fff;z-index:3}
-.order-card.pos-first .o-idx{background:#10b981;box-shadow:0 2px 8px rgba(16,185,129,.5)}
-.order-card.pos-last .o-idx{background:#64748b}
-.order-card .o-seq{font-size:0.72rem;color:#64748b;font-weight:600;text-align:center;letter-spacing:0.5px;margin-top:2px}
-.order-arrow{flex:0 0 auto;align-self:center;font-size:1.4rem;color:#94a3b8;user-select:none;pointer-events:none;padding:0 2px}
+/* Orders Overview: read-only Gesamtliste aller Kalender-Aufträge, nach Datum sortiert. */
+.ov-scroll{max-height:65vh;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px}
+.ov-table{width:100%;border-collapse:collapse;font-size:0.85rem}
+.ov-table thead th{position:sticky;top:0;background:#f1f5f9;color:#334155;font-weight:700;text-align:left;padding:8px 10px;border-bottom:2px solid #cbd5e1;white-space:nowrap;z-index:1}
+.ov-table tbody td{padding:7px 10px;border-bottom:1px solid #eef2f7;color:#1a1a2e;white-space:nowrap}
+.ov-table tbody tr:nth-child(even){background:#fafbfc}
+.ov-table tbody tr:hover{background:#eff6ff}
+.ov-table .ov-num{color:#94a3b8;text-align:right;font-variant-numeric:tabular-nums}
+.ov-table .ov-id{font-weight:800;color:#9a3412}
+.ov-table .ov-r{text-align:right;font-variant-numeric:tabular-nums}
+.ov-foot{margin-top:8px;font-size:0.78rem;color:#64748b}
 .orders-empty{text-align:center;color:#64748b;padding:30px;font-size:0.9rem;width:100%}
 .sp-section{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:12px}
 .sp-section-title{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.6px;color:#64748b;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px}
@@ -297,7 +294,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         </div>
         <button class="btn btn-sm btn-secondary" onclick="gotoToday()">Today</button>
         <button class="btn btn-sm btn-primary" id="newOrderBtn" onclick="openOrderModal()">New Order</button>
-        <button class="btn btn-sm btn-secondary" id="ordersManagerBtn" onclick="openOrdersManager()">Order Sequence</button>
+        <button class="btn btn-sm btn-secondary" id="ordersOverviewBtn" onclick="openOrdersOverview()">Orders Overview</button>
         <button class="btn btn-sm btn-secondary" id="shiftPlannerBtn" onclick="openShiftPlanner()" style="display:none">Shift &amp; KPI Planning</button>
         <button class="btn btn-sm btn-secondary" id="pricelistBtn" onclick="openPricelist()" style="display:none">Pricelist</button>
         <button class="btn btn-sm btn-secondary" id="protocolBtn" onclick="openProtocol()" style="display:none">Protocol</button>
@@ -596,19 +593,18 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
   </div>
 </div>
 
-<div class="modal-overlay" id="ordersModal" onclick="if(event.target===this)closeOrdersManager()">
-  <div class="modal-card" style="width:min(1400px,98%)">
+<div class="modal-overlay" id="ordersModal" onclick="if(event.target===this)closeOrdersOverview()">
+  <div class="modal-card" style="width:min(1100px,98%)">
     <div class="modal-head">
-      <h2>Order Sequence – Drag &amp; Drop</h2>
-      <button class="btn btn-sm btn-secondary" onclick="closeOrdersManager()">Close</button>
+      <h2>Orders Overview</h2>
+      <button class="btn btn-sm btn-secondary" onclick="closeOrdersOverview()">Close</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:0.82rem;color:#475569;margin-bottom:8px">Drag orders horizontally to change processing sequence. On apply, days are reassigned sequentially – anchor is the earliest current start date.</div>
-      <div id="ordersList" class="orders-scroll"><div class="orders-empty">Loading orders…</div></div>
+      <div style="font-size:0.82rem;color:#475569;margin-bottom:8px">All orders currently in the calendar, sorted by start date.</div>
+      <div id="ordersList" class="ov-scroll"><div class="orders-empty">Loading orders…</div></div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-secondary" onclick="closeOrdersManager()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveOrdersSequence()">Apply sequence</button>
+      <button class="btn btn-secondary" onclick="closeOrdersOverview()">Close</button>
     </div>
   </div>
 </div>
@@ -1267,10 +1263,9 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager'){
     // Protocol visible only for approvers/admin
     const protoBtn=$('protocolBtn');
     if(protoBtn) protoBtn.style.display = currentCanApprove ? '' : 'none';
-    // Order Sequence: sichtbar für alle admin/manager (inkl. Approver dominik/soojin/Marc) —
-    // ausser für den Restricted-Viewer (manager@lager.local) der nur lesend zugreift.
-    const ordBtn=$('ordersManagerBtn');
-    if(ordBtn) ordBtn.style.display = _apIsRestrictedViewer(currentUserEmail) ? 'none' : '';
+    // Orders Overview: read-only Gesamtliste → für alle eingeloggten Rollen sichtbar.
+    const ordBtn=$('ordersOverviewBtn');
+    if(ordBtn) ordBtn.style.display='';
     if(_apBooted){
         // On pure user switch: reload data for the new role
         try{ await loadWeek(); }catch(_){}
@@ -6313,175 +6308,78 @@ async function deleteOrder(){
     }
 }
 
-let ordersManagerData={orders:[]};
-let dragOrderIdx=null;
-async function openOrdersManager(){
-    if(currentTab!=='assembly'){ showMsg('Order Sequence is only available in the Assembly tab.','error'); return; }
-    $('ordersList').innerHTML='<div class="orders-empty">Loading orders…</div>';
+let ordersOverviewData={orders:[], isFrame:false};
+// Read-only Gesamtübersicht ALLER Aufträge im Kalender (aktueller Tab), nach Startdatum sortiert.
+async function openOrdersOverview(){
+    const list=$('ordersList'); if(list) list.innerHTML='<div class="orders-empty">Loading orders…</div>';
     $('ordersModal').classList.add('open');
     try{
-        const today=new Date(); today.setHours(0,0,0,0);
-        // Cutoff: Montag der vorherigen Kalenderwoche — Aufträge davor erscheinen nicht in der Sequence-Ansicht.
-        const from=mondayOf(today); from.setDate(from.getDate()-7);
-        const to=new Date(today); to.setDate(today.getDate()+540);
-        const snap=await db.collection(TAB_CONFIG[currentTab].salesCol)
-            .where('datum','>=',toIsoDate(from))
-            .where('datum','<=',toIsoDate(to))
-            .get();
-        const soKey=fieldKey('Production Plan','','SO #');
-        const custKey=fieldKey('Production Plan','','Customer');
+        const tab=currentTab;
+        const isFrame=(tab==='frame');
+        const idField=isFrame?'IO #':'SO #';
+        const soKey=fieldKey('Production Plan','',idField);
         const artKey=fieldKey('Production Plan','','Art #');
+        const custKey=fieldKey('Production Plan','','Customer');
+        const qtyKey=fieldKey('Production Plan','','Qty');
+        const palKey=fieldKey('Production Plan','','PAL');
         const pickKey=fieldKey('Production Plan','','Pick-Up (Deadline)');
-        const bySo={};
+        const today=new Date(); today.setHours(0,0,0,0);
+        const from=mondayOf(today); from.setDate(from.getDate()-7*8); // ~8 Wochen zurück
+        const to=new Date(today); to.setDate(today.getDate()+540);
+        const snap=await db.collection(TAB_CONFIG[tab].salesCol)
+            .where('datum','>=',toIsoDate(from)).where('datum','<=',toIsoDate(to)).get();
+        const _num=v=>parseFloat(String(v||'').replace(/\./g,'').replace(',','.'))||0;
+        const byId={};
         snap.forEach(doc=>{
-            const d=doc.data();
-            if(!d.fields) return;
-            const so=d.fields[soKey];
-            if(!so) return;
-            if(!bySo[so]) bySo[so]={so, days:[]};
-            bySo[so].days.push({iso:d.datum, fields:d.fields, _docId:doc.id});
+            const d=doc.data(); if(!d.fields) return;
+            const id=String(d.fields[soKey]||'').trim(); if(!id) return;
+            if(!byId[id]) byId[id]={id, art:'', cust:'', pickup:'', isos:[], qty:0, pal:0};
+            const o=byId[id];
+            if(!o.art && d.fields[artKey]) o.art=d.fields[artKey];
+            if(!o.cust && d.fields[custKey]) o.cust=d.fields[custKey];
+            if(!o.pickup && d.fields[pickKey]) o.pickup=d.fields[pickKey];
+            o.isos.push(d.datum);
+            o.qty+=_num(d.fields[qtyKey]);
+            o.pal+=_num(d.fields[palKey]);
         });
-        const orders=Object.values(bySo).map(o=>{
-            o.days.sort((a,b)=>a.iso.localeCompare(b.iso));
-            const first=o.days[0];
-            return {
-                so:o.so,
-                customer: first.fields[custKey]||'',
-                art: first.fields[artKey]||'',
-                pickup: first.fields[pickKey]||'',
-                startIso: o.days[0].iso,
-                endIso: o.days[o.days.length-1].iso,
-                daysCount: o.days.length,
-                days: o.days
-            };
-        }).sort((a,b)=>a.startIso.localeCompare(b.startIso));
-        ordersManagerData={orders, originalOrder:orders.map(o=>o.so)};
-        renderOrdersManager();
+        const orders=Object.values(byId).map(o=>{
+            o.isos.sort();
+            return {...o, start:o.isos[0], end:o.isos[o.isos.length-1], days:o.isos.length};
+        }).sort((a,b)=>String(a.start).localeCompare(String(b.start)));
+        ordersOverviewData={orders, isFrame};
+        renderOrdersOverview();
     }catch(e){
-        console.error('openOrdersManager:',e);
-        $('ordersList').innerHTML='<div class="orders-empty">Error loading: '+escHtml(e.message)+'</div>';
+        console.error('openOrdersOverview:',e);
+        if($('ordersList')) $('ordersList').innerHTML='<div class="orders-empty">Error loading: '+escHtml(e.message)+'</div>';
     }
 }
-function closeOrdersManager(){ $('ordersModal').classList.remove('open'); }
-function renderOrdersManager(){
-    const container=$('ordersList'); if(!container) return;
-    const orders=ordersManagerData.orders;
-    if(!orders.length){ container.innerHTML='<div class="orders-empty">No orders found in this period.</div>'; return; }
-    const total=orders.length;
-    const parts=[];
-    orders.forEach((o,i)=>{
-        const posCls=(i===0?' pos-first':'')+(i===total-1 && total>1?' pos-last':'');
-        const seqLbl=(i===0?'1. – FIRST':(i===total-1?`${total}. – LAST`:`${i+1}. in sequence`));
-        parts.push(`<div class="order-card${posCls}" draggable="true" data-idx="${i}">
-            <span class="o-idx" title="Position ${i+1} von ${total}">${i+1}</span>
-            <div class="o-seq">${escHtml(seqLbl)}</div>
-            <div class="o-so">${escHtml(o.so)}</div>
-            <div><span class="o-lbl">Customer</span><div class="o-val">${escHtml(o.customer||'–')}</div></div>
-            <div><span class="o-lbl">Art #</span><div class="o-val">${escHtml(o.art||'–')}</div></div>
-            <div><span class="o-lbl">Pick-up</span><div class="o-val">${escHtml(o.pickup||'–')}</div></div>
-            <div class="o-dates">${escHtml(o.startIso)} → ${escHtml(o.endIso)} · ${o.daysCount} day(s)</div>
-        </div>`);
-        if(i<total-1) parts.push(`<div class="order-arrow">➜</div>`);
-    });
-    container.innerHTML=parts.join('');
-    bindOrdersDrag();
-}
-function bindOrdersDrag(){
-    document.querySelectorAll('#ordersList .order-card').forEach(card=>{
-        card.addEventListener('dragstart',e=>{
-            dragOrderIdx=Number(card.dataset.idx);
-            card.classList.add('dragging');
-            e.dataTransfer.effectAllowed='move';
-            try{ e.dataTransfer.setData('text/plain',String(dragOrderIdx));}catch(_){}
-        });
-        card.addEventListener('dragend',()=>{
-            card.classList.remove('dragging');
-            document.querySelectorAll('#ordersList .order-card').forEach(c=>c.classList.remove('drag-over'));
-            dragOrderIdx=null;
-        });
-        card.addEventListener('dragover',e=>{
-            e.preventDefault();
-            e.dataTransfer.dropEffect='move';
-            card.classList.add('drag-over');
-        });
-        card.addEventListener('dragleave',()=>card.classList.remove('drag-over'));
-        card.addEventListener('drop',e=>{
-            e.preventDefault();
-            card.classList.remove('drag-over');
-            const targetIdx=Number(card.dataset.idx);
-            if(dragOrderIdx===null || dragOrderIdx===targetIdx) return;
-            const arr=ordersManagerData.orders;
-            const [moved]=arr.splice(dragOrderIdx,1);
-            arr.splice(targetIdx,0,moved);
-            dragOrderIdx=null;
-            renderOrdersManager();
-        });
-    });
-}
-async function saveOrdersSequence(){
-    const orders=ordersManagerData.orders;
-    if(!orders.length){ alert('No orders.'); return; }
-    const origOrder=ordersManagerData.originalOrder||[];
-    const newOrder=orders.map(o=>o.so);
-    const unchanged=(origOrder.length===newOrder.length && origOrder.every((so,i)=>so===newOrder[i]));
-    if(unchanged){ alert('No changes to the sequence.'); return; }
-    if(!confirm('Apply sequence? Start/end dates of all affected orders will be adjusted accordingly.')) return;
-    try{
-        await loadShiftPlansCache();
-        const anchorIso=orders.map(o=>o.startIso).sort()[0];
-        const anchor=new Date(anchorIso+'T00:00:00');
-        const ts=firebase.firestore.FieldValue.serverTimestamp();
-        const batch=db.batch();
-        // First: delete all old days of all affected orders by their REAL doc id
-        orders.forEach(o=>{
-            o.days.forEach(d=>{
-                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(d._docId||d.iso);
-                batch.delete(ref);
-            });
-        });
-        // Then: re-write sequentially – respect both the original DOW pattern AND the shift plan
-        let cursor=new Date(anchor);
-        orders.forEach(o=>{
-            const origDows=new Set(o.days.map(d=>new Date(d.iso+'T00:00:00').getDay()));
-            const placements=[];
-            const cur=new Date(cursor);
-            let safety=0;
-            while(placements.length<o.days.length && safety<400){
-                const dow=cur.getDay();
-                const iso=toIsoDate(cur);
-                const spPlan=getShiftPlanForIso(iso);
-                let allowed;
-                if(spPlan) allowed=getPlanShiftForDow(spPlan,dow)>0;
-                else allowed=origDows.has(dow);
-                if(isHoliday(iso)) allowed=false;
-                if(allowed) placements.push(new Date(cur));
-                cur.setDate(cur.getDate()+1);
-                safety++;
-            }
-            if(placements.length<o.days.length) return; // Fallback: Auftrag skip
-            placements.forEach((nd,i)=>{
-                const iso=toIsoDate(nd);
-                const iw=getIsoWeek(nd);
-                const _did=(currentTab==='assembly')?_assemblyDayDocId(iso,o.so):iso;
-                const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(_did);
-                batch.set(ref,{
-                    datum:iso, jahr:iw.year, kw:iw.week,
-                    fields:o.days[i].fields,
-                    updatedAt:ts, updatedBy:currentUid,
-                    createdAt:ts, createdBy:currentUid
-                },{merge:true});
-            });
-            const lastP=placements[placements.length-1];
-            cursor=new Date(lastP); cursor.setDate(cursor.getDate()+1);
-        });
-        await batch.commit();
-        showMsg('Sequence saved.','success');
-        closeOrdersManager();
-        await loadWeek();
-    }catch(e){
-        console.error('saveOrdersSequence:',e);
-        alert('Save failed: '+e.message);
-    }
+function closeOrdersOverview(){ $('ordersModal').classList.remove('open'); }
+function renderOrdersOverview(){
+    const c=$('ordersList'); if(!c) return;
+    const orders=ordersOverviewData.orders||[];
+    const isFrame=ordersOverviewData.isFrame;
+    if(!orders.length){ c.innerHTML='<div class="orders-empty">No orders found in the calendar.</div>'; return; }
+    const fmtD=iso=>{ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+'.'+m[2]+'.'+m[1]):(iso||'–'); };
+    const fmtN=n=>n>0?Number(Math.round(n)).toLocaleString('de-DE'):'–';
+    const fmtPal=n=>n>0?(Number.isInteger(n)?String(n):(Math.round(n*10)/10).toString().replace('.',',')):'–';
+    const rows=orders.map((o,i)=>'<tr>'
+        +'<td class="ov-num">'+(i+1)+'</td>'
+        +'<td>'+fmtD(o.start)+'</td>'
+        +'<td>'+fmtD(o.end)+'</td>'
+        +'<td class="ov-id">'+escHtml(o.id)+'</td>'
+        +'<td>'+escHtml(o.art||'–')+'</td>'
+        +(isFrame?'':'<td>'+escHtml(o.cust||'–')+'</td>')
+        +'<td class="ov-r">'+fmtPal(o.pal)+'</td>'
+        +'<td class="ov-r">'+fmtN(o.qty)+'</td>'
+        +'<td class="ov-r">'+o.days+'</td>'
+        +'<td>'+fmtD(o.pickup)+'</td>'
+        +'</tr>').join('');
+    c.innerHTML='<table class="ov-table"><thead><tr>'
+        +'<th></th><th>Start</th><th>End</th><th>'+(isFrame?'IO #':'SO #')+'</th><th>Article</th>'
+        +(isFrame?'':'<th>Customer</th>')
+        +'<th class="ov-r">Pallets</th><th class="ov-r">Qty</th><th class="ov-r">Days</th><th>Pick-Up</th>'
+        +'</tr></thead><tbody>'+rows+'</tbody></table>'
+        +'<div class="ov-foot">'+orders.length+' order(s) · sorted by start date · '+escHtml((TAB_CONFIG[currentTab]||{}).title||currentTab)+'</div>';
 }
 
 async function flushPending(){
