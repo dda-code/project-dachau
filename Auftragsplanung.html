@@ -121,9 +121,21 @@ td.cell-dropdown input{background:transparent}
 .mini-cell .dt{font-weight:700;font-size:0.68rem;color:#64748b}
 .mini-cell .so{font-weight:700;font-size:0.72rem;line-height:1.1;word-break:break-all}
 .mini-cell .cust{font-size:0.68rem;line-height:1.1;color:#475569}
-.mini-cell .po{font-size:0.66rem;line-height:1.1;color:#1e3a8a;font-weight:700}
-.mini-cell .so-new{color:#1e3a8a}
-.mini-cell .ord-sep{display:block;height:1px;background:#cbd5e1;margin:3px 0}
+/* Per-order chips: one labeled block per order active on the day → a shared day shows TWO chips. */
+.mini-cell .oc{display:block;border-radius:4px;padding:2px 4px;margin-top:2px;border:1px solid transparent;position:relative}
+.mini-cell .oc-sched{background:#fef3c7;border-color:#fcd34d}
+.mini-cell .oc-new{background:#dbeafe;border-color:#4361ee;cursor:pointer}
+.mini-cell .oc-pending{background:repeating-linear-gradient(135deg,#eef2f7 0,#eef2f7 5px,#fed7aa 5px,#fed7aa 10px);border-color:#f97316}
+.mini-cell .oc-blocked{background:repeating-linear-gradient(45deg,#fee2e2,#fee2e2 6px,#fecaca 6px,#fecaca 12px) !important;border-color:#dc2626 !important;box-shadow:inset 0 0 0 1px #dc2626}
+.mini-cell .oc-so{display:block;font-weight:800;font-size:0.66rem;color:#0f172a;line-height:1.18}
+.mini-cell .oc-art{display:block;font-weight:700;font-size:0.66rem;color:#334155;line-height:1.18;word-break:break-all}
+.mini-cell .oc-po{display:block;font-size:0.63rem;font-weight:700;color:#1e3a8a;line-height:1.18}
+.mini-cell .oc-cust{display:block;font-size:0.63rem;color:#475569;line-height:1.18}
+.mini-cell .oc-new .oc-art{color:#1e3a8a}
+.mini-cell .oc-shift{position:absolute;top:1px;right:2px;background:#4361ee;color:#fff;font-size:0.56rem;font-weight:800;padding:0 3px;border-radius:6px;line-height:1.35}
+.mini-cell .oc-shift.s-0{background:#94a3b8}
+.mini-cell .oc-shift.s-1{background:#f59e0b}
+.mini-cell .oc-shift.s-2{background:#3b82f6}
 .mini-cell.planned{background:#fef3c7}
 .mini-cell.pending{background:repeating-linear-gradient(135deg,#e5e7eb 0,#e5e7eb 5px,#fed7aa 5px,#fed7aa 10px) !important;border-color:#f97316;color:#7c2d12;font-style:italic}
 .mini-cell.pending .so{color:#9a3412;font-weight:800;font-style:normal}
@@ -4607,51 +4619,53 @@ function renderOrderPreview(){
         const dayList=_previewDayList(iso);
         const dow=d.getDay();
         const holiName=getHolidayName(iso);
-        const isPending=!!orderPreviewPendingIso[iso];
         const isNew=newSlotIsoSet.has(iso);
+        const isBlocked=(iso===blockedIso);  // fully-booked day the new order cannot use
         let cls='mini-cell';
         if(iso===todayIso) cls+=' today';
         if(dow===0||dow===6) cls+=' weekend';
         if(holiName) cls+=' holiday';
-        if(dayList.length>0) cls+=(isPending?' planned pending':' planned');
-        else if(isPending) cls+=' pending';
-        if(iso===blockedIso) cls+=' collision';   // red = blocked (fully-booked) day the new order cannot use
-        if(isNew) cls+=' new-slot';
-        // Order lines: existing order(s) on this day + (optionally) the new order. Each shows Art # + PO + Customer.
-        const lines=[];
+        // One chip per order active on this day → a shared day renders TWO chips (existing + new),
+        // each clearly labelled (SO #, Article, PO, Customer) and colour-coded.
+        const orders=[];
         dayList.forEach(e=>{
             const f=e.fields||{};
             const so=e._so||'';
-            const art=f[artKey]||(so&&soResolved[so]?soResolved[so].art:'')||'';
-            const po=f[poKey]||(so&&soResolved[so]?soResolved[so].po:'')||'';
-            const cust=f[custKey]||(so&&soResolved[so]?soResolved[so].cust:'')||'';
-            lines.push({art:art||so, po, cust, isNew:false});
+            orders.push({
+                so,
+                art:(f[artKey]||(so&&soResolved[so]?soResolved[so].art:'')||''),
+                po:(f[poKey]||(so&&soResolved[so]?soResolved[so].po:'')||''),
+                cust:(f[custKey]||(so&&soResolved[so]?soResolved[so].cust:'')||''),
+                kind:(e._pendingId?'pending':'sched'),
+                blocked:isBlocked
+            });
         });
-        if(isNew) lines.push({art:(newArt||newSo), po:newPo, cust:newCust, isNew:true});
-        const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0');
-        let badge='';
         if(isNew){
             const sh=(iso in shiftsByIso)?shiftsByIso[iso]:baseShifts;
-            badge=`<span class="shift-badge s-${Math.min(3,Math.max(0,sh))}" title="${sh} shift(s)">${sh}S</span>`;
+            orders.push({ so:newSo, art:newArt, po:newPo, cust:newCust, kind:'new', shifts:sh });
         }
+        const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0');
         const existSoTitle=dayList.map(e=>e._so).filter(Boolean).join(', ');
-        const pendInfo=isPending?orderPreviewPendingIso[iso]:null;
+        const pendInfo=orderPreviewPendingIso[iso]||null;
         const titleSuffix=`${existSoTitle?' · '+existSoTitle:''}${holiName?' · Holiday: '+holiName:''}${isNew?' · Click for shifts':''}${pendInfo?' · Approval pending (by '+(pendInfo.requestedByEmail||'?')+')':''}`;
-        const linesHtml=lines.map(l=>{
-            const soTxt=l.art?`<span class="so${l.isNew?' so-new':''}">${escHtml(l.art)}</span>`:'';
-            const poTxt=l.po?`<span class="po">PO ${escHtml(l.po)}</span>`:'';
-            const custTxt=l.cust?`<span class="cust">${escHtml(l.cust)}</span>`:'';
-            return soTxt+poTxt+custTxt;
-        }).join('<span class="ord-sep"></span>');
-        html+=`<div class="${cls}" data-iso="${iso}" title="${iso}${titleSuffix}">`+
-              badge+
+        const chipsHtml=orders.map(o=>{
+            const occ='oc oc-'+o.kind+(o.blocked?' oc-blocked':'');
+            const shb=(o.kind==='new')?`<span class="oc-shift s-${Math.min(3,Math.max(0,o.shifts))}" title="${o.shifts} shift(s)">${o.shifts}S</span>`:'';
+            return `<div class="${occ}">`+shb+
+                (o.so?`<span class="oc-so">SO ${escHtml(o.so)}</span>`:'')+
+                (o.art?`<span class="oc-art">${escHtml(o.art)}</span>`:'')+
+                (o.po?`<span class="oc-po">PO ${escHtml(o.po)}</span>`:'')+
+                (o.cust?`<span class="oc-cust">${escHtml(o.cust)}</span>`:'')+
+                `</div>`;
+        }).join('');
+        html+=`<div class="${cls}"${isNew?' data-new="1"':''} data-iso="${iso}" title="${iso}${titleSuffix}">`+
               `<span class="dt">${dd}.${mm}</span>`+
               (holiName?`<span class="holi">${escHtml(holiName)}</span>`:'')+
-              linesHtml+
+              chipsHtml+
               `</div>`;
     }
     container.innerHTML=html;
-    container.querySelectorAll('.mini-cell.new-slot').forEach(cell=>{
+    container.querySelectorAll('.mini-cell[data-new]').forEach(cell=>{
         cell.addEventListener('click',e=>{
             e.stopPropagation();
             showShiftPopover(cell.dataset.iso, cell);
