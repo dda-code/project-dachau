@@ -1913,13 +1913,18 @@ function firebaseStart(){
   },function(err){console.warn('Snapshot error:',err);});
 
   // ── Outlook-Termine via outlook_sync.py (ol_* Dokumente) ──
-  // Firestore-Rules erlauben Reads nur auf Events mit matching ownerEmail;
-  // Admin (isOutlookAdmin in den Rules) liest alle. Client-Filter ist nötig,
-  // weil List-Queries auf nicht-matchende Docs einen permission-denied
-  // Snapshot-Error werfen und die Subscription killen.
-  var outlookQuery = (currentUserRole==='admin')
-    ? OUTLOOK_COL
-    : OUTLOOK_COL.where('ownerEmail','==',currentUserEmail);
+  // JEDER Nutzer (auch Admin) sieht NUR seinen eigenen Kalender:
+  // where('ownerEmail','==', eigene Email). Frueher las der Admin pauschal ALLE
+  // outlook_events (kein Filter) — dadurch erschienen in der Admin-Ansicht die
+  // Termine ALLER Nutzer uebereinander PLUS deren Geister (verschobene/stornierte
+  // Meetings aus noch nicht aktualisierten Sync-Clients). TaskView stimmte dann
+  // nicht mehr mit dem eigenen Outlook ueberein. Der Per-User-Filter stellt die
+  // urspruengliche Anforderung wieder her ("die Termine des jeweiligen Nutzers").
+  // currentUserEmail ist lowercased (s. onAuthStateChanged), ebenso das
+  // gespeicherte ownerEmail (outlook_sync schreibt OWNER_EMAIL.lower()) — der
+  // ==-Vergleich matcht also case-korrekt. Die Rules erlauben dem Admin zwar
+  // alle Reads, aber der ownerEmail-Filter ist fuer alle zulaessig.
+  var outlookQuery = OUTLOOK_COL.where('ownerEmail','==',currentUserEmail);
   _unsubOutlook = outlookQuery.onSnapshot(function(snap){
     // Dedupe-Map: pro Meeting nur EIN Eintrag, auch wenn mehrere Per-User-
     // ol_*-Dokumente in der Collection liegen (Admin-Sicht liest alle, weil
