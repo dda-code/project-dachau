@@ -957,6 +957,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
                 <h2 style="margin:0;flex:1">Spritzguss - Label Drucken</h2>
                 <button class="btn btn-secondary" id="sgBtnPrinterSettings" onclick="openPrinterSettings()">Standard Drucker auswählen</button>
                 <button class="btn btn-secondary" id="sgBtnPageOffset" onclick="openSgPageOffset()" title="Druckposition / Seiten-Ränder anpassen">📐 Seiten-Offset</button>
+                <span id="sgBpRouteBadge" onclick="_sgBpManualReconnect()" title="Aktive Druck-Route — klicken, um erneut mit Zebra Browser Print zu verbinden (z.B. nach PC-Neustart)" style="display:inline-flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;flex-shrink:0;border:1px solid #cbd5e1;background:#f1f5f9;color:#475569">🖨 System-Druckdialog</span>
                 <button class="btn btn-primary" onclick="sg_printLabel()">Drucken</button>
             </div>
             <div id="sgLabelPrinterInfo" style="font-size:0.8rem;color:#64748b;margin-bottom:10px;text-align:right">
@@ -5571,6 +5572,9 @@ document.querySelectorAll('.label-subtabs .tab[data-labelsub]').forEach(t=>{
             if(typeof _updateSgLastPrintedBox==='function')_updateSgLastPrintedBox();
             if(typeof _applyPrintPageStyleSg==='function')_applyPrintPageStyleSg();
             if(typeof _sgBpUpdateStatusUI==='function')_sgBpUpdateStatusUI();
+            // Nach Reboot beim Öffnen der Spritzguss-Tab erneut verbinden, falls Direktdruck
+            // an ist, aber Browser Print (noch) nicht erreichbar war.
+            if(localStorage.getItem(LS_BP_ENABLED)==='1' && _bpStatus!=='ok' && typeof _bpEnsureConnected==='function') _bpEnsureConnected();
         }
         if(typeof _fitLabelSheets==='function') setTimeout(_fitLabelSheets,30);
     });
@@ -6252,6 +6256,7 @@ const LS_BP_DEVICE  = 'sgBpDevice';
 let _bpDevices = [];
 let _bpSelectedDevice = null;
 let _bpStatus = 'unknown';   // 'unknown' | 'ok' | 'notrunning' | 'nodevice'
+let _bpReconnecting = null;  // läuft gerade ein (entprellter) Reconnect-Versuch? (Promise oder null)
 
 async function _bpListPrinters(){
     try{
@@ -6296,6 +6301,55 @@ function _bpLoadSavedDevice(){
         const raw = localStorage.getItem(LS_BP_DEVICE);
         if(raw) _bpSelectedDevice = JSON.parse(raw);
     }catch(e){}
+}
+// Verbindung zu Zebra Browser Print sicherstellen — mit Backoff erneut versuchen.
+// Hintergrund: Nach einem PC-Neustart antwortet der Browser-Print-Dienst auf :9100 oft
+// erst ein paar Sekunden später. Ein einmaliger Versuch beim Laden verfehlt ihn dann →
+// die App fiele unnötig auf den (ungenauen) System-Druckdialog zurück.
+// opts.quick = kürzere/schnellere Staffel für den „Klick auf Drucken"-Pfad.
+// Rückgabe: true, wenn am Ende ein Drucker verbunden+gewählt ist.
+async function _bpEnsureConnected(opts){
+    opts = opts || {};
+    if(localStorage.getItem(LS_BP_ENABLED)!=='1') return false;   // nur im Direktdruck-Modus
+    const quick = !!opts.quick;
+    // Hintergrund-Versuche (Laden / Tab-Öffnen / Badge-Klick) teilen sich EINEN laufenden Lauf.
+    // Der Quick-Versuch (Klick auf „Drucken") läuft IMMER eigenständig + schnell — er darf nicht
+    // auf die langsame Hintergrund-Staffel warten (sonst zieht sich der Druck unnötig in die Länge).
+    if(!quick && _bpReconnecting) return _bpReconnecting;
+    const delays = quick ? [300,800,1600] : [600,1200,2500,4000,6000];
+    const run = (async ()=>{
+        try{
+            // 1 Erstversuch + je 1 Wiederholung nach jedem Backoff-Delay (Hintergrund: 6 Versuche / ~14s).
+            for(let i=0; i<=delays.length; i++){
+                await _bpListPrinters();
+                if(_bpStatus==='ok'){
+                    // gespeicherten Drucker an die frische Geräteliste binden (uid bleibt i.d.R. gleich);
+                    // ist nur genau EIN Drucker da, diesen automatisch übernehmen (1-Drucker-Werkstatt).
+                    if(_bpSelectedDevice){
+                        const m=_bpDevices.find(d=>d.uid===_bpSelectedDevice.uid) || (_bpDevices.length===1?_bpDevices[0]:null);
+                        if(m){ _bpSelectedDevice=m; try{localStorage.setItem(LS_BP_DEVICE,JSON.stringify(m));}catch(e){} }
+                    }else if(_bpDevices.length===1){
+                        _bpSelectedDevice=_bpDevices[0]; try{localStorage.setItem(LS_BP_DEVICE,JSON.stringify(_bpDevices[0]));}catch(e){}
+                    }
+                }
+                _sgBpPopulateDeviceSelect();
+                _sgBpUpdateStatusUI();
+                if(_bpStatus==='ok' && _bpSelectedDevice) return true;
+                if(i<delays.length){
+                    _sgBpSetStatus('⏳ Verbinde mit Zebra Browser Print … (Versuch '+(i+1)+')', '#b45309');
+                    await new Promise(r=>setTimeout(r, delays[i]));
+                }
+            }
+            return _bpStatus==='ok' && !!_bpSelectedDevice;
+        } finally {
+            // Geteilten Hintergrund-Lauf erst NACH vollständigem Abschluss freigeben (im inneren
+            // finally), damit ein gleichzeitiger Awaiter nie zu früh _bpReconnecting=null sieht.
+            if(!quick) _bpReconnecting = null;
+        }
+    })();
+    // Lauf SYNCHRON nach dem Start registrieren (kein await dazwischen → keine Lücke).
+    if(!quick) _bpReconnecting = run;
+    return run;
 }
 
 // ============================================================
@@ -6514,8 +6568,11 @@ function _sgBpPopulateDeviceSelect(){
     // Gespeicherten Drucker wiederherstellen falls noch da
     if(_bpSelectedDevice){
         const match = _bpDevices.find(d=>d.uid===_bpSelectedDevice.uid);
-        if(match) sel.value = match.uid;
-        else { _bpSelectedDevice=null; localStorage.removeItem(LS_BP_DEVICE); }
+        if(match){ sel.value = match.uid; }
+        // Gespeicherten Drucker NUR verwerfen, wenn Browser Print erreichbar ist und der
+        // Drucker echt fehlt — NICHT wenn der Dienst (z.B. direkt nach PC-Neustart) noch gar
+        // nicht antwortet. Sonst ginge die Direktdruck-Auswahl beim Reboot dauerhaft verloren.
+        else if(_bpStatus==='ok' || _bpStatus==='nodevice'){ _bpSelectedDevice=null; try{localStorage.removeItem(LS_BP_DEVICE);}catch(e){} }
     }
 }
 function _sgBpSetStatus(text, color){
@@ -6526,19 +6583,49 @@ function _sgBpUpdateStatusUI(){
     const chk = document.getElementById('sgBpEnabledChk');
     const enabled = localStorage.getItem(LS_BP_ENABLED)==='1';
     if(chk) chk.checked = enabled;
+
+    // Status in EINER Stelle bestimmen → ausführlicher Text (Admin-Panel) + gut sichtbares
+    // Badge neben „Drucken" (alle Rollen, damit der Bediener die aktive Route sofort sieht).
+    let state, txt, color;
     if(!enabled){
-        _sgBpSetStatus('Deaktiviert — Druck läuft über System-Druckdialog (Fallback).', '#64748b');
-        return;
-    }
-    if(_bpStatus==='notrunning'){
-        _sgBpSetStatus('❌ Zebra Browser Print läuft nicht. Bitte installieren + starten, dann „Suchen" klicken.', '#b91c1c');
+        state='off';      txt='Deaktiviert — Druck läuft über System-Druckdialog (Fallback).'; color='#64748b';
+    }else if(_bpStatus==='unknown'){
+        state='checking'; txt='⏳ Prüfe Verbindung zu Zebra Browser Print …'; color='#2563eb';
+    }else if(_bpStatus==='notrunning'){
+        state='offline';  txt='❌ Zebra Browser Print läuft nicht. Bitte installieren + starten, dann „Suchen" klicken.'; color='#b91c1c';
     }else if(_bpStatus==='nodevice' || _bpDevices.length===0){
-        _sgBpSetStatus('⚠️ Kein Drucker gefunden. ZT231 per USB anschließen + einschalten, dann „Suchen".', '#b45309');
+        state='nodevice'; txt='⚠️ Kein Drucker gefunden. ZT231 per USB anschließen + einschalten, dann „Suchen".'; color='#b45309';
     }else if(!_bpSelectedDevice){
-        _sgBpSetStatus('⚠️ '+_bpDevices.length+' Drucker verfügbar — bitte im Dropdown auswählen.', '#b45309');
+        state='noselect'; txt='⚠️ '+_bpDevices.length+' Drucker verfügbar — bitte im Dropdown auswählen.'; color='#b45309';
     }else{
-        _sgBpSetStatus('✅ Bereit: '+(_bpSelectedDevice.name||_bpSelectedDevice.uid), '#15803d');
+        state='ready';    txt='✅ Bereit: '+(_bpSelectedDevice.name||_bpSelectedDevice.uid); color='#15803d';
     }
+    _sgBpSetStatus(txt, color);
+    _sgBpUpdateRouteBadge(state);
+}
+// Gut sichtbares Routen-Badge neben dem „Drucken"-Button (für ALLE Rollen sichtbar).
+function _sgBpUpdateRouteBadge(state){
+    const b=document.getElementById('sgBpRouteBadge');
+    if(!b) return;
+    const M={
+        off:      {t:'🖨 System-Druckdialog',                          bg:'#f1f5f9', fg:'#475569', bd:'#cbd5e1'},
+        checking: {t:'⏳ Direktdruck: prüfe …',                         bg:'#dbeafe', fg:'#1e40af', bd:'#93c5fd'},
+        ready:    {t:'🟢 Direktdruck bereit (ZPL)',                    bg:'#dcfce7', fg:'#15803d', bd:'#86efac'},
+        offline:  {t:'🔴 Direktdruck offline — Browser Print starten', bg:'#fee2e2', fg:'#b91c1c', bd:'#fca5a5'},
+        nodevice: {t:'🟠 Direktdruck: kein Drucker',                   bg:'#ffedd5', fg:'#b45309', bd:'#fdba74'},
+        noselect: {t:'🟠 Direktdruck: Drucker wählen',                 bg:'#ffedd5', fg:'#b45309', bd:'#fdba74'}
+    };
+    const s=M[state]||M.off;
+    b.textContent=s.t;
+    b.style.background=s.bg; b.style.color=s.fg; b.style.borderColor=s.bd;
+    // Bei aktivem Direktdruck ist das Badge anklickbar → erneut verbinden (z.B. nach Reboot).
+    b.style.cursor = (state==='off') ? 'default' : 'pointer';
+}
+// Manueller Reconnect (Klick aufs Badge). Im Fallback-Modus (Direktdruck aus) passiert nichts.
+async function _sgBpManualReconnect(){
+    if(localStorage.getItem(LS_BP_ENABLED)!=='1') return;
+    _sgBpSetStatus('🔄 Verbinde neu …', '#2563eb');
+    await _bpEnsureConnected();
 }
 function _sgBpShowSetup(){
     const msg =
@@ -6581,11 +6668,12 @@ async function _sgBpTestPrint(){
 // Beim Seitenstart (und beim ersten Öffnen der Spritzguss-Tab) initial laden
 setTimeout(async ()=>{
     _bpLoadSavedDevice();
+    _sgBpUpdateStatusUI();           // Badge/Status sofort zeichnen (auch im Fallback-Modus)
     if(localStorage.getItem(LS_BP_ENABLED)==='1'){
-        await _bpListPrinters();
-        _sgBpPopulateDeviceSelect();
+        // Direkt nach dem PC-Neustart braucht Zebra Browser Print oft ein paar Sekunden,
+        // bis der Hintergrunddienst auf :9100 antwortet → mit Backoff erneut verbinden.
+        _bpEnsureConnected();        // fire-and-forget, aktualisiert UI selbst
     }
-    _sgBpUpdateStatusUI();
 }, 400);
 
 // Initial Banner setzen, sobald DOM bereit ist
@@ -6882,23 +6970,49 @@ async function sg_printLabel(){
 
     // -------- Route B: Zebra Browser Print (natives ZPL, silent) --------
     if(_bpIsEnabled()){
-        try{
-            _sgBpSetStatus('Sende '+copies+'× ZPL an '+(_bpSelectedDevice.name||'Drucker')+'…', '#2563eb');
-            await _sgPrintZPL(copies);
+        // Erfolg = Status + identisches Undo-Banner wie Route A (10s-Countdown, dann Protokoll).
+        const _zplSuccess = () => {
             _sgBpSetStatus('✅ Gedruckt: '+palNr+' ('+copies+'× an '+(_bpSelectedDevice.name||'Drucker')+')', '#15803d');
-            // Gleiches Undo-Banner wie bei Route A — _showPrintUndoBanner startet 10s Countdown
-            // und ruft executeCommit erst danach auf (oder gar nicht, wenn User „Rückgängig" drückt).
             _showPrintUndoBanner(palNr, async () => {
                 try{ await _logSgDruckprotokollEntry({copies}); }catch(e){ console.warn('SG-Druckprotokoll-Write:',e); }
             });
+        };
+        let _zplErr=null;
+        try{
+            _sgBpSetStatus('Sende '+copies+'× ZPL an '+(_bpSelectedDevice.name||'Drucker')+'…', '#2563eb');
+            await _sgPrintZPL(copies);
+            _zplSuccess();
             return;
         }catch(err){
-            console.error('ZPL-Druck fehlgeschlagen:', err);
-            _sgBpSetStatus('❌ ZPL-Druck fehlgeschlagen: '+err.message, '#b91c1c');
-            const ok = confirm('Direktdruck an Zebra fehlgeschlagen:\n\n'+err.message+'\n\nStatt dessen jetzt über den System-Druckdialog drucken?');
-            if(!ok) return;
-            // sonst fällt durch zum klassischen window.print()-Pfad
+            _zplErr=err;
+            console.warn('ZPL-Druck fehlgeschlagen — versuche Reconnect:', err);
         }
+        // 1. Fehlversuch: Browser Print ist evtl. (nach PC-Neustart) nur noch nicht gestartet.
+        // Schnell neu verbinden und EINMAL automatisch erneut drucken, BEVOR wir den
+        // ungenauen System-Druckdialog überhaupt anbieten.
+        _sgBpSetStatus('⏳ Direktdruck fehlgeschlagen — verbinde neu…', '#b45309');
+        if(await _bpEnsureConnected({quick:true})){
+            try{
+                _sgBpSetStatus('Sende '+copies+'× ZPL an '+(_bpSelectedDevice.name||'Drucker')+'…', '#2563eb');
+                await _sgPrintZPL(copies);
+                _zplSuccess();
+                return;
+            }catch(err2){ _zplErr=err2; console.error('ZPL-Druck nach Reconnect erneut fehlgeschlagen:', err2); }
+        }
+        // Immer noch kein Direktdruck → Fallback NUR mit ausdrücklicher Warnung; Default = nicht drucken.
+        _sgBpSetStatus('❌ Direktdruck nicht möglich: '+((_zplErr&&_zplErr.message)||'unbekannt'), '#b91c1c');
+        const ok = confirm(
+            '⚠️ Zebra-Direktdruck (ZPL) ist nicht erreichbar.\n\n'+
+            'Meist läuft „Zebra Browser Print" nach einem PC-Neustart noch nicht.\n'+
+            'EMPFOHLEN: Browser Print starten (Tray-Symbol unten rechts) und erneut auf\n'+
+            '„Drucken" klicken — dann wird das Label exakt und randlos zentriert gedruckt.\n\n'+
+            'Nur im Notfall:\n'+
+            'OK = trotzdem über den System-Druckdialog drucken\n'+
+            '         (Label kann unzentriert / abgeschnitten sein!).\n'+
+            'Abbrechen = nichts drucken (empfohlen).'
+        );
+        if(!ok) return;
+        // sonst fällt durch zum klassischen window.print()-Pfad (Route A)
     }
 
     // -------- Route A: System-Druckdialog (Fallback, HTML-Label) --------
