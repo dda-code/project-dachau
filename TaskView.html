@@ -693,7 +693,7 @@ var _unsubGantt = null;
 var _unsubOutlook = null;
 var taskTodos = {};
 var today = new Date();
-var todayStr = today.toISOString().slice(0,10);
+var todayStr = toStr(today);  // I: lokal statt UTC — sonst kippt die "heute"-Markierung am Tagesrand (frueh morgens MEZ) auf den falschen Tag
 var currentMonday = getMonday(today);
 var DN = ['MO','DI','MI','DO','FR','SA','SO'];
 var MN = ['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
@@ -813,7 +813,12 @@ function render() {
   var kw = getISOWeek(currentMonday);
   var friday = addDays(currentMonday, 4);
   var sunday = addDays(currentMonday, 6);
-  var monStr = toStr(currentMonday), sunStr = toStr(sunday);
+  // A: Arbeitswoche Mo–Fr. Das Wochenfenster fuer taskInWeek/barPos endet am
+  // FREITAG, nicht am Sonntag. Frueher (sunStr=Sonntag) galten Sa/So-Termine als
+  // "in week", wurden aber von barPos hart auf die Freitag-Spalte geclamped
+  // (falscher Tag; Sa+So stapelten sich auf Fr). Mit Freitag als Obergrenze
+  // fallen Sa/So sauber aus der 5-Spalten-Ansicht heraus.
+  var monStr = toStr(currentMonday), sunStr = toStr(friday);
 
   document.getElementById('kwLabel').textContent = 'KW ' + kw;
   document.getElementById('kwDates').textContent = fmtDateShort(currentMonday) + ' – ' + fmtDateShort(friday) + ' ' + currentMonday.getFullYear();
@@ -888,10 +893,12 @@ function render() {
   var vacations = tasks.filter(function(t){ return t.type==='urlaub'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
   var meetings = tasks.filter(function(t){ return t.type==='meeting'&&!t.hidden&&taskInWeek(t,monStr,sunStr); });
   function canSeeOutlookEvent(t){
-    if(currentUser && currentUser.toLowerCase()==='admin') return true;
+    // C: Kein Admin-Sonderfall mehr — jeder sieht nur EIGENE Outlook-Termine.
+    // Frueher gab `if(...==='admin') return true;` dem Admin ueber den
+    // tasks/source==='outlook'-Pfad Zugriff auf fremde Termine (Leak-Klasse,
+    // die der ownerEmail-Filter eigentlich schliessen soll).
     if(!currentUserEmail) return false;
-    if(t.ownerEmail && t.ownerEmail===currentUserEmail) return true;
-    return false;
+    return !!(t.ownerEmail && t.ownerEmail===currentUserEmail);
   }
   // Outlook-Termine aus tasks: nur anzeigen wenn User berechtigt ist
   var filteredMeetings = meetings.filter(function(t){
@@ -1634,6 +1641,7 @@ function saveMeeting(){
     startTime: startTime||'',
     endTime: endTime||'',
     organizer: organizer,
+    ownerEmail: currentUserEmail||'',
     type: 'meeting',
     source: 'outlook'
   },{merge:true}).then(function(){
@@ -1667,6 +1675,7 @@ function confirmDeleteMeeting(){
     name: '',
     start: '',
     end: '',
+    ownerEmail: currentUserEmail||'',
     type: 'meeting',
     source: 'outlook'
   },{merge:true}).catch(function(e){console.error('Delete meeting error:',e);});
@@ -1947,7 +1956,10 @@ function firebaseStart(){
     var byComposite = {};
     var meEmail = (currentUserEmail||'').toLowerCase();
     snap.forEach(function(doc){
-      if(!doc.id.startsWith('ol_')) return;
+      // B: ol_ (Outlook-Sync) UND manual_ (in TaskView angelegt) zulassen.
+      // Frueher wurden manual_-Docs hier verworfen -> selbst angelegte Meetings
+      // erschienen nie. Manuelle Docs haben keine globalId -> laufen ueber compKey.
+      if(!(doc.id.startsWith('ol_')||doc.id.startsWith('manual_'))) return;
       var d=doc.data();
       if(d.deleted) return;
       var att=Array.isArray(d.attendees)?d.attendees.map(function(a){return(a||'').toLowerCase();}):[];
