@@ -956,7 +956,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div class="label-toolbar">
                 <h2 style="margin:0;flex:1">Spritzguss - Label Drucken</h2>
                 <button class="btn btn-secondary" id="sgBtnPrinterSettings" onclick="openPrinterSettings()">Standard Drucker auswählen</button>
-                <button class="btn btn-secondary" id="sgBtnPageOffset" onclick="openSgPageOffset()" title="Druckposition / Seiten-Ränder anpassen">📐 Seiten-Offset</button>
+                <button class="btn btn-secondary" id="sgBtnPageOffset" onclick="openSgPageOffset()" title="Druckbild verschieben / zentrieren (ZPL: ^LS/^LT)">📐 Zentrieren</button>
                 <span id="sgBpRouteBadge" onclick="_sgBpManualReconnect()" title="Aktive Druck-Route — klicken, um erneut mit Zebra Browser Print zu verbinden (z.B. nach PC-Neustart)" style="display:inline-flex;align-items:center;gap:6px;font-size:0.95rem;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;flex-shrink:0;border:1px solid #cbd5e1;background:#f1f5f9;color:#475569">🖨 System-Druckdialog</span>
                 <button class="btn btn-primary" onclick="sg_printLabel()">Drucken</button>
             </div>
@@ -1489,35 +1489,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
     <!-- SPRITZGUSS-LABEL · SEITEN-OFFSET MODAL -->
     <div class="modal-overlay" id="sgPageOffsetModal" style="display:none"><div class="modal" style="max-width:540px">
-        <div class="modal-header"><h3>📐 Spritzguss-Label · Seiten-Offset</h3><button class="modal-close" onclick="closeSgPageOffset()">&times;</button></div>
+        <div class="modal-header"><h3>📐 Spritzguss-Label · Druckbild verschieben</h3><button class="modal-close" onclick="closeSgPageOffset()">&times;</button></div>
         <div class="modal-body">
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.85rem;color:#1e3a8a">
-                <b>So justierst du das Label:</b> Passe die Druck-Ränder (Papier 100 × 150&nbsp;mm) einzeln an.
-                Höhere Werte schieben den Druck vom jeweiligen Rand <i>weg</i>.<br>
-                Beispiel: Label zu weit <b>links</b> → <b>Links</b> erhöhen (+1 bis +5&nbsp;mm).
+                <b>Druckbild verschieben (Zentrierung):</b> verschiebt das ganze Label — <b>ohne es zu verzerren</b>.<br>
+                • <b>Horizontal</b>: − nach links, + nach rechts &nbsp;•&nbsp; <b>Vertikal</b>: − nach oben, + nach unten<br>
+                Feinjustierung in 0,5-mm-Schritten. <b>Hinweis:</b> mehr als ca. ±2&nbsp;mm geht über den Etikettenrand hinaus
+                (Inhalt wird abgeschnitten) → dann das Etikett am Drucker mechanisch ausrichten / kalibrieren.
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 <div class="form-group">
-                    <label for="sgPageOffsetTop" style="font-weight:700">Oben (mm)</label>
-                    <input type="number" id="sgPageOffsetTop" min="0" max="50" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
+                    <label for="sgPageOffsetH" style="font-weight:700">Horizontal (mm) — −&nbsp;links&nbsp;/&nbsp;+&nbsp;rechts</label>
+                    <input type="number" id="sgPageOffsetH" min="-8" max="8" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
                 </div>
                 <div class="form-group">
-                    <label for="sgPageOffsetRight" style="font-weight:700">Rechts (mm)</label>
-                    <input type="number" id="sgPageOffsetRight" min="0" max="50" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
-                </div>
-                <div class="form-group">
-                    <label for="sgPageOffsetBottom" style="font-weight:700">Unten (mm)</label>
-                    <input type="number" id="sgPageOffsetBottom" min="0" max="50" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
-                </div>
-                <div class="form-group">
-                    <label for="sgPageOffsetLeft" style="font-weight:700">Links (mm)</label>
-                    <input type="number" id="sgPageOffsetLeft" min="0" max="50" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
+                    <label for="sgPageOffsetV" style="font-weight:700">Vertikal (mm) — −&nbsp;hoch&nbsp;/&nbsp;+&nbsp;runter</label>
+                    <input type="number" id="sgPageOffsetV" min="-8" max="8" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
                 </div>
             </div>
-            <div id="sgPageOffsetPreview" style="margin-top:12px;padding:8px 10px;background:#f1f5f9;border-radius:6px;font-size:0.82rem;color:#334155;font-family:'Consolas','Courier New',monospace">@page margin: — — — —</div>
+            <div id="sgPageOffsetPreview" style="margin-top:12px;padding:8px 10px;background:#f1f5f9;border-radius:6px;font-size:0.82rem;color:#334155;font-family:'Consolas','Courier New',monospace">Verschiebung: —</div>
             <div style="display:flex;gap:10px;margin-top:16px">
                 <button class="btn btn-primary btn-full" onclick="saveSgPageOffset()">Speichern</button>
-                <button class="btn btn-secondary btn-full" onclick="resetSgPageOffsetDefaults()">Standard (2&nbsp;mm)</button>
+                <button class="btn btn-secondary btn-full" onclick="resetSgPageOffsetDefaults()">Zentriert (0/0)</button>
                 <button class="btn btn-secondary btn-full" onclick="closeSgPageOffset()">Abbrechen</button>
             </div>
         </div>
@@ -6149,35 +6142,36 @@ const _SG_LABEL_STYLE = Object.freeze({
 // Spritzguss-Label Seiten-Offset — anpassbare @page-Margins für Zebra-Etikett.
 // Wird vom Bediener ueber "📐 Seiten-Offset" justiert (z.B. wenn das Label
 // mechanisch zu weit links gedruckt wird → Links erhoehen).
-const _SG_PAGE_OFFSET_KEY = 'sgLabelPageOffset_v1';
-const _SG_PAGE_OFFSET_DEFAULT = Object.freeze({top:2, right:2, bottom:2, left:2});
-function _sgGetPageOffset(){
+// Druckbild als GANZES verschieben (reine Translation, KEIN Resize → keine Verzerrung).
+//   h = horizontal (mm, − = nach links, + = nach rechts)  → ZPL ^LS  (+^LS=links lt. ZPL-Guide, daher −h·8)
+//   v = vertikal   (mm, − = nach oben,  + = nach unten)   → ZPL ^LT  (v·8 dot rows, −=hoch; Bereich ±120)
+// Software-Bereich realistisch ±~2 mm (Inhalt 96 mm auf 100-mm-Etikett); darüber klippt der Rand → mechanisch ausrichten.
+const _SG_SHIFT_KEY = 'sgLabelShift_v2';
+const _SG_SHIFT_DEFAULT = Object.freeze({h:0, v:0});
+const _SG_SHIFT_MAX = 8;   // mm — Eingabe-Clamp
+function _sgGetLabelShift(){
     try{
-        const raw = localStorage.getItem(_SG_PAGE_OFFSET_KEY);
-        if(!raw) return {..._SG_PAGE_OFFSET_DEFAULT};
+        const raw = localStorage.getItem(_SG_SHIFT_KEY);
+        if(!raw) return {..._SG_SHIFT_DEFAULT};
         const o = JSON.parse(raw) || {};
-        const clamp = v => Math.max(0, Math.min(50, Number(v)));
+        const clamp = v => Math.max(-_SG_SHIFT_MAX, Math.min(_SG_SHIFT_MAX, Number(v)));
         const pick  = (v, d) => (v==null || !isFinite(Number(v))) ? d : clamp(v);
-        return {
-            top:    pick(o.top,    _SG_PAGE_OFFSET_DEFAULT.top),
-            right:  pick(o.right,  _SG_PAGE_OFFSET_DEFAULT.right),
-            bottom: pick(o.bottom, _SG_PAGE_OFFSET_DEFAULT.bottom),
-            left:   pick(o.left,   _SG_PAGE_OFFSET_DEFAULT.left)
-        };
-    }catch(e){ return {..._SG_PAGE_OFFSET_DEFAULT}; }
+        return { h: pick(o.h, _SG_SHIFT_DEFAULT.h), v: pick(o.v, _SG_SHIFT_DEFAULT.v) };
+    }catch(e){ return {..._SG_SHIFT_DEFAULT}; }
 }
-function _sgSavePageOffset(o){
-    try{ localStorage.setItem(_SG_PAGE_OFFSET_KEY, JSON.stringify(o)); }catch(e){}
+function _sgSaveLabelShift(o){
+    try{ localStorage.setItem(_SG_SHIFT_KEY, JSON.stringify(o)); }catch(e){}
 }
 function _applyPrintPageStyleSg(){
     let styleEl=document.getElementById('_dynPrintStyle');
     if(!styleEl){ styleEl=document.createElement('style'); styleEl.id='_dynPrintStyle'; document.head.appendChild(styleEl); }
     const s=_SG_LABEL_STYLE;
-    const off=_sgGetPageOffset();
+    const sh=_sgGetLabelShift();
     // Regeln gelten für Preview UND Druck (WYSIWYG). `@page` wird vom Browser
-    // automatisch nur beim Drucken angewendet.
+    // automatisch nur beim Drucken angewendet. Fester 2-mm-Rand; die Verschiebung
+    // wird als echte Translation (transform) auf das Sheet angewandt — kein Resize.
     styleEl.textContent=`
-@page { size: 100mm 150mm; margin: ${off.top}mm ${off.right}mm ${off.bottom}mm ${off.left}mm; }
+@page { size: 100mm 150mm; margin: 2mm; }
 #sgLabelPrintArea .label-sheet { width: 96mm !important; max-width: 96mm !important; border-width: 1px !important; }
 #sgLabelPrintArea .sg-lbl-tbl td { font-size: ${s.tdFs}pt !important; padding: 0 3px !important; line-height: 1.0 !important; }
 #sgLabelPrintArea .sg-lbl-r1  { height: ${s.r1}pt !important; }
@@ -6189,7 +6183,7 @@ function _applyPrintPageStyleSg(){
 #sgLabelPrintArea .lbl-logo-img { height: ${s.logoH}pt !important; padding: 2mm 3mm !important; }
 #sgLabelPrintArea .sg-lbl-bar { padding: 2mm 3mm !important; }
 @media print {
-    #sgLabelPrintArea .label-sheet { margin: 0 !important; box-shadow: none !important; }
+    #sgLabelPrintArea .label-sheet { margin: 0 !important; box-shadow: none !important; transform: translate(${sh.h}mm, ${sh.v}mm) !important; }
 }`;
 }
 // Beim Seitenstart einmalig anwenden, damit die Preview schon beim Öffnen stimmt
@@ -6197,20 +6191,19 @@ setTimeout(()=>{ if(typeof _applyPrintPageStyleSg==='function') _applyPrintPageS
 
 // --- Spritzguss Seiten-Offset Modal -------------------------------------------
 function _sgPageOffsetUpdatePreview(){
-    const t = Number(document.getElementById('sgPageOffsetTop').value)||0;
-    const r = Number(document.getElementById('sgPageOffsetRight').value)||0;
-    const b = Number(document.getElementById('sgPageOffsetBottom').value)||0;
-    const l = Number(document.getElementById('sgPageOffsetLeft').value)||0;
+    const h = Number(document.getElementById('sgPageOffsetH').value)||0;
+    const v = Number(document.getElementById('sgPageOffsetV').value)||0;
     const el = document.getElementById('sgPageOffsetPreview');
-    if(el) el.textContent = `@page margin: ${t}mm ${r}mm ${b}mm ${l}mm`;
+    if(!el) return;
+    const hTxt = h===0 ? '0' : (h>0 ? `+${h} (rechts)` : `${h} (links)`);
+    const vTxt = v===0 ? '0' : (v>0 ? `+${v} (runter)` : `${v} (hoch)`);
+    el.textContent = `Verschiebung:  horizontal ${hTxt} mm  ·  vertikal ${vTxt} mm`;
 }
 function openSgPageOffset(){
-    const o = _sgGetPageOffset();
-    document.getElementById('sgPageOffsetTop').value    = o.top;
-    document.getElementById('sgPageOffsetRight').value  = o.right;
-    document.getElementById('sgPageOffsetBottom').value = o.bottom;
-    document.getElementById('sgPageOffsetLeft').value   = o.left;
-    ['sgPageOffsetTop','sgPageOffsetRight','sgPageOffsetBottom','sgPageOffsetLeft']
+    const o = _sgGetLabelShift();
+    document.getElementById('sgPageOffsetH').value = o.h;
+    document.getElementById('sgPageOffsetV').value = o.v;
+    ['sgPageOffsetH','sgPageOffsetV']
         .forEach(id => { const el=document.getElementById(id); if(el) el.oninput = _sgPageOffsetUpdatePreview; });
     _sgPageOffsetUpdatePreview();
     document.getElementById('sgPageOffsetModal').style.display = 'flex';
@@ -6219,23 +6212,19 @@ function closeSgPageOffset(){
     document.getElementById('sgPageOffsetModal').style.display = 'none';
 }
 function saveSgPageOffset(){
-    const clamp = v => Math.max(0, Math.min(50, Number(v)||0));
+    const clamp = v => Math.max(-_SG_SHIFT_MAX, Math.min(_SG_SHIFT_MAX, Number(v)||0));
     const o = {
-        top:    clamp(document.getElementById('sgPageOffsetTop').value),
-        right:  clamp(document.getElementById('sgPageOffsetRight').value),
-        bottom: clamp(document.getElementById('sgPageOffsetBottom').value),
-        left:   clamp(document.getElementById('sgPageOffsetLeft').value)
+        h: clamp(document.getElementById('sgPageOffsetH').value),
+        v: clamp(document.getElementById('sgPageOffsetV').value)
     };
-    _sgSavePageOffset(o);
+    _sgSaveLabelShift(o);
     if(typeof _applyPrintPageStyleSg==='function') _applyPrintPageStyleSg();
     closeSgPageOffset();
-    if(typeof toast==='function') toast('Seiten-Offset gespeichert');
+    if(typeof toast==='function') toast(`Verschiebung gespeichert (h ${o.h} mm / v ${o.v} mm)`);
 }
 function resetSgPageOffsetDefaults(){
-    document.getElementById('sgPageOffsetTop').value    = _SG_PAGE_OFFSET_DEFAULT.top;
-    document.getElementById('sgPageOffsetRight').value  = _SG_PAGE_OFFSET_DEFAULT.right;
-    document.getElementById('sgPageOffsetBottom').value = _SG_PAGE_OFFSET_DEFAULT.bottom;
-    document.getElementById('sgPageOffsetLeft').value   = _SG_PAGE_OFFSET_DEFAULT.left;
+    document.getElementById('sgPageOffsetH').value = _SG_SHIFT_DEFAULT.h;
+    document.getElementById('sgPageOffsetV').value = _SG_SHIFT_DEFAULT.v;
     _sgPageOffsetUpdatePreview();
 }
 // Overlay-Klick schliesst das Modal
@@ -6421,17 +6410,17 @@ async function _sgBuildZPL(fields){
     const fIbc    = _pt(c.ibcFs);
     const fTdH    = Math.max(14, Math.round(fTd*0.72));   // Header-Font kleiner
 
-    // User-justierbarer Seiten-Offset (mm → dots @ 203 dpi; 1mm = 8 dots)
-    // Sync mit @page margin beim System-Druck, damit beide Routen identisch positionieren.
-    const off = (typeof _sgGetPageOffset==='function')
-        ? _sgGetPageOffset() : {top:2, right:2, bottom:2, left:2};
-    const offXDots = Math.round(off.left  * 8);
-    const offYDots = Math.round(off.top   * 8);
-    const offRDots = Math.round(off.right * 8);
+    // Druckbild-Verschiebung (Feinjustierung der Zentrierung) — reine TRANSLATION, KEIN Resize.
+    // h>0 → rechts, v>0 → runter.  h → ^LS (ZPL: +^LS = links, daher für „rechts" negativ),
+    // v → ^LT (dot rows, − = hoch). Beide müssen vor dem ersten ^FS stehen (siehe ZPL II Guide).
+    const sh = (typeof _sgGetLabelShift==='function') ? _sgGetLabelShift() : {h:0, v:0};
+    const lsVal = Math.max(-9999, Math.min(9999, Math.round(-sh.h * 8)));
+    const ltVal = Math.max(-120,  Math.min(120,  Math.round( sh.v * 8)));
 
     const marginX = _pt(4);            // ~1.4mm Innenabstand
-    const physLabelW = 800;            // 100mm @ 203dpi (physisch)
-    const labelW  = Math.max(200, physLabelW - offXDots - offRDots);  // nutzbare Breite nach Offsets
+    const physLabelW = 800;            // 100mm @ 203dpi (Etikettenbreite)
+    const labelW  = 768;               // FESTE Inhaltsbreite (96mm) — NIE vom Offset abhängig (sonst Verzerrung!)
+    const homeX   = Math.round((physLabelW - labelW) / 2);   // 16 dots = 2mm → Inhalt im Druckbereich zentriert
     const colB_x  = Math.round(labelW/2);
     const yHeader = 2;
     const yRowStart = yHeader + headerH;
@@ -6447,10 +6436,11 @@ async function _sgBuildZPL(fields){
     const L = [];
     L.push('^XA');
     L.push('^CI28');                    // UTF-8
-    L.push('^PW'+physLabelW);
-    L.push('^LL'+(yBarStart + 4*barH + offYDots));
-    L.push('^LH'+offXDots+','+offYDots); // Label Home = user-Offset → alle ^FO werden verschoben
-    L.push('^LT0');
+    L.push('^PW'+physLabelW);           // volle Etikettenbreite — NICHT zum Positionieren verkleinern
+    L.push('^LL'+(yBarStart + 4*barH)); // Etikettenlänge = Inhaltshöhe
+    L.push('^LH'+homeX+',2');           // zentrierte Basisposition (Ursprung), vor erstem ^FS
+    L.push('^LS'+lsVal);                // horizontale Verschiebung des GANZEN Labels (Translation)
+    L.push('^LT'+ltVal);                // vertikale Feinjustierung des GANZEN Labels (Translation)
     L.push('^PR4');                     // Druckgeschwindigkeit 4 ips (Standard)
 
     // --- Header: Logo links, Titel zentriert ---
@@ -6458,9 +6448,11 @@ async function _sgBuildZPL(fields){
         const logoY = yHeader + Math.max(0, Math.round((headerH - logoGrf.h)/2));
         L.push(`^FO${marginX},${logoY}`+logoGrf.grf+'^FS');
     }
-    // Titel "Frame" (horizontal zentriert via ^FB)
-    L.push(`^FO0,${yHeader + Math.max(0, Math.round((headerH - fTitle)/2))}`
-          +`^A0N,${fTitle},${fTitle}^FB${labelW},1,0,C,0^FDFrame^FS`);
+    // Titel "Frame" — zentriert im Bereich RECHTS neben dem Logo (volle Breite würde mit dem Logo überlappen).
+    const titleX = (logoGrf ? (marginX + logoGrf.w) : marginX) + _pt(6);   // ~2mm Abstand zum Logo
+    const titleBlockW = Math.max(120, labelW - titleX);
+    L.push(`^FO${titleX},${yHeader + Math.max(0, Math.round((headerH - fTitle)/2))}`
+          +`^A0N,${fTitle},${fTitle}^FB${titleBlockW},1,0,C,0^FDFrame^FS`);
     // Trennlinie unter Header
     L.push(`^FO0,${yRowStart - 1}^GB${labelW},2,2^FS`);
 
