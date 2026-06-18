@@ -1494,8 +1494,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.85rem;color:#1e3a8a">
                 <b>Druckbild verschieben (Zentrierung):</b> verschiebt das ganze Label — <b>ohne es zu verzerren</b>.<br>
                 • <b>Horizontal</b>: − nach links, + nach rechts &nbsp;•&nbsp; <b>Vertikal</b>: − nach oben, + nach unten<br>
-                Feinjustierung in 0,5-mm-Schritten. <b>Hinweis:</b> mehr als ca. ±2&nbsp;mm geht über den Etikettenrand hinaus
-                (Inhalt wird abgeschnitten) → dann das Etikett am Drucker mechanisch ausrichten / kalibrieren.
+                Feinjustierung in 0,5-mm-Schritten. <b>Hinweis:</b> nach rechts ist mehr Spielraum (~6&nbsp;mm) als nach links (~2&nbsp;mm).
+                Wird ein Rahmen abgeschnitten, sitzt das Etikett mechanisch verschoben → am Drucker die Medienführung anpassen / kalibrieren.
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 <div class="form-group">
@@ -6418,9 +6418,10 @@ async function _sgBuildZPL(fields){
     const ltVal = Math.max(-120,  Math.min(120,  Math.round( sh.v * 8)));
 
     const marginX = _pt(4);            // ~1.4mm Innenabstand
-    const physLabelW = 800;            // 100mm @ 203dpi (Etikettenbreite)
+    const physLabelW = 800;            // 100mm @ 203dpi (nominale Etikettenbreite — Basis für Zentrierung)
+    const printW  = 832;               // 104mm = volle ZT231-Druckkopfbreite → Spielraum zum Verschieben nach rechts
     const labelW  = 768;               // FESTE Inhaltsbreite (96mm) — NIE vom Offset abhängig (sonst Verzerrung!)
-    const homeX   = Math.round((physLabelW - labelW) / 2);   // 16 dots = 2mm → Inhalt im Druckbereich zentriert
+    const homeX   = Math.round((physLabelW - labelW) / 2);   // 16 dots = 2mm → Inhalt auf 100-mm-Etikett zentriert
     const colB_x  = Math.round(labelW/2);
     const yHeader = 2;
     const yRowStart = yHeader + headerH;
@@ -6436,7 +6437,7 @@ async function _sgBuildZPL(fields){
     const L = [];
     L.push('^XA');
     L.push('^CI28');                    // UTF-8
-    L.push('^PW'+physLabelW);           // volle Etikettenbreite — NICHT zum Positionieren verkleinern
+    L.push('^PW'+printW);               // volle Druckkopfbreite (104mm) → Verschiebespielraum nach rechts, kein Klippen
     L.push('^LL'+(yBarStart + 4*barH)); // Etikettenlänge = Inhaltshöhe
     L.push('^LH'+homeX+',2');           // zentrierte Basisposition (Ursprung), vor erstem ^FS
     L.push('^LS'+lsVal);                // horizontale Verschiebung des GANZEN Labels (Translation)
