@@ -1494,17 +1494,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.85rem;color:#1e3a8a">
                 <b>Druckbild verschieben (Zentrierung):</b> verschiebt das ganze Label — <b>ohne es zu verzerren</b>.<br>
                 • <b>Horizontal</b>: − nach links, + nach rechts &nbsp;•&nbsp; <b>Vertikal</b>: − nach oben, + nach unten<br>
-                Feinjustierung in 0,5-mm-Schritten. <b>Hinweis:</b> nach rechts ist mehr Spielraum (~6&nbsp;mm) als nach links (~2&nbsp;mm).
-                Wird ein Rahmen abgeschnitten, sitzt das Etikett mechanisch verschoben → am Drucker die Medienführung anpassen / kalibrieren.
+                Feinjustierung in 0,5-mm-Schritten. Der Bereich ist <b>fest begrenzt</b> (rechts bis +10&nbsp;mm, links bis −6&nbsp;mm) — damit die Rahmenlinien nie über die Druckkopf-Kante hinauslaufen.
+                Reicht das zum Zentrieren nicht, sitzt das Etikett mechanisch zu weit verschoben → am Drucker die Medienführung anpassen / kalibrieren.
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 <div class="form-group">
-                    <label for="sgPageOffsetH" style="font-weight:700">Horizontal (mm) — −&nbsp;links&nbsp;/&nbsp;+&nbsp;rechts</label>
-                    <input type="number" id="sgPageOffsetH" min="-8" max="8" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
+                    <label for="sgPageOffsetH" style="font-weight:700">Horizontal (mm) — −&nbsp;links&nbsp;/&nbsp;+&nbsp;rechts (−6…+10)</label>
+                    <input type="number" id="sgPageOffsetH" min="-6" max="10" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
                 </div>
                 <div class="form-group">
-                    <label for="sgPageOffsetV" style="font-weight:700">Vertikal (mm) — −&nbsp;hoch&nbsp;/&nbsp;+&nbsp;runter</label>
-                    <input type="number" id="sgPageOffsetV" min="-8" max="8" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
+                    <label for="sgPageOffsetV" style="font-weight:700">Vertikal (mm) — −&nbsp;hoch&nbsp;/&nbsp;+&nbsp;runter (−2…+5)</label>
+                    <input type="number" id="sgPageOffsetV" min="-2" max="5" step="0.5" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:1rem">
                 </div>
             </div>
             <div id="sgPageOffsetPreview" style="margin-top:12px;padding:8px 10px;background:#f1f5f9;border-radius:6px;font-size:0.82rem;color:#334155;font-family:'Consolas','Courier New',monospace">Verschiebung: —</div>
@@ -6148,15 +6148,20 @@ const _SG_LABEL_STYLE = Object.freeze({
 // Software-Bereich realistisch ±~2 mm (Inhalt 96 mm auf 100-mm-Etikett); darüber klippt der Rand → mechanisch ausrichten.
 const _SG_SHIFT_KEY = 'sgLabelShift_v2';
 const _SG_SHIFT_DEFAULT = Object.freeze({h:0, v:0});
-const _SG_SHIFT_MAX = 8;   // mm — Eingabe-Clamp
+// Klippfreier Verschiebebereich (abgeleitet aus ^PW=832, Inhalt 700 dots, homeX=50):
+//   horizontal: rechts bis +10mm, links bis −6mm  ·  vertikal: runter bis +5mm, hoch bis −2mm.
+// Hart begrenzt, damit Inhalt/Rahmenlinien NIE über die Druckkopf-/Etikettenkante hinauslaufen.
+const _SG_SHIFT_H_MIN = -6, _SG_SHIFT_H_MAX = 10;
+const _SG_SHIFT_V_MIN = -2, _SG_SHIFT_V_MAX = 5;
+function _sgClampH(v){ return Math.max(_SG_SHIFT_H_MIN, Math.min(_SG_SHIFT_H_MAX, Number(v))); }
+function _sgClampV(v){ return Math.max(_SG_SHIFT_V_MIN, Math.min(_SG_SHIFT_V_MAX, Number(v))); }
 function _sgGetLabelShift(){
     try{
         const raw = localStorage.getItem(_SG_SHIFT_KEY);
         if(!raw) return {..._SG_SHIFT_DEFAULT};
         const o = JSON.parse(raw) || {};
-        const clamp = v => Math.max(-_SG_SHIFT_MAX, Math.min(_SG_SHIFT_MAX, Number(v)));
-        const pick  = (v, d) => (v==null || !isFinite(Number(v))) ? d : clamp(v);
-        return { h: pick(o.h, _SG_SHIFT_DEFAULT.h), v: pick(o.v, _SG_SHIFT_DEFAULT.v) };
+        const pick = (v, d, f) => (v==null || !isFinite(Number(v))) ? d : f(v);
+        return { h: pick(o.h, _SG_SHIFT_DEFAULT.h, _sgClampH), v: pick(o.v, _SG_SHIFT_DEFAULT.v, _sgClampV) };
     }catch(e){ return {..._SG_SHIFT_DEFAULT}; }
 }
 function _sgSaveLabelShift(o){
@@ -6212,10 +6217,9 @@ function closeSgPageOffset(){
     document.getElementById('sgPageOffsetModal').style.display = 'none';
 }
 function saveSgPageOffset(){
-    const clamp = v => Math.max(-_SG_SHIFT_MAX, Math.min(_SG_SHIFT_MAX, Number(v)||0));
     const o = {
-        h: clamp(document.getElementById('sgPageOffsetH').value),
-        v: clamp(document.getElementById('sgPageOffsetV').value)
+        h: _sgClampH(Number(document.getElementById('sgPageOffsetH').value)||0),
+        v: _sgClampV(Number(document.getElementById('sgPageOffsetV').value)||0)
     };
     _sgSaveLabelShift(o);
     if(typeof _applyPrintPageStyleSg==='function') _applyPrintPageStyleSg();
@@ -6420,8 +6424,9 @@ async function _sgBuildZPL(fields){
     const marginX = _pt(4);            // ~1.4mm Innenabstand
     const physLabelW = 800;            // 100mm @ 203dpi (nominale Etikettenbreite — Basis für Zentrierung)
     const printW  = 832;               // 104mm = volle ZT231-Druckkopfbreite → Spielraum zum Verschieben nach rechts
-    const labelW  = 768;               // FESTE Inhaltsbreite (96mm) — NIE vom Offset abhängig (sonst Verzerrung!)
-    const homeX   = Math.round((physLabelW - labelW) / 2);   // 16 dots = 2mm → Inhalt auf 100-mm-Etikett zentriert
+    const labelW  = 700;               // FESTE Inhaltsbreite (~87,5mm) — schmaler als früher (96mm), da der
+                                       // Code-128-Barcode dank Code-C nur ~72mm breit ist → mehr Verschiebespielraum.
+    const homeX   = Math.round((physLabelW - labelW) / 2);   // (800-700)/2 = 50 dots = 6,25mm → auf 100-mm-Etikett zentriert
     const colB_x  = Math.round(labelW/2);
     const yHeader = 2;
     const yRowStart = yHeader + headerH;
@@ -6492,8 +6497,13 @@ async function _sgBuildZPL(fields){
     const barcodeData = fields.internal || fields.palNr || '';
     const barcodeModuleW = 2;
     const barcodeH = Math.max(80, 4*barH - _pt(6));
-    // Grobe Breite in dots: (data-len + 4 Overhead) * 11 modules * moduleW
-    const estBarcodeW = (barcodeData.length + 4) * 11 * barcodeModuleW;
+    // Realistische Code-128-Breite: Ziffern werden paarweise in Code-C codiert (~halbe Breite),
+    // Nicht-Ziffern in Code-B; + Reserve für Start/Wechsel/Prüf-/Stopzeichen. (Alt: (len+4)*11 war
+    // worst-case "alles Code-B" und damit viel zu breit → Rahmen war unnötig groß.)
+    const _nDig   = (barcodeData.match(/\d/g) || []).length;
+    const _nOther = barcodeData.length - _nDig;
+    const estBarcodeW = Math.min(labelW - 2*marginX,
+                                 (Math.ceil(_nDig/2) + _nOther + 11) * 11 * barcodeModuleW);
     const barcodeX    = Math.max(marginX, Math.round((labelW - estBarcodeW) / 2));
     L.push(`^FO${barcodeX},${yBarStart + _pt(3)}^BY${barcodeModuleW},2,${barcodeH}`
           +`^BCN,${barcodeH},N,N,N^FD${_zplEscape(barcodeData)}^FS`);
