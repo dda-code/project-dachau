@@ -356,8 +356,8 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
           <div class="order-section-title input">Order Input</div>
           <div class="order-section-body">
             <div class="form-grid">
-              <label>SO #<input id="o_so" type="text" class="ef"></label>
-              <label>PO #<input id="o_po" type="text" class="ef"></label>
+              <label>SO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_so" type="text" class="ef" required title="Sales Order-Nummer — Pflichtfeld, ohne SO # kann kein Request gesendet werden"></label>
+              <label>PO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_po" type="text" class="ef" required title="Purchase Order-Nummer — Pflichtfeld, ohne PO # kann kein Request gesendet werden"></label>
               <label>Art #<select id="o_art" class="ef" style="font-family:inherit"><option value="">– Please select –</option></select></label>
               <label>Customer<select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
               <label>Start date<input id="o_start" type="date" class="ef"></label>
@@ -4924,6 +4924,22 @@ async function saveOrder(mode){
     const days=parseInt($('o_days').value||'0',10);
     if(!start){ alert('Start date missing.'); return; }
     if(days<=0){ alert('Enter Qty and Daily output so duration can be calculated.'); return; }
+    // SO # und PO # sind Pflichtfelder bei ALLEN Workflows (Request, UpdateRequest, Approve, Direct) —
+    // ohne diese Nummern darf kein Auftrag/Request gespeichert oder gesendet werden.
+    const soReq=String($('o_so')?.value||'').trim();
+    if(!soReq){
+        alert('SO # is required — please enter the Sales Order number before sending the request.');
+        const fld=$('o_so');
+        if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; fld.style.background=''; },2500); }
+        return;
+    }
+    const poReq=String($('o_po')?.value||'').trim();
+    if(!poReq){
+        alert('PO # is required — please enter the Purchase Order number before sending the request.');
+        const fld=$('o_po');
+        if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; fld.style.background=''; },2500); }
+        return;
+    }
     // PO Issue Date ist Pflichtfeld bei allen Workflows (Request, UpdateRequest, Direct-Approve)
     const poIssueVal=String($('o_poIssueDate')?.value||'').trim();
     if(!poIssueVal){
