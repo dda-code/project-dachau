@@ -2902,6 +2902,10 @@ function applyOrderPayload(p){
     const k=p.kpi||{};
     set('k_cycle',k.cycle); set('k_cav',k.cav); set('k_hrs',k.hrs); set('k_shift',k.shift);
     set('k_days',k.days); set('k_scrap',k.scrap); set('k_oee',k.oee);
+    // Sales-Anfragen tragen KEIN Daily Output (das wird nie manuell gesetzt) → automatisch aus dem
+    // Schichtplan/KPI für das Startdatum ableiten (füllt o_outday + KPI-Felder), damit Duration/End sofort rechnen.
+    // NACH den KPI-Sets, damit die abgeleiteten KPI-Werte nicht von leeren Payload-Werten überschrieben werden.
+    if(!String(h.outday||'').trim()){ try{ if(typeof prefillOutDayFromShiftPlan==='function') prefillOutDayFromShiftPlan(); }catch(_){} }
     perDayShifts=p.perDayShifts?JSON.parse(JSON.stringify(p.perDayShifts)):{};
     orderGridData=p.gridData?JSON.parse(JSON.stringify(p.gridData)):{};
     // Write approvedPrice (if already set by an approver) back into the modal field
