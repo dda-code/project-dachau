@@ -368,6 +368,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                       <input id="o_pal" type="text" class="ef" inputmode="numeric">
                       <button type="button" class="pal-btn" onclick="stepPal(1)" title="Increase pallets">+</button>
                   </span>
+                  <span id="o_palPieces" style="display:none;margin-top:4px;font-size:0.82rem;font-weight:700;color:#0f172a"></span>
               </label>
               <div id="o_outdayWrap" style="display:flex;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Daily Output/d (pcs.)</span>
@@ -2454,6 +2455,7 @@ function syncPalFromQty(){
     const ends=endsForOrderArt();
     $('o_pal').value=(qty>0 && ends)?String(Math.ceil(qty/ends)):'';
     _syncingQtyPal=false;
+    _apUpdatePalPieces();
 }
 function syncQtyFromPal(){
     if(_syncingQtyPal) return;
@@ -2463,6 +2465,26 @@ function syncQtyFromPal(){
     if(pal>0 && ends) $('o_qty').value=formatThousands(String(pal*ends));
     else if(!pal) $('o_qty').value='';
     _syncingQtyPal=false;
+    _apUpdatePalPieces();
+}
+// Live-Anzeige "= X Stück" unter dem PAL-Feld (zeigt, wie viele Teile die eingegebenen Paletten ergeben).
+// Sichtbar im Sales-Modus (dort ist das berechnete Qty-Feld ausgeblendet); für andere Rollen versteckt,
+// da diese das Qty-Feld im "Calculated"-Block sehen.
+function _apUpdatePalPieces(){
+    const el=$('o_palPieces'); if(!el) return;
+    if(!_apSalesMode){ el.style.display='none'; el.textContent=''; return; }
+    const pcs=parseThousands($('o_qty')?.value||'')||0;
+    const pal=parseInt(String($('o_pal')?.value||'').replace(/[^\d]/g,''),10)||0;
+    const ends=endsForOrderArt();
+    if(pal>0 && pcs>0){
+        el.textContent='= '+formatThousands(String(pcs))+' Stück';
+        el.style.color='#0f172a'; el.style.display='';
+    } else if(pal>0 && !ends){
+        el.textContent='Art # wählen, um Stückzahl zu berechnen';
+        el.style.color='#92400e'; el.style.display='';
+    } else {
+        el.textContent=''; el.style.display='none';
+    }
 }
 function stepPal(delta){
     const el=$('o_pal'); if(!el) return;
@@ -2669,13 +2691,12 @@ function openOrderModal(){
         hideEl($('o_mini'));
         hideEl($('shiftPopover'));
         hideEl($('o_wknd_block'));
-        hideEl($('o_pricelistWarn'));
+        _apUpdatePalPieces();   // Stück-Zähler initialisieren (leer bei frischem Formular)
     }
     $('orderModal').classList.add('open');
-    // Pricelist im Hintergrund laden — auch fuer Manager noetig, damit der Mismatch-Check und
-    // der Shell-Hersteller-Lookup funktionieren (loadPricelist war bisher nur fuer Approver getriggert).
-    // Sales liest customer_price_terms NICHT (Rules) → überspringen, sonst permission-denied.
-    if(!_apSalesMode && !pricelistRows.length){ loadPricelist().then(()=>_updateArtInfo()).catch(e=>console.warn('loadPricelist:',e)); }
+    // Pricelist im Hintergrund laden — fuer Manager UND Sales noetig, damit der Mismatch-Check und
+    // der Shell-Hersteller-Lookup funktionieren. (Sales hat Leserecht auf customer_price_terms per Rules.)
+    if(!pricelistRows.length){ loadPricelist().then(()=>_updateArtInfo()).catch(e=>console.warn('loadPricelist:',e)); }
     _updateArtInfo();
     // Delegation: jeder Input im Modal triggert recalc (einmal binden)
     if(!openOrderModal._bound){
@@ -2859,6 +2880,7 @@ function applyOrderPayload(p){
         if(priceCcy) priceCcy.textContent = p.approvedPrice.ccy || 'EUR';
     }
     if(typeof _updateArtInfo==='function') _updateArtInfo();
+    _apUpdatePalPieces();   // Stück-Zähler nach Laden einer bestehenden Anfrage aktualisieren
 }
 
 function startPendingBadgeListener(){
@@ -5052,7 +5074,6 @@ async function checkShiftPlanConflicts(seq){
 // Update pricelist match warning (customer + article must both be listed in the pricelist)
 function _checkPricelistMatch(){
     const w=$('o_pricelistWarn'); if(!w) return;
-    if(_apSalesMode){ w.style.display='none'; return; }  // Sales lädt die Preisliste nicht → keine Mismatch-Warnung
     const wt=$('o_pricelistWarnText');
     const art=String(($('o_art')?.value)||'').trim();
     const cust=String(($('o_cust')?.value)||'').trim();
