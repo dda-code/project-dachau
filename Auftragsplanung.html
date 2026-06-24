@@ -2893,7 +2893,20 @@ function applyOrderPayload(p){
     const h=p.header||{};
     set('o_so',h.so); set('o_po',h.po); set('o_art',h.art); set('o_cust',h.cust);
     set('o_pickupCustPo',h.pickupCustPo); set('o_priceCustPo',h.priceCustPo);
-    if(typeof populateCustomerDropdown==='function') populateCustomerDropdown(); // ensures the value is a valid option
+    // Customer robust setzen: das Dropdown wird (ggf. asynchron) aus pricelist_meta/customers aufgebaut.
+    // Wenn wir o_cust setzen BEVOR die Optionen existieren, geht der Wert verloren → kein Preislisten-Treffer
+    // → kein Unit-Price-XO-Vorschlag. Daher: erst aufbauen, DANN Kunde wählen (mit Ghost-Option als Fallback),
+    // anschließend den Preis-Match (via _updateArtInfo→_checkPricelistMatch) neu auslösen.
+    if(typeof populateCustomerDropdown==='function'){
+        Promise.resolve(populateCustomerDropdown()).then(()=>{
+            const sel=$('o_cust'); if(!sel) return;
+            if(h.cust && !Array.from(sel.options).some(o=>o.value===h.cust)){
+                const opt=document.createElement('option'); opt.value=h.cust; opt.textContent=h.cust; sel.appendChild(opt);
+            }
+            sel.value=h.cust||'';
+            if(typeof _updateArtInfo==='function') _updateArtInfo();
+        }).catch(()=>{});
+    }
     if(typeof populateArtDropdown==='function') populateArtDropdown(); // same for Art # — adds ghost option for legacy values
     set('o_start',h.start); set('o_pickup',h.pickup); set('o_poIssueDate',h.poIssueDate);
     set('o_qty',h.qty); set('o_pal',h.pal); set('o_outday',h.outday);
@@ -3154,13 +3167,16 @@ function _apSalesCard(it, mode){
         ? `<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">WARTET AUF FREIGABE</span>`
         : (mode==='approved'
             ? `<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">FREIGEGEBEN</span>`
-            : `<span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">ABGELEHNT</span>`);
+            : (mode==='deleted'
+                ? `<span style="background:#e5e7eb;color:#374151;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">GELÖSCHT</span>`
+                : `<span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">ABGELEHNT</span>`));
     const updTag=it.isUpdated?`<span style="background:#ddd6fe;color:#5b21b6;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700">🔄 v${it.updateCount||1}</span>`:'';
-    const border = mode==='approved' ? '#bbf7d0' : (mode==='rejected' ? '#fecaca' : '#fde68a');
+    const border = mode==='approved' ? '#bbf7d0' : (mode==='rejected' ? '#fecaca' : (mode==='deleted' ? '#d1d5db' : '#fde68a'));
     // Meta rechts oben (Datum/Bearbeiter je nach Status)
     let metaRight='';
     if(mode==='pending') metaRight=`<div style="white-space:nowrap">angefragt: ${fmtTs(it.requestedAt)}</div>`;
     else if(mode==='approved') metaRight=`<div>freigegeben von <strong>${esc((it.approvedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.approvedAt)}</div>`;
+    else if(mode==='deleted') metaRight=`<div>gelöscht von <strong>${esc((it.deletedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.deletedAt)}</div>`;
     else metaRight=`<div>abgelehnt von <strong>${esc((it.rejectedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.rejectedAt)}</div>`;
     // Klick-Aktion: nur offene Anfragen sind editierbar/zurückziehbar.
     const clickable = (mode==='pending');
@@ -3193,8 +3209,10 @@ function _apSalesCard(it, mode){
         ].join('');
     }
     const reason = (mode==='rejected' && it.rejectComment)
-        ? `<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#991b1b;font-weight:700;margin-bottom:4px">Ablehnungsgrund</div><div style="font-size:0.9rem;color:#7f1d1d;white-space:pre-wrap">${esc(it.rejectComment)}</div></div>` : '';
-    const ackBtn = (mode==='rejected')
+        ? `<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#991b1b;font-weight:700;margin-bottom:4px">Ablehnungsgrund</div><div style="font-size:0.9rem;color:#7f1d1d;white-space:pre-wrap">${esc(it.rejectComment)}</div></div>`
+        : ((mode==='deleted' && it.deleteReason)
+            ? `<div style="margin-top:10px;padding:10px 12px;background:#f3f4f6;border-left:3px solid #6b7280;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#374151;font-weight:700;margin-bottom:4px">Hinweis zur Löschung</div><div style="font-size:0.9rem;color:#374151;white-space:pre-wrap">${esc(it.deleteReason)}</div></div>` : '');
+    const ackBtn = (mode==='rejected' || mode==='deleted')
         ? `<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-sm btn-secondary" onclick="acknowledgeRejected('${esc(it.id)}','${esc(it.tab)}')" title="Zur Kenntnis genommen – Eintrag entfernen">✓ Zur Kenntnis</button></div>` : '';
     return `<div style="background:#fff;border:1px solid ${border};border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);${cursor}"${onClick}>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
@@ -3220,6 +3238,7 @@ function renderSalesView(){
     const pending =all.filter(d=>d.status==='pending').sort((a,b)=>ms(b.requestedAt)-ms(a.requestedAt));
     const approved=all.filter(d=>d.status==='approved').sort((a,b)=>ms(b.approvedAt)-ms(a.approvedAt));
     const rejected=all.filter(d=>d.status==='rejected').sort((a,b)=>ms(b.rejectedAt)-ms(a.rejectedAt));
+    const deleted =all.filter(d=>d.status==='deleted').sort((a,b)=>ms(b.deletedAt)-ms(a.deletedAt));
     const section=(label,color,items,mode)=>{
         const head=`<div style="display:flex;align-items:center;gap:8px;margin:22px 0 12px"><h2 style="margin:0;font-size:1.1rem;color:#0f172a">${label}</h2><span style="background:${color};color:#fff;border-radius:12px;padding:2px 10px;font-size:0.82rem;font-weight:700">${items.length}</span></div>`;
         const body = items.length
@@ -3243,7 +3262,29 @@ function renderSalesView(){
     area.innerHTML = header
         + section('Offen – warten auf Freigabe', '#f59e0b', pending, 'pending')
         + section('Bereits freigegeben', '#16a34a', approved, 'approved')
-        + (rejected.length ? section('Abgelehnt', '#dc2626', rejected, 'rejected') : '');
+        + (rejected.length ? section('Abgelehnt', '#dc2626', rejected, 'rejected') : '')
+        + (deleted.length ? section('Gelöscht', '#6b7280', deleted, 'deleted') : '');
+}
+
+// Markiert den freigegebenen Anfrage-Datensatz (pending_orders_<tab>, status 'approved') eines gelöschten
+// Auftrags als 'deleted' → erscheint in der Sales-Liste als „Gelöscht". orderId = SO# (assembly) / IO# (frame).
+// Setzt der Freigeber (canApprove) via Rules; bei fehlender Berechtigung schlägt das Update still fehl (Löschung bleibt).
+async function _apMarkApprovedDeleted(tab, orderId, reason){
+    if(!tab || !orderId) return;
+    try{
+        const snap=await db.collection(_pendingColForTab(tab)).where('status','==','approved').get();
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        const b=db.batch(); let n=0;
+        snap.forEach(d=>{
+            const p=d.data().payload||{};
+            const oid=(tab==='frame')?(p.ioNr||''):((p.header&&p.header.so)||'');
+            if(String(oid).trim()===String(orderId).trim()){
+                b.update(d.ref,{ status:'deleted', deletedBy:currentUid, deletedByEmail:currentUserEmail, deletedAt:ts, deleteReason:reason||'' });
+                n++;
+            }
+        });
+        if(n) await b.commit();
+    }catch(e){ console.warn('_apMarkApprovedDeleted:',e); }
 }
 
 async function renderPendingList(targetId){
@@ -6470,6 +6511,8 @@ async function deleteFrameOrder(){
             }
             await db.collection(sgCol).doc(baseDocId).delete();
         }catch(e){ console.warn('Spritzguss production plan cleanup:',e); }
+        // Freigegebenen Anfrage-Datensatz als „gelöscht" markieren → erscheint so in der Sales-Liste.
+        try{ if(ioNr) await _apMarkApprovedDeleted('frame', ioNr, 'Auftrag im Kalender gelöscht'); }catch(_){}
         showMsg('Frame order deleted.','success');
         closeFrameOrderModal();
         await loadWeek();
@@ -6878,6 +6921,8 @@ async function deleteOrder(){
                 {payload:{header:headerSnap}, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null},
                 count+' day(s) removed');
         }catch(e){ console.warn('protocol log (order_deleted):',e); }
+        // Freigegebenen Anfrage-Datensatz als „gelöscht" markieren → erscheint so in der Sales-Liste.
+        try{ await _apMarkApprovedDeleted(currentTab, so, 'Auftrag im Kalender gelöscht'); }catch(_){}
         showMsg(`Order ${so} deleted (${count} day(s)).`,'success');
         editingOrderSo=null;
         closeOrderModal();
@@ -7021,6 +7066,8 @@ async function ovDeleteOrder(id){
             const headerSnap={ so:id, cust:f[fieldKey('Production Plan','','Customer')]||'', art:f[fieldKey('Production Plan','','Art #')]||'', po:f[fieldKey('Production Plan','','PO #')]||'', qty:f[fieldKey('Production Plan','','Total QTY')]||'', pal:f[fieldKey('Production Plan','','PAL')]||'', pickup:f[fieldKey('Production Plan','','Pick-Up (Deadline)')]||'', start:docs[0].iso, end:docs[docs.length-1].iso, days:String(docs.length) };
             await _logProtocol('order_deleted', null, tab, {payload:{header:headerSnap}, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null}, docs.length+' day(s) removed (Orders Overview)');
         }catch(e){ console.warn('protocol log (order_deleted):',e); }
+        // Freigegebenen Anfrage-Datensatz als „gelöscht" markieren → erscheint so in der Sales-Liste.
+        try{ await _apMarkApprovedDeleted(tab, id, 'Auftrag im Kalender gelöscht'); }catch(_){}
         showMsg('Order '+id+' deleted ('+docs.length+' day(s)).','success');
         await loadWeek();
         await openOrdersOverview();
