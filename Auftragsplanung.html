@@ -300,6 +300,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <button class="btn btn-sm btn-secondary" id="todayBtn" onclick="gotoToday()">Today</button>
         <button class="btn btn-sm btn-primary" id="newOrderBtn" onclick="openOrderModal()">New Order</button>
         <button class="btn btn-sm btn-secondary" id="ordersOverviewBtn" onclick="openOrdersOverview()">Orders Overview</button>
+        <button class="btn btn-sm btn-secondary" id="orderSequenceBtn" onclick="openOrderSequence()" style="display:none" title="Produktions-Reihenfolge festlegen">Order Sequence</button>
         <button class="btn btn-sm btn-secondary" id="shiftPlannerBtn" onclick="openShiftPlanner()" style="display:none">Shift &amp; KPI Planning</button>
         <button class="btn btn-sm btn-secondary" id="pricelistBtn" onclick="openPricelist()" style="display:none">Pricelist</button>
         <button class="btn btn-sm btn-secondary" id="protocolBtn" onclick="openProtocol()" style="display:none">Protocol</button>
@@ -379,6 +380,12 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
               </div>
               <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef" required title="Datum, an dem der Kunde den Auftrag an XO erteilt hat — Pflichtfeld"></label>
               <label>Pick-Up (acc. Customer PO)<span style="color:#dc2626;font-weight:700"> *</span><input id="o_pickupCustPo" type="date" class="ef" required title="Abhol-/Liefertermin laut Kunden-PO — Pflichtfeld, ohne dieses Datum kann kein Request gesendet werden"></label>
+              <label>Price (acc. Customer PO)<span id="o_priceCustPoStar" style="color:#dc2626;font-weight:700"> *</span>
+                  <span style="display:flex;align-items:stretch;gap:4px">
+                      <input id="o_priceCustPo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" class="ef" style="flex:1;min-width:0;text-align:right" title="Preis laut Kunden-PO">
+                      <span style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
+                  </span>
+              </label>
               <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price (€/1000 pcs.)</span>
                   <div style="display:flex;gap:4px;align-items:stretch">
@@ -612,6 +619,29 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     </div>
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeOrdersOverview()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="orderSequenceModal" onclick="if(event.target===this)closeOrderSequence()">
+  <div class="modal-card" style="width:min(1000px,98%);max-height:92vh;overflow:auto">
+    <div class="modal-head">
+      <h2 id="seqModalTitle">Order Sequence</h2>
+      <button class="btn btn-sm btn-secondary" onclick="closeOrderSequence()">Close</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:0.85rem;color:#475569;margin-bottom:10px">Reihenfolge per Drag&amp;Drop festlegen (<strong>1 = wird zuerst produziert</strong>). Beim Verschieben einen neuen Starttermin angeben — der Plan wird darum herum neu berechnet (Schichten, Feiertage, Umrüstzeiten). Erst „Anwenden" schreibt in den Kalender.</div>
+      <div id="seqAnchorBar" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:12px">
+        <span style="font-weight:600;color:#1e40af">Verschoben: <span id="seqAnchorLbl">–</span></span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;flex-direction:row">Neuer Starttermin<span style="color:#dc2626;font-weight:700"> *</span><input type="date" id="seqAnchorDate" class="ef" style="width:auto"></label>
+        <button class="btn btn-sm btn-primary" onclick="seqPreview()">Vorschau aktualisieren</button>
+      </div>
+      <div id="seqWarn" style="display:none;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.85rem"></div>
+      <div id="orderSequenceList"><div class="orders-empty">Lade Aufträge…</div></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeOrderSequence()">Abbrechen</button>
+      <button class="btn btn-primary" id="seqApplyBtn" onclick="seqApply()" disabled>Anwenden</button>
     </div>
   </div>
 </div>
@@ -1301,6 +1331,9 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager' && currentUserRole!=
     // Orders Overview: read-only Gesamtliste → für alle eingeloggten Rollen sichtbar.
     const ordBtn=$('ordersOverviewBtn');
     if(ordBtn) ordBtn.style.display='';
+    // Order Sequence: Reihenfolge-Planung — Manager/Admin (Schreibrecht sales_plan/produktionsplan), NICHT Sales/Restricted.
+    const seqBtn=$('orderSequenceBtn');
+    if(seqBtn) seqBtn.style.display = (!_apSalesMode && !_apIsRestrictedViewer(currentUserEmail)) ? '' : 'none';
     if(_apBooted){
         // On pure user switch: reload data for the new role
         try{ await loadWeek(); }catch(_){}
@@ -2621,7 +2654,7 @@ function prefillOutDayFromShiftPlan(){
 function openOrderModal(){
     if(currentTab==='frame'){ openFrameOrderModal(); return; }
     if(currentTab!=='assembly'){ showMsg('Order function is only available in the Assembly tab.','error'); return; }
-    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup','o_poIssueDate','o_pickupCustPo'].forEach(id=>{const e=$(id); if(e) e.value='';});
+    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup','o_poIssueDate','o_pickupCustPo','o_priceCustPo'].forEach(id=>{const e=$(id); if(e) e.value='';});
     ['k_cycle','k_cav','k_hrs','k_shift','k_days','k_scrap','k_oee'].forEach(id=>{const e=$(id); if(e) e.value='';});
     if($('o_sat')) $('o_sat').checked=false;
     if($('o_sun')) $('o_sun').checked=false;
@@ -2693,6 +2726,8 @@ function openOrderModal(){
         hideEl($('o_wknd_block'));
         _apUpdatePalPieces();   // Stück-Zähler initialisieren (leer bei frischem Formular)
     }
+    // "Price (acc. Customer PO)": Pflicht-Stern nur im Sales-Modus zeigen (für Manager/Approver optional).
+    { const pStar=$('o_priceCustPoStar'); if(pStar) pStar.style.display=_apSalesMode?'':'none'; }
     $('orderModal').classList.add('open');
     // Pricelist im Hintergrund laden — fuer Manager UND Sales noetig, damit der Mismatch-Check und
     // der Shell-Hersteller-Lookup funktionieren. (Sales hat Leserecht auf customer_price_terms per Rules.)
@@ -2826,7 +2861,7 @@ function collectOrderPayload(){
         header:{
             so:get('o_so'), po:get('o_po'), art:get('o_art'), cust:get('o_cust'),
             start:get('o_start'), pickup:get('o_pickup'), poIssueDate:get('o_poIssueDate'),
-            pickupCustPo:get('o_pickupCustPo'),
+            pickupCustPo:get('o_pickupCustPo'), priceCustPo:get('o_priceCustPo'),
             qty:get('o_qty'), pal:get('o_pal'), outday:get('o_outday'),
             days:get('o_days'), end:get('o_end'),
             sat:chk('o_sat'), sun:chk('o_sun'), holiday:chk('o_holiday')
@@ -2857,7 +2892,7 @@ function applyOrderPayload(p){
     const chk=(id,v)=>{ const e=$(id); if(e) e.checked=!!v; };
     const h=p.header||{};
     set('o_so',h.so); set('o_po',h.po); set('o_art',h.art); set('o_cust',h.cust);
-    set('o_pickupCustPo',h.pickupCustPo);
+    set('o_pickupCustPo',h.pickupCustPo); set('o_priceCustPo',h.priceCustPo);
     if(typeof populateCustomerDropdown==='function') populateCustomerDropdown(); // ensures the value is a valid option
     if(typeof populateArtDropdown==='function') populateArtDropdown(); // same for Art # — adds ghost option for legacy values
     set('o_start',h.start); set('o_pickup',h.pickup); set('o_poIssueDate',h.poIssueDate);
@@ -3079,7 +3114,7 @@ let _apSalesLoaded=false;  // erst true nach dem ersten onSnapshot je Tab
 function _apApplySalesChrome(){
     document.querySelectorAll('.week-nav').forEach(e=>{ e.style.display='none'; });
     const tabsBar=document.querySelector('.tabs-bar'); if(tabsBar) tabsBar.style.display='none';
-    ['todayBtn','newOrderBtn','ordersOverviewBtn','shiftPlannerBtn','pricelistBtn','protocolBtn',
+    ['todayBtn','newOrderBtn','ordersOverviewBtn','orderSequenceBtn','shiftPlannerBtn','pricelistBtn','protocolBtn',
      'pendingTopBtn','myRejectedTopBtn','pendingTabBtn','gridArea','footerBar','pendingArea']
         .forEach(id=>{ const el=$(id); if(el) el.style.display='none'; });
     const sv=$('salesView'); if(sv) sv.style.display='';
@@ -3148,6 +3183,7 @@ function _apSalesCard(it, mode){
             cellLabel('PO Issue Date', h.poIssueDate?fmtDateDe(h.poIssueDate):'–'),
             cellLabel('Pick-Up (Deadline)', h.pickup?fmtDateDe(h.pickup):'–'),
             cellLabel('Pick-Up (acc. Customer PO)', h.pickupCustPo?fmtDateDe(h.pickupCustPo):'–'),
+            cellLabel('Price (acc. Customer PO)', h.priceCustPo?(esc(h.priceCustPo)+' EUR'):'–'),
             cellLabel('Pallets',esc(h.pal)),
             cellLabel('Quantity (pcs)', fmtNum(h.qty)||esc(h.qty))
         ].join('');
@@ -3351,6 +3387,7 @@ async function renderPendingList(targetId){
                     ${cellLabel('End',escHtml(h.end))}
                     ${cellLabel('Pick up Deadline',h.pickup?fmtDateDe(h.pickup):'–')}
                     ${cellLabel('Pick-Up (acc. Customer PO)',h.pickupCustPo?fmtDateDe(h.pickupCustPo):'–')}
+                    ${cellLabel('Price (acc. Customer PO)',h.priceCustPo?(escHtml(h.priceCustPo)+' EUR'):'–')}
                     ${cellLabel('Duration (days)',escHtml(h.days))}
                     ${cellLabel('Pallets',palDisp)}
                     ${cellLabel('Quantity (pcs)',qtyDisp)}
@@ -4305,6 +4342,7 @@ function generateOrderPdf(payload, kind, meta){
         ['End date', fmtDateDe(h.end)],
         ['Pick-Up (Deadline)', fmtDateDe(h.pickup)],
         ['Pick-Up (acc. Customer PO)', fmtDateDe(h.pickupCustPo)],
+        ['Price (acc. Customer PO)', h.priceCustPo?(h.priceCustPo+' EUR'):''],
         ['Quantity', fmtDe(h.qty)],
         ['Pallets', h.pal],
     ]);
@@ -5183,6 +5221,17 @@ async function saveOrder(mode){
         if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; fld.style.background=''; },2500); }
         return;
     }
+    // Price (acc. Customer PO): Pflichtfeld für Sales (muss einen Preis eingeben). Für Approver/Manager optional,
+    // damit das Editieren von Bestands-/Legacy-Aufträgen nicht blockiert wird.
+    if(_apSalesMode){
+        const priceCustPoVal=String($('o_priceCustPo')?.value||'').trim();
+        if(!priceCustPoVal){
+            alert('Price (acc. Customer PO) is required — please enter the price per the customer PO.');
+            const fld=$('o_priceCustPo');
+            if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; fld.style.background=''; },2500); }
+            return;
+        }
+    }
     // Customer is mandatory only on the pending workflow so approver editing is not blocked
     let _mismatchNote='';
     let _hasMismatch=false;
@@ -5657,6 +5706,114 @@ function _frameComputeProductionPlan(startIso, totalQty, newArt, enforceBlock){
     }
     return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining, diag, feasible, blocked};
 }
+
+// ============================================================
+// ORDER SEQUENCE — Reschedule-Engine (parametrisiert, linien-exklusiv)
+// Eigenständige Werktags-/Kapazitätslogik (NICHT isWorkDay, das modal-/Checkbox-gebunden ist):
+// ein Tag produziert genau dann, wenn der Schichtplan für currentTab an diesem Wochentag Schichten>0
+// hat UND kein Feiertag ist. Kapazität = computeOutputDayFromKpi(plan.kpi, shifts). Umrüstverlust am
+// ersten Produktionstag gegen den Vorgänger-Artikel (prevArt) der Sequenz.
+// ============================================================
+function _apSeqDayCap(iso, dow){
+    const sp=getShiftPlanForIso(iso);
+    if(!sp || isHoliday(iso)) return {sp:null, shifts:0, cap:0};
+    const shifts=getPlanShiftForDow(sp, dow);
+    if(!(shifts>0)) return {sp, shifts:0, cap:0};
+    const cap=computeOutputDayFromKpi(sp.kpi||{}, shifts);
+    return {sp, shifts, cap:cap>0?cap:0};
+}
+// Erster Produktionstag am/nach `date` (Date) → Date oder null.
+function _apNextProdDay(date){
+    const d=new Date(date.getTime()); let safety=0;
+    while(safety<800){
+        const iso=toIsoDate(d);
+        if(_apSeqDayCap(iso, d.getDay()).cap>0) return d;
+        d.setDate(d.getDate()+1); safety++;
+    }
+    return null;
+}
+// Datum, das `nDays` Produktionstage VOR `fromIso` liegt (Start, sodass [result..fromIso) genau nDays Prod-Tage enthält).
+function _apProdDayBackward(fromIso, nDays){
+    const d=new Date(fromIso+'T00:00:00');
+    if(nDays<=0) return d;
+    let counted=0, safety=0, last=new Date(d.getTime());
+    while(counted<nDays && safety<3000){
+        d.setDate(d.getDate()-1);
+        if(_apSeqDayCap(toIsoDate(d), d.getDay()).cap>0){ counted++; last=new Date(d.getTime()); }
+        safety++;
+    }
+    return last;
+}
+// Einen Auftrag ab startIso vorwärts packen (linien-exklusiv, kein Backfill). prevArt = Vorgänger-Artikel (Umrüstung Tag 1).
+function _apPackOrder(startIso, qty, art, prevArt){
+    const empty={start:startIso, days:0, endIso:'', seq:[], remaining:qty, feasible:false};
+    if(!startIso || !(qty>0)) return empty;
+    const d=new Date(startIso+'T00:00:00'); if(isNaN(d.getTime())) return empty;
+    const seq=[]; let remaining=qty, safety=0, isFirst=true;
+    while(remaining>0 && safety<800){
+        const iso=toIsoDate(d), info=_apSeqDayCap(iso, d.getDay());
+        if(info.cap>0){
+            // Umrüstung wird EINMALIG am ersten produktionsfähigen Tag bezahlt (auch wenn sie den Tag
+            // komplett aufbraucht → reiner Setup-Tag; Produktion startet dann am Folgetag). isFirst danach false,
+            // damit der Verlust nicht an jedem Folgetag erneut abgezogen wird.
+            let coLoss=0;
+            if(isFirst){ coLoss=_changeoverPiecesLoss(info.sp, prevArt, art||'', info.shifts); isFirst=false; }
+            const cap=Math.max(0, info.cap-coLoss);
+            if(cap>0){
+                const dayQty=Math.min(cap, remaining);
+                seq.push({iso, shifts:info.shifts, capacity:cap, fullCapacity:info.cap, changeoverLoss:coLoss, qty:dayQty});
+                remaining-=dayQty;
+            }
+        }
+        d.setDate(d.getDate()+1); safety++;
+    }
+    return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining, feasible:remaining<=0};
+}
+// Mehrere Aufträge in Reihenfolge lückenlos hintereinander packen (ab lineStartIso). prevArt kettet durch.
+function _apPackSequence(orders, lineStartIso){
+    const out=[]; let cursorIso=lineStartIso, prevArt='';
+    for(const o of orders){
+        const plan=_apPackOrder(cursorIso, o.qty, o.art, prevArt);
+        out.push({id:o.id, art:o.art, qty:o.qty, startIso:plan.seq.length?plan.seq[0].iso:cursorIso, endIso:plan.endIso, days:plan.days, seq:plan.seq, feasible:plan.feasible, remaining:plan.remaining});
+        if(plan.endIso){
+            const nd=new Date(plan.endIso+'T00:00:00'); nd.setDate(nd.getDate()+1);
+            const nx=_apNextProdDay(nd); cursorIso=nx?toIsoDate(nx):toIsoDate(nd);
+        }
+        prevArt=o.art;
+    }
+    return out;
+}
+// Kernfunktion: ganze Linie nach Sequenz neu berechnen. Anker-Modell mit Auto-nach-hinten.
+// seqOrders: [{id, qty, art}] in Sequenz-Reihenfolge; anchorIdx: Index des verschobenen Auftrags; anchorStartIso: gewünschter Start.
+function recomputeLineSchedule(seqOrders, anchorIdx, anchorStartIso){
+    const now=new Date(); now.setHours(0,0,0,0);
+    const earliestD=_apNextProdDay(now);
+    const earliestIso=earliestD?toIsoDate(earliestD):toIsoDate(now);
+    let warning='', lineStartIso=earliestIso;
+    if(anchorIdx>0 && anchorStartIso){
+        // Frühere Aufträge ab dem frühesten Tag packen → benötigte Prod-Tage zählen.
+        const earlier=seqOrders.slice(0, anchorIdx);
+        const ePack=_apPackSequence(earlier, earliestIso);
+        const nEarlier=ePack.reduce((a,o)=>a+o.days, 0);
+        // Gewünschter Linienstart = nEarlier Prod-Tage VOR dem Anker.
+        const desiredIso=toIsoDate(_apProdDayBackward(anchorStartIso, nEarlier));
+        if(desiredIso>earliestIso){ lineStartIso=desiredIso; }
+        else { lineStartIso=earliestIso; warning='Frühere Aufträge passen nicht vollständig vor den gewünschten Anker-Start — der Anker wurde automatisch nach hinten verschoben.'; }
+    } else if(anchorStartIso){
+        // Anker ist der erste Auftrag: Start = max(gewünscht, frühester).
+        lineStartIso = (anchorStartIso>earliestIso)?anchorStartIso:earliestIso;
+        if(lineStartIso!==anchorStartIso) warning='Anker-Start liegt vor dem frühesten möglichen Tag — auf '+lineStartIso+' verschoben.';
+    }
+    const full=_apPackSequence(seqOrders, lineStartIso);
+    const anchorActual=(anchorIdx>=0 && full[anchorIdx])?full[anchorIdx].startIso:(full[0]?full[0].startIso:'');
+    if(anchorStartIso && anchorActual && anchorActual!==anchorStartIso && !warning){
+        warning='Anker-Start '+anchorStartIso+' → tatsächlich '+anchorActual+' (durch Werktage/Schichten/Umrüstzeiten).';
+    }
+    const overflow=full.filter(o=>!o.feasible).map(o=>o.id);
+    if(overflow.length) warning=(warning?warning+' ':'')+'Achtung: Auftrag/Aufträge passen nicht vollständig in den Planungshorizont: '+overflow.join(', ')+'.';
+    return {orders:full, lineStartIso, anchorActual, warning, overflow};
+}
+
 // First working day on/after startIso with free frame capacity (earliest-free-start hint).
 function _frameFirstFreeStartFrom(startIso, newArt){
     if(!startIso) return '';
@@ -6852,6 +7009,194 @@ async function ovDeleteOrder(id){
         await loadWeek();
         await openOrdersOverview();
     }catch(e){ console.error('ovDeleteOrder:',e); alert('Delete failed: '+e.message); }
+}
+
+// ============================================================
+// ORDER SEQUENCE — UI (Drag&Drop), Vorschau, Anwenden
+// ============================================================
+let _seqState=null; // { tab, isFrame, orders:[{id,art,qty,pal,startIso,endIso,isos,fields,refs[],frameTpl}], orderIds:[], anchorId, anchorStartIso, preview }
+
+async function openOrderSequence(){
+    if(_apSalesMode){ alert('Nicht verfügbar.'); return; }
+    const tab=currentTab, isFrame=(tab==='frame');
+    $('seqModalTitle').textContent='Order Sequence – '+((TAB_CONFIG[tab]||{}).title||tab);
+    $('seqAnchorBar').style.display='none';
+    $('seqWarn').style.display='none';
+    $('seqApplyBtn').disabled=true;
+    $('orderSequenceList').innerHTML='<div class="orders-empty">Lade Aufträge…</div>';
+    $('orderSequenceModal').classList.add('open');
+    try{
+        const salesCol=TAB_CONFIG[tab].salesCol;
+        const idKey=fieldKey('Production Plan','',isFrame?'IO #':'SO #');
+        const artKey=fieldKey('Production Plan','','Art #');
+        const qtyKey=fieldKey('Production Plan','','Qty');
+        const palKey=fieldKey('Production Plan','','PAL');
+        const today=new Date(); today.setHours(0,0,0,0);
+        const from=new Date(today); from.setDate(today.getDate()-7*8);
+        const to=new Date(today); to.setDate(today.getDate()+540);
+        const todayIso=toIsoDate(today);
+        const snap=await db.collection(salesCol)
+            .where('datum','>=',toIsoDate(from)).where('datum','<=',toIsoDate(to)).get();
+        const _num=v=>parseFloat(String(v||'').replace(/\./g,'').replace(',','.'))||0;
+        const byId={};
+        snap.forEach(doc=>{
+            const d=doc.data(); const f=d.fields||{}; const id=String(f[idKey]||(isFrame?d.ioNr:'')||'').trim();
+            if(!id) return;
+            if(!byId[id]) byId[id]={id, art:'', qty:0, pal:0, isos:[], fields:null, refs:[], frameTpl:null};
+            const o=byId[id];
+            if(!o.art && f[artKey]) o.art=f[artKey];
+            if(!o.fields) o.fields={...f};          // Vorlage (statische Felder) vom ersten Tagesdoc
+            if(isFrame && !o.frameTpl && d.framePayload) o.frameTpl=d.framePayload;
+            o.qty+=_num(f[qtyKey]); o.pal+=_num(f[palKey]);
+            o.isos.push(d.datum); o.refs.push(doc.ref);
+        });
+        let orders=Object.values(byId).map(o=>{ o.isos.sort(); return {...o, startIso:o.isos[0], endIso:o.isos[o.isos.length-1]}; });
+        // „Alle offenen inkl. laufende": Ende >= heute (abgeschlossene/vergangene ausblenden)
+        orders=orders.filter(o=>o.endIso>=todayIso).sort((a,b)=>String(a.startIso).localeCompare(String(b.startIso)));
+        // Gespeicherte Sequenz laden + anwenden (unbekannte ans Ende nach Start)
+        let savedOrder=[];
+        try{ const seqDoc=await db.collection('order_sequence').doc(tab).get(); if(seqDoc.exists) savedOrder=(seqDoc.data().order)||[]; }catch(_){}
+        const pos={}; savedOrder.forEach((id,i)=>pos[id]=i);
+        orders.sort((a,b)=>{ const pa=(a.id in pos)?pos[a.id]:9999, pb=(b.id in pos)?pos[b.id]:9999; return pa!==pb?pa-pb:String(a.startIso).localeCompare(String(b.startIso)); });
+        _seqState={ tab, isFrame, orders, orderIds:orders.map(o=>o.id), anchorId:null, anchorStartIso:'', preview:null };
+        renderSeqList();
+    }catch(e){ console.error('openOrderSequence:',e); $('orderSequenceList').innerHTML='<div class="orders-empty">Fehler: '+escHtml(e.message)+'</div>'; }
+}
+function closeOrderSequence(){ $('orderSequenceModal').classList.remove('open'); _seqState=null; }
+
+function _seqFmtD(iso){ const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?(m[3]+'.'+m[2]+'.'+m[1]):'–'; }
+function _seqFmtN(n){ n=Number(n)||0; return n>0?n.toLocaleString('de-DE'):'–'; }
+
+function renderSeqList(){
+    const c=$('orderSequenceList'); if(!c || !_seqState) return;
+    const byId={}; _seqState.orders.forEach(o=>byId[o.id]=o);
+    const prev=_seqState.preview; const pById={}; if(prev) prev.orders.forEach(p=>pById[p.id]=p);
+    if(!_seqState.orderIds.length){ c.innerHTML='<div class="orders-empty">Keine offenen Aufträge auf dieser Linie.</div>'; return; }
+    const rows=_seqState.orderIds.map((id,i)=>{
+        const o=byId[id]||{}; const p=pById[id];
+        const isAnchor=(id===_seqState.anchorId);
+        const newCol = prev ? ('<td>'+_seqFmtD(p&&p.startIso)+'</td><td>'+_seqFmtD(p&&p.endIso)+(p&&!p.feasible?' ⚠':'')+'</td>') : '<td>–</td><td>–</td>';
+        return '<tr class="seq-row" draggable="true" data-id="'+escHtml(id)+'" '
+            +'style="cursor:grab;background:'+(isAnchor?'#eff6ff':'#fff')+';border:1px solid '+(isAnchor?'#3b82f6':'#e2e8f0')+'">'
+            +'<td style="text-align:center;font-weight:700;color:#64748b">'+(i+1)+'</td>'
+            +'<td style="text-align:center;color:#94a3b8;cursor:grab" title="Zum Verschieben ziehen">⠿</td>'
+            +'<td style="font-weight:700">'+escHtml(id)+(isAnchor?' <span style="background:#3b82f6;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.7rem">Anker</span>':'')+'</td>'
+            +'<td>'+escHtml(o.art||'–')+'</td>'
+            +'<td style="text-align:right">'+_seqFmtN(o.qty)+'</td>'
+            +'<td>'+_seqFmtD(o.startIso)+'</td><td>'+_seqFmtD(o.endIso)+'</td>'
+            +newCol
+            +'</tr>';
+    }).join('');
+    c.innerHTML='<table class="ov-table" style="width:100%"><thead><tr>'
+        +'<th>Seq</th><th></th><th>'+(_seqState.isFrame?'IO #':'SO #')+'</th><th>Article</th><th style="text-align:right">Qty</th>'
+        +'<th>Start</th><th>Ende</th><th style="color:#1e40af">Neu Start</th><th style="color:#1e40af">Neu Ende</th>'
+        +'</tr></thead><tbody>'+rows+'</tbody></table>'
+        +'<div class="ov-foot">'+_seqState.orderIds.length+' Auftrag/Aufträge · Reihenfolge per Drag&amp;Drop · Spalten „Neu" zeigen die Vorschau.</div>';
+    _seqWireDnD();
+}
+
+function _seqWireDnD(){
+    const c=$('orderSequenceList'); if(!c) return;
+    let dragId=null;
+    c.querySelectorAll('.seq-row').forEach(row=>{
+        row.addEventListener('dragstart',e=>{ dragId=row.dataset.id; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',dragId);}catch(_){} row.style.opacity='0.5'; });
+        row.addEventListener('dragend',e=>{ row.style.opacity=''; });
+        row.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; row.style.borderTop='2px solid #3b82f6'; });
+        row.addEventListener('dragleave',e=>{ row.style.borderTop=''; });
+        row.addEventListener('drop',e=>{
+            e.preventDefault(); row.style.borderTop='';
+            const targetId=row.dataset.id; if(!dragId || dragId===targetId) return;
+            const ids=_seqState.orderIds; const fromIdx=ids.indexOf(dragId), toIdx=ids.indexOf(targetId);
+            if(fromIdx<0||toIdx<0) return;
+            ids.splice(fromIdx,1); ids.splice(toIdx,0,dragId);
+            _seqState.anchorId=dragId;
+            const o=_seqState.orders.find(x=>x.id===dragId);
+            _seqState.anchorStartIso=o?o.startIso:'';
+            _seqState.preview=null;
+            $('seqApplyBtn').disabled=true;
+            $('seqWarn').style.display='none';
+            $('seqAnchorLbl').textContent=dragId+(o?(' · '+(o.art||'')):'');
+            $('seqAnchorDate').value=o?o.startIso:'';
+            $('seqAnchorBar').style.display='flex';
+            renderSeqList();
+        });
+    });
+}
+
+function seqPreview(){
+    if(!_seqState) return;
+    const anchorStart=String($('seqAnchorDate').value||'').trim();
+    if(_seqState.anchorId && !anchorStart){ alert('Bitte einen neuen Starttermin für den verschobenen Auftrag angeben.'); $('seqAnchorDate').focus(); return; }
+    _seqState.anchorStartIso=anchorStart;
+    const byId={}; _seqState.orders.forEach(o=>byId[o.id]=o);
+    const seqOrders=_seqState.orderIds.map(id=>{ const o=byId[id]; return {id, qty:Math.round(o.qty), art:o.art}; });
+    const anchorIdx=_seqState.anchorId?_seqState.orderIds.indexOf(_seqState.anchorId):0;
+    const res=recomputeLineSchedule(seqOrders, anchorIdx, anchorStart||(seqOrders[0]&&byId[seqOrders[0].id].startIso));
+    _seqState.preview=res;
+    const w=$('seqWarn');
+    if(res.warning){ w.textContent='⚠ '+res.warning; w.style.display=''; } else { w.style.display='none'; }
+    $('seqApplyBtn').disabled=false;
+    renderSeqList();
+}
+
+async function seqApply(){
+    if(!_seqState || !_seqState.preview){ alert('Bitte zuerst eine Vorschau berechnen.'); return; }
+    if(!currentCanApprove && currentUserRole!=='manager' && currentUserRole!=='admin'){ alert('Keine Berechtigung.'); return; }
+    const { tab, isFrame, orders, preview }=_seqState;
+    const byId={}; orders.forEach(o=>byId[o.id]=o);
+    const changed=preview.orders.filter(p=>{ const o=byId[p.id]; if(!o) return false; const newIsos=p.seq.map(s=>s.iso).join(','); const oldIsos=(o.isos||[]).join(','); return newIsos!==oldIsos; });
+    if(!changed.length){ alert('Keine Terminänderungen — nichts zu speichern.'); return; }
+    if(!confirm('Reihenfolge anwenden? '+changed.length+' Auftrag/Aufträge werden im Kalender neu terminiert'+
+                (preview.warning?('\n\n⚠ '+preview.warning):'')+'\n\nFortfahren?')) return;
+    try{
+        const salesCol=TAB_CONFIG[tab].salesCol;
+        const qtyKey=fieldKey('Production Plan','','Qty');
+        const palKey=fieldKey('Production Plan','','PAL');
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        const batch=db.batch();
+        changed.forEach(p=>{
+            const o=byId[p.id]; if(!o) return;
+            // alte Tagesdocs löschen
+            (o.refs||[]).forEach(ref=>batch.delete(ref));
+            const ratio=(o.qty>0)?(o.pal/o.qty):0; // Paletten pro Stück (für per-Tag-PAL)
+            p.seq.forEach(s=>{
+                const iso=s.iso; let iw={year:0,week:0}; try{ iw=getIsoWeek(new Date(iso+'T00:00:00')); }catch(_){}
+                const fields={...(o.fields||{})};
+                fields[qtyKey]=String(s.qty);
+                const palDay=ratio*s.qty; fields[palKey]=Number.isInteger(palDay)?String(palDay):(Math.round(palDay*10)/10).toString().replace('.',',');
+                const docId=isFrame?(String(p.id).replace(/[^A-Za-z0-9_-]/g,'_')+'_'+iso):_assemblyDayDocId(iso, p.id);
+                const docData={ datum:iso, jahr:iw.year, kw:iw.week, fields, updatedAt:ts, updatedBy:currentUid, createdAt:ts, createdBy:currentUid };
+                if(isFrame){ docData.ioNr=p.id; if(o.frameTpl) docData.framePayload=o.frameTpl; docData.dayQty=s.qty; docData.dayShifts=s.shifts; docData.dayCapacity=s.capacity; }
+                batch.set(db.collection(salesCol).doc(docId), docData, {merge:true});
+            });
+        });
+        await batch.commit();
+        // Sequenz speichern
+        try{
+            await db.collection('order_sequence').doc(tab).set({ tab, order:_seqState.orderIds, anchorOrderId:_seqState.anchorId||null, anchorStartIso:_seqState.anchorStartIso||null, updatedAt:ts, updatedByEmail:currentUserEmail }, {merge:true});
+        }catch(e){ console.warn('order_sequence save:',e); }
+        // Produktionsplan-Spiegel der geänderten Aufträge re-synchronisieren (Start/Ende/Tage)
+        const prodCol=TAB_CONFIG[tab].prodCol;
+        for(const p of changed){
+            try{
+                const field=isFrame?'Sales Order XO':'sourceSoNr';
+                const snap=await db.collection(prodCol).where(field,'==',p.id).get();
+                if(!snap.empty){
+                    const b2=db.batch();
+                    snap.forEach(d=>b2.update(d.ref,{ sourceStartIso:p.startIso, sourceEndIso:p.endIso, sourceDaysCount:p.days, _apResequencedAt:ts }));
+                    await b2.commit();
+                }
+            }catch(e){ console.warn('Produktionsplan re-sync ('+p.id+'):',e); }
+        }
+        // Audit-Protokoll (append-only)
+        try{
+            await _logProtocol('resequenced', null, tab, { payload:{ header:{ so:'(Order Sequence)' } }, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null },
+                'Neue Reihenfolge: '+_seqState.orderIds.join(' → ')+(_seqState.anchorId?(' · Anker '+_seqState.anchorId+' @ '+_seqState.anchorStartIso):'')+(preview.warning?(' · '+preview.warning):''));
+        }catch(e){ console.warn('protocol (resequenced):',e); }
+        showMsg('Reihenfolge angewendet · '+changed.length+' Auftrag/Aufträge neu terminiert.','success');
+        closeOrderSequence();
+        await loadWeek();
+    }catch(e){ console.error('seqApply:',e); alert('Anwenden fehlgeschlagen: '+e.message); }
 }
 
 async function flushPending(){
