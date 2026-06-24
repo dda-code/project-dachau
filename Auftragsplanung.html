@@ -380,14 +380,14 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
               </div>
               <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef" required title="Datum, an dem der Kunde den Auftrag an XO erteilt hat — Pflichtfeld"></label>
               <label>Pick-Up (acc. Customer PO)<span style="color:#dc2626;font-weight:700"> *</span><input id="o_pickupCustPo" type="date" class="ef" required title="Abhol-/Liefertermin laut Kunden-PO — Pflichtfeld, ohne dieses Datum kann kein Request gesendet werden"></label>
-              <label>Price (acc. Customer PO)<span id="o_priceCustPoStar" style="color:#dc2626;font-weight:700"> *</span>
+              <label>Price (acc. Customer PO) (€/1000 pcs.)<span id="o_priceCustPoStar" style="color:#dc2626;font-weight:700"> *</span>
                   <span style="display:flex;align-items:stretch;gap:4px">
                       <input id="o_priceCustPo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" class="ef" style="flex:1;min-width:0;text-align:right" title="Preis laut Kunden-PO">
                       <span style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
                   </span>
               </label>
               <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
-                  <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price (€/1000 pcs.)</span>
+                  <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price XO (€/1000 pcs.)</span>
                   <div style="display:flex;gap:4px;align-items:stretch">
                       <input id="o_approverPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" title="Suggested from pricelist — editable" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;font-weight:700;text-align:right;background:#fffbeb;min-height:38px;box-sizing:border-box;color:#0f172a">
                       <span id="o_approverPriceCcy" style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
@@ -3187,7 +3187,7 @@ function _apSalesCard(it, mode){
             cellLabel('PO Issue Date', h.poIssueDate?fmtDateDe(h.poIssueDate):'–'),
             cellLabel('Pick-Up (Deadline)', h.pickup?fmtDateDe(h.pickup):'–'),
             cellLabel('Pick-Up (acc. Customer PO)', h.pickupCustPo?fmtDateDe(h.pickupCustPo):'–'),
-            cellLabel('Price (acc. Customer PO)', h.priceCustPo?(esc(h.priceCustPo)+' EUR'):'–'),
+            cellLabel('Price (acc. Customer PO)', h.priceCustPo?(esc(h.priceCustPo)+' €/1000 pcs.'):'–'),
             cellLabel('Pallets',esc(h.pal)),
             cellLabel('Quantity (pcs)', fmtNum(h.qty)||esc(h.qty))
         ].join('');
@@ -3391,7 +3391,7 @@ async function renderPendingList(targetId){
                     ${cellLabel('End',escHtml(h.end))}
                     ${cellLabel('Pick up Deadline',h.pickup?fmtDateDe(h.pickup):'–')}
                     ${cellLabel('Pick-Up (acc. Customer PO)',h.pickupCustPo?fmtDateDe(h.pickupCustPo):'–')}
-                    ${cellLabel('Price (acc. Customer PO)',h.priceCustPo?(escHtml(h.priceCustPo)+' EUR'):'–')}
+                    ${cellLabel('Price (acc. Customer PO)',h.priceCustPo?(escHtml(h.priceCustPo)+' €/1000 pcs.'):'–')}
                     ${cellLabel('Duration (days)',escHtml(h.days))}
                     ${cellLabel('Pallets',palDisp)}
                     ${cellLabel('Quantity (pcs)',qtyDisp)}
@@ -4346,7 +4346,7 @@ function generateOrderPdf(payload, kind, meta){
         ['End date', fmtDateDe(h.end)],
         ['Pick-Up (Deadline)', fmtDateDe(h.pickup)],
         ['Pick-Up (acc. Customer PO)', fmtDateDe(h.pickupCustPo)],
-        ['Price (acc. Customer PO)', h.priceCustPo?(h.priceCustPo+' EUR'):''],
+        ['Price (acc. Customer PO)', h.priceCustPo?(h.priceCustPo+' €/1000 pcs.'):''],
         ['Quantity', fmtDe(h.qty)],
         ['Pallets', h.pal],
     ]);
@@ -5350,6 +5350,18 @@ async function saveOrder(mode){
     }
     if(mode==='approve' && !currentCanApprove){
         alert('No permission to approve.'); return;
+    }
+    // Freigabe-Sperre: ohne gültigen Unit Price XO (€/1000 pcs.) darf NICHT freigegeben werden
+    // (weder Direct-Approve noch Review-Approve). Preis kommt entweder aus der Preisliste (Vorschlag) oder manuell.
+    if(mode==='approve' || mode==='direct'){
+        const rawUp=String($('o_approverPrice')?.value||'').trim().replace(/\s/g,'').replace(',','.');
+        const up=parseFloat(rawUp);
+        if(!(isFinite(up) && up>0)){
+            alert('⚠ Kein Unit Price XO hinterlegt.\n\nDer Auftrag kann nicht freigegeben werden, solange kein Unit Price XO (€/1000 pcs.) eingetragen oder aus der Preisliste verfügbar ist.\nBitte den Preis im Feld „Unit Price XO (€/1000 pcs.)" eingeben.');
+            const fld=$('o_approverPrice');
+            if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor='#cbd5e1'; fld.style.background='#fffbeb'; },3000); }
+            return;
+        }
     }
     // Capacity HARD BLOCK (new orders): a required working day is fully booked by another order.
     const plan=computeOrderPlan();
