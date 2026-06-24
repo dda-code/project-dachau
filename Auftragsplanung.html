@@ -5078,12 +5078,8 @@ function _checkPricelistMatch(){
     const art=String(($('o_art')?.value)||'').trim();
     const cust=String(($('o_cust')?.value)||'').trim();
     if(!art || !cust){ w.style.display='none'; return; }
-    // Pricelist not yet loaded → show banner with hint
-    if(!Array.isArray(pricelistRows) || !pricelistRows.length){
-        if(wt) wt.textContent='Pricelist is still loading — please wait a moment, or check the pricelist in approver mode.';
-        w.style.display='';
-        return;
-    }
+    // Preisliste (noch) nicht geladen → keine Aussage möglich → KEINE Meldung (nur echte Mismatches melden).
+    if(!Array.isArray(pricelistRows) || !pricelistRows.length){ w.style.display='none'; return; }
     const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
     const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust.toLowerCase() && _norm(r.articleNr)===_norm(art));
     const priceInp=$('o_approverPrice');
