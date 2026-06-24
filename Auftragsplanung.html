@@ -297,7 +297,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
             <span class="week-label" id="weekLabel">– – / –</span>
             <button type="button" onclick="navMonth(1)" title="2 weeks forward">▶</button>
         </div>
-        <button class="btn btn-sm btn-secondary" onclick="gotoToday()">Today</button>
+        <button class="btn btn-sm btn-secondary" id="todayBtn" onclick="gotoToday()">Today</button>
         <button class="btn btn-sm btn-primary" id="newOrderBtn" onclick="openOrderModal()">New Order</button>
         <button class="btn btn-sm btn-secondary" id="ordersOverviewBtn" onclick="openOrdersOverview()">Orders Overview</button>
         <button class="btn btn-sm btn-secondary" id="shiftPlannerBtn" onclick="openShiftPlanner()" style="display:none">Shift &amp; KPI Planning</button>
@@ -369,7 +369,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                       <button type="button" class="pal-btn" onclick="stepPal(1)" title="Increase pallets">+</button>
                   </span>
               </label>
-              <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+              <div id="o_outdayWrap" style="display:flex;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Daily Output/d (pcs.)</span>
                   <div style="display:flex;gap:4px">
                       <input id="o_outday" type="text" class="ef" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;min-height:38px;box-sizing:border-box">
@@ -377,6 +377,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                   </div>
               </div>
               <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef" required title="Datum, an dem der Kunde den Auftrag an XO erteilt hat — Pflichtfeld"></label>
+              <label>Pick-Up (acc. Customer PO)<span style="color:#dc2626;font-weight:700"> *</span><input id="o_pickupCustPo" type="date" class="ef" required title="Abhol-/Liefertermin laut Kunden-PO — Pflichtfeld, ohne dieses Datum kann kein Request gesendet werden"></label>
               <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price (€/1000 pcs.)</span>
                   <div style="display:flex;gap:4px;align-items:stretch">
@@ -644,6 +645,8 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
 <div id="msgArea"></div>
 <div id="gridArea" class="grid-wrap"><div class="loading">Loading data…</div></div>
 <div id="pendingArea" style="display:none;padding:16px"></div>
+<!-- Kalenderfreie Sales-Ansicht (nur Rolle 'sales'): Anlegen-Buttons + eigene Anfrage-Listen -->
+<div id="salesView" style="display:none;padding:20px 18px;max-width:1100px;margin:0 auto"></div>
 
 <div class="modal-overlay" id="pendingModal" style="display:none;z-index:850" onclick="if(event.target===this)closePendingModal()">
   <div class="modal-card" style="width:min(1200px,96%);max-height:92vh;overflow:auto">
@@ -832,6 +835,8 @@ if(_USE_EMULATOR){
 
 const $=id=>document.getElementById(id);
 let currentUserRole='user', currentUid=null, currentUserEmail='', currentCanApprove=false;
+let _apSalesMode=false;       // true wenn currentUserRole==='sales' → kalenderfreie Sales-Ansicht (kein Approver, kein Grid)
+let _apSalesListsUnsub=null;  // Listener unsubscribe für die persönlichen Sales-Listen (offen/freigegeben)
 let _reviewingPendingId=null; // ID of a pending_orders doc currently under review in the modal
 let _editingOwnPendingId=null; // ID einer eigenen Pending-Anfrage, die der Manager selbst nachbearbeitet
 let _pendingUnsub=null;       // Listener unsubscribe for pending list (badge, all tabs)
@@ -882,6 +887,9 @@ function startGridLiveListeners(){
     if(_gridProdUnsub){    try{ _gridProdUnsub();    }catch(_){} _gridProdUnsub=null; }
     if(_gridAckUnsub){     try{ _gridAckUnsub();     }catch(_){} _gridAckUnsub=null; }
     _lvProdById={}; _lvAckById={}; _lvProdLoaded=false;
+    // Sales-Modus: kein Kalender → keine Grid-Listener (würden auf sales_plan*/produktionsplan*/lv_change_ack
+    // permission-denied werfen). Alte Listener wurden oben bereits unsubscribed.
+    if(_apSalesMode) return;
     if(!currentUid || !currentTab) return;
     let firstP=true, firstS=true;
     _gridPendingUnsub=db.collection(_pendingColForTab(currentTab))
@@ -924,7 +932,7 @@ function _uidLabel(uid){
     const u=usersCache[uid];
     if(!u) return uid;
     const name=u.displayName||(u.email?String(u.email).replace('@lager.local',''):uid);
-    const role=u.role==='admin'?' (Admin)':(u.role==='manager'?' (Manager)':(u.role==='qs'?' (QS)':''));
+    const role=u.role==='admin'?' (Admin)':(u.role==='manager'?' (Manager)':(u.role==='qs'?' (QS)':(u.role==='sales'?' (Sales)':'')));
     return name+role;
 }
 let currentYear, currentWeek, currentMonth;
@@ -1208,6 +1216,9 @@ auth.onAuthStateChanged(async user=>{
         document.getElementById('loginView').style.display='flex';
         document.getElementById('appView').style.display='none';
         currentUid=null; currentUserRole='user'; currentUserEmail='';
+        // Sales-Listener nach Logout beenden (sonst Dauer-permission-denied auf requestedBy==uid).
+        if(_apSalesListsUnsub){ try{ _apSalesListsUnsub(); }catch(_){} _apSalesListsUnsub=null; }
+        _apSalesMode=false;
         const pw=document.getElementById('password'); if(pw) pw.value='';
         return;
     }
@@ -1223,13 +1234,14 @@ auth.onAuthStateChanged(async user=>{
             currentCanApprove=!!uData.canApprove;
         }catch(e){ console.warn('Loading role failed',e); }
     }
+    _apSalesMode=(currentUserRole==='sales');  // kalenderfreie Sales-Ansicht; setzt NIE currentCanApprove=true
     if(_apIsBlocked(currentUserEmail)){
         const err=document.getElementById('loginError');
         if(err){ err.textContent='No permission for Order Planning.'; err.style.display='block'; }
         await auth.signOut().catch(()=>{});
         return;
     }
-if(currentUserRole!=='admin' && currentUserRole!=='manager'){
+if(currentUserRole!=='admin' && currentUserRole!=='manager' && currentUserRole!=='sales'){
         const err=document.getElementById('loginError');
         if(err){ err.textContent='No permission for Order Planning. Role: '+currentUserRole; err.style.display='block'; }
         await auth.signOut().catch(()=>{});
@@ -1238,14 +1250,31 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager'){
     document.getElementById('loginView').style.display='none';
     document.getElementById('appView').style.display='block';
     const uName=user.displayName||user.email.replace('@lager.local','');
-    const label=currentUserRole==='admin'?' (Admin)':' (Manager)';
+    const label=currentUserRole==='admin'?' (Admin)':(currentUserRole==='sales'?' (Sales)':' (Manager)');
     $('userEmail').textContent=uName+label;
+    // ── SALES-MODUS: kalenderfreie Ansicht (Formular + eigene Anfrage-Listen). ──
+    // Muss VOR startGridLiveListeners + dem _apBooted/loadWeek-Block greifen.
+    if(_apSalesMode){
+        if(_apSalesListsUnsub){ try{ _apSalesListsUnsub(); }catch(_){} _apSalesListsUnsub=null; }
+        _apApplySalesChrome();                 // Kalender-/Approver-Chrome ausblenden, #salesView zeigen
+        if(!_apBooted){
+            _apBooted=true;
+            try{ await loadEndsPerPal(); }catch(_){}
+            try{ await loadArticles(); }catch(_){}
+            try{ await loadFrameArticles(); }catch(_){}
+            try{ await loadPalletAndSleeve(); }catch(_){}
+        }
+        renderSalesView();
+        startSalesListsListener();
+        return;   // KEIN loadUsersCache (users-list=isQS), KEIN startGridLiveListeners, KEIN loadWeek
+    }
     // Pending-Listener bei jedem Login (nicht nur beim ersten) neu initialisieren,
     // damit ein Wechsel von Nicht-Freigeber → Freigeber den Counter aktiviert.
     const pendBtn=$('pendingTabBtn');
     const pendTopBtn=$('pendingTopBtn');
     if(_pendingUnsub){ try{ _pendingUnsub(); }catch(_){} _pendingUnsub=null; }
     if(_myRejectedUnsub){ try{ _myRejectedUnsub(); }catch(_){} _myRejectedUnsub=null; }
+    if(_apSalesListsUnsub){ try{ _apSalesListsUnsub(); }catch(_){} _apSalesListsUnsub=null; }
     if(currentCanApprove){
         if(pendBtn) pendBtn.style.display='';
         startPendingBadgeListener();
@@ -1678,6 +1707,9 @@ async function loadFertigpaletten(){
     }catch(e){ console.warn('Loading finished pallets:',e); }
 }
 async function loadWeek(){
+    // Sales-Modus: kein Kalender. Alle Aktionen (saveOrder/withdraw/…) rufen am Ende loadWeek() —
+    // hier zentral abfangen und stattdessen die persönliche Sales-Ansicht neu zeichnen.
+    if(_apSalesMode){ try{ renderSalesView(); }catch(_){} return; }
     if(!currentAnchor) currentAnchor=mondayOf(new Date());
     const iw1=getIsoWeek(currentAnchor);
     const d8=new Date(currentAnchor); d8.setDate(currentAnchor.getDate()+7);
@@ -2567,7 +2599,7 @@ function prefillOutDayFromShiftPlan(){
 function openOrderModal(){
     if(currentTab==='frame'){ openFrameOrderModal(); return; }
     if(currentTab!=='assembly'){ showMsg('Order function is only available in the Assembly tab.','error'); return; }
-    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup','o_poIssueDate'].forEach(id=>{const e=$(id); if(e) e.value='';});
+    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup','o_poIssueDate','o_pickupCustPo'].forEach(id=>{const e=$(id); if(e) e.value='';});
     ['k_cycle','k_cav','k_hrs','k_shift','k_days','k_scrap','k_oee'].forEach(id=>{const e=$(id); if(e) e.value='';});
     if($('o_sat')) $('o_sat').checked=false;
     if($('o_sun')) $('o_sun').checked=false;
@@ -2623,10 +2655,27 @@ function openOrderModal(){
         _t.setDate(_t.getDate()-(_dow-1));
         previewAnchor=_t;
     }
+    // SALES-MODUS: alle Produktions-/Scheduling-Bereiche ausblenden (kein Start/Termin, keine Vorschau,
+    // keine Kapazitäts-/Schichtfelder). Kommerzielle Felder (SO/PO/Art/Customer/Pickup/PAL/PO-Issue) bleiben.
+    if(_apSalesMode){
+        const m=$('orderModal');
+        const hideEl=el=>{ if(el) el.style.display='none'; };
+        hideEl($('o_start')?.closest('label'));
+        hideEl($('o_outdayWrap'));
+        hideEl($('o_qty')?.closest('.order-section'));   // grauer "Calculated (auto)"-Block
+        hideEl($('o_calc'));
+        hideEl(m.querySelector('.preview-title'));
+        hideEl(m.querySelector('.mini-cal-head'));
+        hideEl($('o_mini'));
+        hideEl($('shiftPopover'));
+        hideEl($('o_wknd_block'));
+        hideEl($('o_pricelistWarn'));
+    }
     $('orderModal').classList.add('open');
     // Pricelist im Hintergrund laden — auch fuer Manager noetig, damit der Mismatch-Check und
     // der Shell-Hersteller-Lookup funktionieren (loadPricelist war bisher nur fuer Approver getriggert).
-    if(!pricelistRows.length){ loadPricelist().then(()=>_updateArtInfo()).catch(e=>console.warn('loadPricelist:',e)); }
+    // Sales liest customer_price_terms NICHT (Rules) → überspringen, sonst permission-denied.
+    if(!_apSalesMode && !pricelistRows.length){ loadPricelist().then(()=>_updateArtInfo()).catch(e=>console.warn('loadPricelist:',e)); }
     _updateArtInfo();
     // Delegation: jeder Input im Modal triggert recalc (einmal binden)
     if(!openOrderModal._bound){
@@ -2704,8 +2753,11 @@ function openOrderModal(){
             }
         });
     }
-    loadPreview4w().then(renderOrderPreview);
-    recalcOrder(true);
+    // Sales: keine Vorschau-/Plan-Berechnung (liest sales_plan / würde Action-Buttons via HARD-BLOCK sperren).
+    if(!_apSalesMode){
+        loadPreview4w().then(renderOrderPreview);
+        recalcOrder(true);
+    }
 }
 function closeOrderModal(){
     $('orderModal').classList.remove('open');
@@ -2753,6 +2805,7 @@ function collectOrderPayload(){
         header:{
             so:get('o_so'), po:get('o_po'), art:get('o_art'), cust:get('o_cust'),
             start:get('o_start'), pickup:get('o_pickup'), poIssueDate:get('o_poIssueDate'),
+            pickupCustPo:get('o_pickupCustPo'),
             qty:get('o_qty'), pal:get('o_pal'), outday:get('o_outday'),
             days:get('o_days'), end:get('o_end'),
             sat:chk('o_sat'), sun:chk('o_sun'), holiday:chk('o_holiday')
@@ -2783,6 +2836,7 @@ function applyOrderPayload(p){
     const chk=(id,v)=>{ const e=$(id); if(e) e.checked=!!v; };
     const h=p.header||{};
     set('o_so',h.so); set('o_po',h.po); set('o_art',h.art); set('o_cust',h.cust);
+    set('o_pickupCustPo',h.pickupCustPo);
     if(typeof populateCustomerDropdown==='function') populateCustomerDropdown(); // ensures the value is a valid option
     if(typeof populateArtDropdown==='function') populateArtDropdown(); // same for Art # — adds ghost option for legacy values
     set('o_start',h.start); set('o_pickup',h.pickup); set('o_poIssueDate',h.poIssueDate);
@@ -2993,6 +3047,143 @@ async function acknowledgeRejected(id, tab){
     }
 }
 
+// ============================================================
+// SALES-ANSICHT (Rolle 'sales') — kalenderfrei: Anlegen + eigene Anfrage-Listen
+// ============================================================
+let _apSalesDocs={};       // {tab: [{id,tab,...data}]} — live aus pending_orders_* (requestedBy==uid)
+let _apSalesLoaded=false;  // erst true nach dem ersten onSnapshot je Tab
+
+// Blendet das gesamte Kalender-/Approver-Chrome aus und zeigt #salesView.
+function _apApplySalesChrome(){
+    document.querySelectorAll('.week-nav').forEach(e=>{ e.style.display='none'; });
+    const tabsBar=document.querySelector('.tabs-bar'); if(tabsBar) tabsBar.style.display='none';
+    ['todayBtn','newOrderBtn','ordersOverviewBtn','shiftPlannerBtn','pricelistBtn','protocolBtn',
+     'pendingTopBtn','myRejectedTopBtn','pendingTabBtn','gridArea','footerBar','pendingArea']
+        .forEach(id=>{ const el=$(id); if(el) el.style.display='none'; });
+    const sv=$('salesView'); if(sv) sv.style.display='';
+}
+
+// Live-Listener auf die EIGENEN Anfragen beider Tabs (Query immer requestedBy==uid → rule-konform).
+function startSalesListsListener(){
+    if(_apSalesListsUnsub){ try{ _apSalesListsUnsub(); }catch(_){} _apSalesListsUnsub=null; }
+    if(!currentUid) return;
+    _apSalesDocs={}; _apSalesLoaded=false;
+    const tabs=Object.keys(TAB_CONFIG);
+    const unsubs=tabs.map(t=>{
+        return db.collection(_pendingColForTab(t))
+            .where('requestedBy','==',currentUid)
+            .onSnapshot(snap=>{
+                const arr=[]; snap.forEach(d=>arr.push({id:d.id, tab:t, ...d.data()}));
+                _apSalesDocs[t]=arr; _apSalesLoaded=true;
+                renderSalesView();
+            }, err=>console.warn('sales lists listener:',err));
+    });
+    _apSalesListsUnsub=()=>unsubs.forEach(u=>{ try{u();}catch(_){} });
+}
+
+// Eine Auftrags-Karte für die Sales-Listen (mode: 'pending' | 'approved' | 'rejected').
+function _apSalesCard(it, mode){
+    const esc=escHtml;
+    const fmtTs=ts=>{ try{ const d=ts&&ts.toDate?ts.toDate():null; return d?d.toLocaleString('de-DE'):'–'; }catch(_){ return '–'; } };
+    const fmtNum=v=>{ const s=String(v||'').replace(/[.\s]/g,'').replace(',','.'); const n=parseFloat(s); return isFinite(n)&&n!==0?n.toLocaleString('de-DE',{maximumFractionDigits:2}):''; };
+    const fmtDateDe=s=>{ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}.${m[2]}.${m[1]}`:(s||''); };
+    const cellLabel=(label,value)=>`<div style="min-width:0"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;font-weight:600;white-space:nowrap">${esc(label)}</div><div style="font-size:0.92rem;color:#0f172a;font-weight:600;margin-top:2px;line-height:1.3;word-break:break-word;overflow-wrap:anywhere">${value||'–'}</div></div>`;
+    const tabBadge=`<span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;white-space:nowrap">${esc(TAB_CONFIG[it.tab]?.title||it.tab)}</span>`;
+    const statusBadge = mode==='pending'
+        ? `<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">WARTET AUF FREIGABE</span>`
+        : (mode==='approved'
+            ? `<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">FREIGEGEBEN</span>`
+            : `<span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">ABGELEHNT</span>`);
+    const updTag=it.isUpdated?`<span style="background:#ddd6fe;color:#5b21b6;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700">🔄 v${it.updateCount||1}</span>`:'';
+    const border = mode==='approved' ? '#bbf7d0' : (mode==='rejected' ? '#fecaca' : '#fde68a');
+    // Meta rechts oben (Datum/Bearbeiter je nach Status)
+    let metaRight='';
+    if(mode==='pending') metaRight=`<div style="white-space:nowrap">angefragt: ${fmtTs(it.requestedAt)}</div>`;
+    else if(mode==='approved') metaRight=`<div>freigegeben von <strong>${esc((it.approvedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.approvedAt)}</div>`;
+    else metaRight=`<div>abgelehnt von <strong>${esc((it.rejectedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.rejectedAt)}</div>`;
+    // Klick-Aktion: nur offene Anfragen sind editierbar/zurückziehbar.
+    const clickable = (mode==='pending');
+    const onClick = clickable ? ` onclick="openPendingForOwnerEdit('${esc(it.id)}','${esc(it.tab)}')" title="Bearbeiten / zurückziehen"` : '';
+    const cursor = clickable ? 'cursor:pointer;' : '';
+    // Felder je Produktlinie
+    let title='', fields='';
+    if(it.tab==='frame'){
+        const p=it.payload||{};
+        title=esc(p.ioNr||'IO –');
+        fields=[
+            cellLabel('Article #',esc(p.artikelNr)),
+            cellLabel('Pallets', fmtNum(p.anzahlPaletten)||esc(p.anzahlPaletten)),
+            cellLabel('Total QTY (pcs)', fmtNum(p.mengeGesamt)||esc(p.mengeGesamt)),
+            (p.comment&&String(p.comment).trim())?cellLabel('Comment',esc(p.comment)):''
+        ].join('');
+    } else {
+        const h=(it.payload&&it.payload.header)||{};
+        title='SO '+esc(h.so||'–');
+        fields=[
+            cellLabel('PO #',esc(h.po)),
+            cellLabel('Customer',esc(h.cust)),
+            cellLabel('Article',esc(h.art)),
+            cellLabel('PO Issue Date', h.poIssueDate?fmtDateDe(h.poIssueDate):'–'),
+            cellLabel('Pick-Up (Deadline)', h.pickup?fmtDateDe(h.pickup):'–'),
+            cellLabel('Pick-Up (acc. Customer PO)', h.pickupCustPo?fmtDateDe(h.pickupCustPo):'–'),
+            cellLabel('Pallets',esc(h.pal)),
+            cellLabel('Quantity (pcs)', fmtNum(h.qty)||esc(h.qty))
+        ].join('');
+    }
+    const reason = (mode==='rejected' && it.rejectComment)
+        ? `<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#991b1b;font-weight:700;margin-bottom:4px">Ablehnungsgrund</div><div style="font-size:0.9rem;color:#7f1d1d;white-space:pre-wrap">${esc(it.rejectComment)}</div></div>` : '';
+    const ackBtn = (mode==='rejected')
+        ? `<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-sm btn-secondary" onclick="acknowledgeRejected('${esc(it.id)}','${esc(it.tab)}')" title="Zur Kenntnis genommen – Eintrag entfernen">✓ Zur Kenntnis</button></div>` : '';
+    return `<div style="background:#fff;border:1px solid ${border};border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);${cursor}"${onClick}>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
+                ${tabBadge}
+                <strong style="font-size:1.05rem;color:#0f172a;word-break:break-all">${title}</strong>
+                ${statusBadge}${updTag}
+            </div>
+            <div style="font-size:0.78rem;color:#64748b;text-align:right;min-width:0">${metaRight}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px">${fields}</div>
+        ${reason}${ackBtn}
+    </div>`;
+}
+
+// Zeichnet die komplette Sales-Ansicht (Header + Anlegen-Buttons + Listen offen/freigegeben/abgelehnt).
+function renderSalesView(){
+    const area=$('salesView');
+    if(!area) return;
+    const all=[];
+    Object.keys(_apSalesDocs||{}).forEach(t=>{ (_apSalesDocs[t]||[]).forEach(d=>all.push(d)); });
+    const ms=ts=>(ts&&ts.toMillis?ts.toMillis():0);
+    const pending =all.filter(d=>d.status==='pending').sort((a,b)=>ms(b.requestedAt)-ms(a.requestedAt));
+    const approved=all.filter(d=>d.status==='approved').sort((a,b)=>ms(b.approvedAt)-ms(a.approvedAt));
+    const rejected=all.filter(d=>d.status==='rejected').sort((a,b)=>ms(b.rejectedAt)-ms(a.rejectedAt));
+    const section=(label,color,items,mode)=>{
+        const head=`<div style="display:flex;align-items:center;gap:8px;margin:22px 0 12px"><h2 style="margin:0;font-size:1.1rem;color:#0f172a">${label}</h2><span style="background:${color};color:#fff;border-radius:12px;padding:2px 10px;font-size:0.82rem;font-weight:700">${items.length}</span></div>`;
+        const body = items.length
+            ? items.map(it=>_apSalesCard(it,mode)).join('')
+            : `<div style="padding:18px;text-align:center;color:#94a3b8;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">${mode==='pending'?'Keine offenen Anfragen.':(mode==='approved'?'Noch nichts freigegeben.':'Keine abgelehnten Anfragen.')}</div>`;
+        return head+body;
+    };
+    const header=`
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px">
+            <h1 style="margin:0;font-size:1.4rem;color:#0f172a">Aufträge zur Freigabe</h1>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="openOrderModal()">+ Neuer Auftrag (Assembly)</button>
+                <button class="btn btn-secondary" onclick="openFrameOrderModal()">+ Neuer Auftrag (Frame)</button>
+            </div>
+        </div>
+        <p style="margin:0 0 4px;color:#64748b;font-size:0.9rem">Lege neue Aufträge zur Freigabe an. Den Produktionstermin legt der Freigeber fest.</p>`;
+    if(!_apSalesLoaded){
+        area.innerHTML=header+'<div class="loading" style="margin-top:20px">Lade deine Anfragen…</div>';
+        return;
+    }
+    area.innerHTML = header
+        + section('Offen – warten auf Freigabe', '#f59e0b', pending, 'pending')
+        + section('Bereits freigegeben', '#16a34a', approved, 'approved')
+        + (rejected.length ? section('Abgelehnt', '#dc2626', rejected, 'rejected') : '');
+}
+
 async function renderPendingList(targetId){
     const area=$(targetId||'pendingArea');
     if(!area) return;
@@ -3111,6 +3302,11 @@ async function renderPendingList(targetId){
             const qtyDisp=fmtNum(h.qty)||escHtml(h.qty)||'–';
             const palDisp=escHtml(h.pal)||'–';
             const priceCell=renderPriceCell(it);
+            // Terminlose Anfragen (z.B. von Sales: kein Start/gridData) können NICHT inline freigegeben werden
+            // (gäbe 0 Tagesdocs) → ins Vollmodal routen, wo der Freigeber terminiert.
+            const _hasSched=!!(h.start) && it.payload && it.payload.gridData && Object.keys(it.payload.gridData).length>0;
+            const _apprAction=_hasSched?`approvePendingInline('${escHtml(it.id)}','${escHtml(it.tab)}')`:`openPendingForReview('${escHtml(it.id)}','${escHtml(it.tab)}')`;
+            const _apprLabel=_hasSched?'Review &amp; Approve':'Terminieren &amp; Freigeben';
             return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;min-width:0">
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
@@ -3132,6 +3328,7 @@ async function renderPendingList(targetId){
                     ${cellLabel('Start',escHtml(h.start))}
                     ${cellLabel('End',escHtml(h.end))}
                     ${cellLabel('Pick up Deadline',h.pickup?fmtDateDe(h.pickup):'–')}
+                    ${cellLabel('Pick-Up (acc. Customer PO)',h.pickupCustPo?fmtDateDe(h.pickupCustPo):'–')}
                     ${cellLabel('Duration (days)',escHtml(h.days))}
                     ${cellLabel('Pallets',palDisp)}
                     ${cellLabel('Quantity (pcs)',qtyDisp)}
@@ -3139,7 +3336,7 @@ async function renderPendingList(targetId){
                 </div>
                 <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
                     <button class="btn btn-sm btn-secondary" onclick="rejectPending('${escHtml(it.id)}','${escHtml(it.tab)}')">Reject</button>
-                    <button class="btn btn-sm btn-primary" onclick="approvePendingInline('${escHtml(it.id)}','${escHtml(it.tab)}')">Review &amp; Approve</button>
+                    <button class="btn btn-sm btn-primary" onclick="${_apprAction}">${_apprLabel}</button>
                 </div>
             </div>`;
         }).join('');
@@ -3588,8 +3785,11 @@ async function approvePendingInline(id, tab){
         const snap=await ref.get();
         if(!snap.exists){ alert('Request no longer exists.'); renderPendingList('pendingModalBody'); return; }
         const data=snap.data();
+        if(data.status!=='pending'){ alert('This request is no longer open (status: '+data.status+').'); renderPendingList('pendingModalBody'); return; }
         const payload=data.payload||{};
         const gridData=payload.gridData||{};
+        // Terminlose Anfrage (kein Tagesplan, z.B. von Sales) → ins Vollmodal routen, damit der Freigeber terminiert.
+        if(!gridData || Object.keys(gridData).length===0){ closePendingModal(); openPendingForReview(id, tab); return; }
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         // 1) Tagesweise nach sales_plan schreiben
         const batch=db.batch();
@@ -3632,8 +3832,9 @@ async function approvePendingInline(id, tab){
         let transferMsg='';
         try{ transferMsg = await _autoTransferAfterApprove(finalPayload, gridData, tab); }
         catch(e){ console.warn('Auto-Transfer to produktionsplan:',e); transferMsg=' (auto-transfer failed: '+e.message+')'; }
-        // 6) Delete pending doc
-        try{ await ref.delete(); }catch(e){ console.warn('Pending delete:',e); }
+        // 6) Anfrage als freigegeben markieren (NICHT löschen) — bleibt als Nachweis in der Sales-Liste „freigegeben".
+        try{ await ref.update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp()}); }
+        catch(e){ console.warn('Pending status→approved:',e); }
         showMsg(`Order approved at ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000 pcs.${transferMsg}`,'success');
         await loadWeek();
         renderPendingList('pendingModalBody');
@@ -4081,6 +4282,7 @@ function generateOrderPdf(payload, kind, meta){
         ['PO Issue Date', fmtDateDe(h.poIssueDate)],
         ['End date', fmtDateDe(h.end)],
         ['Pick-Up (Deadline)', fmtDateDe(h.pickup)],
+        ['Pick-Up (acc. Customer PO)', fmtDateDe(h.pickupCustPo)],
         ['Quantity', fmtDe(h.qty)],
         ['Pallets', h.pal],
     ]);
@@ -4405,6 +4607,7 @@ function _firstFreeStartFrom(startIso){
     return '';
 }
 function recalcOrder(rebuildGrid){
+    if(_apSalesMode) return;  // Sales: keine Termin-/Kapazitätsberechnung
     const qty=parseThousands($('o_qty').value);
     const outDay=parseThousands($('o_outday').value);
     const start=$('o_start').value;
@@ -4598,6 +4801,7 @@ function renderOrderGrid(){
 }
 let orderPreviewPendingIso={}; // iso → {pendingId, requestedByEmail}
 async function loadPreview4w(){
+    if(_apSalesMode) return;  // Sales liest sales_plan nicht (Rules) — keine Vorschau
     orderPreviewDocs={};
     orderPreviewPendingIso={};
     try{
@@ -4848,6 +5052,7 @@ async function checkShiftPlanConflicts(seq){
 // Update pricelist match warning (customer + article must both be listed in the pricelist)
 function _checkPricelistMatch(){
     const w=$('o_pricelistWarn'); if(!w) return;
+    if(_apSalesMode){ w.style.display='none'; return; }  // Sales lädt die Preisliste nicht → keine Mismatch-Warnung
     const wt=$('o_pricelistWarnText');
     const art=String(($('o_art')?.value)||'').trim();
     const cust=String(($('o_cust')?.value)||'').trim();
@@ -4920,10 +5125,15 @@ function _updateArtInfo(){
 
 async function saveOrder(mode){
     mode=mode||'direct';
+    // Sales darf NIE direkt freigeben — direct/approve auf request umleiten; request/updateRequest bleiben erhalten.
+    if(_apSalesMode && (mode==='direct' || mode==='approve')) mode='request';
     const start=$('o_start').value;
     const days=parseInt($('o_days').value||'0',10);
-    if(!start){ alert('Start date missing.'); return; }
-    if(days<=0){ alert('Enter Qty and Daily output so duration can be calculated.'); return; }
+    // Termin-Pflichtfelder gelten NICHT im Sales-Modus (kein Produktions-Start/-Termin) — der Freigeber terminiert.
+    if(!_apSalesMode){
+        if(!start){ alert('Start date missing.'); return; }
+        if(days<=0){ alert('Enter Qty and Daily output so duration can be calculated.'); return; }
+    }
     // SO # und PO # sind Pflichtfelder bei ALLEN Workflows (Request, UpdateRequest, Approve, Direct) —
     // ohne diese Nummern darf kein Auftrag/Request gespeichert oder gesendet werden.
     const soReq=String($('o_so')?.value||'').trim();
@@ -4945,6 +5155,14 @@ async function saveOrder(mode){
     if(!poIssueVal){
         alert('PO Issue Date is required — please enter the date the customer placed the order with XO.');
         const fld=$('o_poIssueDate');
+        if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; fld.style.background=''; },2500); }
+        return;
+    }
+    // Pick-Up (acc. Customer PO) ist Pflichtfeld bei allen Workflows — ohne dieses Datum kein Request.
+    const pickupCustPoVal=String($('o_pickupCustPo')?.value||'').trim();
+    if(!pickupCustPoVal){
+        alert('Pick-Up (acc. Customer PO) is required — please enter the pick-up/delivery date per the customer PO.');
+        const fld=$('o_pickupCustPo');
         if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; fld.style.background=''; },2500); }
         return;
     }
@@ -5188,8 +5406,9 @@ async function saveOrder(mode){
                     requestedAt:pendDocSnap?.requestedAt||null
                 });
             }catch(e){ console.warn('Final PDF failed:',e); }
-            try{ await db.collection(_pendingColForTab(currentTab)).doc(pendingId).delete(); }
-            catch(e){ console.warn('Deleting pending doc failed:',e); }
+            // Anfrage als freigegeben markieren (NICHT löschen) — Nachweis für die Sales-Liste „freigegeben".
+            try{ await db.collection(_pendingColForTab(currentTab)).doc(pendingId).update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp()}); }
+            catch(e){ console.warn('Pending status→approved failed:',e); }
             _reviewingPendingId=null;
         }
         // Auto-Transfer in den Produktionsplan bei Freigabe (Modus 'approve' oder 'direct')
@@ -5554,6 +5773,7 @@ function _frameRenderPreview(plan){
 function seqIsEmpty(plan){ return !plan||!plan.seq||plan.seq.length===0; }
 
 function recalcFrame(){
+    if(_apSalesMode) return;  // Sales: keine Termin-/Kapazitätsberechnung; liest sales_plan_frame nicht
     const art=$('fo_art')?.value.trim()||'';
     const pal=parseInt(String($('fo_pal')?.value||'').replace(/[^\d]/g,''),10)||0;
     const start=$('fo_start')?.value||'';
@@ -5606,13 +5826,28 @@ async function openFrameOrderModal(){
     const yy=String(new Date().getFullYear()).slice(-2);
     if($('fo_ioPrefix')) $('fo_ioPrefix').textContent='IO'+yy+'-';
     _frameEditingDocId=null; _frameEditingPendingId=null; _frameReviewingPendingId=null;
+    // SALES-MODUS: Produktions-/Scheduling-Bereiche ausblenden (kein Start/Termin, keine Vorschau).
+    // Es bleiben IO# (fo_so), Art# (fo_art), PAL (fo_pal), Comment (fo_comment).
+    if(_apSalesMode){
+        const m=$('frameOrderModal');
+        const hideEl=el=>{ if(el) el.style.display='none'; };
+        hideEl($('fo_start')?.closest('label'));
+        hideEl($('fo_framesPerPal')?.closest('.order-section'));  // grauer "Calculated (auto)"-Block
+        hideEl(m.querySelector('.preview-title'));
+        hideEl(m.querySelector('.mini-cal-head'));
+        hideEl($('fo_mini'));
+        hideEl($('fo_previewSummary'));
+    }
     $('frameOrderModal').classList.add('open');
     _wireFrameOrderInputs();
     _applyFrameOrderModalButtons();
     // Ensure shift plans + existing-orders cache are current — preview/capacity calc relies on both.
-    try{ await loadShiftPlansCache(); }catch(e){ console.warn('Shift cache reload (frame modal):',e); }
-    try{ await _frameReloadExistingCache(); }catch(e){ console.warn('Frame existing-orders reload:',e); }
-    recalcFrame();
+    // Sales liest shift_plans / sales_plan_frame NICHT (Rules) → überspringen, sonst permission-denied.
+    if(!_apSalesMode){
+        try{ await loadShiftPlansCache(); }catch(e){ console.warn('Shift cache reload (frame modal):',e); }
+        try{ await _frameReloadExistingCache(); }catch(e){ console.warn('Frame existing-orders reload:',e); }
+        recalcFrame();
+    }
 }
 // Open an existing frame order for re-editing. Mirrors editOrder() in Assembly: collect all day-docs sharing this IO #,
 // reconstruct the payload from the stored framePayload (preferred) or from the grid fields, and populate the modal.
@@ -5816,33 +6051,40 @@ function _buildFrameGridDataFromPlan(payload, plan){
 
 async function saveFrameOrder(mode){
     mode=mode||'direct';
+    // Sales darf NIE direkt freigeben — direct/approve auf request umleiten; request/updateRequest bleiben erhalten.
+    if(_apSalesMode && (mode==='direct' || mode==='approve')) mode='request';
     const payload=collectFramePayload();
     if(!payload.ioNr || payload.ioNr.length<=($('fo_ioPrefix')?.textContent||'').length){ alert('IO # (Internal Order) is required.'); return; }
     if(!payload.artikelNr){ alert('Article number is required.'); return; }
-    if(!payload.startDate){ alert('Start date is required.'); return; }
+    if(!_apSalesMode && !payload.startDate){ alert('Start date is required.'); return; }
     if(payload.anzahlPaletten<=0){ alert('Number of pallets must be > 0.'); return; }
     if(payload.framesProPalette<=0){ alert('Could not derive Frames/PAL — article number prefix must be 12*, 18*, or 19*.'); return; }
-    // Ensure existing-orders cache is fresh so backfill capacity is computed against the latest sales_plan_frame.
-    try{ await _frameReloadExistingCache(); }catch(_){}
-    // Compute the day-by-day plan once and snapshot it onto the payload so:
-    //  1) Approver sees the same projected horizon (gridData) as the requester
-    //  2) loadWeek's pending-overlay can render the request as grey-hatched draft cells
-    const plan=_frameComputeProductionPlan(payload.startDate, payload.mengeGesamt, payload.artikelNr||'', true);
-    // Capacity HARD BLOCK (parity with Assembly): a required working day is fully booked by another order.
-    if(plan && !plan.feasible && plan.blocked){
-        const b=plan.blocked;
-        const ioTxt=(b.ios&&b.ios.length)?Array.from(new Set(b.ios)).join(', '):'another order';
-        const free=_frameFirstFreeStartFrom(payload.startDate, payload.artikelNr||'');
-        alert('⛔ Order cannot be accepted.\n\n'+b.iso+' is fully booked by '+ioTxt+' ('+formatThousands(String(b.used))+'/'+formatThousands(String(b.cap))+' pcs.) — no free production capacity on that day.\n\n'+(free?('Choose a start date with free capacity (earliest: '+free+').'):'Choose a start date with free capacity.'));
-        return;
+    if(_apSalesMode){
+        // Sales: KEINE Terminierung (kein Start/Plan). Leerer Tagesplan — der Freigeber terminiert beim Freigeben.
+        payload.gridData={}; payload.endDate=''; payload.plannedWorkdays=0;
+    } else {
+        // Ensure existing-orders cache is fresh so backfill capacity is computed against the latest sales_plan_frame.
+        try{ await _frameReloadExistingCache(); }catch(_){}
+        // Compute the day-by-day plan once and snapshot it onto the payload so:
+        //  1) Approver sees the same projected horizon (gridData) as the requester
+        //  2) loadWeek's pending-overlay can render the request as grey-hatched draft cells
+        const plan=_frameComputeProductionPlan(payload.startDate, payload.mengeGesamt, payload.artikelNr||'', true);
+        // Capacity HARD BLOCK (parity with Assembly): a required working day is fully booked by another order.
+        if(plan && !plan.feasible && plan.blocked){
+            const b=plan.blocked;
+            const ioTxt=(b.ios&&b.ios.length)?Array.from(new Set(b.ios)).join(', '):'another order';
+            const free=_frameFirstFreeStartFrom(payload.startDate, payload.artikelNr||'');
+            alert('⛔ Order cannot be accepted.\n\n'+b.iso+' is fully booked by '+ioTxt+' ('+formatThousands(String(b.used))+'/'+formatThousands(String(b.cap))+' pcs.) — no free production capacity on that day.\n\n'+(free?('Choose a start date with free capacity (earliest: '+free+').'):'Choose a start date with free capacity.'));
+            return;
+        }
+        if(!plan || plan.days===0){
+            alert('No workdays/capacity in 4-week horizon. Check shift plan or holidays before requesting approval.');
+            return;
+        }
+        payload.gridData=_buildFrameGridDataFromPlan(payload, plan);
+        payload.endDate=plan.endIso||'';
+        payload.plannedWorkdays=plan.days||0;
     }
-    if(!plan || plan.days===0){
-        alert('No workdays/capacity in 4-week horizon. Check shift plan or holidays before requesting approval.');
-        return;
-    }
-    payload.gridData=_buildFrameGridDataFromPlan(payload, plan);
-    payload.endDate=plan.endIso||'';
-    payload.plannedWorkdays=plan.days||0;
 
     if(mode==='request'){
         try{
@@ -5948,7 +6190,8 @@ async function saveFrameOrder(mode){
             _pdfMeta.id=pendingId;
             if(pendDocSnap){ _pdfMeta.requestedByEmail=pendDocSnap.requestedByEmail||currentUserEmail; _pdfMeta.requestedAt=pendDocSnap.requestedAt||null; }
             try{ await _logProtocol('approved',pendingId,'frame',{payload,requestedBy:pendDocSnap?.requestedBy,requestedByEmail:pendDocSnap?.requestedByEmail,requestedAt:pendDocSnap?.requestedAt},''); }catch(_){}
-            try{ await db.collection(_pendingColForTab('frame')).doc(pendingId).delete(); }catch(e){ console.warn('Deleting pending failed:',e); }
+            // Anfrage als freigegeben markieren (NICHT löschen) — Nachweis für die Sales-Liste „freigegeben".
+            try{ await db.collection(_pendingColForTab('frame')).doc(pendingId).update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){ console.warn('Pending status→approved failed:',e); }
             _frameReviewingPendingId=null;
         }
         // PDF protocol on approval — parity with Assembly.
