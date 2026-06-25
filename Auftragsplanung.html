@@ -385,6 +385,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                       <input id="o_priceCustPo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" class="ef" style="flex:1;min-width:0;text-align:right" title="Price per customer PO">
                       <span style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
                   </span>
+                  <span id="o_priceDevWarn" style="display:none;font-size:0.72rem;color:#dc2626;font-weight:700;margin-top:3px"></span>
               </label>
               <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price XO (€/1000 pcs.)</span>
@@ -2789,6 +2790,9 @@ function openOrderModal(){
             }
             else if(t.id==='o_cust'){
                 _updateArtInfo();
+            }
+            else if(t.id==='o_priceCustPo'){
+                _checkPriceDeviation();
             }
             if(t.id && ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_start','o_pickup'].includes(t.id)){
                 triggerRecalc();
@@ -5207,6 +5211,37 @@ function _checkPricelistMatch(){
             priceInp.value = Number(match.unitPrice).toFixed(2).replace('.',',');
             if(priceCcy) priceCcy.textContent = match.ccy || 'EUR';
         }
+    }
+    _checkPriceDeviation();
+}
+// Hebt den Kundenpreis (Price acc. Customer PO) rot hervor, wenn er vom Listenpreis abweicht.
+// Referenz = unitPrice aus der Preisliste fuer die Kunde+Artikel-Kombination. Greift nur, wenn
+// die Kombination in der Preisliste steht (sonst uebernimmt die separate Mismatch-Warnung).
+function _checkPriceDeviation(){
+    const custInp=$('o_priceCustPo');
+    const devEl=$('o_priceDevWarn');
+    if(!custInp || !devEl) return;
+    const _clear=()=>{ custInp.style.borderColor=''; custInp.style.background=''; devEl.style.display='none'; devEl.textContent=''; };
+    const art=String(($('o_art')?.value)||'').trim();
+    const cust=String(($('o_cust')?.value)||'').trim();
+    if(!art || !cust || !Array.isArray(pricelistRows) || !pricelistRows.length){ _clear(); return; }
+    const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
+    const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===cust.toLowerCase() && _norm(r.articleNr)===_norm(art));
+    if(!match || match.unitPrice==null){ _clear(); return; }
+    const _num=s=>{ const n=parseFloat(String(s||'').replace(/\s/g,'').replace(',','.')); return isFinite(n)?n:NaN; };
+    const custVal=_num(custInp.value);
+    if(!isFinite(custVal) || custVal<=0){ _clear(); return; }   // noch kein Kundenpreis eingetragen
+    const listVal=Number(match.unitPrice);
+    const ccy=match.ccy||'EUR';
+    if(Math.abs(custVal-listVal)>0.005){
+        custInp.style.borderColor='#dc2626';
+        custInp.style.background='#fef2f2';
+        const diff=custVal-listVal;
+        const fmt=n=>n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+        devEl.textContent='⚠ Deviates from pricelist: '+fmt(listVal)+' '+ccy+' ('+(diff>0?'+':'')+fmt(diff)+' '+ccy+')';
+        devEl.style.display='';
+    } else {
+        _clear();
     }
 }
 // Aktualisiert das Komponenten-Info-Panel rechts neben den Order-Feldern
