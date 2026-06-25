@@ -357,8 +357,8 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
           <div class="order-section-title input">Order Input</div>
           <div class="order-section-body">
             <div class="form-grid">
-              <label>SO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_so" type="text" class="ef" required title="Sales Order-Nummer — Pflichtfeld, ohne SO # kann kein Request gesendet werden"></label>
-              <label>PO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_po" type="text" class="ef" required title="Purchase Order-Nummer — Pflichtfeld, ohne PO # kann kein Request gesendet werden"></label>
+              <label>SO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_so" type="text" class="ef" required title="Sales Order number — required; no request can be sent without an SO #"></label>
+              <label>PO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_po" type="text" class="ef" required title="Purchase Order number — required; no request can be sent without a PO #"></label>
               <label>Art #<select id="o_art" class="ef" style="font-family:inherit"><option value="">– Please select –</option></select></label>
               <label>Customer<select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
               <label>Start date<input id="o_start" type="date" class="ef"></label>
@@ -378,11 +378,11 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                       <button type="button" class="btn btn-sm btn-secondary" id="o_kpiBtn" onclick="openKpiModal();return false;" title="KPI calculator" style="padding:3px 10px;font-size:1rem">⚙</button>
                   </div>
               </div>
-              <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef" required title="Datum, an dem der Kunde den Auftrag an XO erteilt hat — Pflichtfeld"></label>
-              <label>Pick-Up (acc. Customer PO)<span style="color:#dc2626;font-weight:700"> *</span><input id="o_pickupCustPo" type="date" class="ef" required title="Abhol-/Liefertermin laut Kunden-PO — Pflichtfeld, ohne dieses Datum kann kein Request gesendet werden"></label>
+              <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef" required title="Date the customer issued the order to XO — required"></label>
+              <label>Pick-Up (acc. Customer PO)<span style="color:#dc2626;font-weight:700"> *</span><input id="o_pickupCustPo" type="date" class="ef" required title="Pick-up / delivery date per customer PO — required; no request can be sent without this date"></label>
               <label>Price (acc. Customer PO) (€/1000 pcs.)<span id="o_priceCustPoStar" style="color:#dc2626;font-weight:700"> *</span>
                   <span style="display:flex;align-items:stretch;gap:4px">
-                      <input id="o_priceCustPo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" class="ef" style="flex:1;min-width:0;text-align:right" title="Preis laut Kunden-PO">
+                      <input id="o_priceCustPo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" class="ef" style="flex:1;min-width:0;text-align:right" title="Price per customer PO">
                       <span style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
                   </span>
               </label>
@@ -393,6 +393,10 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                       <span id="o_approverPriceCcy" style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
                   </div>
               </div>
+            </div>
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:4px">
+                <label style="font-weight:600;font-size:0.88rem;color:#0f172a">Comment for approver<span id="o_commentStar" style="color:#dc2626;font-weight:700;display:none"> *</span></label>
+                <textarea id="o_comment" rows="2" class="ef" style="resize:vertical;font-family:inherit" placeholder="Optional — e.g. special price agreement, first order, new customer. Mandatory if Customer + Art # is not listed in the pricelist."></textarea>
             </div>
             <div id="o_wknd_block" style="display:flex;flex-direction:column;gap:4px;margin-top:12px">
                 <span style="font-size:0.78rem;color:#475569;font-weight:600">Weekend &amp; Holiday Production</span>
@@ -490,7 +494,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
               </select>
             </label>
             <label style="color:#dc2626;font-weight:600">Start date<input id="fo_start" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
-            <label>Anzahl Paletten (PAL)<input id="fo_pal" type="text" class="ef" inputmode="numeric" placeholder="e.g. 20"></label>
+            <label>Pallets (PAL)<input id="fo_pal" type="text" class="ef" inputmode="numeric" placeholder="e.g. 20"></label>
             <label>Comment<input id="fo_comment" type="text" class="ef" placeholder="optional"></label>
           </div>
         </div>
@@ -630,14 +634,14 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
       <button class="btn btn-sm btn-secondary" onclick="closeOrderSequence()">Close</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:0.85rem;color:#475569;margin-bottom:10px">Reihenfolge per Drag&amp;Drop festlegen (<strong>1 = wird zuerst produziert</strong>). Beim Verschieben einen neuen Starttermin angeben — der Plan wird darum herum neu berechnet (Schichten, Feiertage, Umrüstzeiten). Erst „Anwenden" schreibt in den Kalender.</div>
+      <div style="font-size:0.85rem;color:#475569;margin-bottom:10px">Set the order via drag &amp; drop (<strong>1 = produced first</strong>). When moving an item, enter a new start date — the plan is recalculated around it (shifts, holidays, changeover times). Only "Apply" writes to the calendar.</div>
       <div id="seqAnchorBar" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:12px">
         <span style="font-weight:600;color:#1e40af">Verschoben: <span id="seqAnchorLbl">–</span></span>
         <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;flex-direction:row">Neuer Starttermin<span style="color:#dc2626;font-weight:700"> *</span><input type="date" id="seqAnchorDate" class="ef" style="width:auto"></label>
         <button class="btn btn-sm btn-primary" onclick="seqPreview()">Vorschau aktualisieren</button>
       </div>
       <div id="seqWarn" style="display:none;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.85rem"></div>
-      <div id="orderSequenceList"><div class="orders-empty">Lade Aufträge…</div></div>
+      <div id="orderSequenceList"><div class="orders-empty">Loading orders…</div></div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeOrderSequence()">Abbrechen</button>
@@ -898,7 +902,7 @@ function _lvDivergence(prodId){
 // eine NEUE Abweichung erzeugt eine neue Signatur ⇒ Marker erscheint erneut.
 async function ackLvChange(prodId,sig){
     if(!prodId) return;
-    if(!confirm('Änderung/Löschung durch die Produktion zur Kenntnis nehmen und die Markierung entfernen?')) return;
+    if(!confirm('Acknowledge the change/deletion by production and remove the marker?')) return;
     try{ await db.collection('lv_change_ack').doc(prodId).set({sig:sig||'',ackAt:firebase.firestore.FieldValue.serverTimestamp(),ackBy:currentUid||''},{merge:true}); }
     catch(e){ alert('Quittieren fehlgeschlagen: '+(e&&e.message?e.message:e)); }
 }
@@ -2510,10 +2514,10 @@ function _apUpdatePalPieces(){
     const pal=parseInt(String($('o_pal')?.value||'').replace(/[^\d]/g,''),10)||0;
     const ends=endsForOrderArt();
     if(pal>0 && pcs>0){
-        el.textContent='= '+formatThousands(String(pcs))+' Stück';
+        el.textContent='= '+formatThousands(String(pcs))+' pcs';
         el.style.color='#0f172a'; el.style.display='';
     } else if(pal>0 && !ends){
-        el.textContent='Art # wählen, um Stückzahl zu berechnen';
+        el.textContent='Select Art # to calculate the piece count';
         el.style.color='#92400e'; el.style.display='';
     } else {
         el.textContent=''; el.style.display='none';
@@ -2654,7 +2658,8 @@ function prefillOutDayFromShiftPlan(){
 function openOrderModal(){
     if(currentTab==='frame'){ openFrameOrderModal(); return; }
     if(currentTab!=='assembly'){ showMsg('Order function is only available in the Assembly tab.','error'); return; }
-    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup','o_poIssueDate','o_pickupCustPo','o_priceCustPo'].forEach(id=>{const e=$(id); if(e) e.value='';});
+    ['o_so','o_po','o_cust','o_art','o_qty','o_pal','o_outday','o_days','o_end','o_pickup','o_poIssueDate','o_pickupCustPo','o_priceCustPo','o_comment'].forEach(id=>{const e=$(id); if(e) e.value='';});
+    { const cs=$('o_commentStar'); if(cs) cs.style.display='none'; }
     ['k_cycle','k_cav','k_hrs','k_shift','k_days','k_scrap','k_oee'].forEach(id=>{const e=$(id); if(e) e.value='';});
     if($('o_sat')) $('o_sat').checked=false;
     if($('o_sun')) $('o_sun').checked=false;
@@ -2864,6 +2869,7 @@ function collectOrderPayload(){
             pickupCustPo:get('o_pickupCustPo'), priceCustPo:get('o_priceCustPo'),
             qty:get('o_qty'), pal:get('o_pal'), outday:get('o_outday'),
             days:get('o_days'), end:get('o_end'),
+            comment:String(get('o_comment')||'').trim(),
             sat:chk('o_sat'), sun:chk('o_sun'), holiday:chk('o_holiday')
         },
         kpi:{
@@ -2910,7 +2916,7 @@ function applyOrderPayload(p){
     if(typeof populateArtDropdown==='function') populateArtDropdown(); // same for Art # — adds ghost option for legacy values
     set('o_start',h.start); set('o_pickup',h.pickup); set('o_poIssueDate',h.poIssueDate);
     set('o_qty',h.qty); set('o_pal',h.pal); set('o_outday',h.outday);
-    set('o_days',h.days); set('o_end',h.end);
+    set('o_days',h.days); set('o_end',h.end); set('o_comment',h.comment);
     chk('o_sat',h.sat); chk('o_sun',h.sun); chk('o_holiday',h.holiday);
     const k=p.kpi||{};
     set('k_cycle',k.cycle); set('k_cav',k.cav); set('k_hrs',k.hrs); set('k_shift',k.shift);
@@ -3164,23 +3170,23 @@ function _apSalesCard(it, mode){
     const cellLabel=(label,value)=>`<div style="min-width:0"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;font-weight:600;white-space:nowrap">${esc(label)}</div><div style="font-size:0.92rem;color:#0f172a;font-weight:600;margin-top:2px;line-height:1.3;word-break:break-word;overflow-wrap:anywhere">${value||'–'}</div></div>`;
     const tabBadge=`<span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;white-space:nowrap">${esc(TAB_CONFIG[it.tab]?.title||it.tab)}</span>`;
     const statusBadge = mode==='pending'
-        ? `<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">WARTET AUF FREIGABE</span>`
+        ? `<span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">PENDING APPROVAL</span>`
         : (mode==='approved'
-            ? `<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">FREIGEGEBEN</span>`
+            ? `<span style="background:#dcfce7;color:#166534;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">APPROVED</span>`
             : (mode==='deleted'
-                ? `<span style="background:#e5e7eb;color:#374151;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">GELÖSCHT</span>`
-                : `<span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">ABGELEHNT</span>`));
+                ? `<span style="background:#e5e7eb;color:#374151;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">DELETED</span>`
+                : `<span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:6px;font-size:0.72rem;font-weight:700">REJECTED</span>`));
     const updTag=it.isUpdated?`<span style="background:#ddd6fe;color:#5b21b6;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700">🔄 v${it.updateCount||1}</span>`:'';
     const border = mode==='approved' ? '#bbf7d0' : (mode==='rejected' ? '#fecaca' : (mode==='deleted' ? '#d1d5db' : '#fde68a'));
     // Meta rechts oben (Datum/Bearbeiter je nach Status)
     let metaRight='';
-    if(mode==='pending') metaRight=`<div style="white-space:nowrap">angefragt: ${fmtTs(it.requestedAt)}</div>`;
-    else if(mode==='approved') metaRight=`<div>freigegeben von <strong>${esc((it.approvedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.approvedAt)}</div>`;
-    else if(mode==='deleted') metaRight=`<div>gelöscht von <strong>${esc((it.deletedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.deletedAt)}</div>`;
-    else metaRight=`<div>abgelehnt von <strong>${esc((it.rejectedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.rejectedAt)}</div>`;
+    if(mode==='pending') metaRight=`<div style="white-space:nowrap">requested: ${fmtTs(it.requestedAt)}</div>`;
+    else if(mode==='approved') metaRight=`<div>approved by <strong>${esc((it.approvedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.approvedAt)}</div>`;
+    else if(mode==='deleted') metaRight=`<div>deleted by <strong>${esc((it.deletedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.deletedAt)}</div>`;
+    else metaRight=`<div>rejected by <strong>${esc((it.rejectedByEmail||'').replace('@lager.local',''))||'–'}</strong></div><div style="white-space:nowrap">${fmtTs(it.rejectedAt)}</div>`;
     // Klick-Aktion: nur offene Anfragen sind editierbar/zurückziehbar.
     const clickable = (mode==='pending');
-    const onClick = clickable ? ` onclick="openPendingForOwnerEdit('${esc(it.id)}','${esc(it.tab)}')" title="Bearbeiten / zurückziehen"` : '';
+    const onClick = clickable ? ` onclick="openPendingForOwnerEdit('${esc(it.id)}','${esc(it.tab)}')" title="Edit / withdraw"` : '';
     const cursor = clickable ? 'cursor:pointer;' : '';
     // Felder je Produktlinie
     let title='', fields='';
@@ -3205,15 +3211,16 @@ function _apSalesCard(it, mode){
             cellLabel('Pick-Up (acc. Customer PO)', h.pickupCustPo?fmtDateDe(h.pickupCustPo):'–'),
             cellLabel('Price (acc. Customer PO)', h.priceCustPo?(esc(h.priceCustPo)+' €/1000 pcs.'):'–'),
             cellLabel('Pallets',esc(h.pal)),
-            cellLabel('Quantity (pcs)', fmtNum(h.qty)||esc(h.qty))
+            cellLabel('Quantity (pcs)', fmtNum(h.qty)||esc(h.qty)),
+            (h.comment&&String(h.comment).trim())?cellLabel('Comment',esc(h.comment)):''
         ].join('');
     }
     const reason = (mode==='rejected' && it.rejectComment)
-        ? `<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#991b1b;font-weight:700;margin-bottom:4px">Ablehnungsgrund</div><div style="font-size:0.9rem;color:#7f1d1d;white-space:pre-wrap">${esc(it.rejectComment)}</div></div>`
+        ? `<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#991b1b;font-weight:700;margin-bottom:4px">Rejection reason</div><div style="font-size:0.9rem;color:#7f1d1d;white-space:pre-wrap">${esc(it.rejectComment)}</div></div>`
         : ((mode==='deleted' && it.deleteReason)
-            ? `<div style="margin-top:10px;padding:10px 12px;background:#f3f4f6;border-left:3px solid #6b7280;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#374151;font-weight:700;margin-bottom:4px">Hinweis zur Löschung</div><div style="font-size:0.9rem;color:#374151;white-space:pre-wrap">${esc(it.deleteReason)}</div></div>` : '');
+            ? `<div style="margin-top:10px;padding:10px 12px;background:#f3f4f6;border-left:3px solid #6b7280;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#374151;font-weight:700;margin-bottom:4px">Deletion note</div><div style="font-size:0.9rem;color:#374151;white-space:pre-wrap">${esc(it.deleteReason)}</div></div>` : '');
     const ackBtn = (mode==='rejected' || mode==='deleted')
-        ? `<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-sm btn-secondary" onclick="acknowledgeRejected('${esc(it.id)}','${esc(it.tab)}')" title="Zur Kenntnis genommen – Eintrag entfernen">✓ Zur Kenntnis</button></div>` : '';
+        ? `<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-sm btn-secondary" onclick="acknowledgeRejected('${esc(it.id)}','${esc(it.tab)}')" title="Acknowledge and remove this entry">✓ Acknowledge</button></div>` : '';
     return `<div style="background:#fff;border:1px solid ${border};border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);${cursor}"${onClick}>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
@@ -3243,27 +3250,27 @@ function renderSalesView(){
         const head=`<div style="display:flex;align-items:center;gap:8px;margin:22px 0 12px"><h2 style="margin:0;font-size:1.1rem;color:#0f172a">${label}</h2><span style="background:${color};color:#fff;border-radius:12px;padding:2px 10px;font-size:0.82rem;font-weight:700">${items.length}</span></div>`;
         const body = items.length
             ? items.map(it=>_apSalesCard(it,mode)).join('')
-            : `<div style="padding:18px;text-align:center;color:#94a3b8;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">${mode==='pending'?'Keine offenen Anfragen.':(mode==='approved'?'Noch nichts freigegeben.':'Keine abgelehnten Anfragen.')}</div>`;
+            : `<div style="padding:18px;text-align:center;color:#94a3b8;font-style:italic;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:10px">${mode==='pending'?'No open requests.':(mode==='approved'?'Nothing approved yet.':'No rejected requests.')}</div>`;
         return head+body;
     };
     const header=`
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:6px">
-            <h1 style="margin:0;font-size:1.4rem;color:#0f172a">Aufträge zur Freigabe</h1>
+            <h1 style="margin:0;font-size:1.4rem;color:#0f172a">Orders for Approval</h1>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn btn-primary" onclick="openOrderModal()">+ Neuer Auftrag (Assembly)</button>
-                <button class="btn btn-secondary" onclick="openFrameOrderModal()">+ Neuer Auftrag (Frame)</button>
+                <button class="btn btn-primary" onclick="openOrderModal()">+ New Order (Assembly)</button>
+                <button class="btn btn-secondary" onclick="openFrameOrderModal()">+ New Order (Frame)</button>
             </div>
         </div>
-        <p style="margin:0 0 4px;color:#64748b;font-size:0.9rem">Lege neue Aufträge zur Freigabe an. Den Produktionstermin legt der Freigeber fest.</p>`;
+        <p style="margin:0 0 4px;color:#64748b;font-size:0.9rem">Create new orders for approval. The production date is set by the approver.</p>`;
     if(!_apSalesLoaded){
-        area.innerHTML=header+'<div class="loading" style="margin-top:20px">Lade deine Anfragen…</div>';
+        area.innerHTML=header+'<div class="loading" style="margin-top:20px">Loading your requests…</div>';
         return;
     }
     area.innerHTML = header
-        + section('Offen – warten auf Freigabe', '#f59e0b', pending, 'pending')
-        + section('Bereits freigegeben', '#16a34a', approved, 'approved')
-        + (rejected.length ? section('Abgelehnt', '#dc2626', rejected, 'rejected') : '')
-        + (deleted.length ? section('Gelöscht', '#6b7280', deleted, 'deleted') : '');
+        + section('Open – awaiting approval', '#f59e0b', pending, 'pending')
+        + section('Already approved', '#16a34a', approved, 'approved')
+        + (rejected.length ? section('Rejected', '#dc2626', rejected, 'rejected') : '')
+        + (deleted.length ? section('Deleted', '#6b7280', deleted, 'deleted') : '');
 }
 
 // Markiert den freigegebenen Anfrage-Datensatz (pending_orders_<tab>, status 'approved') eines gelöschten
@@ -3409,7 +3416,9 @@ async function renderPendingList(targetId){
             // (gäbe 0 Tagesdocs) → ins Vollmodal routen, wo der Freigeber terminiert.
             const _hasSched=!!(h.start) && it.payload && it.payload.gridData && Object.keys(it.payload.gridData).length>0;
             const _apprAction=_hasSched?`approvePendingInline('${escHtml(it.id)}','${escHtml(it.tab)}')`:`openPendingForReview('${escHtml(it.id)}','${escHtml(it.tab)}')`;
-            const _apprLabel=_hasSched?'Review &amp; Approve':'Terminieren &amp; Freigeben';
+            const _apprLabel=_hasSched?'Review &amp; Approve':'Schedule &amp; Approve';
+            const _aCmt=String((h.comment)||it.managerNote||'').trim();
+            const _aCmtRow=_aCmt?`<div style="margin-bottom:12px;padding:8px 10px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:4px;font-size:0.85rem;color:#92400e"><span style="font-weight:700">Requester comment:</span> ${escHtml(_aCmt)}</div>`:'';
             return `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;min-width:0">
                     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0">
@@ -3438,6 +3447,7 @@ async function renderPendingList(targetId){
                     ${cellLabel('Quantity (pcs)',qtyDisp)}
                     ${cellLabel('€/1000 pcs.',priceCell)}
                 </div>
+                ${_aCmtRow}
                 <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
                     <button class="btn btn-sm btn-secondary" onclick="rejectPending('${escHtml(it.id)}','${escHtml(it.tab)}')">Reject</button>
                     <button class="btn btn-sm btn-primary" onclick="${_apprAction}">${_apprLabel}</button>
@@ -3821,7 +3831,11 @@ async function openPendingForReview(id, tab){
             const fBanner=$('fo_reviewBanner');
             const fInfo=$('fo_reviewInfo');
             if(fBanner) fBanner.style.display='';
-            if(fInfo) fInfo.textContent=`Request ${id.slice(0,6)}… from ${(data.requestedByEmail||'?').replace('@lager.local','')}`;
+            if(fInfo){
+                const _reqC=String((data.payload&&data.payload.comment)||data.managerNote||'').trim();
+                fInfo.innerHTML=`Request ${escHtml(id.slice(0,6))}… from <strong>${escHtml((data.requestedByEmail||'?').replace('@lager.local',''))}</strong>`
+                    + (_reqC?`<div style="margin-top:6px;padding:8px 10px;background:#fff;border:1px solid #f59e0b;border-radius:6px;color:#92400e;white-space:pre-wrap"><strong>Requester comment:</strong> ${escHtml(_reqC)}</div>`:'');
+            }
             _applyFrameOrderModalButtons();
             return;
         }
@@ -3833,7 +3847,11 @@ async function openPendingForReview(id, tab){
         const banner=$('o_reviewBanner');
         const info=$('o_reviewInfo');
         if(banner) banner.style.display='';
-        if(info) info.textContent=`Request ${id.slice(0,6)}… from ${(data.requestedByEmail||'?').replace('@lager.local','')}`;
+        if(info){
+            const _reqC=String((data.payload&&data.payload.header&&data.payload.header.comment)||data.managerNote||'').trim();
+            info.innerHTML=`Request ${escHtml(id.slice(0,6))}… from <strong>${escHtml((data.requestedByEmail||'?').replace('@lager.local',''))}</strong>`
+                + (_reqC?`<div style="margin-top:6px;padding:8px 10px;background:#fff;border:1px solid #f59e0b;border-radius:6px;color:#92400e;white-space:pre-wrap"><strong>Requester comment:</strong> ${escHtml(_reqC)}</div>`:'');
+        }
         _applyOrderModalButtons();
         // Vorschau neu rechnen mit den geladenen Werten
         try{ if(typeof loadPreview4w==='function') await loadPreview4w(); }catch(_){}
@@ -5174,6 +5192,8 @@ function _checkPricelistMatch(){
                 : '⚠ This combination of Customer "'+cust+'" + Art # "'+art+'" is not listed in the pricelist. Request Approval is still possible — a comment is mandatory when submitting.';
         }
         w.style.display='';
+        // Kommentar ist bei Mismatch fuer den Antragsteller (nicht-Approver) Pflicht → Stern zeigen
+        { const cs=$('o_commentStar'); if(cs) cs.style.display=currentCanApprove?'none':''; }
         // Approver: Vorschlag leeren, falls noch nicht vom User editiert
         if(currentCanApprove && priceInp && !priceInp.dataset.touched){
             priceInp.value='';
@@ -5181,6 +5201,7 @@ function _checkPricelistMatch(){
         }
     } else {
         w.style.display='none';
+        { const cs=$('o_commentStar'); if(cs) cs.style.display='none'; }
         // Approver: Vorschlag aus Preisliste setzen, solange User das Feld nicht angefasst hat
         if(currentCanApprove && priceInp && !priceInp.dataset.touched && match.unitPrice!=null){
             priceInp.value = Number(match.unitPrice).toFixed(2).replace('.',',');
@@ -5278,7 +5299,7 @@ async function saveOrder(mode){
         }
     }
     // Customer is mandatory only on the pending workflow so approver editing is not blocked
-    let _mismatchNote='';
+    let _reqComment='';
     let _hasMismatch=false;
     if(mode==='request' || mode==='updateRequest'){
         const custVal=String($('o_cust')?.value||'').trim();
@@ -5288,20 +5309,20 @@ async function saveOrder(mode){
             if(sel){ sel.style.borderColor='#ef4444'; sel.style.background='#fef2f2'; sel.focus(); setTimeout(()=>{ sel.style.borderColor=''; sel.style.background=''; },2500); }
             return;
         }
-        // Pricelist mismatch: customer + article combination not listed → acknowledge + mandatory comment
+        // Comment for the approver (integrated field). Mandatory when the Customer + Art #
+        // combination is not in the pricelist; optional otherwise. Stored in payload.header.comment
+        // (via collectOrderPayload) and mirrored to managerNote / the protocol.
+        _reqComment=String($('o_comment')?.value||'').trim();
         const artVal=String($('o_art')?.value||'').trim();
         if(artVal && Array.isArray(pricelistRows) && pricelistRows.length){
             const _norm=v=>String(v||'').trim().toUpperCase().replace(/[A-Z]+$/,'');
             const match=pricelistRows.find(r=>String(r.customer||'').trim().toLowerCase()===custVal.toLowerCase() && _norm(r.articleNr)===_norm(artVal));
             if(!match){
                 _hasMismatch=true;
-                const ack=confirm('⚠ Warning: Customer "'+custVal+'" + Art # "'+artVal+'" is not listed in the pricelist.\n\nClick OK to acknowledge — you will then be asked for a justification comment for the approvers.\nClick Cancel to abort.');
-                if(!ack) return;
-                const note=prompt('Mandatory comment for the approvers:\n(e.g. special price agreement, first order, new customer …)', '');
-                if(note===null) return;  // Cancel
-                _mismatchNote=String(note).trim();
-                if(!_mismatchNote){
-                    alert('A justification comment is mandatory for a pricelist mismatch.');
+                if(!_reqComment){
+                    alert('Customer "'+custVal+'" + Art # "'+artVal+'" is not listed in the pricelist.\nA comment for the approver is mandatory — please fill in the "Comment for approver" field.');
+                    const c=$('o_comment');
+                    if(c){ c.style.borderColor='#ef4444'; c.style.background='#fef2f2'; c.focus(); setTimeout(()=>{ c.style.borderColor=''; c.style.background=''; },2500); }
                     return;
                 }
             }
@@ -5321,7 +5342,7 @@ async function saveOrder(mode){
                 editingOrderSo:editingOrderSo||null,
                 payload,
                 pricelistMismatch:_hasMismatch,
-                managerNote:_mismatchNote||''
+                managerNote:_reqComment||''
             });
             // PDF only for approvers on direct approval — manager request does not create a PDF
             if(currentCanApprove){
@@ -5331,7 +5352,7 @@ async function saveOrder(mode){
             // Manager-Aktion ins Protokoll der Approver schreiben
             try{ await _logProtocol('request_created', docRef.id, currentTab,
                 {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:ts},
-                _hasMismatch?('Pricelist mismatch — '+_mismatchNote):''); }
+                (_hasMismatch?'Pricelist mismatch — ':'')+_reqComment); }
             catch(e){ console.warn('protocol log (request_created):',e); }
             showMsg(`Approval requested (ID: ${docRef.id.slice(0,6)}…).`+(currentCanApprove?' PDF downloaded.':''),'success');
             closeOrderModal();
@@ -5367,7 +5388,7 @@ async function saveOrder(mode){
                 lastUpdatedAt: ts,
                 lastUpdatedByEmail: currentUserEmail,
                 pricelistMismatch:_hasMismatch,
-                managerNote:_mismatchNote||(old.managerNote||'')
+                managerNote:_reqComment||(old.managerNote||'')
             });
             // PDF only for approvers — manager update does not create a PDF
             if(currentCanApprove){
@@ -5377,7 +5398,7 @@ async function saveOrder(mode){
             // Update ins Protokoll der Approver schreiben (mit Versionshinweis in der Note)
             try{ await _logProtocol('request_updated', id, currentTab,
                 {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:old.requestedAt},
-                'Version '+(prevCount+1)+(_hasMismatch?' — Pricelist-Mismatch — '+_mismatchNote:'')); }
+                'Version '+(prevCount+1)+(_hasMismatch?' — Pricelist mismatch':'')+(_reqComment?' — '+_reqComment:'')); }
             catch(e){ console.warn('protocol log (request_updated):',e); }
             _editingOwnPendingId=null;
             showMsg(`Request updated (version ${prevCount+1}). Approvers see the new state immediately.`,'success');
@@ -5398,7 +5419,7 @@ async function saveOrder(mode){
         const rawUp=String($('o_approverPrice')?.value||'').trim().replace(/\s/g,'').replace(',','.');
         const up=parseFloat(rawUp);
         if(!(isFinite(up) && up>0)){
-            alert('⚠ Kein Unit Price XO hinterlegt.\n\nDer Auftrag kann nicht freigegeben werden, solange kein Unit Price XO (€/1000 pcs.) eingetragen oder aus der Preisliste verfügbar ist.\nBitte den Preis im Feld „Unit Price XO (€/1000 pcs.)" eingeben.');
+            alert('⚠ No Unit Price XO set.\n\nThe order cannot be approved while no Unit Price XO (€/1000 pcs.) is entered or available from the pricelist.\nPlease enter the price in the "Unit Price XO (€/1000 pcs.)" field.');
             const fld=$('o_approverPrice');
             if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor='#cbd5e1'; fld.style.background='#fffbeb'; },3000); }
             return;
@@ -7080,13 +7101,13 @@ async function ovDeleteOrder(id){
 let _seqState=null; // { tab, isFrame, orders:[{id,art,qty,pal,startIso,endIso,isos,fields,refs[],frameTpl}], orderIds:[], anchorId, anchorStartIso, preview }
 
 async function openOrderSequence(){
-    if(_apSalesMode){ alert('Nicht verfügbar.'); return; }
+    if(_apSalesMode){ alert('Not available.'); return; }
     const tab=currentTab, isFrame=(tab==='frame');
     $('seqModalTitle').textContent='Order Sequence – '+((TAB_CONFIG[tab]||{}).title||tab);
     $('seqAnchorBar').style.display='none';
     $('seqWarn').style.display='none';
     $('seqApplyBtn').disabled=true;
-    $('orderSequenceList').innerHTML='<div class="orders-empty">Lade Aufträge…</div>';
+    $('orderSequenceList').innerHTML='<div class="orders-empty">Loading orders…</div>';
     $('orderSequenceModal').classList.add('open');
     try{
         const salesCol=TAB_CONFIG[tab].salesCol;
@@ -7134,7 +7155,7 @@ function renderSeqList(){
     const c=$('orderSequenceList'); if(!c || !_seqState) return;
     const byId={}; _seqState.orders.forEach(o=>byId[o.id]=o);
     const prev=_seqState.preview; const pById={}; if(prev) prev.orders.forEach(p=>pById[p.id]=p);
-    if(!_seqState.orderIds.length){ c.innerHTML='<div class="orders-empty">Keine offenen Aufträge auf dieser Linie.</div>'; return; }
+    if(!_seqState.orderIds.length){ c.innerHTML='<div class="orders-empty">No open orders on this line.</div>'; return; }
     const rows=_seqState.orderIds.map((id,i)=>{
         const o=byId[id]||{}; const p=pById[id];
         const isAnchor=(id===_seqState.anchorId);
@@ -7154,7 +7175,7 @@ function renderSeqList(){
         +'<th>Seq</th><th></th><th>'+(_seqState.isFrame?'IO #':'SO #')+'</th><th>Article</th><th style="text-align:right">Qty</th>'
         +'<th>Start</th><th>Ende</th><th style="color:#1e40af">Neu Start</th><th style="color:#1e40af">Neu Ende</th>'
         +'</tr></thead><tbody>'+rows+'</tbody></table>'
-        +'<div class="ov-foot">'+_seqState.orderIds.length+' Auftrag/Aufträge · Reihenfolge per Drag&amp;Drop · Spalten „Neu" zeigen die Vorschau.</div>';
+        +'<div class="ov-foot">'+_seqState.orderIds.length+' order(s) · drag &amp; drop to reorder · "New" columns show the preview.</div>';
     _seqWireDnD();
 }
 
@@ -7189,7 +7210,7 @@ function _seqWireDnD(){
 function seqPreview(){
     if(!_seqState) return;
     const anchorStart=String($('seqAnchorDate').value||'').trim();
-    if(_seqState.anchorId && !anchorStart){ alert('Bitte einen neuen Starttermin für den verschobenen Auftrag angeben.'); $('seqAnchorDate').focus(); return; }
+    if(_seqState.anchorId && !anchorStart){ alert('Please enter a new start date for the moved order.'); $('seqAnchorDate').focus(); return; }
     _seqState.anchorStartIso=anchorStart;
     const byId={}; _seqState.orders.forEach(o=>byId[o.id]=o);
     const seqOrders=_seqState.orderIds.map(id=>{ const o=byId[id]; return {id, qty:Math.round(o.qty), art:o.art}; });
@@ -7208,7 +7229,7 @@ async function seqApply(){
     const { tab, isFrame, orders, preview }=_seqState;
     const byId={}; orders.forEach(o=>byId[o.id]=o);
     const changed=preview.orders.filter(p=>{ const o=byId[p.id]; if(!o) return false; const newIsos=p.seq.map(s=>s.iso).join(','); const oldIsos=(o.isos||[]).join(','); return newIsos!==oldIsos; });
-    if(!changed.length){ alert('Keine Terminänderungen — nichts zu speichern.'); return; }
+    if(!changed.length){ alert('No date changes — nothing to save.'); return; }
     if(!confirm('Reihenfolge anwenden? '+changed.length+' Auftrag/Aufträge werden im Kalender neu terminiert'+
                 (preview.warning?('\n\n⚠ '+preview.warning):'')+'\n\nFortfahren?')) return;
     try{
