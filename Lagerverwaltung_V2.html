@@ -8110,7 +8110,8 @@ function _artCellVal(cat,row,col){
     return String(row[col]==null?'':row[col]);
 }
 
-// Spalten, die im Listen-/Export-View ausgeblendet werden (Edit-Modal zeigt sie weiter).
+// Spalten, die im Listen-/Export-View ausgeblendet werden. Im Edit-Formular werden
+// davon nur die in _ART_FORM_EXTRA_COLS gelisteten Spalten (z.B. "Shell Art") gezeigt.
 const _ART_HIDDEN_COLS={
     xoend:['End Converter','Shell Art','Laser Code Conv. Nr.','Verpackung Conv. Nr.','Shell Farbe','Frame Farbe','Innerslider Farbe','Outerslider Farbe','TP-Band Farbe']
 };
@@ -8263,9 +8264,19 @@ function createArtikel(){
 // Spalten, die in der Edit-Form NICHT als Eingabe-Feld auftauchen sollen
 // (abgeleitete oder interne Felder).
 const _ART_FORM_SKIP_COLS=new Set(['_fsId','_cat']);
+// Versteckte Listen-/Export-Spalten, die im Edit-Formular dennoch editierbar sein
+// muessen. "Shell Art" liefert die Beschreibung im Auftragsplanung-Dropdown
+// (Artikelnr · Shell Art) und kann sonst ueber kein UI gesetzt werden — neu
+// angelegte Artikel blieben sonst ohne Beschreibung. Da die Vorlagen-Funktion
+// (applyArtikelTemplate) ebenfalls ueber _artFormCols laeuft, wird Shell Art
+// dadurch beim Anlegen aus einer Vorlage automatisch mitkopiert.
+const _ART_FORM_EXTRA_COLS={ xoend:['Shell Art'] };
 function _artFormCols(catKey,cat){
-    // Form-Felder = sichtbare Listen-Spalten (1:1) — keine versteckten Reference-Spalten
-    return _artVisibleCols(cat,catKey).filter(c=>!_ART_FORM_SKIP_COLS.has(c));
+    // Form-Felder = sichtbare Listen-Spalten + explizit erlaubte versteckte Spalten,
+    // in Original-Spaltenreihenfolge.
+    const extra=_ART_FORM_EXTRA_COLS[catKey]||[];
+    const allow=new Set([..._artVisibleCols(cat,catKey),...extra].filter(c=>!_ART_FORM_SKIP_COLS.has(c)));
+    return cat.columns.filter(c=>allow.has(c));
 }
 function openArtikelEdit(idx){
     _artEditIdx=idx;
