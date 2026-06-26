@@ -310,6 +310,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <button class="btn btn-sm btn-secondary" id="shiftPlannerBtn" onclick="openShiftPlanner()" style="display:none">Shift &amp; KPI Planning</button>
         <button class="btn btn-sm btn-secondary" id="pricelistBtn" onclick="openPricelist()" style="display:none">Pricelist</button>
         <button class="btn btn-sm btn-secondary" id="protocolBtn" onclick="openProtocol()" style="display:none">Protocol</button>
+        <button class="btn btn-sm" id="deleteAllTestBtn" onclick="deleteAllTestOrders()" style="display:none;background:#dc2626;color:#fff;border-color:#b91c1c" title="TEST: alle Auftrags-Anfragen (Assembly + Frame, alle Status) löschen">🗑 Test: Alle löschen</button>
         <button class="btn btn-sm btn-warning" id="pendingTopBtn" onclick="openPendingModal()" style="display:none" title="Open approval requests">🔔 Open Requests <span id="pendingTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <button class="btn btn-sm" id="myRejectedTopBtn" onclick="openMyRejectedModal()" style="display:none;background:#f97316;color:#fff;border-color:#ea580c" title="Your rejected requests">⚠ Rejected <span id="myRejectedTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <span id="userEmail" style="font-size:0.85rem;color:#475569"></span>
@@ -1343,6 +1344,9 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager' && currentUserRole!=
     // Protocol visible only for approvers/admin
     const protoBtn=$('protocolBtn');
     if(protoBtn) protoBtn.style.display = currentCanApprove ? '' : 'none';
+    // TEST-Bereinigung: nur Approver/Admin (canApprove) — nur die dürfen laut Rules fremde/freigegebene Einträge löschen
+    const delAllBtn=$('deleteAllTestBtn');
+    if(delAllBtn) delAllBtn.style.display = currentCanApprove ? '' : 'none';
     // Orders Overview: read-only Gesamtliste → für alle eingeloggten Rollen sichtbar.
     const ordBtn=$('ordersOverviewBtn');
     if(ordBtn) ordBtn.style.display='';
@@ -3321,6 +3325,31 @@ function _apSalesCard(it, mode){
 }
 
 // Zeichnet die komplette Sales-Ansicht (Header + Anlegen-Buttons + Listen offen/freigegeben/abgelehnt).
+// TEST-Bereinigung: löscht ALLE Auftrags-Anfragen (pending_orders_assembly + _frame, ALLE Status).
+// Nur Approver/Admin (canApprove) — Firestore-Rules erlauben nur diesen das Löschen fremder/freigegebener
+// Einträge. Das Audit-Protokoll (approval_protocol) ist unveränderlich und bleibt erhalten.
+async function deleteAllTestOrders(){
+    if(!currentCanApprove){ alert('Nur Approver/Admin dürfen alle Einträge löschen.'); return; }
+    const tabs=Object.keys(TAB_CONFIG);
+    const refs=[];
+    try{
+        for(const t of tabs){
+            const snap=await db.collection(_pendingColForTab(t)).get();
+            snap.forEach(d=>refs.push(d.ref));
+        }
+    }catch(e){ alert('Laden fehlgeschlagen: '+e.message); return; }
+    if(!refs.length){ alert('Keine Auftrags-Anfragen vorhanden.'); return; }
+    if(!confirm('TEST-Bereinigung:\n\nWirklich ALLE '+refs.length+' Auftrags-Anfragen (Assembly + Frame, inkl. approved/rejected) unwiderruflich löschen?\n\nDas Audit-Protokoll bleibt erhalten.')) return;
+    if(!confirm('Sicher? Diese Aktion kann NICHT rückgängig gemacht werden.')) return;
+    let ok=0, fail=0;
+    let batch=db.batch(), n=0;
+    const commit=async()=>{ if(n===0) return; try{ await batch.commit(); ok+=n; }catch(e){ fail+=n; console.warn('Batch-Delete fehlgeschlagen:',e); } batch=db.batch(); n=0; };
+    for(const ref of refs){ batch.delete(ref); if(++n>=400) await commit(); }
+    await commit();
+    alert('Fertig: '+ok+' gelöscht'+(fail?(' · '+fail+' fehlgeschlagen (evtl. fehlende Rechte)'):'')+'.');
+    try{ if(typeof renderPendingList==='function') renderPendingList('pendingModalBody'); }catch(_){}
+    try{ if(typeof loadWeek==='function') await loadWeek(); }catch(_){}
+}
 function renderSalesView(){
     const area=$('salesView');
     if(!area) return;
