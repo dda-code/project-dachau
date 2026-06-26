@@ -2617,6 +2617,42 @@ function applyKpiOutput(){
     recalcOrder(true);
     syncPalFromQty();
 }
+// Frühester Arbeitstag ab fromIso mit freier Restkapazität (verplant < volle Schicht-Kapazität).
+// Dient als Start-Default für neue Aufträge → der Auftrag füllt automatisch den angebrochenen
+// letzten Tag eines Vorauftrags (zwei Aufträge je Kalendertag). Unabhängig von der Auftragsmenge.
+function _assemblyEarliestFreeStart(fromIso){
+    if(!fromIso) return '';
+    const d=new Date(fromIso+'T00:00:00'); if(isNaN(d.getTime())) return '';
+    let safety=0;
+    while(safety<400){
+        if(isWorkDay(d)){
+            const iso=toIsoDate(d);
+            const shifts=getShiftsForDay(iso);
+            if(shifts>0){
+                const sp=getShiftPlanForIso(iso);
+                const fullCap=sp?computeOutputDayFromKpi(sp.kpi||{}, shifts):0;
+                if(fullCap>0 && (fullCap - _assemblyDayUsage(iso).usedQty) > 0) return iso;
+            }
+        }
+        d.setDate(d.getDate()+1); safety++;
+    }
+    return '';
+}
+// Fallback: PO Issue Date + Pick-Up (acc. Customer PO) aus dem Approval-Protokoll eines Auftrags nachladen
+// (für Altaufträge, deren Tagesdocs diese Felder noch nicht tragen). Setzt nur, wenn das Feld noch leer ist.
+async function _fillDatesFromProtocol(so){
+    if(!so) return;
+    try{
+        const snap=await db.collection(PROTOCOL_COL).where('so','==',so).get();
+        if(snap.empty) return;
+        const _ms=t=>{ try{ if(t&&t.toMillis) return t.toMillis(); if(t&&t.seconds!=null) return t.seconds*1000; }catch(_){} return 0; };
+        let best=null, bestMs=-1;
+        snap.forEach(doc=>{ const x=doc.data(); if(x.tab && x.tab!==currentTab) return; if(x.action!=='approved') return; const ms=_ms(x.decidedAt); if(ms>=bestMs){ bestMs=ms; best=x; } });
+        const h=(best&&best.payload&&best.payload.header)||{};
+        const pi=$('o_poIssueDate'); if(pi && !pi.value && h.poIssueDate) pi.value=h.poIssueDate;
+        const pc=$('o_pickupCustPo'); if(pc && !pc.value && h.pickupCustPo) pc.value=h.pickupCustPo;
+    }catch(e){ console.warn('Protokoll-Fallback (Datumsfelder) fehlgeschlagen:',e); }
+}
 function editOrder(so, iso){
     if(!so) return;
     // All days in the currently loaded weekDocs whose slot fields contain this SO#
@@ -2649,6 +2685,13 @@ function editOrder(so, iso){
     $('o_start').value=first.iso;
     $('o_qty').value=totalQty?formatThousands(String(totalQty)):'';
     $('o_outday').value=outDay?formatThousands(String(outDay)):'';
+    // PO Issue Date + Pick-Up (acc. Customer PO): bevorzugt aus den Tagesdocs (neu gespeichert),
+    // sonst Fallback aus dem Approval-Protokoll (Altaufträge). Vgl. _fillDatesFromProtocol.
+    const _piTag=first.fields['PO Issue Date']||'';
+    const _pcTag=first.fields['Pick-Up (acc. Customer PO)']||'';
+    if($('o_poIssueDate')) $('o_poIssueDate').value=_piTag;
+    if($('o_pickupCustPo')) $('o_pickupCustPo').value=_pcTag;
+    if(!_piTag || !_pcTag) _fillDatesFromProtocol(so);
     recalcOrder(true);
     syncPalFromQty();
 }
@@ -2727,7 +2770,12 @@ function openOrderModal(){
     const priceCcy=$('o_approverPriceCcy');
     if(priceCcy) priceCcy.textContent='EUR';
     const today=new Date();
-    $('o_start').value=toIsoDate(today);
+    const _todayIso=toIsoDate(today);
+    // Issue 2: neuer Auftrag startet am frühesten Tag mit freier Restkapazität → füllt automatisch den
+    // angebrochenen letzten Tag eines Vorauftrags (zwei Aufträge je Tag). Manager kann manuell überschreiben.
+    let _startIso=_todayIso;
+    if(currentTab==='assembly' && !_apSalesMode){ try{ const _free=_assemblyEarliestFreeStart(_todayIso); if(_free) _startIso=_free; }catch(_){} }
+    $('o_start').value=_startIso;
     prefillOutDayFromShiftPlan();
     $('o_calc').style.display='none';
     // Always reset preview calendar to Monday of the CURRENT week, then navigable
@@ -3944,6 +3992,10 @@ async function approvePendingInline(id, tab){
             const fields=(gridData[iso]&&gridData[iso].fields)||{};
             const cleanFields={};
             Object.entries(fields).forEach(([k,v])=>{ if(v!==''&&v!=null) cleanFields[k]=v; });
+            // PO Issue Date + Pick-Up (acc. Customer PO) in jedes Tagesdoc mitschreiben → beim Re-Edit ladbar.
+            { const _hdr=(payload&&payload.header)||{};
+              if(_hdr.poIssueDate)  cleanFields['PO Issue Date']=_hdr.poIssueDate;
+              if(_hdr.pickupCustPo) cleanFields['Pick-Up (acc. Customer PO)']=_hdr.pickupCustPo; }
             let iw={year:0,week:0};
             try{ iw=getIsoWeek(new Date(iso+'T00:00:00')); }catch(_){}
             // Assembly: composite {iso}__{SO} key so this order coexists with others sharing the day.
@@ -5567,6 +5619,10 @@ async function saveOrder(mode){
             const rawFields=(orderGridData[iso]&&orderGridData[iso].fields)||{};
             const cleanFields={};
             Object.entries(rawFields).forEach(([k,v])=>{ if(v!==''&&v!=null) cleanFields[k]=v; });
+            // PO Issue Date + Pick-Up (acc. Customer PO) in jedes Tagesdoc mitschreiben → beim Re-Edit ladbar.
+            { const _pi=String($('o_poIssueDate')?.value||'').trim(), _pc=String($('o_pickupCustPo')?.value||'').trim();
+              if(_pi) cleanFields['PO Issue Date']=_pi;
+              if(_pc) cleanFields['Pick-Up (acc. Customer PO)']=_pc; }
             const ref=db.collection(TAB_CONFIG[currentTab].salesCol).doc(_dayId(iso, soVal));
             batch.set(ref,{
                 datum:iso, jahr:iw.year, kw:iw.week,
