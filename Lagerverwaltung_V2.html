@@ -4022,6 +4022,22 @@ function renderProduktionsplan(){
         {l:'Sales Order XO',       fn:o=>_prodEsc(o['Sales Order XO'])},
         {l:'Veredelung',           fn:o=>_prodEsc(o['veredelung'])},
         {l:'Kunde',                fn:o=>_prodEsc(o['Kunde'])},
+        {l:'KPI Target Prod. Days',fn:o=>{
+            // SOLL für die Produktion: geplante Kalender-Produktionstage (sourceDaysCount aus der Auftragsplanung),
+            // fix. Nur ab Status "in production". Läuft der Auftrag länger als geplant (Ist-Laufzeit ab
+            // prodStartAt > Target), wird die Überschreitung in Tagen rot angezeigt.
+            const st=String(o['Status Produktion']||'').toLowerCase().trim();
+            if(!st.startsWith('in production')) return '<span style="color:#94a3b8">–</span>';
+            const target=parseFloat(o.sourceDaysCount);
+            if(!(target>0)) return '<span style="color:#94a3b8" title="Keine geplanten Produktionstage aus der Auftragsplanung">–</span>';
+            const fmt=n=>Number(n).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
+            let ist=null;
+            if(o.prodStartAt){ const t=Date.parse(o.prodStartAt); if(isFinite(t)) ist=(Date.now()-t)/86400000; }
+            if(ist!=null && (ist-target)>0.05){
+                return '__STYLE style="color:#dc2626;font-weight:700"__'+fmt(target)+' Tage · ⚠ +'+fmt(ist-target)+' Tage über Target';
+            }
+            return '<strong>'+fmt(target)+' Tage</strong>';
+        }},
         {l:'Pick-Up Deadline',     fn:o=>{const v=o['Pick-Up Deadline']||'';return v?'__STYLE style="color:#dc2626;font-weight:700"__'+_prodFmtDate(v):'__STYLE style="color:#94a3b8"__–';}},
         {l:'Tage bis Pick-Up',     fn:o=>{
             const v=o['Pick-Up Deadline']||'';
@@ -4722,6 +4738,10 @@ function saveProdEdit(){
         if(f.num){v=v===''?'':Number(v);}
         o[f.k]=v;
     });
+    // KPI Target: Produktionsstart-Zeitstempel beim Wechsel auf "in production" merken — Basis für die
+    // Ist-Laufzeit / Überschreitungs-Anzeige. Einmal gesetzt, bleibt er erhalten.
+    { const _st=String(o['Status Produktion']||'').toLowerCase().trim();
+      if(_st.startsWith('in production') && !o.prodStartAt) o.prodStartAt=new Date().toISOString(); }
     // Importierter Auftrag wurde bearbeitet & finalisiert → orangenen Rahmen entfernen
     // und ans ENDE der Liste einreihen (kleinster _created), bestehende Reihenfolge bleibt
     if(o._pendingReview){
