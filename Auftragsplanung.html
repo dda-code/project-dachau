@@ -7400,15 +7400,18 @@ async function seqApply(){
         try{
             await db.collection('order_sequence').doc(tab).set({ tab, order:_seqState.orderIds, anchorOrderId:_seqState.anchorId||null, anchorStartIso:_seqState.anchorStartIso||null, updatedAt:ts, updatedByEmail:currentUserEmail }, {merge:true});
         }catch(e){ console.warn('order_sequence save:',e); }
-        // Produktionsplan-Spiegel der geänderten Aufträge re-synchronisieren (Start/Ende/Tage)
+        // Produktionsplan-Spiegel re-synchronisieren (Start/Ende/Tage + exakte Plan-Tage).
+        // WICHTIG: über ALLE Aufträge der Linie (preview.orders), nicht nur die verschobenen — sonst
+        // bekommen unveränderte Aufträge die exakte Plan-Dauer (sourceProdDaysExact) nie nachgetragen.
         const prodCol=TAB_CONFIG[tab].prodCol;
-        for(const p of changed){
+        for(const p of preview.orders){
             try{
                 const field=isFrame?'Sales Order XO':'sourceSoNr';
                 const snap=await db.collection(prodCol).where(field,'==',p.id).get();
                 if(!snap.empty){
+                    const _exact=(p.seq||[]).reduce((a,s)=>a+(s.fullCapacity>0?s.qty/s.fullCapacity:0),0);
                     const b2=db.batch();
-                    snap.forEach(d=>b2.update(d.ref,{ sourceStartIso:p.startIso, sourceEndIso:p.endIso, sourceDaysCount:p.days, sourceProdDaysExact:(p.seq||[]).reduce((a,s)=>a+(s.fullCapacity>0?s.qty/s.fullCapacity:0),0), _apResequencedAt:ts }));
+                    snap.forEach(d=>b2.update(d.ref,{ sourceStartIso:p.startIso, sourceEndIso:p.endIso, sourceDaysCount:p.days, sourceProdDaysExact:_exact, _apResequencedAt:ts }));
                     await b2.commit();
                 }
             }catch(e){ console.warn('Produktionsplan re-sync ('+p.id+'):',e); }
