@@ -1819,8 +1819,10 @@ async function loadWeek(){
         console.error('Load error:',e);
         showMsg('Error loading: '+e.message,'error');
     }
-    // Sort same-day slots by entry order (createdAt for approved, requestedAt for pending).
-    // Reihenfolge der Spalten = Reihenfolge der Erfassung. Bei Gleichstand stabil nach _orderId.
+    // Spalten-Reihenfolge an einem geteilten Tag = PRODUKTIONS-Chronologie, nicht Erfassungsreihenfolge.
+    // An einem von zwei Aufträgen geteilten Kalendertag wird der früher gestartete Auftrag zuerst fertig
+    // (läuft im Tagesverlauf vorne) → er gehört nach LINKS; der an dem Tag erst beginnende nach RECHTS.
+    // Signal: frühestes Produktionsdatum des Auftrags im geladenen Fenster.
     const _tsMs=t=>{
         if(!t) return Number.MAX_SAFE_INTEGER;
         try{ if(typeof t.toMillis==='function') return t.toMillis(); }catch(_){}
@@ -1828,9 +1830,18 @@ async function loadWeek(){
         try{ const d=t instanceof Date?t:new Date(t); const n=d.getTime(); return isFinite(n)?n:Number.MAX_SAFE_INTEGER; }catch(_){}
         return Number.MAX_SAFE_INTEGER;
     };
+    const _orderMinIso={};
+    Object.entries(weekDocs).forEach(([iso,arr])=>{
+        if(!Array.isArray(arr)) return;
+        arr.forEach(s=>{ const id=s._orderId||''; if(!id) return; if(!(id in _orderMinIso) || iso<_orderMinIso[id]) _orderMinIso[id]=iso; });
+    });
     Object.values(weekDocs).forEach(arr=>{
         if(!Array.isArray(arr) || arr.length<2) return;
         arr.sort((a,b)=>{
+            // 1) Produktions-Chronologie: früher gestarteter Auftrag (= wird am geteilten Tag zuerst fertig) nach links
+            const ma=_orderMinIso[a._orderId||'']||'9999-99-99', mb=_orderMinIso[b._orderId||'']||'9999-99-99';
+            if(ma!==mb) return ma<mb?-1:1;
+            // 2) Fallback bei gleichem Startdatum: Erfassungs-Zeitstempel, dann Auftrags-ID (stabil)
             const da=_tsMs(a._sortTs), db=_tsMs(b._sortTs);
             if(da!==db) return da-db;
             return String(a._orderId||'').localeCompare(String(b._orderId||''));
