@@ -2640,7 +2640,7 @@ function _assemblyEarliestFreeStart(fromIso){
 }
 // Fallback: PO Issue Date + Pick-Up (acc. Customer PO) aus dem Approval-Protokoll eines Auftrags nachladen
 // (für Altaufträge, deren Tagesdocs diese Felder noch nicht tragen). Setzt nur, wenn das Feld noch leer ist.
-async function _fillDatesFromProtocol(so){
+async function _fillEditExtrasFromProtocol(so){
     if(!so) return;
     try{
         const snap=await db.collection(PROTOCOL_COL).where('so','==',so).get();
@@ -2648,10 +2648,20 @@ async function _fillDatesFromProtocol(so){
         const _ms=t=>{ try{ if(t&&t.toMillis) return t.toMillis(); if(t&&t.seconds!=null) return t.seconds*1000; }catch(_){} return 0; };
         let best=null, bestMs=-1;
         snap.forEach(doc=>{ const x=doc.data(); if(x.tab && x.tab!==currentTab) return; if(x.action!=='approved') return; const ms=_ms(x.decidedAt); if(ms>=bestMs){ bestMs=ms; best=x; } });
-        const h=(best&&best.payload&&best.payload.header)||{};
-        const pi=$('o_poIssueDate'); if(pi && !pi.value && h.poIssueDate) pi.value=h.poIssueDate;
-        const pc=$('o_pickupCustPo'); if(pc && !pc.value && h.pickupCustPo) pc.value=h.pickupCustPo;
-    }catch(e){ console.warn('Protokoll-Fallback (Datumsfelder) fehlgeschlagen:',e); }
+        const pl=(best&&best.payload)||{}; const h=pl.header||{}; const ap=pl.approvedPrice||{};
+        const setIfEmpty=(id,v)=>{ const e=$(id); if(e && !e.value && v!=null && v!=='') e.value=v; };
+        setIfEmpty('o_poIssueDate', h.poIssueDate);
+        setIfEmpty('o_pickupCustPo', h.pickupCustPo);
+        setIfEmpty('o_priceCustPo', h.priceCustPo);
+        // Unit Price XO (Approver-Preis): nur aus dem zugriffsbeschränkten Protokoll. touched=1 setzen,
+        // damit der Preislisten-Vorschlag den gespeicherten Wert nicht überschreibt.
+        const pe=$('o_approverPrice');
+        if(pe && !pe.value && ap.price!=null){
+            pe.value=Number(ap.price).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+            pe.dataset.touched='1';
+            const ce=$('o_approverPriceCcy'); if(ce && ap.ccy) ce.textContent=ap.ccy;
+        }
+    }catch(e){ console.warn('Protokoll-Fallback (Edit-Felder) fehlgeschlagen:',e); }
 }
 function editOrder(so, iso){
     if(!so) return;
@@ -2686,12 +2696,14 @@ function editOrder(so, iso){
     $('o_qty').value=totalQty?formatThousands(String(totalQty)):'';
     $('o_outday').value=outDay?formatThousands(String(outDay)):'';
     // PO Issue Date + Pick-Up (acc. Customer PO): bevorzugt aus den Tagesdocs (neu gespeichert),
-    // sonst Fallback aus dem Approval-Protokoll (Altaufträge). Vgl. _fillDatesFromProtocol.
+    // sonst Fallback aus dem Approval-Protokoll (Altaufträge). Vgl. _fillEditExtrasFromProtocol.
     const _piTag=first.fields['PO Issue Date']||'';
     const _pcTag=first.fields['Pick-Up (acc. Customer PO)']||'';
     if($('o_poIssueDate')) $('o_poIssueDate').value=_piTag;
     if($('o_pickupCustPo')) $('o_pickupCustPo').value=_pcTag;
-    if(!_piTag || !_pcTag) _fillDatesFromProtocol(so);
+    // Preise stehen bewusst NICHT in den (für alle lesbaren) sales_plan-Tagesdocs, sondern nur im
+    // zugriffsbeschränkten approval_protocol → Preise + ggf. noch fehlende Datumsfelder von dort nachladen.
+    _fillEditExtrasFromProtocol(so);
     recalcOrder(true);
     syncPalFromQty();
 }
