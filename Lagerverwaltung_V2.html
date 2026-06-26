@@ -3926,6 +3926,52 @@ function _prodMultiValues(id){
     if(checked.length===total)return {all:true,set:null};
     return {all:false,set:new Set(checked)};
 }
+// ============================================================
+// ORDER SEQUENCE — Produktions-Reihenfolge, die der Approver in der
+// Auftragsplanung festlegt (Drag&Drop). Wird LIVE aus order_sequence/{tab}
+// gelesen (tab: 'assembly' = produktionsplan, 'frame' = produktionsplan_spritzguss).
+// Die angezeigte Nummer ist fortlaufend und zaehlt NUR nicht-abgeschlossene
+// Auftraege (done/fertig/cancelled fallen raus -> keine Luecken). Es wird
+// NICHTS zurueckgeschrieben. Abgleich: Assembly ueber sourceSoNr (Fallback
+// Sales-Order-Label), Spritzguss/Frame ueber 'Sales Order XO'.
+// ============================================================
+const ORDER_SEQ={ assembly:[], frame:[] };
+const _orderSeqUnsub={ assembly:null, frame:null };
+function _orderSeqMatchId(o,tab){
+    return tab==='assembly'
+        ? String(o.sourceSoNr||o['Sales Order - PALETTENLABEL']||'').trim()
+        : String(o['Sales Order XO']||o.sourceSoNr||'').trim();
+}
+function _orderSeqIsDone(o){
+    const s=String(o['Status Produktion']||'').toLowerCase().trim();
+    return s.startsWith('done')||s.startsWith('fertig')||s.startsWith('cancel');
+}
+// { matchId -> fortlaufende Nummer } ueber nicht-done Auftraege in Approver-Reihenfolge.
+function _buildOrderSeqMap(tab){
+    const order=ORDER_SEQ[tab]||[];
+    const data=tab==='assembly'
+        ? (typeof PRODUKTIONSPLAN_DATA!=='undefined'?PRODUKTIONSPLAN_DATA:[])
+        : (typeof PRODUKTIONSPLAN_SG_DATA!=='undefined'?PRODUKTIONSPLAN_SG_DATA:[]);
+    const notDone={};
+    data.forEach(o=>{ const id=_orderSeqMatchId(o,tab); if(id && !_orderSeqIsDone(o)) notDone[id]=true; });
+    const map={}; let n=0;
+    order.forEach(rawId=>{ const id=String(rawId||'').trim(); if(id && notDone[id] && !(id in map)){ n++; map[id]=n; } });
+    return map;
+}
+function _initOrderSeqListeners(){
+    ['assembly','frame'].forEach(tab=>{
+        if(_orderSeqUnsub[tab])return;
+        try{
+            _orderSeqUnsub[tab]=db.collection('order_sequence').doc(tab).onSnapshot(snap=>{
+                const d=snap.exists?(snap.data()||{}):{};
+                ORDER_SEQ[tab]=Array.isArray(d.order)?d.order:[];
+                if(tab==='assembly'){ if(typeof renderProduktionsplan==='function')renderProduktionsplan(); }
+                else if(typeof sg_renderProduktionsplan==='function'){ sg_renderProduktionsplan(); }
+            }, err=>console.warn('order_sequence['+tab+'] Listener:',err));
+        }catch(e){ console.warn('order_sequence Listener-Init ('+tab+'):',e); }
+    });
+}
+
 function renderProduktionsplan(){
     const q=(document.getElementById('prodSearch')?.value||'').toLowerCase().trim();
     const statusSel=_prodMultiValues('prodStatusFilter');
@@ -3934,11 +3980,16 @@ function renderProduktionsplan(){
     if(!body)return;
     // Sicherstellen, dass jede Zeile ein Erstellungs-Marker hat (Index = Reihenfolge der Ursprungsdaten)
     PRODUKTIONSPLAN_DATA.forEach((o,i)=>{if(o._created==null)o._created=i;});
+    const _seqMap=_buildOrderSeqMap('assembly');
     let rows=PRODUKTIONSPLAN_DATA.slice();
     rows.sort((a,b)=>{
         const ap=a._pendingReview?1:0, bp=b._pendingReview?1:0;
         if(ap!==bp) return ap-bp; // pending-review immer ans Ende (rechts)
-        return (b._created||0)-(a._created||0);
+        // Primaer: Order Sequence des Approvers (1 = zuerst/links); nicht-sequenzierte ans Ende
+        const sa=_seqMap[_orderSeqMatchId(a,'assembly')]||9999;
+        const sb=_seqMap[_orderSeqMatchId(b,'assembly')]||9999;
+        if(sa!==sb) return sa-sb;
+        return (b._created||0)-(a._created||0); // Fallback: bisherige Reihenfolge
     });
     if(q){rows=rows.filter(o=>Object.values(o).some(v=>String(v).toLowerCase().includes(q)));}
     if(!statusSel.all){rows=rows.filter(o=>{
@@ -3967,6 +4018,7 @@ function renderProduktionsplan(){
     // Horizontale Darstellung wie in der Excel: Zeilen = Felder, Spalten = Aufträge
     const FIELD_ROWS=[
         {l:'Sales Order',          fn:o=>'<strong>'+_prodEsc(o['Sales Order - PALETTENLABEL'])+'</strong>'},
+        {l:'Order Sequence',       fn:o=>{const n=_seqMap[_orderSeqMatchId(o,'assembly')];return n?'<strong style="color:#1e40af">#'+n+'</strong>':'<span style="color:#94a3b8" title="Vom Approver noch nicht sequenziert / abgeschlossen">–</span>';}},
         {l:'Sales Order XO',       fn:o=>_prodEsc(o['Sales Order XO'])},
         {l:'Veredelung',           fn:o=>_prodEsc(o['veredelung'])},
         {l:'Kunde',                fn:o=>_prodEsc(o['Kunde'])},
@@ -5194,10 +5246,15 @@ function sg_renderProduktionsplan(){
     const body=document.getElementById('sgProdBody');
     if(!body)return;
     PRODUKTIONSPLAN_SG_DATA.forEach((o,i)=>{if(o._created==null)o._created=i;});
+    const _seqMap=_buildOrderSeqMap('frame');
     let rows=PRODUKTIONSPLAN_SG_DATA.slice();
     rows.sort((a,b)=>{
         const ap=a._pendingReview?1:0, bp=b._pendingReview?1:0;
         if(ap!==bp) return ap-bp; // neue/importierte Aufträge (pending-review) ans ENDE (rechts) — wie Assembly
+        // Primaer: Order Sequence des Approvers (1 = zuerst/links); nicht-sequenzierte ans Ende
+        const sa=_seqMap[_orderSeqMatchId(a,'frame')]||9999;
+        const sb=_seqMap[_orderSeqMatchId(b,'frame')]||9999;
+        if(sa!==sb) return sa-sb;
         return (b._created||0)-(a._created||0);
     });
     if(q){rows=rows.filter(o=>Object.values(o).some(v=>String(v).toLowerCase().includes(q)));}
@@ -5208,6 +5265,7 @@ function sg_renderProduktionsplan(){
     });}
     const FIELD_ROWS=[
         {l:'Sales Order XO',             fn:o=>'<strong>'+_prodEsc(o['Sales Order XO'])+'</strong>'},
+        {l:'Order Sequence',             fn:o=>{const n=_seqMap[_orderSeqMatchId(o,'frame')];return n?'<strong style="color:#1e40af">#'+n+'</strong>':'<span style="color:#94a3b8" title="Vom Approver noch nicht sequenziert / abgeschlossen">–</span>';}},
         {l:'Artikelnummer',              fn:o=>_prodEsc(o['Artikelnummer'])},
         {l:'Frames pro Palette',         fn:o=>_prodNum(o['Frames pro Palette']), num:true},
         {l:'Start Produktion',           fn:o=>{const cls=_prodStatusClass(o['Status Produktion']);return '<span class="prod-status '+cls+'">'+_prodEsc(_prodStatusLabel(o['Status Produktion']))+'</span>';}},
@@ -5461,6 +5519,7 @@ let _sgProdInitDone=false;
 function _initProduktionsplanSG(){
     if(_sgProdInitDone){sg_renderProduktionsplan();return;}
     _sgProdInitDone=true;
+    _initOrderSeqListeners();
     const statusFilter=document.getElementById('sgProdStatusFilter');
     if(statusFilter){
         const allCb=statusFilter.querySelector('.prod-multi-all');
@@ -5502,6 +5561,7 @@ let _prodInitDone=false;
 function _initProduktionsplan(){
     if(_prodInitDone){renderProduktionsplan();return;}
     _prodInitDone=true;
+    _initOrderSeqListeners();
     const kSet=new Set();
     PRODUKTIONSPLAN_DATA.forEach(o=>{const k=(o['Kunde']||'').trim();if(k)kSet.add(k);});
     const kList=document.getElementById('prodKundeFilterList');
