@@ -5857,8 +5857,13 @@ function _apProdDayBackward(fromIso, nDays){
     }
     return last;
 }
-// Einen Auftrag ab startIso vorwärts packen (linien-exklusiv, kein Backfill). prevArt = Vorgänger-Artikel (Umrüstung Tag 1).
-function _apPackOrder(startIso, qty, art, prevArt){
+// Einen Auftrag ab startIso vorwärts packen. usedByIso (optional) = je ISO-Datum bereits durch
+// FRÜHERE Aufträge der Sequenz verplante Menge → dieser Auftrag füllt nur die RESTKAPAZITÄT eines
+// Tages auf (Backfill, damit ein Produktionstag voll ausgelastet wird). prevArt = Vorgänger-Artikel
+// (Umrüstung wird einmalig am ersten produzierenden Tag abgezogen). Ohne usedByIso = altes
+// Verhalten (voller Tag, kein Backfill).
+function _apPackOrder(startIso, qty, art, prevArt, usedByIso){
+    usedByIso = usedByIso || {};
     const empty={start:startIso, days:0, endIso:'', seq:[], remaining:qty, feasible:false};
     if(!startIso || !(qty>0)) return empty;
     const d=new Date(startIso+'T00:00:00'); if(isNaN(d.getTime())) return empty;
@@ -5866,32 +5871,41 @@ function _apPackOrder(startIso, qty, art, prevArt){
     while(remaining>0 && safety<800){
         const iso=toIsoDate(d), info=_apSeqDayCap(iso, d.getDay());
         if(info.cap>0){
-            // Umrüstung wird EINMALIG am ersten produktionsfähigen Tag bezahlt (auch wenn sie den Tag
-            // komplett aufbraucht → reiner Setup-Tag; Produktion startet dann am Folgetag). isFirst danach false,
-            // damit der Verlust nicht an jedem Folgetag erneut abgezogen wird.
-            let coLoss=0;
-            if(isFirst){ coLoss=_changeoverPiecesLoss(info.sp, prevArt, art||'', info.shifts); isFirst=false; }
-            const cap=Math.max(0, info.cap-coLoss);
-            if(cap>0){
-                const dayQty=Math.min(cap, remaining);
-                seq.push({iso, shifts:info.shifts, capacity:cap, fullCapacity:info.cap, changeoverLoss:coLoss, qty:dayQty});
-                remaining-=dayQty;
+            const used=usedByIso[iso]||0;
+            const free=Math.max(0, info.cap-used); // Restkapazität nach bereits am Tag verplanten Aufträgen
+            if(free>0){
+                // Umrüstung EINMALIG am ersten produzierenden Tag (kann die Restkapazität komplett
+                // aufbrauchen → reiner Setup; Produktion startet dann am Folgetag).
+                let coLoss=0;
+                if(isFirst){ coLoss=_changeoverPiecesLoss(info.sp, prevArt, art||'', info.shifts); isFirst=false; }
+                const cap=Math.max(0, free-coLoss);
+                if(cap>0){
+                    const dayQty=Math.min(cap, remaining);
+                    seq.push({iso, shifts:info.shifts, capacity:cap, fullCapacity:info.cap, usedByOthers:used, changeoverLoss:coLoss, qty:dayQty});
+                    remaining-=dayQty;
+                    usedByIso[iso]=used+dayQty+coLoss; // Umrüstung belegt den Tag mit
+                } else {
+                    // Umrüstung hat die Restkapazität des angebrochenen Tages aufgebraucht → Tag als voll markieren.
+                    usedByIso[iso]=info.cap;
+                }
             }
         }
         d.setDate(d.getDate()+1); safety++;
     }
     return {start:startIso, days:seq.length, endIso:seq.length?seq[seq.length-1].iso:'', seq, remaining, feasible:remaining<=0};
 }
-// Mehrere Aufträge in Reihenfolge lückenlos hintereinander packen (ab lineStartIso). prevArt kettet durch.
+// Mehrere Aufträge in Reihenfolge packen. Der Folgeauftrag startet AM letzten (ggf. angebrochenen)
+// Tag des Vorgängers und füllt dessen Restkapazität (Backfill) → derselbe Kalendertag kann zwei
+// Aufträge tragen (zwei Spalten im Kalender). usedByIso wird durch die ganze Sequenz mitgeführt,
+// damit jeder Tag korrekt bis zur vollen Kapazität (abzgl. Umrüstung) ausgelastet wird.
 function _apPackSequence(orders, lineStartIso){
-    const out=[]; let cursorIso=lineStartIso, prevArt='';
+    const out=[]; let cursorIso=lineStartIso, prevArt=''; const usedByIso={};
     for(const o of orders){
-        const plan=_apPackOrder(cursorIso, o.qty, o.art, prevArt);
+        const plan=_apPackOrder(cursorIso, o.qty, o.art, prevArt, usedByIso);
         out.push({id:o.id, art:o.art, qty:o.qty, startIso:plan.seq.length?plan.seq[0].iso:cursorIso, endIso:plan.endIso, days:plan.days, seq:plan.seq, feasible:plan.feasible, remaining:plan.remaining});
-        if(plan.endIso){
-            const nd=new Date(plan.endIso+'T00:00:00'); nd.setDate(nd.getDate()+1);
-            const nx=_apNextProdDay(nd); cursorIso=nx?toIsoDate(nx):toIsoDate(nd);
-        }
+        // Am letzten Tag des Vorgängers weitermachen — _apPackOrder füllt via usedByIso nur die
+        // Restkapazität; ist der Tag voll, rückt es automatisch auf den nächsten Produktionstag.
+        if(plan.endIso){ cursorIso=plan.endIso; }
         prevArt=o.art;
     }
     return out;
@@ -5907,7 +5921,10 @@ function recomputeLineSchedule(seqOrders, anchorIdx, anchorStartIso){
         // Frühere Aufträge ab dem frühesten Tag packen → benötigte Prod-Tage zählen.
         const earlier=seqOrders.slice(0, anchorIdx);
         const ePack=_apPackSequence(earlier, earliestIso);
-        const nEarlier=ePack.reduce((a,o)=>a+o.days, 0);
+        // Distinct Produktionstage der früheren Aufträge zählen — durch Backfill können sich Aufträge
+        // einen Tag teilen, daher NICHT die per-Auftrag-Tage summieren (würde geteilte Tage doppelt zählen).
+        const _earlierIsos=new Set(); ePack.forEach(o=>(o.seq||[]).forEach(s=>_earlierIsos.add(s.iso)));
+        const nEarlier=_earlierIsos.size;
         // Gewünschter Linienstart = nEarlier Prod-Tage VOR dem Anker.
         const desiredIso=toIsoDate(_apProdDayBackward(anchorStartIso, nEarlier));
         if(desiredIso>earliestIso){ lineStartIso=desiredIso; }
