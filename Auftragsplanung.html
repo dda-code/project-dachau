@@ -110,6 +110,12 @@ td.cell-dropdown input{background:transparent}
 .form-grid .full{grid-column:1/-1}
 .form-grid input[readonly]{background:#f1f5f9;color:#475569}
 .form-grid input.ef{background:rgba(253,224,71,0.35)}
+/* Order-Input Feld-Markierung: MVR = hellblau, SPA = hellorange (override der gelben .ef-Füllung + Inline-Backgrounds) */
+.form-grid .ef-mvr{background:#e0f2fe !important}
+.form-grid .ef-spa{background:#ffedd5 !important}
+.order-legend{display:flex;gap:18px;align-items:center;margin:0 0 8px;font-size:0.8rem;font-weight:600;color:#475569;flex-wrap:wrap}
+.order-legend .sw{width:14px;height:14px;border-radius:3px;display:inline-block;flex-shrink:0}
+.order-legend span.item{display:inline-flex;align-items:center;gap:6px}
 .form-grid input.cf{background:#ececec;color:#475569}
 .preview-title{margin-top:18px;margin-bottom:6px;font-size:0.9rem;font-weight:700;color:#334155;display:flex;justify-content:space-between;align-items:center}
 .mini-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;background:#f1f5f9;padding:6px;border-radius:8px;font-size:0.72rem}
@@ -352,21 +358,25 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     <div class="modal-body">
       <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
       <div style="flex:1;min-width:0">
-        <!-- Sektion 1: Eingabefelder (gelb) gruppiert -->
+        <!-- Sektion 1: Eingabefelder gruppiert (MVR = hellblau, SPA = hellorange) -->
+        <div class="order-legend">
+          <span class="item"><span class="sw" style="background:#e0f2fe;border:1px solid #7dd3fc"></span>MVR = blue fields</span>
+          <span class="item"><span class="sw" style="background:#ffedd5;border:1px solid #fdba74"></span>SPA = orange fields</span>
+        </div>
         <div class="order-section">
           <div class="order-section-title input">Order Input</div>
           <div class="order-section-body">
             <div class="form-grid">
-              <label>SO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_so" type="text" class="ef" required title="Sales Order number — required; no request can be sent without an SO #"></label>
-              <label>PO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_po" type="text" class="ef" required title="Purchase Order number — required; no request can be sent without a PO #"></label>
-              <label>Art #<select id="o_art" class="ef" style="font-family:inherit"><option value="">– Please select –</option></select></label>
-              <label>Customer<select id="o_cust" class="ef" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
-              <label>Start date<input id="o_start" type="date" class="ef"></label>
-              <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="o_pickup" type="date" class="ef" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
+              <label>SO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_so" type="text" class="ef ef-mvr" required title="Sales Order number — required; no request can be sent without an SO #"></label>
+              <label>PO #<span style="color:#dc2626;font-weight:700"> *</span><input id="o_po" type="text" class="ef ef-mvr" required title="Purchase Order number — required; no request can be sent without a PO #"></label>
+              <label>Art #<select id="o_art" class="ef ef-mvr" style="font-family:inherit"><option value="">– Please select –</option></select></label>
+              <label>Customer<select id="o_cust" class="ef ef-mvr" required style="font-family:inherit"><option value="">– Please select –</option></select></label>
+              <label>Start date<input id="o_start" type="date" class="ef ef-mvr"></label>
+              <label style="color:#dc2626;font-weight:600">Pick-Up (Deadline)<input id="o_pickup" type="date" class="ef ef-mvr" style="color:#dc2626;font-weight:700;border-color:#fca5a5"></label>
               <label>PAL (Pallets)
                   <span class="pal-stepper">
                       <button type="button" class="pal-btn" onclick="stepPal(-1)" title="Decrease pallets">−</button>
-                      <input id="o_pal" type="text" class="ef" inputmode="numeric">
+                      <input id="o_pal" type="text" class="ef ef-mvr" inputmode="numeric">
                       <button type="button" class="pal-btn" onclick="stepPal(1)" title="Increase pallets">+</button>
                   </span>
                   <span id="o_palPieces" style="display:none;margin-top:4px;font-size:0.82rem;font-weight:700;color:#0f172a"></span>
@@ -374,15 +384,15 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
               <div id="o_outdayWrap" style="display:flex;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Daily Output/d (pcs.)</span>
                   <div style="display:flex;gap:4px">
-                      <input id="o_outday" type="text" class="ef" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;min-height:38px;box-sizing:border-box">
+                      <input id="o_outday" type="text" class="ef ef-mvr" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;min-height:38px;box-sizing:border-box">
                       <button type="button" class="btn btn-sm btn-secondary" id="o_kpiBtn" onclick="openKpiModal();return false;" title="KPI calculator" style="padding:3px 10px;font-size:1rem">⚙</button>
                   </div>
               </div>
-              <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef" required title="Date the customer issued the order to XO — required"></label>
-              <label>Pick-Up (acc. Customer PO)<span style="color:#dc2626;font-weight:700"> *</span><input id="o_pickupCustPo" type="date" class="ef" required title="Pick-up / delivery date per customer PO — required; no request can be sent without this date"></label>
+              <label>PO Issue Date<span style="color:#dc2626;font-weight:700"> *</span><input id="o_poIssueDate" type="date" class="ef ef-mvr" required title="Date the customer issued the order to XO — required"></label>
+              <label>Pick-Up (acc. Customer PO)<span style="color:#dc2626;font-weight:700"> *</span><input id="o_pickupCustPo" type="date" class="ef ef-mvr" required title="Pick-up / delivery date per customer PO — required; no request can be sent without this date"></label>
               <label>Price (acc. Customer PO) (€/1000 pcs.)<span id="o_priceCustPoStar" style="color:#dc2626;font-weight:700"> *</span>
                   <span style="display:flex;align-items:stretch;gap:4px">
-                      <input id="o_priceCustPo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" class="ef" style="flex:1;min-width:0;text-align:right" title="Price per customer PO">
+                      <input id="o_priceCustPo" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" class="ef ef-spa" style="flex:1;min-width:0;text-align:right" title="Price per customer PO">
                       <span style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
                   </span>
                   <span id="o_priceDevWarn" style="display:none;font-size:0.72rem;color:#dc2626;font-weight:700;margin-top:3px"></span>
@@ -390,7 +400,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
               <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
                   <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price XO (€/1000 pcs.)</span>
                   <div style="display:flex;gap:4px;align-items:stretch">
-                      <input id="o_approverPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" title="Suggested from pricelist — editable" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;font-weight:700;text-align:right;background:#fffbeb;min-height:38px;box-sizing:border-box;color:#0f172a">
+                      <input id="o_approverPrice" class="ef-spa" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" title="Suggested from pricelist — editable" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;font-weight:700;text-align:right;background:#fffbeb;min-height:38px;box-sizing:border-box;color:#0f172a">
                       <span id="o_approverPriceCcy" style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
                   </div>
               </div>
