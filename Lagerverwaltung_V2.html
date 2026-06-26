@@ -4614,6 +4614,20 @@ function _prodSweepFreeze(){
         if(typeof _persistProdData==='function') _persistProdData(o);
     });
 }
+// Auto-Start: sobald die erste Palette eines noch OFFENEN Auftrags gescannt wurde → Status automatisch
+// auf "in production" + Zähler starten (Alternative zum manuellen Statuswechsel). Idempotent.
+function _prodSweepAutoStart(){
+    if(typeof PRODUKTIONSPLAN_DATA==='undefined') return;
+    PRODUKTIONSPLAN_DATA.forEach(o=>{
+        const st=String(o['Status Produktion']||'').toLowerCase().trim();
+        if(!st.startsWith('open')) return;            // nur noch nicht gestartete Aufträge
+        if((_prodLetzteGefertigte(o)||0) <= 0) return; // noch keine Palette dieses Auftrags gescannt
+        o['Status Produktion']='in production';
+        if(!o.prodRunningSince) o.prodRunningSince=new Date().toISOString();
+        delete o.prodDone;
+        if(typeof _persistProdData==='function') _persistProdData(o);
+    });
+}
 function _prodLetzteGefertigte(o){
     if(!o||typeof FERTIGPALETTEN_DATA==='undefined'||FERTIGPALETTEN_DATA.length===0)return 0;
     const on1=String(o['Sales Order - PALETTENLABEL']||'').trim();
@@ -9329,7 +9343,9 @@ async function _fsInitFertigpaletten(){
             });
             _fsFPRebuildIndex();
             renderFertigpalettenBox();
-            // letzte Palette gescannt → KPI-Zähler der fertigen Aufträge einfrieren (vor dem Render)
+            // erste Palette gescannt → offenen Auftrag automatisch auf "in production" + Zähler starten;
+            // letzte Palette gescannt → KPI-Zähler der fertigen Aufträge einfrieren (jeweils vor dem Render)
+            if(typeof _prodSweepAutoStart==='function')_prodSweepAutoStart();
             if(typeof _prodSweepFreeze==='function')_prodSweepFreeze();
             if(typeof renderProduktionsplan==='function')renderProduktionsplan();
             // Bestandsliste + Dashboard live mitziehen (beide enthalten jetzt auch Fertigpaletten)
