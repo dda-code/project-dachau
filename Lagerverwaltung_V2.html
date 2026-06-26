@@ -3702,8 +3702,18 @@ async function loadUserMgmt(){
     $('userMgmtBody').innerHTML=rows.map(u=>{
         const isSelf=u.uid===curUid;
         const statusTxt=u.disabled?'<span style="color:#ef4444;font-weight:600">Deaktiviert</span>':'<span style="color:#10b981;font-weight:600">Aktiv</span>';
-        const roleSelect=isSelf?`<span style="font-weight:600">${u.role==='admin'?'Admin':(u.role==='qs'?'QS':'User')}</span>`
-            :`<select class="form-select" style="padding:4px 8px;font-size:0.82rem;width:auto" onchange="changeUserRole('${_escAttr(u.uid)}',this.value)"><option value="user"${u.role==='user'?' selected':''}>User</option><option value="qs"${u.role==='qs'?' selected':''}>QS</option><option value="manager"${u.role==='manager'?' selected':''}>Manager</option><option value="admin"${u.role==='admin'?' selected':''}>Admin</option></select>`;
+        // Rolle sichtbar machen: das Dropdown kennt nur user/qs/manager/admin. Ein gespeicherter
+        // Wert ausserhalb davon (z.B. 'sales', leer, Tippfehler) wurde frueher als "User" verschleiert
+        // und sperrte den Account still aus der Lagerverwaltung (isUser() in den Rules == false).
+        const _DD_ROLES=['user','qs','manager','admin'];
+        const _ISUSER_ROLES=['user','qk','qs','admin','manager','cfo','gf','produktion','buchhaltung'];
+        const _rv=u.role||'';
+        const _rKnown=_DD_ROLES.includes(_rv);
+        const _rSeesData=_ISUSER_ROLES.includes(_rv);
+        const _rWarn=_rKnown?'':`<div style="color:#ef4444;font-size:.72rem;font-weight:700;margin-top:3px">⚠ Rolle ${_rv?('„'+_escAttr(_rv)+'"'):'(keine)'} — ${_rSeesData?'Sonderrolle':'sieht KEINE Lagerdaten'}</div>`;
+        const _rExtraOpt=_rKnown?'':`<option value="${_escAttr(_rv)}" selected>⚠ ${_rv?_escAttr(_rv):'(keine Rolle)'}</option>`;
+        const roleSelect=isSelf?`<span style="font-weight:600">${_rKnown?(_rv==='admin'?'Admin':(_rv==='qs'?'QS':'User')):'⚠ '+_escAttr(_rv||'(keine)')}</span>`
+            :`<select class="form-select" style="padding:4px 8px;font-size:0.82rem;width:auto" onchange="changeUserRole('${_escAttr(u.uid)}',this.value)">${_rExtraOpt}<option value="user"${_rv==='user'?' selected':''}>User</option><option value="qs"${_rv==='qs'?' selected':''}>QS</option><option value="manager"${_rv==='manager'?' selected':''}>Manager</option><option value="admin"${_rv==='admin'?' selected':''}>Admin</option></select>${_rWarn}`;
         const canApp=!!u.canApprove;
         const approveCell=isSelf
             ?`<span style="font-weight:600;color:${canApp?'#10b981':'#94a3b8'}">${canApp?'Ja':'Nein'}</span>`
