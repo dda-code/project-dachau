@@ -7408,7 +7408,7 @@ async function seqApply(){
                 const snap=await db.collection(prodCol).where(field,'==',p.id).get();
                 if(!snap.empty){
                     const b2=db.batch();
-                    snap.forEach(d=>b2.update(d.ref,{ sourceStartIso:p.startIso, sourceEndIso:p.endIso, sourceDaysCount:p.days, _apResequencedAt:ts }));
+                    snap.forEach(d=>b2.update(d.ref,{ sourceStartIso:p.startIso, sourceEndIso:p.endIso, sourceDaysCount:p.days, sourceProdDaysExact:(p.seq||[]).reduce((a,s)=>a+(s.fullCapacity>0?s.qty/s.fullCapacity:0),0), _apResequencedAt:ts }));
                     await b2.commit();
                 }
             }catch(e){ console.warn('Produktionsplan re-sync ('+p.id+'):',e); }
@@ -7676,6 +7676,9 @@ async function _autoTransferAfterApprove(payload, gridData, tab){
         endIso: isos[isos.length-1],
         firstFields: (gridData[isos[0]]?.fields)||{}
     };
+    // Exakte geplante Produktionstage (Teil-Tage zählen anteilig) für die KPI-Target-Anzeige in der LV:
+    // Gesamtmenge / KPI-Tagesoutput. So zählt z.B. ein angebrochener letzter Tag (0,9 Pal) nicht als voller Tag.
+    { const _od=_num(payload.header?.outday); orderShape.prodDaysExact = _od>0 ? orderShape.sumQty/_od : 0; }
     const already=await loadAlreadyTransferred();
     const existing=already[orderShape.so];
     const prodRef=existing
@@ -7874,6 +7877,7 @@ function _buildProdDocFromOrder(order, isUpdate){
         sourceStartIso: order.startIso||'',
         sourceEndIso: order.endIso||'',
         sourceDaysCount: order.daysCount||0,
+        sourceProdDaysExact: order.prodDaysExact||'',
         transferredAt: ts,
         transferredBy: currentUid||'',
         _created: Date.now(),

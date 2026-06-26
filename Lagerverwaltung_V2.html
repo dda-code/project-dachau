@@ -4023,20 +4023,23 @@ function renderProduktionsplan(){
         {l:'Veredelung',           fn:o=>_prodEsc(o['veredelung'])},
         {l:'Kunde',                fn:o=>_prodEsc(o['Kunde'])},
         {l:'KPI Target Prod. Days',fn:o=>{
-            // SOLL für die Produktion: geplante Kalender-Produktionstage (sourceDaysCount aus der Auftragsplanung),
-            // fix. Nur ab Status "in production". Läuft der Auftrag länger als geplant (Ist-Laufzeit ab
-            // prodStartAt > Target), wird die Überschreitung in Tagen rot angezeigt.
+            // SOLL = exakte geplante Produktionstage (Teil-Tage anteilig) aus der Auftragsplanung; fix.
+            // Sichtbar ab Status in production / stopped / done. Ist-Laufzeit zählt nur während production,
+            // pausiert bei stopped, endet bei done oder gescannter letzter Palette. Überschreitung in rot.
             const st=String(o['Status Produktion']||'').toLowerCase().trim();
-            if(!st.startsWith('in production')) return '<span style="color:#94a3b8">–</span>';
-            const target=parseFloat(o.sourceDaysCount);
-            if(!(target>0)) return '<span style="color:#94a3b8" title="Keine geplanten Produktionstage aus der Auftragsplanung">–</span>';
+            const started = st.startsWith('in production')||st.startsWith('stopped')||st.startsWith('done')||st.startsWith('fertig');
+            if(!started) return '<span style="color:#94a3b8">–</span>';
+            let target=parseFloat(o.sourceProdDaysExact);
+            if(!(target>0)) target=parseFloat(o.sourceDaysCount); // Fallback: Altauftrag ohne exakten Wert
+            if(!(target>0)) return '<span style="color:#94a3b8" title="Keine geplanten Produktionstage aus der Auftragsplanung — Auftrag neu übertragen">–</span>';
             const fmt=n=>Number(n).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1});
-            let ist=null;
-            if(o.prodStartAt){ const t=Date.parse(o.prodStartAt); if(isFinite(t)) ist=(Date.now()-t)/86400000; }
-            if(ist!=null && (ist-target)>0.05){
-                return '__STYLE style="color:#dc2626;font-weight:700"__'+fmt(target)+' Tage · ⚠ +'+fmt(ist-target)+' Tage über Target';
+            const ist=_prodElapsedDaysNow(o);
+            const paused = st.startsWith('stopped') && !o.prodDone;
+            const tag = paused ? ' <span style="color:#f59e0b;font-weight:600;font-size:0.85em">⏸ pausiert</span>' : '';
+            if(ist-target>0.05){
+                return '__STYLE style="color:#dc2626;font-weight:700"__'+fmt(target)+' Tage · ⚠ +'+fmt(ist-target)+' Tage über Target'+tag;
             }
-            return '<strong>'+fmt(target)+' Tage</strong>';
+            return '<strong>'+fmt(target)+' Tage</strong>'+tag;
         }},
         {l:'Pick-Up Deadline',     fn:o=>{const v=o['Pick-Up Deadline']||'';return v?'__STYLE style="color:#dc2626;font-weight:700"__'+_prodFmtDate(v):'__STYLE style="color:#94a3b8"__–';}},
         {l:'Tage bis Pick-Up',     fn:o=>{
@@ -4583,6 +4586,34 @@ function _prodPalNrEnde(start,count){
 }
 function _prodPalNrDigits(s){const m=String(s||'').match(/(\d+)\s*$/);return m?parseInt(m[1],10):NaN;}
 // Letzte gefertigte Palettennummer aus Protokoll Fertigware ermitteln
+// === KPI Target Zähler ============================================================
+// Ist-Laufzeit (Tage) = akkumulierte Segmente (prodElapsedDays) + laufendes Segment seit prodRunningSince.
+// Zählt NUR während Status "in production" (Pause bei stopped, Stopp bei done/letzter Palette).
+function _prodElapsedDaysNow(o){
+    let d=Number(o.prodElapsedDays)||0;
+    if(o.prodRunningSince){ const t=Date.parse(o.prodRunningSince); if(isFinite(t)) d+=(Date.now()-t)/86400000; }
+    return d;
+}
+// Auftrag fertig? = letzte gefertigte Palette >= ENDE-Palette.
+function _prodIsComplete(o){
+    if(!o) return false;
+    const endNum=(typeof _prodPalNrDigits==='function')?_prodPalNrDigits(o['Paletten Nummer ENDE Auftrag']||''):NaN;
+    const letzte=_prodLetzteGefertigte(o)||0;
+    return isFinite(endNum) && endNum>0 && letzte>=endNum;
+}
+// Sweep nach jedem Fertigpaletten-Scan: laufende Aufträge, deren letzte Palette gescannt wurde →
+// Zähler einfrieren (laufendes Segment akkumulieren, prodRunningSince beenden, prodDone setzen).
+function _prodSweepFreeze(){
+    if(typeof PRODUKTIONSPLAN_DATA==='undefined') return;
+    PRODUKTIONSPLAN_DATA.forEach(o=>{
+        if(!o.prodRunningSince) return;
+        if(!_prodIsComplete(o)) return;
+        const t=Date.parse(o.prodRunningSince);
+        if(isFinite(t)) o.prodElapsedDays=(Number(o.prodElapsedDays)||0)+(Date.now()-t)/86400000;
+        delete o.prodRunningSince; o.prodDone=true;
+        if(typeof _persistProdData==='function') _persistProdData(o);
+    });
+}
 function _prodLetzteGefertigte(o){
     if(!o||typeof FERTIGPALETTEN_DATA==='undefined'||FERTIGPALETTEN_DATA.length===0)return 0;
     const on1=String(o['Sales Order - PALETTENLABEL']||'').trim();
@@ -4738,10 +4769,19 @@ function saveProdEdit(){
         if(f.num){v=v===''?'':Number(v);}
         o[f.k]=v;
     });
-    // KPI Target: Produktionsstart-Zeitstempel beim Wechsel auf "in production" merken — Basis für die
-    // Ist-Laufzeit / Überschreitungs-Anzeige. Einmal gesetzt, bleibt er erhalten.
+    // KPI Target Zähler: Laufzeit nur während "in production" akkumulieren.
+    //  in production → (Wieder-)Start des laufenden Segments;  stopped/sonstige → Pause (Segment schließen);
+    //  done/cancel → beenden;  open → zurücksetzen.
     { const _st=String(o['Status Produktion']||'').toLowerCase().trim();
-      if(_st.startsWith('in production') && !o.prodStartAt) o.prodStartAt=new Date().toISOString(); }
+      if(_st.startsWith('in production')){
+          if(!o.prodRunningSince) o.prodRunningSince=new Date().toISOString();
+          delete o.prodDone;
+      } else {
+          if(o.prodRunningSince){ const _t=Date.parse(o.prodRunningSince); if(isFinite(_t)) o.prodElapsedDays=(Number(o.prodElapsedDays)||0)+(Date.now()-_t)/86400000; delete o.prodRunningSince; }
+          if(_st.startsWith('done')||_st.startsWith('fertig')||_st.startsWith('cancel')) o.prodDone=true;
+          if(_st.startsWith('open')){ o.prodElapsedDays=0; delete o.prodDone; }
+      }
+    }
     // Importierter Auftrag wurde bearbeitet & finalisiert → orangenen Rahmen entfernen
     // und ans ENDE der Liste einreihen (kleinster _created), bestehende Reihenfolge bleibt
     if(o._pendingReview){
@@ -9289,6 +9329,8 @@ async function _fsInitFertigpaletten(){
             });
             _fsFPRebuildIndex();
             renderFertigpalettenBox();
+            // letzte Palette gescannt → KPI-Zähler der fertigen Aufträge einfrieren (vor dem Render)
+            if(typeof _prodSweepFreeze==='function')_prodSweepFreeze();
             if(typeof renderProduktionsplan==='function')renderProduktionsplan();
             // Bestandsliste + Dashboard live mitziehen (beide enthalten jetzt auch Fertigpaletten)
             if(_getActiveTab){
