@@ -6649,8 +6649,15 @@ async function _sgBuildZPL(fields){
     const estBarcodeW = Math.min(labelW - 2*marginX,
                                  (Math.ceil(_nDig/2) + _nOther + 11) * 11 * barcodeModuleW);
     const barcodeX    = Math.max(marginX, Math.round((labelW - estBarcodeW) / 2));
+    // WICHTIG: 6. ^BC-Parameter = Modus. OHNE ihn gilt Default "N" (no selected mode) →
+    // der Drucker codiert die GANZE Nutzlast in Subset B (KEINE Code-C-Kompression der
+    // Ziffernblöcke). Real ~708 dots statt der oben angenommenen ~616 → Barcode lief rechts
+    // über den 700-dot-Rahmen (rot markiert). Modus "A" (Automatic) lässt den Drucker
+    // Ziffernläufe ≥4 automatisch in Subset C packen → ~576 dots, passt in den Rahmen und
+    // deckt sich mit estBarcodeW. Der GESCANNTE Wert bleibt identisch (Code 128 decodiert
+    // subset-unabhängig zur selben Zeichenkette).
     L.push(`^FO${barcodeX},${yBarStart + _pt(3)}^BY${barcodeModuleW},2,${barcodeH}`
-          +`^BCN,${barcodeH},N,N,N^FD${_zplEscape(barcodeData)}^FS`);
+          +`^BCN,${barcodeH},N,N,N,A^FD${_zplEscape(barcodeData)}^FS`);
 
     // Außenrahmen
     const totalH = yBarStart + 4*barH;
