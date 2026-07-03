@@ -2509,6 +2509,7 @@ function _aktionLabel(a){
         case 'einlagern-extern':                return 'Einlagerung (extern)';
         case 'auslagern-extern-versand':        return 'Auslagerung (extern, Versand)';
         case 'umlagern-extern-zu-aumundswiese': return 'Umlagerung (extern → Aumundswiese)';
+        case 'versand':                         return 'Versand';
         case 'korrektur-entfernt':              return 'Korrektur entfernt';
         case 'gesperrt':                        return 'Gesperrt';
         case 'freigegeben':                     return 'Freigegeben';
@@ -2524,7 +2525,7 @@ function _protFmtTs(ts){const d=_protTsToDate(ts);if(!d)return'-';const dd=Strin
 function _protStatusOf(p){return p.aktion==='gesperrt'?'Gesperrt':(p.aktion==='freigegeben'?'Freigegeben':'-');}
 // Lagerort eines Protokoll-Eintrags. Reihenfolge: gespeicherter standort → Umlagerungs-Quelle/Ziel
 // (standortVon/standortNach, von index-extern geschrieben) → Default Aumundswiese (wie _lagerortOf).
-function _protLagerort(p){const s=String(p.standort||'').trim();if(s)return s;const v=String(p.standortVon||'').trim();if(v)return v;const n=String(p.standortNach||'').trim();if(n)return n;return 'Aumundswiese';}
+function _protLagerort(p){if(String(p.aktion||'')==='versand'){const z=String(p.standortNach||'').trim();if(z)return z;}const s=String(p.standort||'').trim();if(s)return s;const v=String(p.standortVon||'').trim();if(v)return v;const n=String(p.standortNach||'').trim();if(n)return n;return 'Aumundswiese';}
 function _protMengeNum(m){if(m==null||m==='')return null;const n=parseInt(String(m).replace(/[^0-9-]/g,''),10);return isNaN(n)?null:n;}
 function _protProdDate(p){const d=parseProdDatum(p.produktionsDatum||'');return d.getFullYear()>9000?null:d;}
 function _dayMs(d){return d?new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime():null;}
@@ -2587,7 +2588,8 @@ function renderProtokollTable(){
     _protokollFiltered=rows;
     document.getElementById('protokollBody').innerHTML=rows.map(p=>{
         const _spg=p.sperrgrund?'<br><span style="font-size:0.75rem;color:#94a3b8">'+_escAttr(p.sperrgrund)+'</span>':'';
-        const aktionHtml=p.aktion==='gesperrt'?('<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+_spg):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.aktion==='korrektur-entfernt'?('<span style="color:#b91c1c;font-weight:700">Korrektur entfernt</span>'+_spg):_escHtml(_aktionLabel(p.aktion))));
+        const _vsz=(p.aktion==='versand'&&p.standortNach)?('<br><span style="font-size:0.75rem;color:#7c3aed;font-weight:600">→ '+_escHtml(p.standortNach)+'</span>'):'';
+        const aktionHtml=p.aktion==='gesperrt'?('<span style="color:#ef4444;font-weight:700">Gesperrt</span>'+_spg):(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':(p.aktion==='korrektur-entfernt'?('<span style="color:#b91c1c;font-weight:700">Korrektur entfernt</span>'+_spg):(p.aktion==='versand'?('<span style="color:#7c3aed;font-weight:700">Versand</span>'+_vsz):_escHtml(_aktionLabel(p.aktion)))));
         const statusHtml=p.aktion==='gesperrt'?'<span style="color:#ef4444;font-weight:700">Gesperrt</span>':(p.aktion==='freigegeben'?'<span style="color:#10b981;font-weight:700">Freigegeben</span>':'-');
         return`<tr><td>${aktionHtml}</td><td>${_escHtml(_protFmtTs(_protAktionTs(p)))}</td><td>${_escHtml(_protAktionUser(p))}</td><td>${_escHtml(p.labelTyp||'-')}</td><td>${_escHtml(p.artikelNr||'-')}</td><td>${_escHtml(p.sscc||p.internalBarcode||'-')}</td><td>${_escHtml(p.palettenNr||'-')}</td><td>${_escHtml(p.produktionsDatum||'-')}</td><td>${_escHtml(p.menge||'-')}</td><td>${_escHtml(p.lotNr||'-')}</td><td>${_escHtml(p.orderNr||'-')}</td><td>${_escHtml(p.kunde||'-')}</td><td>${_escHtml(p.schicht||'-')}</td><td>${_escHtml(p.gtin||'-')}</td><td>${_escHtml(_protLagerort(p))}</td><td>${_escHtml(p.position?_posLabel(p.position):'-')}</td><td>${statusHtml}</td></tr>`;
     }).join('')||('<tr><td colspan="17" class="info-msg">'+((_protokollRows&&_protokollRows.length)?'Keine Einträge für die aktuelle Filterung':'Noch keine Protokolleinträge')+'</td></tr>');
