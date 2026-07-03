@@ -7815,7 +7815,8 @@ async function _appendEditHistory(palNr, changes){
 // Druckprotokoll Modal — Anzeige, Spalten-Filter, Edit-Workflow
 // ------------------------------------------------------------
 let _druckProtokollRows=[];
-const _druckColFilters = {};   // field -> Set<value>
+const _druckColFilters = {};   // field -> Set<value>  (Werte-Auswahl / Dropdown)
+const _druckColTextFilters = {};  // field -> string  (Freitext-"enthält"-Filter, lowercase)
 const _DRUCK_COLS = [
     {key:'printedAt', label:'Zeitpunkt',  type:'ts',  nowrap:true},
     {key:'printedBy', label:'User'},
@@ -7883,11 +7884,13 @@ function _renderDruckHead(){
             '<th style="width:200px" class="nowrap">Aktionen</th>',
             '<th style="width:36px" title="Bearbeitungs-Indikator"></th>'
         ].concat(cols.map(c=>{
-            const active=_druckColFilters[c.key]&&_druckColFilters[c.key].size>0;
-            const btnStyle=active?'color:#4361ee;font-weight:900':'color:#94a3b8';
+            const active=(_druckColFilters[c.key]&&_druckColFilters[c.key].size>0) || !!_druckColTextFilters[c.key];
+            const btnStyle=active
+                ? 'background:#4361ee;border:1px solid #4361ee;color:#fff;'
+                : 'background:#eef2ff;border:1px solid #c7d2fe;color:#4361ee;';
             return '<th style="white-space:nowrap">'
                 +'<span>'+esc(c.label)+'</span>'
-                +' <button type="button" class="druck-filter-btn" data-col="'+esc(c.key)+'" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:0.75rem;'+btnStyle+'" title="Filter">▾</button>'
+                +' <button type="button" class="druck-filter-btn" data-col="'+esc(c.key)+'" title="'+(active?'Filter aktiv – klicken zum Ändern':'Spalte filtern')+'" style="'+btnStyle+'cursor:pointer;padding:1px 7px;font-size:0.8rem;border-radius:6px;line-height:1.5;vertical-align:middle;font-weight:700">▾</button>'
                 +'</th>';
         })).join('')+'</tr>';
     const wire=(head)=>head.querySelectorAll('.druck-filter-btn').forEach(btn=>{
@@ -7960,12 +7963,17 @@ function _druckFilterValue(r, key){
     return String(v);
 }
 function _druckApplyFilters(rows){
-    const keys = Object.keys(_druckColFilters).filter(k=>_druckColFilters[k] && _druckColFilters[k].size>0);
-    if(!keys.length) return rows;
-    return rows.filter(r => keys.every(k => _druckColFilters[k].has(_druckFilterValue(r,k))));
+    const setKeys  = Object.keys(_druckColFilters).filter(k=>_druckColFilters[k] && _druckColFilters[k].size>0);
+    const textKeys = Object.keys(_druckColTextFilters).filter(k=>_druckColTextFilters[k]);
+    if(!setKeys.length && !textKeys.length) return rows;
+    return rows.filter(r =>
+        setKeys.every(k => _druckColFilters[k].has(_druckFilterValue(r,k)))
+        && textKeys.every(k => _druckFilterValue(r,k).toLowerCase().includes(_druckColTextFilters[k]))
+    );
 }
 function clearDruckFilters(){
     for(const k of Object.keys(_druckColFilters)) delete _druckColFilters[k];
+    for(const k of Object.keys(_druckColTextFilters)) delete _druckColTextFilters[k];
     const a=document.getElementById('druckProtokollSearchA'); if(a)a.value='';
     const b=document.getElementById('druckProtokollSearchB'); if(b)b.value='';
     _renderDruckHead();
@@ -8046,7 +8054,7 @@ function renderDruckprotokoll(){
     const qB=($('druckProtokollSearchB')?.value||'').trim().toLowerCase();
     const baseRows = _druckApplyFilters(_druckProtokollRows);
     const applyText=(rows,q)=>q?rows.filter(r=>_DRUCK_COLS.some(c=>String(r[c.key]==null?'':r[c.key]).toLowerCase().includes(q))):rows;
-    const colFilterActive = Object.values(_druckColFilters).some(s=>s && s.size>0);
+    const colFilterActive = Object.values(_druckColFilters).some(s=>s && s.size>0) || Object.values(_druckColTextFilters).some(t=>!!t);
     const assyRows = applyText(baseRows.filter(r=>!_druckIsSpritzguss(r)), qA);
     const spgRows  = applyText(baseRows.filter(_druckIsSpritzguss), qB);
     const totalAssy = _druckProtokollRows.filter(r=>!_druckIsSpritzguss(r)).length;
@@ -8090,14 +8098,19 @@ function openDruckColFilter(btn,col){
     const rect=btn.getBoundingClientRect();
     popup.style.top=(rect.bottom+4)+'px';
     popup.style.left=Math.max(6,Math.min(window.innerWidth-370,rect.left))+'px';
+    const curText = _druckColTextFilters[col] || '';
     popup.innerHTML =
         '<div style="font-weight:700;font-size:0.85rem;color:#334155;padding:2px 4px">Filter: '+esc(colDef.label)+'</div>'
-        +'<input type="text" class="druck-filter-search" placeholder="Suche..." style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85rem">'
+        +'<div style="font-size:0.72rem;color:#64748b;padding:0 4px;margin-top:2px">Freitext (enthält)</div>'
+        +'<input type="text" class="druck-filter-text" value="'+_escAttr(curText)+'" placeholder="Text eingeben – Enter zum Anwenden" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85rem">'
+        +'<div style="border-top:1px solid #e2e8f0;margin:4px 0 0"></div>'
+        +'<div style="font-size:0.72rem;color:#64748b;padding:0 4px">oder Werte auswählen</div>'
+        +'<input type="text" class="druck-filter-search" placeholder="Werte durchsuchen…" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.85rem">'
         +'<div style="display:flex;gap:6px;font-size:0.8rem">'
         + '<button type="button" class="druck-filter-all" style="flex:1;padding:4px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;cursor:pointer">Alle</button>'
         + '<button type="button" class="druck-filter-none" style="flex:1;padding:4px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;cursor:pointer">Keine</button>'
         +'</div>'
-        +'<div class="druck-filter-list" style="max-height:260px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;padding:6px"></div>'
+        +'<div class="druck-filter-list" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;padding:6px"></div>'
         +'<div style="display:flex;gap:6px;margin-top:4px">'
         + '<button type="button" class="druck-filter-apply"  style="flex:1;padding:6px;border:none;border-radius:6px;background:#4361ee;color:#fff;font-weight:700;cursor:pointer">Anwenden</button>'
         + '<button type="button" class="druck-filter-clear"  style="flex:1;padding:6px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer">Zurücksetzen</button>'
@@ -8127,15 +8140,20 @@ function openDruckColFilter(btn,col){
     popup.querySelector('.druck-filter-search').addEventListener('input',e=>renderList(e.target.value));
     popup.querySelector('.druck-filter-all').addEventListener('click',()=>{values.forEach(v=>state.add(v));renderList(popup.querySelector('.druck-filter-search').value);});
     popup.querySelector('.druck-filter-none').addEventListener('click',()=>{state.clear();renderList(popup.querySelector('.druck-filter-search').value);});
-    popup.querySelector('.druck-filter-apply').addEventListener('click',()=>{
+    const applyFilter=()=>{
+        const txt=(popup.querySelector('.druck-filter-text').value||'').trim().toLowerCase();
+        if(txt) _druckColTextFilters[col]=txt; else delete _druckColTextFilters[col];
         if(state.size===0 || state.size===values.length) delete _druckColFilters[col];
         else _druckColFilters[col] = new Set(state);
         _closeDruckFilterPopup();
         _renderDruckHead();
         renderDruckprotokoll();
-    });
+    };
+    popup.querySelector('.druck-filter-apply').addEventListener('click',applyFilter);
+    popup.querySelector('.druck-filter-text').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applyFilter();}});
     popup.querySelector('.druck-filter-clear').addEventListener('click',()=>{
         delete _druckColFilters[col];
+        delete _druckColTextFilters[col];
         _closeDruckFilterPopup();
         _renderDruckHead();
         renderDruckprotokoll();
