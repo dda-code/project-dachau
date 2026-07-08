@@ -397,9 +397,11 @@ auth.onAuthStateChanged(async user => {
         $('appView').style.display='flex';
         $('userDisplay').textContent=_cachedDisplayName||user.email.replace(EMAIL_DOMAIN,'');
         _resetIdleTimer();
+        _startOccListeners();   // Live-Belegung abonnieren (paletten + fertigpaletten)
         if(typeof goToStep0==='function')goToStep0();
     } else {
         _cachedDisplayName='';
+        _stopOccListeners();    // Listener bei Logout/Idle/Block abmelden (sonst permission-denied-Spam)
         $('appView').style.display='none';
         $('loginView').style.display='flex';
         if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
@@ -661,18 +663,117 @@ async function scanLabel(file){
 }
 
 // ============================================================
-// POSITION LOGIC
+// POSITION LOGIC  —  Live-Belegung via onSnapshot (paletten + fertigpaletten)
 // ============================================================
+// Behebt die PC/Mobile-Divergenz: der Scanner hört jetzt live auf Firestore
+// statt nur einmalig beim Scan zu lesen. getAllPositions() liefert die Live-
+// Belegung; Fallback = einmaliges .get() bis der Listener bereit ist.
+let _liveOcc=null, _occReady=false, _unsubPal=null, _unsubFp=null;
+let _palSnap=null, _fpSnap=null;
+
+// Config-/Meta-Dokumente der paletten-Collection nicht als Stellplatz werten.
+function _skipPalDoc(id){ return id==='_config_orderpin' || String(id).charAt(0)==='_'; }
+
+function _rebuildOccFromSnaps(){
+    const o={};
+    if(_palSnap) _palSnap.forEach(d=>{
+        if(_skipPalDoc(d.id))return;
+        const dt=d.data(); if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);
+        if(dt.position)o[dt.position]={sscc:d.id,...dt};
+    });
+    // Fertigpaletten mit echtem Stellplatz als belegt führen — soft-gelöschte (removedFromStock) auslassen.
+    if(_fpSnap) _fpSnap.forEach(d=>{
+        const dt=d.data(); const p=dt.position;
+        if(dt.removedFromStock)return;
+        if(p && /^[A-Z]+\d+$/.test(p) && isValidPosition(p) && !o[p]) o[p]={sscc:d.id,...dt,_src:'fp'};
+    });
+    return o;
+}
+
+function _startOccListeners(){
+    _stopOccListeners();
+    const commit=()=>{ if(!_palSnap)return; _liveOcc=_rebuildOccFromSnaps(); _occReady=true; try{_onOccChanged();}catch(e){} };
+    _unsubPal=db.collection('paletten').onSnapshot(
+        s=>{ _palSnap=s; commit(); },
+        e=>{ if(e.code!=='permission-denied')console.warn('paletten onSnapshot:',e.code||e); _occReady=false; }
+    );
+    _unsubFp=db.collection('fertigpaletten').onSnapshot(
+        s=>{ _fpSnap=s; commit(); },
+        e=>{ if(e.code!=='permission-denied')console.warn('fertigpaletten onSnapshot:',e.code||e); }
+    );
+}
+function _stopOccListeners(){
+    if(_unsubPal){try{_unsubPal();}catch(e){}}
+    if(_unsubFp){try{_unsubFp();}catch(e){}}
+    _unsubPal=_unsubFp=null; _palSnap=_fpSnap=null; _liveOcc=null; _occReady=false;
+}
+
 async function getAllPositions(){
+    if(_occReady && _liveOcc) return {..._liveOcc};   // Live-Stand (flache Kopie, Aufrufer mutiert Cache nicht)
+    // Fallback bis Listener bereit: einmaliges Lesen (gleiche Filter wie der Live-Rebuild).
     const o={};
     const s=await db.collection('paletten').get();
-    s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
-    // Fertigpaletten mit echtem Stellplatz ebenfalls als belegt führen (Lagerkarte/Belegung vereinheitlicht).
+    s.forEach(d=>{if(_skipPalDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
     try{
         const fs=await db.collection('fertigpaletten').get();
-        fs.forEach(d=>{const dt=d.data();const p=dt.position;if(p && /^[A-Z]+\d+$/.test(p) && isValidPosition(p) && !o[p]) o[p]={sscc:d.id,...dt,_src:'fp'};});
+        fs.forEach(d=>{const dt=d.data();const p=dt.position;if(dt.removedFromStock)return;if(p && /^[A-Z]+\d+$/.test(p) && isValidPosition(p) && !o[p]) o[p]={sscc:d.id,...dt,_src:'fp'};});
     }catch(e){console.warn('getAllPositions fertigpaletten:',e);}
     return o;
+}
+
+// Live-Re-Render der Mini-Map nur wenn die Stellplatz-Auswahl (step3) sichtbar ist —
+// laufender Scan/Confirm bleibt unangetastet.
+function _onOccChanged(){
+    const step3=$('step3');
+    if(!step3||!step3.classList.contains('active'))return;
+    const sel=$('positionSelect');
+    const keep=sel&&sel.value;
+    renderMiniMap(_liveOcc||{}, keep);
+    if(sel) Array.prototype.forEach.call(sel.options,o=>{ const occd=_liveOcc&&_liveOcc[o.value]; o.textContent=occd?('⚠️ '+o.value+' (belegt)'):o.value; o.style.color=occd?'#dc2626':''; });
+    if(keep){ const cell=$('warehouseMapContainer').querySelector('.wh-minicell[data-pos="'+keep+'"]'); if(cell)cell.classList.add('selected'); }
+}
+
+// ============================================================
+// FIFO-GUARD  —  nur Halbfabrikate (paletten: Frame/IS/OS).
+// XO Fertigware (fertigpaletten) wird kundenbezogen OHNE FIFO versendet.
+// ============================================================
+function _isFifoEligible(data){
+    const t=(data&&data.labelTyp)||'';
+    if(t==='XO Halbfabrikate'||t==='ALPLA Halbfabrikate')return true;
+    if(t==='XO Fertigware')return false;
+    return /^(12|18|19)\d{4}$/.test(String((data&&data.artikelNr)||''));
+}
+// Einheitlicher Datums-Schlüssel: einlagDatum || scannedAt || produktionsDatum || datum.
+// Fehlend -> Infinity (gilt als "neueste", wird nie fälschlich als Älteste gewählt).
+function _fifoDateKey(x){
+    const ts=x.einlagDatum||x.scannedAt;
+    if(ts){ if(typeof ts.toMillis==='function')return ts.toMillis(); const d=new Date(ts); if(!isNaN(d))return d.getTime(); }
+    const s=x.produktionsDatum||x.datum;
+    if(s){ const d=parseProdDatum(s); if(d&&d.getFullYear()<9000)return d.getTime(); }
+    return Infinity;
+}
+function _fifoStandort(x){ return (String((x&&x.standort)||'').trim())||'Aumundswiese'; }
+function _fifoFmtDate(x){
+    const ts=x.einlagDatum||x.scannedAt;
+    if(ts){ let d=null; if(typeof ts.toDate==='function')d=ts.toDate(); else {const t=new Date(ts);if(!isNaN(t))d=t;} if(d)return d.toLocaleDateString('de-DE'); }
+    return x.produktionsDatum||x.datum||'—';
+}
+// Ermittelt die älteste nicht-gesperrte Palette desselben Artikels+Standorts.
+// Rückgabe {exempt, isOldest, oldest:{id,data}|null, count}
+async function _fifoCheck(coll, scannedId, data){
+    if(coll!=='paletten'||!_isFifoEligible(data))return {exempt:true,isOldest:true,oldest:null,count:0};
+    const nr=_normalizeArtikelNr(String((data&&data.artikelNr)||''));
+    if(!nr||nr==='FEHLER')return {exempt:true,isOldest:true,oldest:null,count:0};
+    const standort=_fifoStandort(data);
+    const cands=[];
+    try{
+        const q=await db.collection('paletten').where('artikelNr','==',nr).get();
+        q.forEach(d=>{ if(_skipPalDoc(d.id))return; const x=d.data()||{}; if(x.gesperrt)return; if(_fifoStandort(x)!==standort)return; cands.push({id:d.id,data:x,key:_fifoDateKey(x)}); });
+    }catch(e){ console.warn('FIFO-Query:',e); return {exempt:true,isOldest:true,oldest:null,count:0}; }
+    if(!cands.length)return {isOldest:true,oldest:null,count:0};
+    cands.sort((a,b)=>(a.key-b.key)||String(a.id).localeCompare(String(b.id)));
+    const oldest=cands[0];
+    return {isOldest:oldest.id===scannedId,oldest,count:cands.length};
 }
 
 function findFreePosition(occ,zo,orderNr){
@@ -748,17 +849,21 @@ function renderMiniMap(occ, selectedPos){
     }
     f+='</div>';
     c.innerHTML=h+f;
-    // Click on cell to select position
-    c.addEventListener('click', e=>{
-        const cell=e.target.closest('.wh-minicell');
-        if(!cell)return;
-        const pos=cell.dataset.pos;
-        if(occ[pos])return; // occupied, can't select
-        $('positionSelect').value=pos;
-        $('suggestedPos').textContent=pos;
-        c.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
-        cell.classList.add('selected');
-    });
+    c._occ=occ||{};   // aktuelle Belegung am Container, damit der (einmalig gebundene) Click-Handler live liest
+    // Click on cell to select position — Listener nur EINMAL binden (Live-Re-Render darf nicht stapeln).
+    if(!c._clickBound){
+        c._clickBound=true;
+        c.addEventListener('click', e=>{
+            const cell=e.target.closest('.wh-minicell');
+            if(!cell)return;
+            const pos=cell.dataset.pos;
+            if(c._occ && c._occ[pos])return; // occupied, can't select
+            $('positionSelect').value=pos;
+            $('suggestedPos').textContent=pos;
+            c.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
+            cell.classList.add('selected');
+        });
+    }
 }
 
 // ============================================================
@@ -956,7 +1061,6 @@ $('toStep3Btn').addEventListener('click', async ()=>{
 
         // Populate dropdown – alle Plätze anzeigen, belegte markiert aber wählbar
         const sel=$('positionSelect');
-        sel._occSnapshot=occ; // Belegung merken für spätere Warnung
         const frag=document.createDocumentFragment();
         for(const[ck,cat] of Object.entries(WAREHOUSE_ZONES)){
             const og=document.createElement('optgroup');og.label=cat.label;
@@ -966,14 +1070,17 @@ $('toStep3Btn').addEventListener('click', async ()=>{
         }
         sel.innerHTML='';sel.appendChild(frag);
         renderMiniMap(occ, fp);
-        // Sync dropdown → map highlight
-        sel.addEventListener('change',()=>{
-            const mapC=$('warehouseMapContainer');
-            mapC.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
-            const target=mapC.querySelector(`.wh-minicell[data-pos="${sel.value}"]`);
-            if(target)target.classList.add('selected');
-            $('suggestedPos').textContent=sel.value;
-        });
+        // Sync dropdown → map highlight — Listener nur EINMAL binden (Live-Re-Render darf nicht stapeln).
+        if(!sel._changeBound){
+            sel._changeBound=true;
+            sel.addEventListener('change',()=>{
+                const mapC=$('warehouseMapContainer');
+                mapC.querySelectorAll('.wh-minicell.selected').forEach(el=>el.classList.remove('selected'));
+                const target=mapC.querySelector(`.wh-minicell[data-pos="${sel.value}"]`);
+                if(target)target.classList.add('selected');
+                $('suggestedPos').textContent=sel.value;
+            });
+        }
         showStep('step3');
     } catch(e) {
         alert('Fehler beim Laden der Positionen: '+e.message);
@@ -1019,9 +1126,9 @@ $('confirmBtn').addEventListener('click', async ()=>{
         }
     } catch(e){console.warn('Duplikat-/Transit-Prüfung fehlgeschlagen:',e);}
 
-    // Prüfung ob Stellplatz bereits belegt
+    // Prüfung ob Stellplatz bereits belegt (Live-Stand)
     try {
-        const occSnap=sel._occSnapshot||await getAllPositions();
+        const occSnap=await getAllPositions();
         if(occSnap[pos]){
             const proceed=await showOccupiedWarning(pos, occSnap[pos]);
             if(!proceed){$('confirmBtn').disabled=false;return;}
@@ -1105,6 +1212,20 @@ async function doVersand(){
     catch(e){ alert('Fehler bei der Bestandssuche: '+e.message); $('toStep3Btn').disabled=false; return; }
     if(!found){ $('toStep3Btn').disabled=false; showVersandNotFound(ident); return; }
 
+    // Gesperrt-Schutz: am Scanner (kein Rollenkonzept) hart blocken — nur QS am PC darf gesperrte Ware entnehmen.
+    if(found.data && found.data.gesperrt){ $('toStep3Btn').disabled=false; showQsGesperrtHinweis(found.data); return; }
+
+    // FIFO-Guard: nur Halbfabrikate (paletten). XO Fertigware (fertigpaletten) bleibt ohne FIFO.
+    let _fifoOverride=null;
+    try{
+        const fifo=await _fifoCheck(found.coll, found.id, found.data);
+        if(!fifo.exempt && !fifo.isOldest && fifo.oldest){
+            const r=await showFifoWarning(fifo.oldest, found.data);
+            if(!r.proceed){ $('toStep3Btn').disabled=false; return; }
+            _fifoOverride={grund:r.grund, oldest:fifo.oldest};
+        }
+    }catch(e){ console.warn('FIFO-Check doVersand:',e); }
+
     const ok=await showVersandConfirm(found, versandZiel);
     if(!ok){ $('toStep3Btn').disabled=false; return; }
 
@@ -1134,7 +1255,8 @@ async function doVersand(){
             eingelagertVon:pd.eingelagertVon||'',
             einlagDatum:pd.einlagDatum||null,
             ausgelagertVon:getCurrentUsername(),
-            auslagDatum:firebase.firestore.FieldValue.serverTimestamp()
+            auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),
+            ...(_fifoOverride?{fifoOverride:true,fifoGrund:_fifoOverride.grund,fifoSollDocId:_fifoOverride.oldest.id,fifoSollPalettenNr:(_fifoOverride.oldest.data.palettenNr||_fifoOverride.oldest.data.internalBarcode||''),fifoSollPosition:(_fifoOverride.oldest.data.position||''),fifoSollEinlagDatum:(_fifoOverride.oldest.data.einlagDatum||_fifoOverride.oldest.data.scannedAt||null)}:{})
         });
         // Bestand entfernen: paletten hart löschen (wie deleteInventoryItem in der LV);
         // fertigpaletten NUR aus dem Bestand nehmen (Soft-Delete) — der Produktions-
@@ -1154,7 +1276,7 @@ async function doVersand(){
         }
         // Best-effort Aktivitäts-Log (sekundär — blockiert den Versand nicht).
         try{
-            await db.collection('log').add({aktion:'versand',docId:found.id,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',palettenNr:pd.palettenNr||'',standortNach:versandZiel,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+            await db.collection('log').add({aktion:'versand',docId:found.id,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',palettenNr:pd.palettenNr||'',standortNach:versandZiel,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp(),...(_fifoOverride?{fifoOverride:true,fifoGrund:_fifoOverride.grund}:{})});
         }catch(e){console.warn('Versand-Log fehlgeschlagen:',e);}
 
         $('successText').textContent='Erfolgreich versendet!';
@@ -1261,6 +1383,61 @@ function showOccupiedWarning(pos, existingPal){
         overlay.querySelector('#_occOk').addEventListener('click',()=>{overlay.remove();resolve(true);});
         overlay.querySelector('#_occCancel').addEventListener('click',()=>{overlay.remove();resolve(false);});
     });
+}
+
+// ============================================================
+// FIFO-WARNUNG (Warnung + Pflicht-Begründung)
+// ============================================================
+function showFifoWarning(oldest, scanned){
+    return new Promise(resolve=>{
+        const od=oldest.data||{}, sd=scanned||{};
+        const sollNr=od.palettenNr||od.internalBarcode||oldest.id||'?';
+        const sollPos=od.position||'—';
+        const sollDatum=_fifoFmtDate(od);
+        const overlay=document.createElement('div');
+        overlay.className='overlay';
+        overlay.innerHTML=`<div class="overlay-card">
+            <div style="font-size:3.2rem;color:#f59e0b;line-height:1;margin-bottom:8px;">&#9888;</div>
+            <p style="color:#b45309;font-weight:800;font-size:1.1rem;margin-bottom:6px;">Nicht FIFO-konform!</p>
+            <p style="color:#475569;font-size:0.9rem;margin-bottom:12px;">Für Artikel <strong>${_escAttr(sd.artikelNr||'?')}</strong> muss zuerst diese <strong>ältere</strong> Palette entnommen werden:</p>
+            <div style="text-align:left;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:14px;font-size:0.9rem;line-height:1.7">
+                <div><strong>Palette:</strong> ${_escAttr(sollNr)}</div>
+                <div><strong>Lagerplatz:</strong> ${_escAttr(sollPos)}</div>
+                <div><strong>Eingelagert:</strong> ${_escAttr(sollDatum)}</div>
+            </div>
+            <p style="color:#475569;font-size:0.85rem;margin-bottom:6px;text-align:left">Trotzdem DIESE Palette versenden? Grund erforderlich:</p>
+            <textarea id="_fifoGrund" rows="2" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:0.9rem;margin-bottom:14px" placeholder="z.B. Palette beschädigt / Kundenauftrag / ältere physisch nicht greifbar"></textarea>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button class="btn btn-danger btn-sm" id="_fifoOk" disabled style="opacity:.5">Trotzdem versenden</button>
+                <button class="btn btn-secondary btn-sm" id="_fifoCancel">Abbrechen</button>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+        const ta=overlay.querySelector('#_fifoGrund'), ok=overlay.querySelector('#_fifoOk');
+        ta.addEventListener('input',()=>{ok.disabled=ta.value.trim().length<3;ok.style.opacity=ok.disabled?'.5':'1';});
+        ok.addEventListener('click',()=>{const g=ta.value.trim();if(g.length<3)return;overlay.remove();resolve({proceed:true,grund:g});});
+        overlay.querySelector('#_fifoCancel').addEventListener('click',()=>{overlay.remove();resolve({proceed:false,grund:''});});
+        setTimeout(()=>{try{ta.focus();}catch(e){}},50);
+    });
+}
+
+// ============================================================
+// GESPERRT-HINWEIS (harter Block am Scanner)
+// ============================================================
+function showQsGesperrtHinweis(pd){
+    const overlay=document.createElement('div');
+    overlay.className='overlay';
+    overlay.innerHTML=`<div class="overlay-card">
+        <div style="font-size:3.5rem;color:#dc2626;line-height:1;margin-bottom:10px;">&#128274;</div>
+        <p style="color:#dc2626;font-weight:800;font-size:1.1rem;margin-bottom:12px;">Palette ist gesperrt (QS)</p>
+        <p style="color:#475569;font-size:0.9rem;margin-bottom:6px;">Artikel: <strong>${_escAttr((pd&&pd.artikelNr)||'?')}</strong></p>
+        <p style="color:#475569;font-size:0.9rem;margin-bottom:18px;">Diese Palette ist QS-gesperrt und kann am Scanner nicht entnommen/versendet werden. Bitte an die QS wenden.</p>
+        <div style="display:flex;gap:10px;justify-content:center;">
+            <button class="btn btn-secondary btn-sm" id="_qsOk">Verstanden</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#_qsOk').addEventListener('click',()=>overlay.remove());
 }
 
 // ============================================================

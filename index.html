@@ -346,8 +346,10 @@ auth.onAuthStateChanged(async user => {
         $('appView').style.display='flex';
         $('userDisplay').textContent=_cachedDisplayName||user.email.replace(EMAIL_DOMAIN,'');
         _resetIdleTimer();
+        _startOccListeners();   // Live-Belegung abonnieren
     } else {
         _cachedDisplayName = '';
+        _stopOccListeners();    // Listener bei Logout/Idle/Block abmelden
         $('appView').style.display='none';
         $('loginView').style.display='flex';
         if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
@@ -565,13 +567,45 @@ async function scanLabel(file){
 }
 
 // ============================================================
-// POSITION LOGIC
+// POSITION LOGIC  —  Live-Belegung via onSnapshot statt einmaligem .get()
 // ============================================================
+let _liveOcc=null, _occReady=false, _unsubPal=null, _palSnap=null;
+function _skipPalDoc(id){ return id==='_config_orderpin' || String(id).charAt(0)==='_'; }
+function _rebuildOcc(){
+    const o={};
+    if(_palSnap) _palSnap.forEach(d=>{
+        if(_skipPalDoc(d.id))return;
+        const dt=d.data(); if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);
+        if(dt.position)o[dt.position]={sscc:d.id,...dt};
+    });
+    return o;
+}
+function _startOccListeners(){
+    _stopOccListeners();
+    _unsubPal=db.collection('paletten').onSnapshot(
+        s=>{ _palSnap=s; _liveOcc=_rebuildOcc(); _occReady=true; try{_onOccChanged();}catch(e){} },
+        e=>{ if(e.code!=='permission-denied')console.warn('paletten onSnapshot:',e.code||e); _occReady=false; }
+    );
+}
+function _stopOccListeners(){ if(_unsubPal){try{_unsubPal();}catch(e){}} _unsubPal=null; _palSnap=null; _liveOcc=null; _occReady=false; }
+
 async function getAllPositions(){
+    if(_occReady && _liveOcc) return {..._liveOcc};
     const s=await db.collection('paletten').get();
     const o={};
-    s.forEach(d=>{const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
+    s.forEach(d=>{if(_skipPalDoc(d.id))return;const dt=d.data();if(dt.artikelNr)dt.artikelNr=_normalizeArtikelNr(dt.artikelNr);if(dt.position)o[dt.position]={sscc:d.id,...dt};});
     return o;
+}
+
+// Live-Re-Render der Mini-Map nur wenn die Stellplatz-Auswahl (step3) sichtbar ist.
+function _onOccChanged(){
+    const step3=$('step3');
+    if(!step3||!step3.classList.contains('active'))return;
+    const sel=$('positionSelect');
+    const keep=sel&&sel.value;
+    renderMiniMap(_liveOcc||{}, keep);
+    if(sel) Array.prototype.forEach.call(sel.options,o=>{ const occd=_liveOcc&&_liveOcc[o.value]; o.textContent=occd?('⚠️ '+o.value+' (belegt)'):o.value; o.style.color=occd?'#dc2626':''; });
+    if(keep){ const cell=$('warehouseMapContainer').querySelector('.wh-minicell[data-pos="'+keep+'"]'); if(cell)cell.classList.add('selected'); }
 }
 
 function findFreePosition(occ,zo){
@@ -817,7 +851,6 @@ $('toStep3Btn').addEventListener('click', async ()=>{
 
         // Populate dropdown – alle Plätze anzeigen, belegte markiert aber wählbar
         const sel=$('positionSelect');
-        sel._occSnapshot=occ; // Belegung merken für spätere Warnung
         const frag=document.createDocumentFragment();
         for(const[ck,cat] of Object.entries(WAREHOUSE_ZONES)){
             if(ck==='granulate'){
@@ -886,9 +919,9 @@ $('confirmBtn').addEventListener('click', async ()=>{
         }
     } catch(e){console.warn('Duplikat-Prüfung fehlgeschlagen:',e);}
 
-    // Prüfung ob Stellplatz bereits belegt
+    // Prüfung ob Stellplatz bereits belegt (Live-Stand)
     try {
-        const occSnap=sel._occSnapshot||await getAllPositions();
+        const occSnap=await getAllPositions();
         if(occSnap[pos]){
             const proceed=await showOccupiedWarning(pos, occSnap[pos]);
             if(!proceed){$('confirmBtn').disabled=false;return;}

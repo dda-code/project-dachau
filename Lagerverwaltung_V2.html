@@ -1699,6 +1699,8 @@ if(_USE_EMULATOR){
 
 const _wsRe=/\s+/g;
 const _validUserRe=/^[a-zA-Z0-9_.-]+$/;
+// Volle Email-Adressen (z.B. name@firma.com) sind als Login-ID ebenfalls erlaubt — toEmail() reicht sie durch.
+const _validEmailRe=/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 function toEmail(u){
     const s=u.trim().toLowerCase();
     if(s.indexOf('@')>=0)return s; // bereits volle Email (z.B. xolution.com) → durchreichen
@@ -2475,24 +2477,100 @@ async function initOutbound(){
     }catch(e){console.warn('initOutbound: paletten laden fehlgeschlagen',e);}
 }
 
+// ============================================================
+// FIFO-HELFER (nur Halbfabrikate/paletten; XO Fertigware ohne FIFO)
+// ============================================================
+// Einheitlicher Datums-Schlüssel wie im Scanner: einlagDatum || scannedAt || produktionsDatum || datum.
+function _fifoDateKeyLV(x){
+    const ts=x.einlagDatum||x.scannedAt;
+    if(ts){ if(typeof ts.toMillis==='function')return ts.toMillis(); const d=new Date(ts); if(!isNaN(d))return d.getTime(); }
+    const s=x.produktionsDatum||x.datum;
+    if(s){ const d=parseProdDatum(s); if(d&&d.getFullYear()<9000)return d.getTime(); }
+    return Infinity;
+}
+function _fifoStandortLV(x){ return (String((x&&x.standort)||'').trim())||'Aumundswiese'; }
+// Älteste nicht-gesperrte paletten-Palette desselben Artikels+Standorts (oder null).
+async function _fifoOldestPal(artikelNr, standort){
+    const nr=String(artikelNr||'').trim();
+    if(!nr)return null;
+    const std=(String(standort||'').trim())||'Aumundswiese';
+    const q=await db.collection('paletten').where('artikelNr','==',nr).get();
+    const cands=[];
+    q.forEach(d=>{ if(d.id==='_config_orderpin'||String(d.id).charAt(0)==='_')return; const x=d.data()||{}; if(x.gesperrt)return; if(_fifoStandortLV(x)!==std)return; cands.push({id:d.id,data:x,key:_fifoDateKeyLV(x)}); });
+    if(!cands.length)return null;
+    cands.sort((a,b)=>(a.key-b.key)||String(a.id).localeCompare(String(b.id)));
+    return cands[0];
+}
+// Promise-Bestätigung mit optionaler Pflicht-Begründung (nutzt vorhandene Modal-CSS).
+function _pcConfirmWithReason(opts){
+    opts=opts||{};
+    return new Promise(resolve=>{
+        const ov=document.createElement('div');
+        ov.className='modal-overlay';
+        ov.innerHTML=`<div class="modal" style="max-width:440px">
+            <div class="modal-header"><h3>${_escHtml(opts.title||'Bestätigen')}</h3><button class="modal-close" id="_pcrX">&times;</button></div>
+            <div class="modal-body">
+                <div style="font-size:0.92rem;line-height:1.6;margin-bottom:12px">${opts.html||''}</div>
+                ${opts.requireReason?'<textarea id="_pcrReason" rows="2" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font-size:0.92rem;margin-bottom:12px" placeholder="Grund (Pflicht)"></textarea>':''}
+                <div style="display:flex;gap:10px;justify-content:flex-end">
+                    <button id="_pcrCancel" style="padding:8px 16px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;cursor:pointer">Abbrechen</button>
+                    <button id="_pcrOk" style="padding:8px 16px;border:none;background:#dc2626;color:#fff;border-radius:8px;cursor:pointer${opts.requireReason?';opacity:.5':''}"${opts.requireReason?' disabled':''}>${_escHtml(opts.okLabel||'Fortfahren')}</button>
+                </div>
+            </div>
+        </div>`;
+        document.body.appendChild(ov);
+        const done=(ok,reason)=>{ov.remove();resolve({ok,reason:reason||''});};
+        const okBtn=ov.querySelector('#_pcrOk');
+        if(opts.requireReason){
+            const ta=ov.querySelector('#_pcrReason');
+            ta.addEventListener('input',()=>{okBtn.disabled=ta.value.trim().length<3;okBtn.style.opacity=okBtn.disabled?'.5':'1';});
+            okBtn.addEventListener('click',()=>{const r=ta.value.trim();if(r.length<3)return;done(true,r);});
+            setTimeout(()=>{try{ta.focus();}catch(e){}},50);
+        } else {
+            okBtn.addEventListener('click',()=>done(true,''));
+        }
+        ov.querySelector('#_pcrCancel').addEventListener('click',()=>done(false,''));
+        ov.querySelector('#_pcrX').addEventListener('click',()=>done(false,''));
+    });
+}
+
 async function onArtikelSelect(){
     const nr=document.getElementById('outboundArtikel').value,rd=document.getElementById('outboundResult'),ed=document.getElementById('outboundEmpty'),sd=document.getElementById('outboundSuccess');rd.style.display='none';ed.style.display='none';if(sd)sd.style.display='none';if(!nr)return;
     let snap;try{snap=await db.collection('paletten').where('artikelNr','==',nr).get();}catch(e){ed.innerHTML='<p class="error-msg">Fehler: '+e.message+'</p>';ed.style.display='block';return;}
     if(snap.empty){ed.style.display='block';return;}
-    const allPal=[];snap.forEach(d=>allPal.push({id:d.id,...d.data()}));
-    const pal=allPal.filter(p=>!p.gesperrt);
-    if(!pal.length){ed.innerHTML='<p class="info-msg">Alle Paletten dieses Artikels sind gesperrt (QS).</p>';ed.style.display='block';return;}
-    pal.forEach(p=>p._sortKey=parseProdDatum(p.produktionsDatum||p.datum||'').getTime());pal.sort((a,b)=>a._sortKey-b._sortKey);
+    const allPal=[];snap.forEach(d=>{if(d.id==='_config_orderpin'||String(d.id).charAt(0)==='_')return;allPal.push({id:d.id,...d.data()});});
+    // FIFO-Scope: nur Aumundswiese-Bestand (Außenlager K&R/Seepack laufen über den Extern-Scanner),
+    // damit PC und Scanner denselben "Ältesten" bestimmen.
+    const pal=allPal.filter(p=>!p.gesperrt && _fifoStandortLV(p)==='Aumundswiese');
+    if(!pal.length){ed.innerHTML='<p class="info-msg">Keine entnehmbare (nicht gesperrte) Palette dieses Artikels in Aumundswiese.</p>';ed.style.display='block';return;}
+    // Einheitlicher Datums-Schlüssel (einlagDatum-first) + stabiler Tiebreak — identisch zum Scanner-FIFO.
+    pal.forEach(p=>p._sortKey=_fifoDateKeyLV(p));pal.sort((a,b)=>(a._sortKey-b._sortKey)||String(a.id).localeCompare(String(b.id)));
     const p=pal[0],card=document.getElementById('outboundCard');
     card.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">Typ:</span><span>${_escHtml(p.labelTyp||'-')}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${_escHtml(p.artikelNr||'')}</span></div><div class="palette-row"><span class="palette-label">SSCC / Barcode:</span><span>${_escHtml(p.sscc||p.internalBarcode||p.palettenNr||p.id||'')}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${_escHtml(p.produktionsDatum||'-')}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${_escHtml(p.menge||'-')}</span></div><div class="palette-row"><span class="palette-label">Stellplatz:</span><span class="position-badge">${_escHtml(_posLabel(p.position||''))}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${_escHtml(formatTimestamp(p.einlagDatum))}</span></div><div class="palette-row"><span class="palette-label">Eingelagert von:</span><span>${_escHtml(p.eingelagertVon||'-')}</span></div></div>`;
     card.dataset.docId=p.id;card.dataset.paletteJson=JSON.stringify(p);rd.style.display='block';document.getElementById('confirmOutboundBtn').disabled=false;
 }
 
 async function confirmOutbound(){
-    const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;document.getElementById('confirmOutboundBtn').disabled=true;
-    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',standort:pd.standort||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});}catch(e){alert('Fehler Protokoll: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
-    try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);document.getElementById('confirmOutboundBtn').disabled=false;return;}
-    try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){console.warn(e);}
+    const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;
+    if(!canDeletePalette()){alert('Keine Berechtigung.');return;}
+    const _obBtn=document.getElementById('confirmOutboundBtn');_obBtn.disabled=true;
+    // Re-Check gegen aktuellen Stand — die Karte kann veraltet sein (jemand hat inzwischen ein-/ausgebucht).
+    let _fresh;try{_fresh=await db.collection('paletten').doc(docId).get();}catch(e){_fresh=null;}
+    if(!_fresh||!_fresh.exists){alert('Palette ist nicht mehr im Bestand (evtl. bereits entnommen).');_obBtn.disabled=false;onArtikelSelect();return;}
+    const _fd=_fresh.data()||{};
+    let _fifoFields={};
+    try{
+        const oldest=await _fifoOldestPal(_fd.artikelNr,_fd.standort);
+        if(oldest && oldest.id!==docId){
+            const r=await _pcConfirmWithReason({title:'Nicht FIFO-konform',okLabel:'Trotzdem entnehmen',requireReason:true,
+                html:`Für Artikel <strong>${_escHtml(_fd.artikelNr||'')}</strong> ist eine <strong>ältere</strong> Palette zuerst zu entnehmen:<br><br><strong>Palette:</strong> ${_escHtml(oldest.data.palettenNr||oldest.data.internalBarcode||oldest.id)}<br><strong>Stellplatz:</strong> ${_escHtml(_posLabel(oldest.data.position||''))}<br><strong>Eingelagert:</strong> ${_escHtml(formatTimestamp(oldest.data.einlagDatum||oldest.data.scannedAt))}`});
+            if(!r.ok){_obBtn.disabled=false;return;}
+            _fifoFields={fifoOverride:true,fifoGrund:r.reason,fifoSollDocId:oldest.id,fifoSollPalettenNr:(oldest.data.palettenNr||oldest.data.internalBarcode||''),fifoSollPosition:(oldest.data.position||''),fifoSollEinlagDatum:(oldest.data.einlagDatum||oldest.data.scannedAt||null)};
+        }
+    }catch(e){console.warn('FIFO-Recheck confirmOutbound:',e);}
+    try{await db.collection('protokoll').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',standort:pd.standort||'',eingelagertVon:pd.eingelagertVon||'',einlagDatumStr:formatTimestamp(pd.einlagDatum),einlagDatum:pd.einlagDatum||null,auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername(),..._fifoFields});}catch(e){alert('Fehler Protokoll: '+e.message);_obBtn.disabled=false;return;}
+    try{await db.collection('paletten').doc(docId).delete();}catch(e){alert('Fehler Löschen: '+e.message);_obBtn.disabled=false;return;}
+    try{await db.collection('log').add({aktion:'auslagern',docId,artikelNr:pd.artikelNr,position:pd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp(),...(_fifoFields.fifoOverride?{fifoOverride:true,fifoGrund:_fifoFields.fifoGrund}:{})});}catch(e){console.warn(e);}
     document.getElementById('outboundResult').style.display='none';const sd=document.getElementById('outboundSuccess');sd.innerHTML=`<p class="success-msg">Palette entnommen von Stellplatz <strong>${_escHtml(_posLabel(pd.position||''))}</strong></p>`;sd.style.display='block';
     setTimeout(()=>{sd.style.display='none';document.getElementById('outboundArtikel').value='';document.getElementById('confirmOutboundBtn').disabled=false;},3000);
 }
@@ -3071,8 +3149,14 @@ async function deleteInventoryItem(docId){
         const snap=await db.collection('paletten').doc(docId).get();
         if(!snap.exists){alert('Palette nicht gefunden (evtl. bereits entfernt).');loadInventory();loadDashboard();return;}
         const pd=snap.data()||{};
+        // FIFO-Dokumentation (nur Halbfabrikate): falls dies nicht die älteste Palette des Artikels+Standorts ist, im Audit vermerken.
+        let _fifoFields={};
+        try{
+            const oldest=await _fifoOldestPal(pd.artikelNr,pd.standort);
+            if(oldest && oldest.id!==docId){ _fifoFields={fifoOverride:true,fifoGrund:grund.trim(),fifoSollDocId:oldest.id,fifoSollPalettenNr:(oldest.data.palettenNr||oldest.data.internalBarcode||''),fifoSollPosition:(oldest.data.position||''),fifoSollEinlagDatum:(oldest.data.einlagDatum||oldest.data.scannedAt||null)}; }
+        }catch(e){console.warn('FIFO-Info deleteInventoryItem:',e);}
         // ISO 9001 (8.7/7.5.3): Audit-Eintrag VOR dem Löschen — kein spurloses Verschwinden von Bestand.
-        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',standort:pd.standort||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername()});
+        await db.collection('protokoll').add({aktion:'korrektur-entfernt',docId,artikelNr:pd.artikelNr||'',labelTyp:pd.labelTyp||'',sscc:pd.sscc||'',internalBarcode:pd.internalBarcode||'',palettenNr:pd.palettenNr||'',menge:pd.menge||'',produktionsDatum:pd.produktionsDatum||'',lotNr:pd.lotNr||'',orderNr:pd.orderNr||'',kunde:pd.kunde||'',schicht:pd.schicht||'',gtin:pd.gtin||'',position:pd.position||'',standort:pd.standort||'',eingelagertVon:pd.eingelagertVon||'',einlagDatum:pd.einlagDatum||null,sperrgrund:grund.trim(),auslagDatum:firebase.firestore.FieldValue.serverTimestamp(),ausgelagertVon:getCurrentUsername(),..._fifoFields});
         await db.collection('paletten').doc(docId).delete();
         loadInventory();loadDashboard();
     }catch(e){alert('Fehler: '+e.message);}
@@ -3734,7 +3818,7 @@ $('createUserForm').addEventListener('submit',async e=>{
     const err=$('createUserError'),suc=$('createUserSuccess');
     err.style.display='none';suc.style.display='none';
     const u=$('newUsername').value.trim(),p=$('newPassword').value,r=$('newRole').value;
-    if(!_validUserRe.test(u)){err.textContent='Nur Buchstaben, Zahlen, Punkt, Bindestrich, Unterstrich';err.style.display='block';return;}
+    if(!(_validUserRe.test(u)||_validEmailRe.test(u))){err.textContent='Nur Buchstaben, Zahlen, Punkt, Bindestrich, Unterstrich — oder eine vollständige Email (z.B. name@firma.com)';err.style.display='block';return;}
     try{
         let uid;
         try{

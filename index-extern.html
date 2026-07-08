@@ -410,9 +410,11 @@ auth.onAuthStateChanged(async user => {
         $('appView').style.display='flex';
         $('userDisplay').textContent=_cachedDisplayName||user.email.replace(EMAIL_DOMAIN,'');
         _resetIdleTimer();
+        _startOccListeners();   // Live-Belegung (Aumundswiese) abonnieren
         goToStepLocation();
     } else {
         _cachedDisplayName='';
+        _stopOccListeners();    // Listener bei Logout/Idle/Block abmelden
         $('appView').style.display='none';
         $('loginView').style.display='flex';
         if(_idleTimer){ clearTimeout(_idleTimer); _idleTimer=null; }
@@ -1025,11 +1027,14 @@ async function goToOutMatch(){
 // Versand / Verkauf — Palette komplett raus
 $('outShipBtn').addEventListener('click', async ()=>{
     if(!matchedPalette){alert('Keine Palette zugeordnet!');return;}
+    // Gesperrt-Schutz: gesperrte Ware kann am Scanner nicht entnommen werden (nur QS am PC).
+    if(matchedPalette.gesperrt){ alert('Palette ist QS-gesperrt und kann nicht versendet/ausgelagert werden. Bitte an die QS wenden.'); return; }
+    // Externes Außenlager: KEIN FIFO — hier darf jede Palette ausgelagert werden.
     if(!confirm('Palette '+matchedPalette.id+' wirklich aus dem Bestand löschen (Versand)?'))return;
     $('outShipBtn').disabled=true; $('outRelocateBtn').disabled=true;
     try {
         const p=matchedPalette;
-        await db.collection('paletten').doc(p.id).delete();
+        // ISO 9001: Audit-Eintrag VOR der Bestandsänderung (sonst Palette weg + kein Nachweis, falls protokoll.add scheitert).
         await db.collection('protokoll').add({
             aktion:'auslagern-extern-versand', docId:p.id,
             artikelNr:p.artikelNr||'', labelTyp:p.labelTyp||'',
@@ -1045,6 +1050,7 @@ $('outShipBtn').addEventListener('click', async ()=>{
             auslagDatum: firebase.firestore.FieldValue.serverTimestamp(),
             ausgelagertVon: getCurrentUsername()
         });
+        await db.collection('paletten').doc(p.id).delete();
         await db.collection('log').add({
             aktion:'auslagern-extern-versand', docId:p.id,
             artikelNr:p.artikelNr, labelTyp:p.labelTyp,
@@ -1067,6 +1073,7 @@ $('outShipBtn').addEventListener('click', async ()=>{
 // Bestandsliste den orangen Status "in Transport zu Aumundswiese".
 $('outRelocateBtn').addEventListener('click', async ()=>{
     if(!matchedPalette){alert('Keine Palette zugeordnet!');return;}
+    if(matchedPalette.gesperrt){ alert('Palette ist QS-gesperrt und kann nicht umgelagert werden. Bitte an die QS wenden.'); return; }
     if(!confirm('Palette '+matchedPalette.id+' als „in Transport zu Aumundswiese" markieren?\n\nDer Stellplatz wird beim Einscannen in der Aumundswiese vergeben.'))return;
     $('outShipBtn').disabled=true; $('outRelocateBtn').disabled=true;
     try {
@@ -1112,10 +1119,35 @@ $('outRelocateBtn').addEventListener('click', async ()=>{
     $('outShipBtn').disabled=false; $('outRelocateBtn').disabled=false;
 });
 
+// Live-Belegung (Aumundswiese) via onSnapshot statt einmaligem .get() — behebt die PC/Mobile-Divergenz.
+let _liveOcc=null, _occReady=false, _unsubPal=null, _palSnap=null;
+function _skipPalDoc(id){ return id==='_config_orderpin' || String(id).charAt(0)==='_'; }
+function _rebuildOcc(){
+    const o={};
+    if(_palSnap) _palSnap.forEach(d=>{
+        if(_skipPalDoc(d.id))return;
+        const dt=d.data(); const std=dt.standort||'';
+        if(std && std!=='Aumundswiese')return;   // Aumundswiese-Bestand: leer ODER 'Aumundswiese'
+        if(!dt.position)return;
+        o[dt.position]={sscc:d.id,...dt};
+    });
+    return o;
+}
+function _startOccListeners(){
+    _stopOccListeners();
+    _unsubPal=db.collection('paletten').onSnapshot(
+        s=>{ _palSnap=s; _liveOcc=_rebuildOcc(); _occReady=true; },
+        e=>{ if(e.code!=='permission-denied')console.warn('paletten onSnapshot:',e.code||e); _occReady=false; }
+    );
+}
+function _stopOccListeners(){ if(_unsubPal){try{_unsubPal();}catch(e){}} _unsubPal=null; _palSnap=null; _liveOcc=null; _occReady=false; }
+
 async function getAllPositionsAumundswiese(){
+    if(_occReady && _liveOcc) return {..._liveOcc};
     const s=await db.collection('paletten').get();
     const o={};
     s.forEach(d=>{
+        if(_skipPalDoc(d.id))return;
         const dt=d.data();
         const std=dt.standort||'';
         // Aumundswiese-Bestand: alles ohne standort ODER explizit standort='Aumundswiese'
@@ -1139,14 +1171,15 @@ function findFreePosition(occ,zo){
 
 $('confirmRelocBtn').addEventListener('click', async ()=>{
     if(!matchedPalette){alert('Keine Palette!');return;}
+    if(matchedPalette.gesperrt){ alert('Palette ist QS-gesperrt und kann nicht umgelagert werden. Bitte an die QS wenden.'); return; }
     const sel=$('positionSelect');
     const pos=sel.value;
     if(!pos||pos==='Kein Platz frei!'){alert('Bitte Stellplatz wählen!');return;}
 
     $('confirmRelocBtn').disabled=true;
     try {
-        // Belegungs-Warnung
-        const occSnap=sel._occSnapshot||await getAllPositionsAumundswiese();
+        // Belegungs-Warnung (Live-Stand)
+        const occSnap=await getAllPositionsAumundswiese();
         if(occSnap[pos]){
             const proceed=confirm('Stellplatz '+pos+' ist belegt mit '+(occSnap[pos].artikelNr||'?')+'. Trotzdem überschreiben?');
             if(!proceed){$('confirmRelocBtn').disabled=false;return;}
