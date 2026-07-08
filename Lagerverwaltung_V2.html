@@ -2480,12 +2480,14 @@ async function initOutbound(){
 // ============================================================
 // FIFO-HELFER (nur Halbfabrikate/paletten; XO Fertigware ohne FIFO)
 // ============================================================
-// Einheitlicher Datums-Schlüssel wie im Scanner: einlagDatum || scannedAt || produktionsDatum || datum.
+// FIFO-Schlüssel = PRODUKTIONSDATUM (Alter der Ware) + Uhrzeit als Feinsortierung — identisch zum Scanner.
+// Einlagerdatum wird NICHT als Primärschlüssel genutzt (bei Alt-/Importbestand alle fast gleich → falsches FIFO);
+// nur Fallback, wenn kein Produktionsdatum vorhanden ist.
 function _fifoDateKeyLV(x){
+    const ds=x.produktionsDatum||x.datum;
+    if(ds){ const d=parseProdDatum(ds); if(d&&d.getFullYear()<9000){ const t=String(x.uhrzeit||'').match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(t)d.setHours(+t[1],+t[2],t[3]?+t[3]:0,0); return d.getTime(); } }
     const ts=x.einlagDatum||x.scannedAt;
     if(ts){ if(typeof ts.toMillis==='function')return ts.toMillis(); const d=new Date(ts); if(!isNaN(d))return d.getTime(); }
-    const s=x.produktionsDatum||x.datum;
-    if(s){ const d=parseProdDatum(s); if(d&&d.getFullYear()<9000)return d.getTime(); }
     return Infinity;
 }
 function _fifoStandortLV(x){ return (String((x&&x.standort)||'').trim())||'Aumundswiese'; }

@@ -746,10 +746,13 @@ function _isFifoEligible(data){
 // Einheitlicher Datums-Schlüssel: einlagDatum || scannedAt || produktionsDatum || datum.
 // Fehlend -> Infinity (gilt als "neueste", wird nie fälschlich als Älteste gewählt).
 function _fifoDateKey(x){
+    // FIFO nach PRODUKTIONSDATUM (Alter der Ware) + Uhrzeit als Feinsortierung.
+    // NICHT nach Einlagerdatum — das ist bei Alt-/Importbestand unbrauchbar (alle fast gleich)
+    // und wird nur als Fallback genutzt, wenn kein Produktionsdatum vorhanden ist.
+    const ds=x.produktionsDatum||x.datum;
+    if(ds){ const d=parseProdDatum(ds); if(d&&d.getFullYear()<9000){ const t=String(x.uhrzeit||'').match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(t)d.setHours(+t[1],+t[2],t[3]?+t[3]:0,0); return d.getTime(); } }
     const ts=x.einlagDatum||x.scannedAt;
     if(ts){ if(typeof ts.toMillis==='function')return ts.toMillis(); const d=new Date(ts); if(!isNaN(d))return d.getTime(); }
-    const s=x.produktionsDatum||x.datum;
-    if(s){ const d=parseProdDatum(s); if(d&&d.getFullYear()<9000)return d.getTime(); }
     return Infinity;
 }
 function _fifoStandort(x){ return (String((x&&x.standort)||'').trim())||'Aumundswiese'; }

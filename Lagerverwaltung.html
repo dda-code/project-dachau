@@ -1362,10 +1362,12 @@ async function onArtikelSelect(){
     const nr=document.getElementById('outboundArtikel').value,rd=document.getElementById('outboundResult'),ed=document.getElementById('outboundEmpty'),sd=document.getElementById('outboundSuccess');rd.style.display='none';ed.style.display='none';if(sd)sd.style.display='none';if(!nr)return;
     let snap;try{snap=await db.collection('paletten').where('artikelNr','==',nr).get();}catch(e){ed.innerHTML='<p class="error-msg">Fehler: '+e.message+'</p>';ed.style.display='block';return;}
     if(snap.empty){ed.style.display='block';return;}
-    const allPal=[];snap.forEach(d=>allPal.push({id:d.id,...d.data()}));
-    const pal=allPal.filter(p=>!p.gesperrt);
-    if(!pal.length){ed.innerHTML='<p class="info-msg">Alle Paletten dieses Artikels sind gesperrt (QS).</p>';ed.style.display='block';return;}
-    pal.forEach(p=>p._sortKey=parseProdDatum(p.produktionsDatum||p.datum||'').getTime());pal.sort((a,b)=>a._sortKey-b._sortKey);
+    const allPal=[];snap.forEach(d=>{if(d.id==='_config_orderpin'||String(d.id).charAt(0)==='_')return;allPal.push({id:d.id,...d.data()});});
+    // FIFO-Scope: nur Aumundswiese-Bestand (Außenlager K&R/Seepack laufen über den Extern-Scanner).
+    const pal=allPal.filter(p=>!p.gesperrt && _fifoStandortLV(p)==='Aumundswiese');
+    if(!pal.length){ed.innerHTML='<p class="info-msg">Keine entnehmbare (nicht gesperrte) Palette dieses Artikels in Aumundswiese.</p>';ed.style.display='block';return;}
+    // FIFO nach Produktionsdatum (+ Uhrzeit), NICHT nach Einlagerdatum; stabiler Tiebreak.
+    pal.forEach(p=>p._sortKey=_fifoDateKeyLV(p));pal.sort((a,b)=>(a._sortKey-b._sortKey)||String(a.id).localeCompare(String(b.id)));
     const p=pal[0],card=document.getElementById('outboundCard');
     card.innerHTML=`<div class="palette-info"><div class="palette-row"><span class="palette-label">Typ:</span><span>${_esc(p.labelTyp||'-')}</span></div><div class="palette-row"><span class="palette-label">Artikelnr.:</span><span>${_esc(p.artikelNr)}</span></div><div class="palette-row"><span class="palette-label">SSCC / Barcode:</span><span>${_esc(p.sscc||p.internalBarcode||p.palettenNr||p.id)}</span></div><div class="palette-row"><span class="palette-label">Prod.-Datum:</span><span>${_esc(p.produktionsDatum||'-')}</span></div><div class="palette-row"><span class="palette-label">Menge:</span><span>${_esc(p.menge||'-')}</span></div><div class="palette-row"><span class="palette-label">Stellplatz:</span><span class="position-badge">${_esc(p.position)}</span></div><div class="palette-row"><span class="palette-label">Eingelagert:</span><span>${_esc(formatTimestamp(p.einlagDatum))}</span></div><div class="palette-row"><span class="palette-label">Eingelagert von:</span><span>${_esc(p.eingelagertVon||'-')}</span></div></div>`;
     card.dataset.docId=p.id;card.dataset.paletteJson=JSON.stringify(p);rd.style.display='block';document.getElementById('confirmOutboundBtn').disabled=false;
@@ -1415,6 +1417,16 @@ function exportProtokoll(){const t=document.querySelector('#view-protokoll .data
 const _deDateRe=/^(\d{1,2})\.(\d{1,2})\.(\d{4})/;
 const _usDateRe=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
 function parseProdDatum(s){if(!s)return new Date(9999,0);const de=s.match(_deDateRe);if(de)return new Date(+de[3],+de[2]-1,+de[1]);const us=s.match(_usDateRe);if(us)return new Date(+us[3],+us[1]-1,+us[2]);const d=new Date(s);return isNaN(d)?new Date(9999,0):d;}
+// FIFO-Schlüssel = PRODUKTIONSDATUM (Alter der Ware) + Uhrzeit als Feinsortierung — identisch zu Lagerverwaltung_V2.
+// Einlagerdatum NICHT als Primärschlüssel (bei Alt-/Importbestand alle fast gleich → falsches FIFO); nur Fallback.
+function _fifoDateKeyLV(x){
+    const ds=x.produktionsDatum||x.datum;
+    if(ds){ const d=parseProdDatum(ds); if(d&&d.getFullYear()<9000){ const t=String(x.uhrzeit||'').match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/); if(t)d.setHours(+t[1],+t[2],t[3]?+t[3]:0,0); return d.getTime(); } }
+    const ts=x.einlagDatum||x.scannedAt;
+    if(ts){ if(typeof ts.toMillis==='function')return ts.toMillis(); const d=new Date(ts); if(!isNaN(d))return d.getTime(); }
+    return Infinity;
+}
+function _fifoStandortLV(x){ return (String((x&&x.standort)||'').trim())||'Aumundswiese'; }
 
 // ============================================================
 // INVENTORY
