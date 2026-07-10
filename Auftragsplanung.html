@@ -1288,7 +1288,7 @@ auth.onAuthStateChanged(async user=>{
         await auth.signOut().catch(()=>{});
         return;
     }
-if(currentUserRole!=='admin' && currentUserRole!=='manager' && currentUserRole!=='sales' && currentUserRole!=='gf'){  // gf (Geschäftsführung) darf rein; alle Approver-Funktionen greifen über das canApprove-Flag (Rules rev13)
+if(!(currentCanApprove || currentUserRole==='admin' || currentUserRole==='manager' || currentUserRole==='sales')){  // Zugang: jeder Approver (canApprove, egal welche Rolle) + Standard admin/manager/sales. Ersetzt die feste Rollen-Allowlist — neue Approver-Rollen (gf/cfo/…) brauchen keinen Code-Change mehr; Datenzugriffe deckt Rules rev13 via canApprove.
         const err=document.getElementById('loginError');
         if(err){ err.textContent='No permission for Order Planning. Role: '+currentUserRole; err.style.display='block'; }
         await auth.signOut().catch(()=>{});
@@ -1297,7 +1297,7 @@ if(currentUserRole!=='admin' && currentUserRole!=='manager' && currentUserRole!=
     document.getElementById('loginView').style.display='none';
     document.getElementById('appView').style.display='block';
     const uName=user.displayName||user.email.replace('@lager.local','');
-    const label=currentUserRole==='admin'?' (Admin)':(currentUserRole==='sales'?' (Sales)':(currentUserRole==='gf'?' (GF)':' (Manager)'));
+    const label=currentUserRole==='admin'?' (Admin)':(currentUserRole==='sales'?' (Sales)':(currentUserRole==='gf'?' (GF)':(currentUserRole==='cfo'?' (CFO)':' (Manager)')));
     $('userEmail').textContent=uName+label;
     // ── SALES-MODUS: kalenderfreie Ansicht (Formular + eigene Anfrage-Listen). ──
     // Muss VOR startGridLiveListeners + dem _apBooted/loadWeek-Block greifen.
