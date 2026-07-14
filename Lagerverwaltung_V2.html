@@ -8317,6 +8317,10 @@ function _applyShellBeschreibung(){
         if(idx>=0) xo.columns.splice(idx+1, 0, 'Shell Beschreibung');
     }
     xo.rows.forEach(r=>{
+        // Manueller/gespeicherter Wert hat Vorrang (wie bei Ends/Sleeve): die Map fuellt nur LEERE
+        // Felder. So bleiben im UI eingegebene Beschreibungen nach dem Firestore-Sync erhalten und
+        // Shells ohne Map-Eintrag (z.B. neue Nummern wie 110058) sind manuell befuellbar.
+        if(String(r['Shell Beschreibung']==null?'':r['Shell Beschreibung']).trim()) return;
         const sh=String(r['Shell XO Nr.']==null?'':r['Shell XO Nr.']).trim();
         r['Shell Beschreibung']=_SHELL_DESC_MAP[sh] || '';
     });
