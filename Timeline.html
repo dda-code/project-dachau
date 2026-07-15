@@ -2495,9 +2495,72 @@ function updateMultiHint(){
   if(!h){ h=document.createElement('div'); h.id='multi-hint'; document.body.appendChild(h); }
   var n=multiSel.ids.length;
   if(!n){ h.classList.remove('show'); h.innerHTML=''; return; }
-  h.innerHTML='<span>✦ '+n+' Aufgabe'+(n!==1?'n':'')+' ausgewählt — mit <strong>rechter Maustaste ziehen</strong> zum Verschieben</span>'
-    +'<button onclick="clearMultiSel()">Aufheben (ESC)</button>';
+  var html='<span>✦ '+n+' Aufgabe'+(n!==1?'n':'')+' ausgewählt'
+    +' <span style="opacity:.65;font-size:11px">— rechte Maustaste ziehen = verschieben · <b>Strg</b>+ziehen = weitere hinzufügen</span></span>';
+  if(n>=2){
+    html+='<button onclick="linkMultiSel()" title="Ausgewählte Aufgaben chronologisch mit Abhängigkeits-Pfeilen verketten">🔗 Verknüpfen</button>'
+        + '<button onclick="unlinkMultiSel()" title="Alle Verknüpfungen zwischen den ausgewählten Aufgaben wieder entfernen">✂ Trennen</button>';
+  }
+  html+='<button onclick="clearMultiSel()">Aufheben (ESC)</button>';
+  h.innerHTML=html;
   h.classList.add('show');
+}
+// Kurze Rückmeldung im Multi-Hint (z. B. "✓ 3 Verknüpfungen erstellt"), dann zurück zum normalen Hint
+function flashMultiHint(msg){
+  var h=document.getElementById('multi-hint');
+  if(!h){ h=document.createElement('div'); h.id='multi-hint'; document.body.appendChild(h); }
+  h.innerHTML='<span>'+msg+'</span>';
+  h.classList.add('show');
+  clearTimeout(flashMultiHint._t);
+  flashMultiHint._t=setTimeout(function(){ if(multiSel.ids.length)updateMultiHint(); else { h.classList.remove('show'); h.innerHTML=''; } },2000);
+}
+// Ausgewählte Aufgaben in Verkettungs-Reihenfolge: nach Startdatum, dann Enddatum, dann Anzeige-Reihenfolge
+function _selChainOrder(){
+  var order={}, vr=(typeof visibleRows==='function')?visibleRows():[];
+  for(var i=0;i<vr.length;i++)order[vr[i].task.id]=i;
+  return multiSel.ids
+    .map(function(id){return taskMap.get(id);})
+    .filter(function(t){return t&&t.type!=='urlaub'&&t.type!=='meeting';})
+    .sort(function(a,b){
+      if(a.start<b.start)return -1; if(a.start>b.start)return 1;
+      if(a.end<b.end)return -1;     if(a.end>b.end)return 1;
+      return (order[a.id]||0)-(order[b.id]||0);
+    });
+}
+// Feature: ausgewählte Aufgaben der Reihe nach verknüpfen (Finish→Start-Kette, rot-gestrichelte Pfeile)
+function linkMultiSel(){
+  if(typeof _canEdit==='function'&&!_canEdit())return;
+  var chain=_selChainOrder();
+  if(chain.length<2){ flashMultiHint('⚠ Mindestens 2 Aufgaben auswählen'); return; }
+  var added=0,skipped=0;
+  for(var i=1;i<chain.length;i++){
+    var pred=chain[i-1], succ=chain[i];
+    if((succ.deps||[]).indexOf(pred.id)>=0)continue;         // schon verknüpft
+    // Zyklus verhindern: succ→pred fängt einen echten Zyklus, pred→succ überspringt eine bereits (indirekt) bestehende Kette
+    if(typeof wouldCycle==='function'&&(wouldCycle(succ.id,pred.id)||wouldCycle(pred.id,succ.id))){ skipped++; continue; }
+    succ.deps=(succ.deps||[]).concat(pred.id);
+    added++;
+  }
+  buildAll(); triggerSave();
+  if(added)      flashMultiHint('✓ '+added+' Verknüpfung'+(added!==1?'en':'')+' erstellt'+(skipped?' · '+skipped+' übersprungen (Zyklus)':''));
+  else if(skipped)flashMultiHint('⚠ Übersprungen – würde einen Zyklus erzeugen');
+  else            flashMultiHint('ℹ Aufgaben sind bereits verknüpft');
+}
+// Feature (Rückgängig): alle Abhängigkeiten ZWISCHEN den ausgewählten Aufgaben entfernen
+function unlinkMultiSel(){
+  if(typeof _canEdit==='function'&&!_canEdit())return;
+  var ids=multiSel.ids.slice();
+  if(ids.length<2){ flashMultiHint('⚠ Mindestens 2 Aufgaben auswählen'); return; }
+  var inSel={}; ids.forEach(function(id){inSel[id]=true;});
+  var removed=0;
+  ids.forEach(function(id){
+    var t=taskMap.get(id); if(!t||!t.deps||!t.deps.length)return;
+    var before=t.deps.length;
+    t.deps=t.deps.filter(function(d){return !inSel[d];});    // nur Kanten löschen, deren beide Enden in der Auswahl liegen
+    removed+=before-t.deps.length;
+  });
+  buildAll(); triggerSave();
+  flashMultiHint(removed?('✓ '+removed+' Verknüpfung'+(removed!==1?'en':'')+' entfernt'):'ℹ Keine Verknüpfung zwischen der Auswahl');
 }
 function clearMultiSel(){
   if(typeof multiSel==='undefined')return;
@@ -2521,7 +2584,7 @@ function _detectConflict(task){
   var gb=document.getElementById('gb');
   var right=document.getElementById('right');
   if(!gb||!right)return;
-  var marquee={active:false,x0:0,y0:0,el:null};
+  var marquee={active:false,x0:0,y0:0,el:null,additive:false};
   var gmove={active:false,startX:0,moved:false,orig:null};
   var _rRAF=0;
 
@@ -2540,15 +2603,20 @@ function _detectConflict(task){
     if(e.target.classList.contains('rhl')||e.target.classList.contains('rhr'))return;
     var wrap=e.target.closest('.bwrap');
     var onSelected=wrap&&!wrap.classList.contains('extra-bar')&&multiSel.ids.indexOf(+wrap.dataset.id)>=0;
-    if(onSelected)startGroupMove(e); else startMarquee(e);
+    // Strg gedrückt = ADDITIVE Auswahl: neues Aufziehen ergänzt die bestehende Auswahl
+    // (statt sie zu ersetzen) – auch wenn über einer bereits gewählten Bar begonnen wird.
+    if(e.ctrlKey)      startMarquee(e,true);
+    else if(onSelected)startGroupMove(e);
+    else               startMarquee(e,false);
     e.preventDefault(); e.stopPropagation();
   });
 
-  function startMarquee(e){
+  function startMarquee(e,additive){
     marquee.active=true;
+    marquee.additive=!!additive;
     marquee.x0=gbX(e.clientX); marquee.y0=gbY(e.clientY);
     marquee.lastX=marquee.x0; marquee.lastY=marquee.y0; // zurücksetzen, sonst Phantom-Rechteck aus voriger Auswahl
-    clearMultiSel();                                    // neue Aufziehauswahl ersetzt die alte
+    if(!additive)clearMultiSel();                       // ohne Strg: neue Auswahl ersetzt die alte; mit Strg: bestehende behalten
     marquee.el=document.createElement('div');
     marquee.el.className='gb-marquee';
     marquee.el.style.cssText='left:'+marquee.x0+'px;top:'+marquee.y0+'px;width:0;height:0';
@@ -2604,10 +2672,12 @@ function _detectConflict(task){
     if(marquee.active){
       marquee.active=false; right.classList.remove('marquee-active'); document.body.style.userSelect='';
       if(_rRAF){cancelAnimationFrame(_rRAF);_rRAF=0;}
+      var additive=marquee.additive; marquee.additive=false;
       var x1=(marquee.lastX!==undefined)?marquee.lastX:marquee.x0, y1=(marquee.lastY!==undefined)?marquee.lastY:marquee.y0;
       var L=Math.min(marquee.x0,x1),T=Math.min(marquee.y0,y1),W=Math.abs(x1-marquee.x0),H=Math.abs(y1-marquee.y0);
       if(marquee.el){marquee.el.remove();marquee.el=null;}
-      if(W<4&&H<4){ clearMultiSel(); suppressNextClick(); return; } // Mini-Ziehen = Klick → Auswahl leeren
+      var mini=(W<4&&H<4);
+      if(mini&&!additive){ clearMultiSel(); suppressNextClick(); return; } // Mini-Ziehen ohne Strg = Klick → Auswahl leeren
       var ids=[];
       var wraps=gb.querySelectorAll('.bwrap');
       for(var k=0;k<wraps.length;k++){
@@ -2620,7 +2690,17 @@ function _detectConflict(task){
         var bl=parseFloat(w.style.left)||0,bt=parseFloat(w.style.top)||0,bw=parseFloat(w.style.width)||0,bh=parseFloat(w.style.height)||30;
         if(bl<L+W && bl+bw>L && bt<T+H && bt+bh>T){ if(ids.indexOf(id)<0)ids.push(id); }
       }
-      multiSel.ids=ids;
+      if(additive){
+        if(mini){
+          // Strg+Klick auf eine Bar → einzeln an-/abwählen; Strg+Klick ins Leere → Auswahl unverändert lassen
+          ids.forEach(function(id){ var p=multiSel.ids.indexOf(id); if(p>=0)multiSel.ids.splice(p,1); else multiSel.ids.push(id); });
+        } else {
+          // Strg+Aufziehen → die neu umrahmten Aufgaben zur bestehenden Auswahl HINZUFÜGEN (Vereinigung)
+          ids.forEach(function(id){ if(multiSel.ids.indexOf(id)<0)multiSel.ids.push(id); });
+        }
+      } else {
+        multiSel.ids=ids;
+      }
       applyMultiSelHighlight();
       updateMultiHint();
       suppressNextClick();
