@@ -399,7 +399,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
                   <span id="o_priceDevWarn" style="display:none;font-size:0.72rem;color:#dc2626;font-weight:700;margin-top:3px"></span>
               </label>
               <div id="o_priceWrap" style="display:none;flex-direction:column;gap:3px;min-width:0">
-                  <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price XO (€/1000 pcs.)</span>
+                  <span style="font-size:0.78rem;color:#475569;font-weight:600">Unit Price XO Pricelist (€/1000 pcs.)</span>
                   <div style="display:flex;gap:4px;align-items:stretch">
                       <input id="o_approverPrice" class="ef-spa" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" title="Suggested from pricelist — editable" style="flex:1;min-width:0;padding:9px 11px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.92rem;font-family:inherit;font-weight:700;text-align:right;background:#fffbeb;min-height:38px;box-sizing:border-box;color:#0f172a">
                       <span id="o_approverPriceCcy" style="display:flex;align-items:center;font-size:0.85rem;font-weight:600;color:#475569;min-width:34px;justify-content:center">EUR</span>
@@ -3304,6 +3304,15 @@ function _apSalesCard(it, mode){
             (h.comment&&String(h.comment).trim())?cellLabel('Comment',esc(h.comment)):''
         ].join('');
     }
+    // Vom Approver freigegebener Preis (€/1000 pcs.) — bei freigegebenen Auftraegen ZWINGEND prominent anzeigen.
+    const _apPrice=(it.payload&&it.payload.approvedPrice)||null;
+    const _fmtApPrice=v=>{ const n=Number(v); return isFinite(n)?n.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2}):null; };
+    const approvedPriceBlock = (mode==='approved')
+        ? `<div style="margin-top:12px;padding:11px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #16a34a;border-radius:6px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+             <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:.04em;color:#166534;font-weight:700">Approved price (set by approver)</div>
+             <div style="font-size:1.1rem;color:#14532d;font-weight:800;white-space:nowrap">${(_apPrice && _fmtApPrice(_apPrice.price)!=null) ? (_fmtApPrice(_apPrice.price)+' '+esc(_apPrice.ccy||'EUR')+' / 1000 pcs.') : '<span style="font-size:0.82rem;font-weight:600;color:#b45309">not recorded — please re-approve the order</span>'}</div>
+           </div>`
+        : '';
     const reason = (mode==='rejected' && it.rejectComment)
         ? `<div style="margin-top:10px;padding:10px 12px;background:#fef2f2;border-left:3px solid #dc2626;border-radius:4px"><div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.04em;color:#991b1b;font-weight:700;margin-bottom:4px">Rejection reason</div><div style="font-size:0.9rem;color:#7f1d1d;white-space:pre-wrap">${esc(it.rejectComment)}</div></div>`
         : ((mode==='deleted' && it.deleteReason)
@@ -3320,7 +3329,7 @@ function _apSalesCard(it, mode){
             <div style="font-size:0.78rem;color:#64748b;text-align:right;min-width:0">${metaRight}</div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px 18px">${fields}</div>
-        ${reason}${ackBtn}
+        ${approvedPriceBlock}${reason}${ackBtn}
     </div>`;
 }
 
@@ -4073,7 +4082,7 @@ async function approvePendingInline(id, tab){
         try{ transferMsg = await _autoTransferAfterApprove(finalPayload, gridData, tab); }
         catch(e){ console.warn('Auto-Transfer to produktionsplan:',e); transferMsg=' (auto-transfer failed: '+e.message+')'; }
         // 6) Anfrage als freigegeben markieren (NICHT löschen) — bleibt als Nachweis in der Sales-Liste „freigegeben".
-        try{ await ref.update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp()}); }
+        try{ await ref.update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp(), 'payload.approvedPrice':{price:num, ccy}}); }
         catch(e){ console.warn('Pending status→approved:',e); }
         showMsg(`Order approved at ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000 pcs.${transferMsg}`,'success');
         await loadWeek();
@@ -5568,7 +5577,7 @@ async function saveOrder(mode){
         const rawUp=String($('o_approverPrice')?.value||'').trim().replace(/\s/g,'').replace(',','.');
         const up=parseFloat(rawUp);
         if(!(isFinite(up) && up>0)){
-            alert('⚠ No Unit Price XO set.\n\nThe order cannot be approved while no Unit Price XO (€/1000 pcs.) is entered or available from the pricelist.\nPlease enter the price in the "Unit Price XO (€/1000 pcs.)" field.');
+            alert('⚠ No Unit Price XO set.\n\nThe order cannot be approved while no Unit Price XO (€/1000 pcs.) is entered or available from the pricelist.\nPlease enter the price in the "Unit Price XO Pricelist (€/1000 pcs.)" field.');
             const fld=$('o_approverPrice');
             if(fld){ fld.style.borderColor='#ef4444'; fld.style.background='#fef2f2'; fld.focus(); setTimeout(()=>{ fld.style.borderColor='#cbd5e1'; fld.style.background='#fffbeb'; },3000); }
             return;
@@ -5704,7 +5713,7 @@ async function saveOrder(mode){
                 });
             }catch(e){ console.warn('Final PDF failed:',e); }
             // Anfrage als freigegeben markieren (NICHT löschen) — Nachweis für die Sales-Liste „freigegeben".
-            try{ await db.collection(_pendingColForTab(currentTab)).doc(pendingId).update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp()}); }
+            try{ await db.collection(_pendingColForTab(currentTab)).doc(pendingId).update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp(), 'payload.approvedPrice':(finalPayload.approvedPrice||null)}); }
             catch(e){ console.warn('Pending status→approved failed:',e); }
             _reviewingPendingId=null;
         }
@@ -6613,7 +6622,7 @@ async function saveFrameOrder(mode){
             if(pendDocSnap){ _pdfMeta.requestedByEmail=pendDocSnap.requestedByEmail||currentUserEmail; _pdfMeta.requestedAt=pendDocSnap.requestedAt||null; }
             try{ await _logProtocol('approved',pendingId,'frame',{payload,requestedBy:pendDocSnap?.requestedBy,requestedByEmail:pendDocSnap?.requestedByEmail,requestedAt:pendDocSnap?.requestedAt},''); }catch(_){}
             // Anfrage als freigegeben markieren (NICHT löschen) — Nachweis für die Sales-Liste „freigegeben".
-            try{ await db.collection(_pendingColForTab('frame')).doc(pendingId).update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){ console.warn('Pending status→approved failed:',e); }
+            try{ await db.collection(_pendingColForTab('frame')).doc(pendingId).update({status:'approved', approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp(), 'payload.approvedPrice':(payload.approvedPrice||null)}); }catch(e){ console.warn('Pending status→approved failed:',e); }
             _frameReviewingPendingId=null;
         }
         // PDF protocol on approval — parity with Assembly.
