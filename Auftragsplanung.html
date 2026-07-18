@@ -137,6 +137,7 @@ td.cell-dropdown input{background:transparent}
 .mini-cell .oc-art{display:block;font-weight:700;font-size:0.66rem;color:#334155;line-height:1.18;word-break:break-all}
 .mini-cell .oc-po{display:block;font-size:0.63rem;font-weight:700;color:#1e3a8a;line-height:1.18}
 .mini-cell .oc-cust{display:block;font-size:0.63rem;color:#475569;line-height:1.18}
+.mini-cell .oc-pal{display:inline-block;margin-top:2px;font-size:0.62rem;font-weight:800;color:#0f172a;background:#e2e8f0;border-radius:4px;padding:0 4px;line-height:1.35}
 .mini-cell .oc-new .oc-art{color:#1e3a8a}
 .mini-cell .oc-shift{position:absolute;top:1px;right:2px;background:#4361ee;color:#fff;font-size:0.56rem;font-weight:800;padding:0 3px;border-radius:6px;line-height:1.35}
 .mini-cell .oc-shift.s-0{background:#94a3b8}
@@ -640,13 +641,13 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
 </div>
 
 <div class="modal-overlay" id="orderSequenceModal" onclick="if(event.target===this)closeOrderSequence()">
-  <div class="modal-card" style="width:min(1000px,98%);max-height:92vh;overflow:auto">
+  <div class="modal-card" style="width:max-content;min-width:min(1000px,96vw);max-width:96vw;max-height:92vh;overflow:auto">
     <div class="modal-head">
       <h2 id="seqModalTitle">Order Sequence</h2>
       <button class="btn btn-sm btn-secondary" onclick="closeOrderSequence()">Close</button>
     </div>
-    <div class="modal-body">
-      <div style="font-size:0.85rem;color:#475569;margin-bottom:10px">Set the order via drag &amp; drop (<strong>1 = produced first</strong>). When moving an item, enter a new start date — the plan is recalculated around it (shifts, holidays, changeover times). Only "Apply" writes to the calendar.</div>
+    <div class="modal-body" style="overflow:visible">
+      <div style="font-size:0.85rem;color:#475569;margin-bottom:10px;max-width:840px">Set the order via drag &amp; drop (<strong>1 = produced first</strong>). When moving an item, enter a new start date — the plan is recalculated around it (shifts, holidays, changeover times). Only "Apply" writes to the calendar.</div>
       <div id="seqAnchorBar" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:12px">
         <span style="font-weight:600;color:#1e40af">Verschoben: <span id="seqAnchorLbl">–</span></span>
         <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;flex-direction:row">Neuer Starttermin<span style="color:#dc2626;font-weight:700"> *</span><input type="date" id="seqAnchorDate" class="ef" style="width:auto"></label>
@@ -5151,12 +5152,15 @@ function renderOrderPreview(){
     const plan=newStart?computeOrderPlan():{seq:[],blocked:null};
     const newSlotIsoSet=new Set(plan.seq.map(s=>s.iso));
     const shiftsByIso={}; plan.seq.forEach(s=>{ shiftsByIso[s.iso]=s.shifts; });
+    const newEnds=endsForArtFallback(newArt);
+    const newPalByIso={}; plan.seq.forEach(s=>{ newPalByIso[s.iso]=(newEnds&&s.qty>0)?Math.ceil(s.qty/newEnds):0; });
     const blockedIso=(plan&&plan.blocked)?plan.blocked.iso:'';
     const baseShifts=getBaseShifts();
     const soKey=fieldKey('Production Plan','','SO #');
     const custKey=fieldKey('Production Plan','','Customer');
     const artKey=fieldKey('Production Plan','','Art #');
     const poKey=fieldKey('Production Plan','','PO #');
+    const palKey=fieldKey('Production Plan','','PAL');
     // Collect best values for Customer / Art # / PO # per SO# across all days (fallback resolution)
     const soResolved={};
     Object.values(orderPreviewDocs).forEach(list=>{
@@ -5195,13 +5199,14 @@ function renderOrderPreview(){
                 art:(f[artKey]||(so&&soResolved[so]?soResolved[so].art:'')||''),
                 po:(f[poKey]||(so&&soResolved[so]?soResolved[so].po:'')||''),
                 cust:(f[custKey]||(so&&soResolved[so]?soResolved[so].cust:'')||''),
+                pal:(f[palKey]||''),
                 kind:(e._pendingId?'pending':'sched'),
                 blocked:isBlocked
             });
         });
         if(isNew){
             const sh=(iso in shiftsByIso)?shiftsByIso[iso]:baseShifts;
-            orders.push({ so:newSo, art:newArt, po:newPo, cust:newCust, kind:'new', shifts:sh });
+            orders.push({ so:newSo, art:newArt, po:newPo, cust:newCust, kind:'new', shifts:sh, pal:(newPalByIso[iso]||0) });
         }
         const dd=String(d.getDate()).padStart(2,'0'), mm=String(d.getMonth()+1).padStart(2,'0');
         const existSoTitle=dayList.map(e=>e._so).filter(Boolean).join(', ');
@@ -5210,11 +5215,13 @@ function renderOrderPreview(){
         const chipsHtml=orders.map(o=>{
             const occ='oc oc-'+o.kind+(o.blocked?' oc-blocked':'');
             const shb=(o.kind==='new')?`<span class="oc-shift s-${Math.min(3,Math.max(0,o.shifts))}" title="${o.shifts} shift(s)">${o.shifts}S</span>`:'';
+            const palN=parseInt(String(o.pal==null?'':o.pal).replace(/[^\d]/g,''),10);
             return `<div class="${occ}">`+shb+
                 (o.so?`<span class="oc-so">SO ${escHtml(o.so)}</span>`:'')+
                 (o.art?`<span class="oc-art">${escHtml(o.art)}</span>`:'')+
                 (o.po?`<span class="oc-po">PO ${escHtml(o.po)}</span>`:'')+
                 (o.cust?`<span class="oc-cust">${escHtml(o.cust)}</span>`:'')+
+                (palN>0?`<span class="oc-pal" title="Pallets planned this day">${palN} PAL</span>`:'')+
                 `</div>`;
         }).join('');
         html+=`<div class="${cls}"${isNew?' data-new="1"':''} data-iso="${iso}" title="${iso}${titleSuffix}">`+
@@ -7358,13 +7365,13 @@ function renderSeqList(){
             +newCol
             +'</tr>';
     }).join('');
-    c.innerHTML='<div style="overflow-x:auto"><table class="ov-table" style="width:100%"><thead><tr>'
+    c.innerHTML='<table class="ov-table" style="width:max-content;min-width:100%"><thead><tr>'
         +'<th>Seq</th><th></th><th>'+(isFrame?'IO #':'SO #')+'</th><th>Article</th>'
         +(isFrame?'':'<th>Customer</th>')
         +'<th style="text-align:right">Qty</th>'
         +(isFrame?'':'<th style="text-align:right">PAL</th><th>PO Issue</th><th>Pick-Up (Deadl.)</th><th>Pick-Up (Cust. PO)</th>')
         +'<th>Start</th><th>Ende</th><th style="color:#1e40af">Neu Start</th><th style="color:#1e40af">Neu Ende</th>'
-        +'</tr></thead><tbody>'+rows+'</tbody></table></div>'
+        +'</tr></thead><tbody>'+rows+'</tbody></table>'
         +'<div class="ov-foot">'+_seqState.orderIds.length+' order(s) · drag &amp; drop to reorder · "New" columns show the preview.</div>';
     _seqWireDnD();
 }
