@@ -499,14 +499,29 @@ function normalizeDatum(s){
     return s;
 }
 
-function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{const objUrl=URL.createObjectURL(file);const img=new Image();img.onload=()=>{URL.revokeObjectURL(objUrl);const c=document.createElement('canvas');let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}c.width=w;c.height=h;const ctx=c.getContext('2d');
+// Wiederverwendete Scan-Canvases: verhindern, dass pro Scan 2 neue Canvas-/GPU-Flaechen
+// entstehen (Ursache des "ab der 32. Palette geht nichts mehr"-Bugs auf mobilen Geraeten).
+// Scannen laeuft strikt sequentiell (processPhoto awaitet), daher ist das Teilen sicher.
+let _scanCanvasA=null,_scanCanvasB=null;
+function _reuseScanCanvas(slot,w,h){
+    let c = slot==='A' ? (_scanCanvasA||(_scanCanvasA=document.createElement('canvas')))
+                       : (_scanCanvasB||(_scanCanvasB=document.createElement('canvas')));
+    c.width=w;c.height=h;return c;
+}
+function imageToBase64Scan(file,mx){return new Promise((res,rej)=>{
+    let img=new Image();const objUrl=URL.createObjectURL(file);
+    const _cleanup=()=>{URL.revokeObjectURL(objUrl);if(img){img.onload=img.onerror=null;img.src='';img=null;}};
+    img.onload=()=>{
+    let w=img.width,h=img.height;if(w>mx||h>mx){const r=Math.min(mx/w,mx/h);w=Math.round(w*r);h=Math.round(h*r);}
+    const c=_reuseScanCanvas('A',w,h);const ctx=c.getContext('2d');
     ctx.filter='contrast(1.3) brightness(1.05)';
     ctx.drawImage(img,0,0,w,h);ctx.filter='none';
-    const tc=document.createElement('canvas');tc.width=w;tc.height=h;const tctx=tc.getContext('2d');tctx.filter='blur(1px)';tctx.drawImage(c,0,0);tctx.filter='none';
-    const orig=ctx.getImageData(0,0,w,h);const blurred=tctx.getImageData(0,0,w,h);
+    const tc=_reuseScanCanvas('B',w,h);const tctx=tc.getContext('2d');tctx.filter='blur(1px)';tctx.drawImage(c,0,0);tctx.filter='none';
+    let orig=ctx.getImageData(0,0,w,h);let blurred=tctx.getImageData(0,0,w,h);
     for(let i=0;i<orig.data.length;i+=4){for(let ch=0;ch<3;ch++){orig.data[i+ch]=Math.min(255,Math.max(0,Math.round(orig.data[i+ch]*1.4-blurred.data[i+ch]*0.4)));}}
-    ctx.putImageData(orig,0,0);tc.width=0;tc.height=0;
-    const result=c.toDataURL('image/jpeg',0.92);c.width=0;c.height=0;res(result);};img.onerror=()=>{URL.revokeObjectURL(objUrl);rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
+    ctx.putImageData(orig,0,0);
+    const result=c.toDataURL('image/jpeg',0.92);tc.width=tc.height=0;c.width=c.height=0;orig=blurred=null;
+    _cleanup();res(result);};img.onerror=()=>{_cleanup();rej(new Error('Bild konnte nicht geladen werden'));};img.src=objUrl;});}
 
 async function _aiRequest(base64){
     if(!window.aiModel) throw new Error('KI-Modell noch nicht geladen — Seite neu laden');
