@@ -5972,13 +5972,14 @@ function populateLabelOrderDropdown(){
 }
 // Zuletzt eingegebene Order + Palettennummer nach Browser-Neustart wieder vorbelegen.
 // Order und Palettennummer werden UNABHÄNGIG wiederhergestellt (jeweils genau einmal).
-// PIN-Kiosk-Gate wird respektiert: bei aktiver Order-PIN wird die Order NICHT vorbelegt.
+// Die zuletzt verwendete Order wird IMMER aufs Label vorbelegt; bei aktiver Order-PIN
+// bleibt das Dropdown aber gesperrt (Wechsel auf eine ANDERE Order braucht weiter die PIN).
 async function _restoreAsmLabelState(){
     const sel=document.getElementById('labelOrderSelect');
     if(!sel) return;
     const st=await _loadLabelState();
     if(!st) return;   // noch nicht eingeloggt → beim nächsten populate erneut (Flags NICHT setzen)
-    // --- ORDER (einmalig; wartet auf geladene Optionen; respektiert PIN) ---
+    // --- ORDER (einmalig; wartet auf geladene Optionen) ---
     if(!_asmOrderRestoreDone){
         const savedOrder=st.orderAsm||'';
         if(!savedOrder){
@@ -5986,11 +5987,11 @@ async function _restoreAsmLabelState(){
         } else if(Array.from(sel.options).some(o=>o.value===savedOrder)){
             _asmOrderRestoreDone=true;
             await _loadOrderPinConfig();
-            if(!_orderPinActive()){                       // Kiosk-Gate nicht umgehen
-                sel.disabled=false;                       // keine PIN → Auswahl offen (setupOrderGate-Race abfangen)
-                sel.value=savedOrder;
-                try{ await applyLabelOrder(); }catch(e){ console.warn('Order-Restore (Assembly):',e); }
-            }
+            if(!_orderPinActive()) sel.disabled=false;    // ohne PIN: Auswahl offen (setupOrderGate-Race abfangen)
+            sel.value=savedOrder;                         // letzte Order IMMER vorbelegen
+            // Bei aktiver PIN sperrt applyLabelOrder() das Dropdown am Ende wieder (relockOrder):
+            // die zuletzt verwendete Order landet aufs Label, ein WECHSEL braucht weiter die PIN.
+            try{ await applyLabelOrder(); }catch(e){ console.warn('Order-Restore (Assembly):',e); }
         } else if(sel.options.length>1){
             _asmOrderRestoreDone=true;                     // Order existiert nicht mehr → aufgeben
         }
@@ -7180,7 +7181,7 @@ async function _restoreSgLabelState(){
     if(!sel) return;
     const st=await _loadLabelState();
     if(!st) return;   // noch nicht eingeloggt → beim nächsten populate erneut (Flags NICHT setzen)
-    // --- ORDER (einmalig; wartet auf geladene Optionen; respektiert PIN) ---
+    // --- ORDER (einmalig; wartet auf geladene Optionen) ---
     if(!_sgOrderRestoreDone){
         const savedOrder=st.orderSg||'';
         if(!savedOrder){
@@ -7188,11 +7189,11 @@ async function _restoreSgLabelState(){
         } else if(Array.from(sel.options).some(o=>o.value===savedOrder)){
             _sgOrderRestoreDone=true;
             await _loadOrderPinConfig();
-            if(!_orderPinActive()){
-                sel.disabled=false;
-                sel.value=savedOrder;
-                try{ await sg_applyLabelOrder(); }catch(e){ console.warn('Order-Restore (Spritzguss):',e); }
-            }
+            if(!_orderPinActive()) sel.disabled=false;    // ohne PIN: Auswahl offen (setupOrderGate-Race abfangen)
+            sel.value=savedOrder;                         // letzte Order IMMER vorbelegen
+            // Bei aktiver PIN sperrt sg_applyLabelOrder() das Dropdown am Ende wieder (relockOrder):
+            // die zuletzt verwendete Order landet aufs Label, ein WECHSEL braucht weiter die PIN.
+            try{ await sg_applyLabelOrder(); }catch(e){ console.warn('Order-Restore (Spritzguss):',e); }
         } else if(sel.options.length>1){
             _sgOrderRestoreDone=true;                     // Order existiert nicht mehr → aufgeben
         }
