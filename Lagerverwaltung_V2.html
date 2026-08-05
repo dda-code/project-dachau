@@ -5897,14 +5897,50 @@ function _labelOrderCompare(a,b){
     return (b.i||0)-(a.i||0);                 // stabiler Fallback
 }
 // ------------------------------------------------------------
-// Auto-Wiederherstellung: zuletzt gedruckte Order + Palettennummer
-// überlebt einen Browser-Neustart (localStorage). Getrennt je Sub-Tab
-// (Assembly / Spritzguss), da Prefix (C26- / FR26) und Datenquelle abweichen.
+// Auto-Wiederherstellung: zuletzt verwendete Order + Palettennummer.
+// SERVERSEITIG in Firestore (Collection label_state, ein Doc pro Benutzer-uid) —
+// überlebt das Löschen von Browser-Cache/localStorage/IndexedDB (Edge-Kiosk/InPrivate)
+// und ist geräteübergreifend. KEIN localStorage mehr.
+// Felder je Doc: orderAsm, palAsm (Assembly C26-) · orderSg, palSg (Spritzguss FR26).
+// Doc pro uid: Nach dem (bei Kiosk erzwungenen) Neu-Login ist die uid kontogebunden
+// wieder identisch → der zuletzt gespeicherte Wert wird geladen.
 // ------------------------------------------------------------
-const LS_LABEL_ORDER_ASM = 'label_last_order_asm';
-const LS_LABEL_PALNR_ASM = 'label_last_palnr_asm';
-const LS_LABEL_ORDER_SG  = 'label_last_order_sg';
-const LS_LABEL_PALNR_SG  = 'label_last_palnr_sg';
+const LABEL_STATE_COLL='label_state';
+let _labelStateCache=null;      // In-Memory-Spiegel der geladenen/gespeicherten Werte (gleiche Session)
+let _labelStateLoaded=false;    // Firestore-Doc bereits (erfolgreich) geladen?
+function _labelStateDocRef(){
+    const u=(typeof auth!=='undefined'&&auth.currentUser)||null;
+    return u ? db.collection(LABEL_STATE_COLL).doc(u.uid) : null;
+}
+// Doc einmal pro Session laden. Gibt null zurück, wenn (noch) nicht eingeloggt → später erneut versuchen.
+// In-Flight-Guard: asm- und sg-Restore können gleichzeitig laden → nur EIN get().
+let _labelStateLoadPromise=null;
+async function _loadLabelState(){
+    if(_labelStateLoaded) return _labelStateCache;
+    const ref=_labelStateDocRef(); if(!ref) return null;
+    if(_labelStateLoadPromise) return _labelStateLoadPromise;
+    _labelStateLoadPromise=(async()=>{
+        try{
+            const d=await ref.get();
+            _labelStateCache=(d.exists&&d.data())?d.data():{};
+            _labelStateLoaded=true;
+        }catch(e){ console.warn('label_state laden fehlgeschlagen:',e); }
+        _labelStateLoadPromise=null;
+        return _labelStateCache;
+    })();
+    return _labelStateLoadPromise;
+}
+// Ein Feld bei jeder Eingabe persistieren (merge). Fire-and-forget, blockiert die UI nicht.
+function _saveLabelStateField(field,value){
+    const ref=_labelStateDocRef(); if(!ref) return;
+    if(!_labelStateCache) _labelStateCache={};
+    _labelStateCache[field]=value;                    // Cache sofort aktualisieren (konsistent in gleicher Session)
+    const u=auth.currentUser;
+    ref.set({ [field]:value,
+              updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+              updatedBy:(u&&(u.email||u.uid))||'' }, {merge:true})
+       .catch(e=>console.warn('label_state speichern ('+field+') fehlgeschlagen:',e));
+}
 // Order und Palettennummer werden UNABHÄNGIG wiederhergestellt (je einmal pro Seitenaufruf).
 let _asmOrderRestoreDone = false, _asmPalRestoreDone = false;
 let _sgOrderRestoreDone  = false, _sgPalRestoreDone  = false;
@@ -5940,9 +5976,11 @@ function populateLabelOrderDropdown(){
 async function _restoreAsmLabelState(){
     const sel=document.getElementById('labelOrderSelect');
     if(!sel) return;
+    const st=await _loadLabelState();
+    if(!st) return;   // noch nicht eingeloggt → beim nächsten populate erneut (Flags NICHT setzen)
     // --- ORDER (einmalig; wartet auf geladene Optionen; respektiert PIN) ---
     if(!_asmOrderRestoreDone){
-        const savedOrder=localStorage.getItem(LS_LABEL_ORDER_ASM)||'';
+        const savedOrder=st.orderAsm||'';
         if(!savedOrder){
             _asmOrderRestoreDone=true;
         } else if(Array.from(sel.options).some(o=>o.value===savedOrder)){
@@ -5961,7 +5999,7 @@ async function _restoreAsmLabelState(){
     // --- PALETTENNUMMER (einmalig; unabhängig von der Order) ---
     if(!_asmPalRestoreDone){
         _asmPalRestoreDone=true;
-        const savedPal=localStorage.getItem(LS_LABEL_PALNR_ASM)||'';
+        const savedPal=st.palAsm||'';
         if(savedPal){
             const inp=document.getElementById('labelPalNrInput');
             if(inp){ inp.value=savedPal; try{ await applyLabelPalNr(); }catch(e){ console.warn('PalNr-Restore (Assembly):',e); } }
@@ -6048,7 +6086,7 @@ async function applyLabelOrder(){
     const order=typeof PRODUKTIONSPLAN_DATA!=='undefined'?PRODUKTIONSPLAN_DATA.find(o=>String(o['Sales Order - PALETTENLABEL']||'').trim()===so):null;
     if(!order){if(status){status.textContent='Auftrag nicht im Produktionsplan gefunden.';status.style.color='#b91c1c';}return;}
     _labelCurrentOrder=order;
-    try{ localStorage.setItem(LS_LABEL_ORDER_ASM, so); }catch(e){}   // bei jeder Eingabe merken (Neustart-Wiederherstellung)
+    _saveLabelStateField('orderAsm', so);   // bei jeder Eingabe serverseitig merken (Neustart-/Cache-fest)
     const setTxt=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=(v==null||v==='')?'—':String(v);};
     setTxt('lbl_order',so);
     setTxt('lbl_customer',order['Kunde']);
@@ -6128,7 +6166,7 @@ async function applyLabelPalNr(){
     if(!Number.isFinite(n)||n<1){if(status){status.textContent='Ungültige Nummer.';status.style.color='#b91c1c';}return;}
     const palNr=LABEL_PAL_PREFIX+String(n).padStart(4,'0');
     _labelCurrentPalNr=palNr;
-    try{ localStorage.setItem(LS_LABEL_PALNR_ASM, String(n)); }catch(e){}   // bei jeder Eingabe merken (Neustart-Wiederherstellung)
+    _saveLabelStateField('palAsm', String(n));   // bei jeder Eingabe serverseitig merken (Neustart-/Cache-fest)
     el.textContent=palNr;
     // Datum / Zeit / Schicht auf "jetzt" setzen
     updateLabelDateTimeShift();
@@ -7140,9 +7178,11 @@ function sg_populateLabelOrderDropdown(){
 async function _restoreSgLabelState(){
     const sel=document.getElementById('sgLabelOrderSelect');
     if(!sel) return;
+    const st=await _loadLabelState();
+    if(!st) return;   // noch nicht eingeloggt → beim nächsten populate erneut (Flags NICHT setzen)
     // --- ORDER (einmalig; wartet auf geladene Optionen; respektiert PIN) ---
     if(!_sgOrderRestoreDone){
-        const savedOrder=localStorage.getItem(LS_LABEL_ORDER_SG)||'';
+        const savedOrder=st.orderSg||'';
         if(!savedOrder){
             _sgOrderRestoreDone=true;
         } else if(Array.from(sel.options).some(o=>o.value===savedOrder)){
@@ -7161,7 +7201,7 @@ async function _restoreSgLabelState(){
     // --- PALETTENNUMMER (einmalig; unabhängig von der Order) ---
     if(!_sgPalRestoreDone){
         _sgPalRestoreDone=true;
-        const savedPal=localStorage.getItem(LS_LABEL_PALNR_SG)||'';
+        const savedPal=st.palSg||'';
         if(savedPal){
             const inp=document.getElementById('sgLabelPalNrInput');
             if(inp){ inp.value=savedPal; try{ await sg_applyLabelPalNr(); }catch(e){ console.warn('PalNr-Restore (Spritzguss):',e); } }
@@ -7197,7 +7237,7 @@ async function sg_applyLabelOrder(){
     const order=typeof PRODUKTIONSPLAN_SG_DATA!=='undefined'?PRODUKTIONSPLAN_SG_DATA.find(o=>String(o['Sales Order XO']||'').trim()===so):null;
     if(!order){if(status){status.textContent='Auftrag nicht im Spritzguss-Produktionsplan gefunden.';status.style.color='#b91c1c';}return;}
     _sgLabelCurrentOrder=order;
-    try{ localStorage.setItem(LS_LABEL_ORDER_SG, so); }catch(e){}   // bei jeder Eingabe merken (Neustart-Wiederherstellung)
+    _saveLabelStateField('orderSg', so);   // bei jeder Eingabe serverseitig merken (Neustart-/Cache-fest)
     const setTxt=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=(v==null||v==='')?'—':String(v);};
     setTxt('sg_lbl_order',so);
     const art=(order['Artikelnummer']||'').trim();
@@ -7258,7 +7298,7 @@ async function sg_applyLabelPalNr(){
     if(!Number.isFinite(n)||n<1){if(status){status.textContent='Ungültige Nummer.';status.style.color='#b91c1c';}return;}
     const palNr=SG_LABEL_PAL_PREFIX+String(n).padStart(4,'0');
     _sgLabelCurrentPalNr=palNr;
-    try{ localStorage.setItem(LS_LABEL_PALNR_SG, String(n)); }catch(e){}   // bei jeder Eingabe merken (Neustart-Wiederherstellung)
+    _saveLabelStateField('palSg', String(n));   // bei jeder Eingabe serverseitig merken (Neustart-/Cache-fest)
     el.textContent=palNr;
     sg_updateLabelDateTimeShift();
     sg_updateInternalBarcode();
