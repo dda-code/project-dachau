@@ -5896,6 +5896,18 @@ function _labelOrderCompare(a,b){
     if(tr!==0) return tr;                     // neueste (zuletzt hinzugefügt) zuerst
     return (b.i||0)-(a.i||0);                 // stabiler Fallback
 }
+// ------------------------------------------------------------
+// Auto-Wiederherstellung: zuletzt gedruckte Order + Palettennummer
+// überlebt einen Browser-Neustart (localStorage). Getrennt je Sub-Tab
+// (Assembly / Spritzguss), da Prefix (C26- / FR26) und Datenquelle abweichen.
+// ------------------------------------------------------------
+const LS_LABEL_ORDER_ASM = 'label_last_order_asm';
+const LS_LABEL_PALNR_ASM = 'label_last_palnr_asm';
+const LS_LABEL_ORDER_SG  = 'label_last_order_sg';
+const LS_LABEL_PALNR_SG  = 'label_last_palnr_sg';
+let _asmLabelRestoreDone = false;
+let _sgLabelRestoreDone  = false;
+
 // Dropdown mit allen Sales-Order-Nummern aus dem Produktionsplan befüllen — Sortierung via _labelOrderCompare.
 function populateLabelOrderDropdown(){
     const sel=document.getElementById('labelOrderSelect');
@@ -5919,6 +5931,30 @@ function populateLabelOrderDropdown(){
     sel.innerHTML=opts.join('');
     if(prev && arr.some(x=>x.so===prev))sel.value=prev;
     if(typeof setupOrderGate==='function') setupOrderGate('asm');
+    _restoreAsmLabelState();
+}
+// Zuletzt gedruckte Order + Palettennummer nach Browser-Neustart wieder vorbelegen.
+// Läuft genau EINMAL pro Seitenaufruf, sobald der Produktionsplan geladen ist.
+// PIN-Kiosk-Gate wird respektiert: bei aktiver Order-PIN wird NICHT vorbelegt.
+async function _restoreAsmLabelState(){
+    if(_asmLabelRestoreDone) return;
+    const sel=document.getElementById('labelOrderSelect');
+    if(!sel) return;
+    const savedOrder=localStorage.getItem(LS_LABEL_ORDER_ASM)||'';
+    if(!savedOrder){ _asmLabelRestoreDone=true; return; }               // nichts zu tun
+    const hasOpt=Array.from(sel.options).some(o=>o.value===savedOrder);
+    if(!hasOpt){ if(sel.options.length>1)_asmLabelRestoreDone=true; return; } // Plan noch nicht geladen → später erneut
+    await _loadOrderPinConfig();
+    if(_orderPinActive()){ _asmLabelRestoreDone=true; return; }          // Kiosk-Gate nicht umgehen
+    _asmLabelRestoreDone=true;
+    if(sel.disabled) return;
+    sel.value=savedOrder;
+    try{ await applyLabelOrder(); }catch(e){ console.warn('Order-Restore (Assembly):',e); return; }
+    const savedPal=localStorage.getItem(LS_LABEL_PALNR_ASM)||'';
+    if(savedPal){
+        const inp=document.getElementById('labelPalNrInput');
+        if(inp){ inp.value=savedPal; try{ await applyLabelPalNr(); }catch(e){ console.warn('PalNr-Restore (Assembly):',e); } }
+    }
 }
 function _escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
@@ -6188,6 +6224,16 @@ async function printLabel(){
         const _pc=await _wasLabelPrinted(palNr);
         if(_pc>=1){ const _ok=await showAlreadyPrintedWarning(palNr,_pc); if(!_ok) return; }
     }
+
+    // Order + Palettennummer für Auto-Wiederherstellung nach Browser-Neustart merken.
+    try{
+        const _ord=($('lbl_order')?.textContent||'').trim();
+        if(_ord && _ord!=='—') localStorage.setItem(LS_LABEL_ORDER_ASM,_ord);
+        if(palNr && palNr.indexOf(LABEL_PAL_PREFIX)===0){
+            const _n=parseInt(palNr.slice(LABEL_PAL_PREFIX.length),10);
+            if(Number.isFinite(_n)&&_n>=1) localStorage.setItem(LS_LABEL_PALNR_ASM,String(_n));
+        }
+    }catch(e){}
 
     // Protokoll erst NACH dem Schliessen des Druckdialogs schreiben (afterprint-Event).
     // Da der Browser nicht zwischen "Drucken bestaetigt" und "Abgebrochen" unterscheiden kann,
@@ -7084,6 +7130,28 @@ function sg_populateLabelOrderDropdown(){
     sel.innerHTML=opts.join('');
     if(prev && arr.some(x=>x.so===prev))sel.value=prev;
     if(typeof setupOrderGate==='function') setupOrderGate('sg');
+    _restoreSgLabelState();
+}
+// Analog zu _restoreAsmLabelState, aber für den Spritzguss-Sub-Tab (FR26 / Sales Order XO).
+async function _restoreSgLabelState(){
+    if(_sgLabelRestoreDone) return;
+    const sel=document.getElementById('sgLabelOrderSelect');
+    if(!sel) return;
+    const savedOrder=localStorage.getItem(LS_LABEL_ORDER_SG)||'';
+    if(!savedOrder){ _sgLabelRestoreDone=true; return; }
+    const hasOpt=Array.from(sel.options).some(o=>o.value===savedOrder);
+    if(!hasOpt){ if(sel.options.length>1)_sgLabelRestoreDone=true; return; }
+    await _loadOrderPinConfig();
+    if(_orderPinActive()){ _sgLabelRestoreDone=true; return; }
+    _sgLabelRestoreDone=true;
+    if(sel.disabled) return;
+    sel.value=savedOrder;
+    try{ await sg_applyLabelOrder(); }catch(e){ console.warn('Order-Restore (Spritzguss):',e); return; }
+    const savedPal=localStorage.getItem(LS_LABEL_PALNR_SG)||'';
+    if(savedPal){
+        const inp=document.getElementById('sgLabelPalNrInput');
+        if(inp){ inp.value=savedPal; try{ await sg_applyLabelPalNr(); }catch(e){ console.warn('PalNr-Restore (Spritzguss):',e); } }
+    }
 }
 
 function sg_updateLabelDateTimeShift(){
@@ -7209,6 +7277,16 @@ async function sg_printLabel(){
         const _pc=await _wasLabelPrinted(palNr);
         if(_pc>=1){ const _ok=await showAlreadyPrintedWarning(palNr,_pc); if(!_ok) return; }
     }
+
+    // Order + Palettennummer für Auto-Wiederherstellung nach Browser-Neustart merken.
+    try{
+        const _ord=(document.getElementById('sg_lbl_order')?.textContent||'').trim();
+        if(_ord && _ord!=='—') localStorage.setItem(LS_LABEL_ORDER_SG,_ord);
+        if(palNr && palNr.indexOf(SG_LABEL_PAL_PREFIX)===0){
+            const _n=parseInt(palNr.slice(SG_LABEL_PAL_PREFIX.length),10);
+            if(Number.isFinite(_n)&&_n>=1) localStorage.setItem(LS_LABEL_PALNR_SG,String(_n));
+        }
+    }catch(e){}
 
     // -------- Route B: Zebra Browser Print (natives ZPL, silent) --------
     if(_bpIsEnabled()){
