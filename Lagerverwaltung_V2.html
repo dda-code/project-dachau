@@ -1372,7 +1372,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <div class="modal-overlay" id="userMgmtModal" style="display:none"><div class="modal" style="max-width:600px">
         <div class="modal-header"><h3>Benutzerverwaltung</h3><button class="modal-close" onclick="closeUserMgmt()">&times;</button></div>
         <div class="modal-body">
-            <div class="table-wrapper"><table class="data-table"><thead><tr><th>Benutzername</th><th>Rolle</th><th>Freigeber</th><th>Status</th><th>Aktionen</th></tr></thead><tbody id="userMgmtBody"></tbody></table></div>
+            <div class="table-wrapper"><table class="data-table"><thead><tr><th>Benutzername</th><th>Rolle</th><th title="canApprove — beide Stufen / Cross-App-Approver (Benutzerverwaltung, Lager)">Freigeber (beide)</th><th title="Kaufmännische Freigabe (Preis) — CFO">Kaufm. (CFO)</th><th title="Produktionsfreigabe — CEO">Produktion (CEO)</th><th>Status</th><th>Aktionen</th></tr></thead><tbody id="userMgmtBody"></tbody></table></div>
             <h3 style="margin-top:18px">Neuen Benutzer anlegen</h3>
             <form id="createUserForm" style="margin-top:10px">
                 <div class="form-grid">
@@ -3806,12 +3806,22 @@ async function loadUserMgmt(){
         const approveCell=isSelf
             ?`<span style="font-weight:600;color:${canApp?'#10b981':'#94a3b8'}">${canApp?'Ja':'Nein'}</span>`
             :`<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem"><input type="checkbox" ${canApp?'checked':''} onchange="changeUserCanApprove('${_escAttr(u.uid)}',this.checked)"> ${canApp?'Ja':'Nein'}</label>`;
+        // «Order-Planning» zweistufige Freigabe: canApprove=true deckt BEIDE Stufen automatisch mit ab
+        // (Rules canCommercial()/canProduction() akzeptieren canApprove==true) → Stufen-Boxen dann checked+disabled.
+        const canC=canApp||!!u.canApproveCommercial;
+        const commCell=isSelf
+            ?`<span style="font-weight:600;color:${canC?'#10b981':'#94a3b8'}">${canC?'Ja':'Nein'}</span>`
+            :`<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem"${canApp?' title="Automatisch durch „Freigeber (beide)&quot; abgedeckt"':''}><input type="checkbox" ${canC?'checked':''} ${canApp?'disabled':''} onchange="changeUserCanApproveCommercial('${_escAttr(u.uid)}',this.checked)"> ${canC?'Ja':'Nein'}</label>`;
+        const canP=canApp||!!u.canApproveProduction;
+        const prodCell=isSelf
+            ?`<span style="font-weight:600;color:${canP?'#10b981':'#94a3b8'}">${canP?'Ja':'Nein'}</span>`
+            :`<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem"${canApp?' title="Automatisch durch „Freigeber (beide)&quot; abgedeckt"':''}><input type="checkbox" ${canP?'checked':''} ${canApp?'disabled':''} onchange="changeUserCanApproveProduction('${_escAttr(u.uid)}',this.checked)"> ${canP?'Ja':'Nein'}</label>`;
         const actions=isSelf?'<span style="color:#94a3b8;font-size:0.8rem">Eigenes Konto</span>'
             :(u.disabled
                 ?`<button class="btn btn-success btn-sm" onclick="reactivateUser('${_escAttr(u.uid)}')">Aktivieren</button> <button class="btn btn-danger btn-sm" onclick="deleteUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Löschen</button>`
                 :`<button class="btn btn-danger btn-sm" onclick="deactivateUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Deaktivieren</button> <button class="btn btn-danger btn-sm" style="background:#991b1b" onclick="deleteUser('${_escAttr(u.uid)}','${_escAttr(u.displayName||'')}')">Löschen</button>`);
-        return`<tr><td>${u.displayName||'-'}</td><td>${roleSelect}</td><td>${approveCell}</td><td>${statusTxt}</td><td>${actions}</td></tr>`;
-    }).join('')||'<tr><td colspan="5" class="info-msg">Keine Benutzer</td></tr>';
+        return`<tr><td>${u.displayName||'-'}</td><td>${roleSelect}</td><td>${approveCell}</td><td>${commCell}</td><td>${prodCell}</td><td>${statusTxt}</td><td>${actions}</td></tr>`;
+    }).join('')||'<tr><td colspan="7" class="info-msg">Keine Benutzer</td></tr>';
 }
 
 $('createUserForm').addEventListener('submit',async e=>{
@@ -3860,6 +3870,17 @@ async function changeUserRole(uid,newRole){
 async function changeUserCanApprove(uid,value){
     if(!canManageUsers())return;
     try{await db.collection('users').doc(uid).update({canApprove:!!value});loadUserMgmt();}
+    catch(e){alert('Fehler: '+e.message);}
+}
+// «Order-Planning» zweistufige Freigabe: kaufmännische Stufe (CFO) bzw. Produktionsstufe (CEO).
+async function changeUserCanApproveCommercial(uid,value){
+    if(!canManageUsers())return;
+    try{await db.collection('users').doc(uid).update({canApproveCommercial:!!value});loadUserMgmt();}
+    catch(e){alert('Fehler: '+e.message);}
+}
+async function changeUserCanApproveProduction(uid,value){
+    if(!canManageUsers())return;
+    try{await db.collection('users').doc(uid).update({canApproveProduction:!!value});loadUserMgmt();}
     catch(e){alert('Fehler: '+e.message);}
 }
 
