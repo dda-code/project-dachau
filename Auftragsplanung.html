@@ -883,6 +883,36 @@ if(_USE_EMULATOR){
 
 const $=id=>document.getElementById(id);
 let currentUserRole='user', currentUid=null, currentUserEmail='', currentCanApprove=false;
+// «2-stage» getrennte Stufen-Capabilities (kaufm. CFO / Produktion CEO) + Abwesenheits-Vertretung
+let currentCanCommercial=false, currentCanProduction=false;
+let _apAbsence=null;   // Cache von order_planning_absence/state (oder null)
+function _apIsAnyApprover(){ return currentCanCommercial || currentCanProduction; }
+function _apTs(v){ try{ return (v&&v.toDate)?v.toDate().getTime():(v?new Date(v).getTime():NaN); }catch(_){ return NaN; } }
+function _apAbsentNow(fromK,untilK){
+    if(!_apAbsence) return false;
+    const f=_apTs(_apAbsence[fromK]), u=_apTs(_apAbsence[untilK]), now=Date.now();
+    return isFinite(f) && isFinite(u) && f<=now && now<=u;
+}
+function _apCommercialAbsentNow(){ return _apAbsentNow('commercialAbsentFrom','commercialAbsentUntil'); }
+function _apProductionAbsentNow(){ return _apAbsentNow('productionAbsentFrom','productionAbsentUntil'); }
+// Effektive Stufen-Rechte inkl. Vertretung (Client-Spiegel der Rules mayDo*)
+function _apMayCommercial(){ return currentCanCommercial || (currentCanProduction && _apCommercialAbsentNow()); }
+function _apMayProduction(){ return currentCanProduction || (currentCanCommercial && _apProductionAbsentNow()); }
+// Abgeleiteter Gesamtstatus aus den zwei Stufen (Frame: keine kaufm. Stufe)
+function _apDerivedStatus(d, tab){
+    if(!d) return 'pending';
+    if(d.status==='deleted' || d.deletedAt) return 'deleted';
+    const c=(d.commercial&&d.commercial.status)||'pending';
+    const p=(d.production&&d.production.status)||'pending';
+    if(c==='rejected' || p==='rejected') return 'rejected';
+    const commercialOk=(tab==='frame')?true:(c==='approved');
+    if(commercialOk && p==='approved') return 'approved';
+    return 'pending';
+}
+async function _apLoadAbsence(){
+    try{ const s=await db.collection('order_planning_absence').doc('state').get(); _apAbsence=s.exists?(s.data()||null):null; }
+    catch(e){ console.warn('absence load:',e); _apAbsence=null; }
+}
 let _apSalesMode=false;       // true wenn currentUserRole==='sales' → kalenderfreie Sales-Ansicht (kein Approver, kein Grid)
 let _apSalesListsUnsub=null;  // Listener unsubscribe für die persönlichen Sales-Listen (offen/freigegeben)
 let _reviewingPendingId=null; // ID of a pending_orders doc currently under review in the modal
@@ -1270,18 +1300,23 @@ auth.onAuthStateChanged(async user=>{
         const pw=document.getElementById('password'); if(pw) pw.value='';
         return;
     }
-    currentUid=user.uid; currentUserEmail=user.email||''; currentCanApprove=false;
+    currentUid=user.uid; currentUserEmail=user.email||''; currentCanApprove=false; currentCanCommercial=false; currentCanProduction=false;
     if(_apIsSuperAdmin(currentUserEmail)){
         currentUserRole='admin';
-        currentCanApprove=true;
+        currentCanApprove=true; currentCanCommercial=true; currentCanProduction=true;
     } else {
         try{
             const uDoc=await db.collection('users').doc(user.uid).get();
             const uData=uDoc.exists?(uDoc.data()||{}):{};
             currentUserRole=uData.role||'user';
-            currentCanApprove=!!uData.canApprove;
+            const _legacyBoth=!!uData.canApprove;
+            currentCanApprove=_legacyBoth;   // = God-Mode (Direct/Test-Wipe); NICHT aus zwei Einzel-Flags ableiten
+            currentCanCommercial=_legacyBoth||!!uData.canApproveCommercial;
+            currentCanProduction=_legacyBoth||!!uData.canApproveProduction;
         }catch(e){ console.warn('Loading role failed',e); }
     }
+    // Abwesenheits-/Vertretungsfenster laden (fuer _apMay*); Fehler = keine Vertretung.
+    try{ await _apLoadAbsence(); }catch(_){}
     _apSalesMode=(currentUserRole==='sales');  // kalenderfreie Sales-Ansicht; setzt NIE currentCanApprove=true
     if(_apIsBlocked(currentUserEmail)){
         const err=document.getElementById('loginError');
@@ -1289,7 +1324,7 @@ auth.onAuthStateChanged(async user=>{
         await auth.signOut().catch(()=>{});
         return;
     }
-if(!(currentCanApprove || currentUserRole==='admin' || currentUserRole==='manager' || currentUserRole==='sales')){  // Zugang: jeder Approver (canApprove, egal welche Rolle) + Standard admin/manager/sales. Ersetzt die feste Rollen-Allowlist — neue Approver-Rollen (gf/cfo/…) brauchen keinen Code-Change mehr; Datenzugriffe deckt Rules rev13 via canApprove.
+if(!(_apIsAnyApprover() || currentUserRole==='admin' || currentUserRole==='manager' || currentUserRole==='sales')){  // Zugang: jeder Approver (canApprove ODER Einzel-Flag canApproveCommercial/Production) + admin/manager/sales.
         const err=document.getElementById('loginError');
         if(err){ err.textContent='No permission for Order Planning. Role: '+currentUserRole; err.style.display='block'; }
         await auth.signOut().catch(()=>{});
@@ -3426,9 +3461,11 @@ async function renderPendingList(targetId){
         const tabs=Object.keys(TAB_CONFIG);
         const all=[];
         for(const t of tabs){
-            const snap=await db.collection(_pendingColForTab(t))
-                .where('status','==','pending').get();
-            snap.forEach(d=>all.push({id:d.id, tab:t, ...d.data()}));
+            try{
+                const snap=await db.collection(_pendingColForTab(t))
+                    .where('status','==','pending').get();
+                snap.forEach(d=>all.push({id:d.id, tab:t, ...d.data()}));
+            }catch(e){ console.warn('pending list: Tab',t,'nicht lesbar (übersprungen):',e.message); }
         }
         all.sort((a,b)=>{
             const ta=a.requestedAt&&a.requestedAt.toMillis?a.requestedAt.toMillis():0;
@@ -3572,9 +3609,9 @@ async function renderPendingList(targetId){
                     ${cellLabel('€/1000 pcs.',priceCell)}
                 </div>
                 ${_aCmtRow}
-                <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
-                    <button class="btn btn-sm btn-secondary" onclick="rejectPending('${escHtml(it.id)}','${escHtml(it.tab)}')">Reject</button>
-                    <button class="btn btn-sm btn-primary" onclick="${_apprAction}">${_apprLabel}</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+                    ${_apStageChips(it)}
+                    <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">${_apInlineFooter(it)}</div>
                 </div>
             </div>`;
         }).join('');
@@ -4119,6 +4156,193 @@ async function rejectPending(id, tab){
 }
 
 // ---------- Protocol (Audit-Log Freigaben/Ablehnungen) ----------
+// ============================================================================
+// «2-stage» Zweistufige Freigabe — Stufen-Approve + idempotenter Finalizer + Reject
+//   Aktuell für ASSEMBLY implementiert. Frame (Produktion-only, Plan-Recompute beim
+//   Roll-out) folgt in 2b-2b (eigener _apFrameRollout). Roll-out NUR wenn beide Stufen
+//   approved, via Finalizer mit Lease-Claim + Selbstheilungs-Sweep.
+// ============================================================================
+async function approveCommercial(id, tab, price){
+    // price = {value, ccy}. Setzt NUR die kaufmännische Stufe (Preis). KEIN Roll-out.
+    if(!_apMayCommercial()){ alert('Keine Berechtigung (kaufmännisch).'); return false; }
+    const ref=db.collection(_pendingColForTab(tab)).doc(id);
+    const snap=await ref.get();
+    if(!snap.exists){ alert('Anfrage existiert nicht mehr.'); return false; }
+    const d=snap.data();
+    if((d.commercial&&d.commercial.status)==='approved'){ alert('Kaufmännisch bereits freigegeben.'); return false; }
+    if(_apDerivedStatus(d,tab)==='rejected' || _apDerivedStatus(d,tab)==='deleted'){ alert('Anfrage ist abgelehnt/gelöscht.'); return false; }
+    const num=parseFloat(String((price&&price.value!=null)?price.value:'').replace(/[.\s]/g,'').replace(',','.'));
+    if(!isFinite(num)||num<=0){ alert('Bitte gültigen Preis €/1000 St. eingeben.'); return false; }
+    const ccy=(price&&price.ccy)||'EUR';
+    const ts=firebase.firestore.FieldValue.serverTimestamp();
+    try{
+        await ref.update({
+            commercial:{status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts, price:{value:num, ccy}},
+            status:'pending'   // Stage-Write setzt NIE 'approved' (nur der Finalizer)
+        });
+    }catch(e){ console.error('approveCommercial:',e); alert('Fehler: '+e.message); return false; }
+    try{ await _logProtocol('commercial_approved', id, tab, {payload:d.payload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, `Preis ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000`); }catch(e){ console.warn('protocol:',e); }
+    await finalizeIfFullyApproved(id, tab);
+    return true;
+}
+async function approveProduction(id, tab){
+    // Setzt NUR die Produktionsstufe. Terminplan (gridData) muss vorliegen (Manager plant vor).
+    if(!_apMayProduction()){ alert('Keine Berechtigung (Produktion).'); return false; }
+    const ref=db.collection(_pendingColForTab(tab)).doc(id);
+    const snap=await ref.get();
+    if(!snap.exists){ alert('Anfrage existiert nicht mehr.'); return false; }
+    const d=snap.data();
+    if((d.production&&d.production.status)==='approved'){ alert('Produktion bereits freigegeben.'); return false; }
+    if(_apDerivedStatus(d,tab)==='rejected' || _apDerivedStatus(d,tab)==='deleted'){ alert('Anfrage ist abgelehnt/gelöscht.'); return false; }
+    const gridData=(d.payload&&d.payload.gridData)||{};
+    if(tab!=='frame' && Object.keys(gridData).length===0){ alert('Terminplan fehlt – bitte zuerst (Manager) terminieren.'); return false; }
+    const ts=firebase.firestore.FieldValue.serverTimestamp();
+    try{
+        await ref.update({
+            production:{status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts},
+            status:'pending'
+        });
+    }catch(e){ console.error('approveProduction:',e); alert('Fehler: '+e.message); return false; }
+    try{ await _logProtocol('production_approved', id, tab, {payload:d.payload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, ''); }catch(e){ console.warn('protocol:',e); }
+    await finalizeIfFullyApproved(id, tab);
+    return true;
+}
+// Idempotenter Roll-out: läuft NUR wenn beide Stufen approved. Lease-Claim (60s) gegen Doppel;
+// Selbstheilung via _apFinalizeSweep, falls ein Lauf zwischen Claim und Effekten abbricht.
+async function finalizeIfFullyApproved(id, tab){
+    if(tab==='frame'){ console.warn('[2-stage] Frame-Finalizer noch nicht implementiert (2b-2b).'); return false; }
+    const ref=db.collection(_pendingColForTab(tab)).doc(id);
+    let data=null, claimed=false;
+    try{
+        await db.runTransaction(async (tx)=>{
+            const s=await tx.get(ref); if(!s.exists) return;
+            const d=s.data(); data=d;
+            const commercialOk=((d.commercial&&d.commercial.status)==='approved');
+            const productionOk=((d.production&&d.production.status)==='approved');
+            if(!(commercialOk && productionOk)) return;   // noch nicht beide Stufen
+            if(d.finalizedAt) return;                     // bereits ausgerollt
+            const leaseMs=(d.rolledOutAt&&d.rolledOutAt.toMillis)?d.rolledOutAt.toMillis():0;
+            if(d.rolledOut===true && leaseMs>0 && (Date.now()-leaseMs < 60000)) return;  // anderer Lauf aktiv
+            tx.update(ref, { rolledOut:true, rolledOutAt:firebase.firestore.FieldValue.serverTimestamp() });
+            claimed=true;
+        });
+    }catch(e){ console.warn('finalize claim:',e); return false; }
+    if(!claimed) return false;
+    const d=data, payload=(d&&d.payload)||{};
+    const price=(d.commercial&&d.commercial.price)||null;
+    const finalPayload = price ? {...payload, approvedPrice:{price:price.value, ccy:price.ccy}} : {...payload};
+    const gridData=payload.gridData||{};
+    try{
+        // (a) sales_plan Tages-Docs (byte-getreu aus approvePendingInline)
+        const ts=firebase.firestore.FieldValue.serverTimestamp();
+        let batch=db.batch(), ops=0;
+        for(const iso of Object.keys(gridData).sort()){
+            const fields=(gridData[iso]&&gridData[iso].fields)||{};
+            const cleanFields={};
+            Object.entries(fields).forEach(([k,v])=>{ if(v!==''&&v!=null) cleanFields[k]=v; });
+            { const _hdr=(payload&&payload.header)||{};
+              if(_hdr.poIssueDate)  cleanFields['PO Issue Date']=_hdr.poIssueDate;
+              if(_hdr.pickupCustPo) cleanFields['Pick-Up (acc. Customer PO)']=_hdr.pickupCustPo; }
+            let iw={year:0,week:0};
+            try{ iw=getIsoWeek(new Date(iso+'T00:00:00')); }catch(_){}
+            const _so=cleanFields[fieldKey('Production Plan','','SO #')]||'';
+            const _docId=_assemblyDayDocId(iso,_so);
+            batch.set(db.collection(TAB_CONFIG[tab].salesCol).doc(_docId),{
+                datum:iso, jahr:iw.year, kw:iw.week, fields:cleanFields,
+                updatedAt:ts, updatedBy:currentUid, createdAt:ts, createdBy:currentUid
+            },{merge:true});
+            if(++ops>=400){ await batch.commit(); batch=db.batch(); ops=0; }
+        }
+        if(ops>0) await batch.commit();
+        // (b) Auto-Transfer in den Produktionsplan
+        try{ await _autoTransferAfterApprove(finalPayload, gridData, tab); }catch(e){ console.warn('auto-transfer:',e); }
+        // (c) Freigabe-PDF
+        try{ generateOrderPdf(finalPayload,'approved',{ id, approvedByEmail:currentUserEmail, approvedAt:new Date().toISOString(), requestedByEmail:d.requestedByEmail||'', requestedAt:d.requestedAt||null }); }catch(e){ console.warn('pdf:',e); }
+        // (d) Protokoll
+        try{ await _logProtocol('rolled_out', id, tab, {payload:finalPayload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, 'Roll-out nach beiden Freigaben'); }catch(e){ console.warn('protocol:',e); }
+        // (e) Abschluss
+        await ref.update({ status:'approved', finalizedAt:firebase.firestore.FieldValue.serverTimestamp(), approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp() });
+    }catch(e){
+        console.error('finalize effects:',e);   // Lease läuft nach 60s ab → Sweep heilt.
+        return false;
+    }
+    try{ await loadWeek(); }catch(_){}
+    return true;
+}
+async function _apRejectStage(id, tab, stage, comment){
+    if(!(stage==='commercial'?_apMayCommercial():_apMayProduction())){ alert('Keine Berechtigung.'); return false; }
+    const ref=db.collection(_pendingColForTab(tab)).doc(id);
+    const snap=await ref.get(); if(!snap.exists){ alert('Anfrage existiert nicht mehr.'); return false; }
+    const pendDoc=snap.data();
+    const ts=firebase.firestore.FieldValue.serverTimestamp();
+    try{
+        await ref.update({
+            [stage]:{status:'rejected', by:currentUid, byEmail:currentUserEmail, at:ts},
+            rejectedStage:stage, rejectedBy:currentUid, rejectedByEmail:currentUserEmail, rejectedAt:ts, rejectComment:comment||'',
+            status:'rejected'
+        });
+    }catch(e){ console.error('_apRejectStage:',e); alert('Fehler: '+e.message); return false; }
+    try{ await _logProtocol('rejected', id, tab, pendDoc, comment||''); }catch(_){}
+    return true;
+}
+// Selbstheilung: findet „beide approved aber nicht finalisiert" (z.B. Absturz nach Stage-Write) und rollt nach.
+async function _apFinalizeSweep(tab){
+    if(tab==='frame') return;
+    try{
+        const snap=await db.collection(_pendingColForTab(tab)).where('status','==','pending').get();
+        for(const doc of snap.docs){
+            const d=doc.data();
+            if(((d.commercial&&d.commercial.status)==='approved') && ((d.production&&d.production.status)==='approved') && !d.finalizedAt){
+                try{ await finalizeIfFullyApproved(doc.id, tab); }catch(e){ console.warn('sweep finalize:',e); }
+            }
+        }
+    }catch(e){ console.warn('sweep:',e); }
+}
+
+// «2-stage» Inline-UI: Stufen-Chips + zwei Freigabe-Buttons + Reject je Stufe (aktuell Assembly).
+function _apStageChips(it){
+    const c=(it.commercial&&it.commercial.status)||'pending';
+    const p=(it.production&&it.production.status)||'pending';
+    const chip=(lbl,st)=>{ const col=st==='approved'?'#16a34a':(st==='rejected'?'#dc2626':'#f59e0b'); const ic=st==='approved'?'✓':(st==='rejected'?'✗':'⏳'); return `<span style="background:${col}1a;color:${col};border:1px solid ${col}55;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;white-space:nowrap">${lbl} ${ic}</span>`; };
+    return `<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${it.tab==='frame'?'':chip('Kaufm.',c)}${chip('Produktion',p)}</span>`;
+}
+function _apInlineFooter(it){
+    const isFrame=it.tab==='frame';
+    const c=(it.commercial&&it.commercial.status)||'pending';
+    const p=(it.production&&it.production.status)||'pending';
+    const h=(it.payload&&it.payload.header)||{};
+    const hasSched = isFrame ? true : (!!h.start && it.payload && it.payload.gridData && Object.keys(it.payload.gridData).length>0);
+    let btns='';
+    if(!isFrame && c!=='approved' && _apMayCommercial())
+        btns+=`<button class="btn btn-sm btn-primary" onclick="_apApproveCommercialInline('${escHtml(it.id)}','${escHtml(it.tab)}')">Kaufm. freigeben</button>`;
+    if(p!=='approved' && _apMayProduction()){
+        if(hasSched) btns+=`<button class="btn btn-sm btn-primary" onclick="_apApproveProductionInline('${escHtml(it.id)}','${escHtml(it.tab)}')">Produktion bestätigen</button>`;
+        else btns+=`<button class="btn btn-sm btn-secondary" onclick="openPendingForReview('${escHtml(it.id)}','${escHtml(it.tab)}')" title="Terminplan fehlt – erst terminieren">Terminieren &amp; freigeben</button>`;
+    }
+    if(!isFrame && c==='pending' && _apMayCommercial())
+        btns+=`<button class="btn btn-sm btn-secondary" onclick="_apRejectInline('${escHtml(it.id)}','${escHtml(it.tab)}','commercial')">Kaufm. ablehnen</button>`;
+    if(p==='pending' && _apMayProduction())
+        btns+=`<button class="btn btn-sm btn-secondary" onclick="_apRejectInline('${escHtml(it.id)}','${escHtml(it.tab)}','production')">Produktion ablehnen</button>`;
+    return btns||'<span style="color:#94a3b8;font-size:0.8rem">Keine offene Aktion für dich</span>';
+}
+async function _apApproveCommercialInline(id,tab){
+    const inp=document.getElementById('pp_'+id);
+    const raw=inp?inp.value:'';
+    const ccy=(inp&&inp.dataset&&inp.dataset.ccy)||'EUR';
+    const ok=await approveCommercial(id,tab,{value:raw,ccy});
+    if(ok){ try{ showMsg('Kaufmännisch freigegeben.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
+}
+async function _apApproveProductionInline(id,tab){
+    const ok=await approveProduction(id,tab);
+    if(ok){ try{ showMsg('Produktion freigegeben.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
+}
+async function _apRejectInline(id,tab,stage){
+    const c=prompt('Grund der Ablehnung ('+(stage==='commercial'?'kaufmännisch':'Produktion')+', optional):','');
+    if(c===null) return;
+    const ok=await _apRejectStage(id,tab,stage,c);
+    if(ok){ try{ showMsg('Abgelehnt.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
+}
+
 const PROTOCOL_COL='approval_protocol';
 let protocolRows=[];
 async function _logProtocol(action, pendingId, tab, pendDoc, note){
