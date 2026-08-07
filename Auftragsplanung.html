@@ -113,6 +113,9 @@ td.cell-dropdown input{background:transparent}
 /* Order-Input Feld-Markierung: MVR = hellblau, SPA = hellorange (override der gelben .ef-Füllung + Inline-Backgrounds) */
 .form-grid .ef-mvr{background:#e0f2fe !important}
 .form-grid .ef-spa{background:#ffedd5 !important}
+/* «2-stage» Feld-Farb-Sperre (Option B): freigegebene Stufe grün+gesperrt, fremde/gesperrte Stufe grau. Überbietet .ef-mvr/.ef-spa (gleiche Spezifität, spätere Regel). */
+.form-grid .ap-locked, input.ap-locked, select.ap-locked, textarea.ap-locked{background:#eef2f7 !important;border-color:#cbd5e1 !important;color:#64748b !important;cursor:not-allowed !important}
+.form-grid .ap-approved, input.ap-approved, select.ap-approved, textarea.ap-approved{background:#dcfce7 !important;border-color:#16a34a !important;color:#065f46 !important;cursor:default !important;font-weight:700}
 .order-legend{display:flex;gap:18px;align-items:center;margin:0 0 8px;font-size:0.8rem;font-weight:600;color:#475569;flex-wrap:wrap}
 .order-legend .sw{width:14px;height:14px;border-radius:3px;display:inline-block;flex-shrink:0}
 .order-legend span.item{display:inline-flex;align-items:center;gap:6px}
@@ -473,11 +476,14 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     <div class="modal-foot">
       <button class="btn btn-danger" id="o_delete" onclick="deleteOrder()" style="display:none;margin-right:auto">Delete Order</button>
       <button class="btn btn-danger" id="o_withdrawBtn" onclick="withdrawOwnPending()" style="display:none;margin-right:auto">Withdraw Request</button>
-      <button class="btn btn-secondary" id="o_rejectBtn" onclick="rejectReviewing()" style="display:none">Reject</button>
+      <button class="btn btn-secondary" id="o_rejectCommBtn" onclick="_apModalReject('commercial')" style="display:none">Reject commercial</button>
+      <button class="btn btn-secondary" id="o_rejectProdBtn" onclick="_apModalReject('production')" style="display:none">Reject production</button>
       <button class="btn btn-secondary" onclick="closeOrderModal()">Cancel</button>
       <button class="btn btn-primary" id="o_requestBtn" onclick="saveOrder('request')">Request Approval</button>
       <button class="btn btn-primary" id="o_updateBtn" onclick="saveOrder('updateRequest')" style="display:none">Update Request</button>
-      <button class="btn btn-success" id="o_approveBtn" onclick="saveOrder('approve')" style="display:none">Approve &amp; Save</button>
+      <button class="btn btn-primary" id="o_scheduleBtn" onclick="_apScheduleOnlyModal()" style="display:none" title="Save the production schedule for the approver — no release">Schedule &amp; Save</button>
+      <button class="btn btn-success" id="o_approveCommBtn" onclick="_apApproveCommercialModal()" style="display:none">Approve commercial</button>
+      <button class="btn btn-success" id="o_approveProdBtn" onclick="_apApproveProductionModal()" style="display:none">Confirm production</button>
       <button class="btn btn-success" id="o_directBtn" onclick="saveOrder('direct')" style="display:none">Direct Approve</button>
     </div>
   </div>
@@ -898,6 +904,9 @@ function _apProductionAbsentNow(){ return _apAbsentNow('productionAbsentFrom','p
 // Effektive Stufen-Rechte inkl. Vertretung (Client-Spiegel der Rules mayDo*)
 function _apMayCommercial(){ return currentCanCommercial || (currentCanProduction && _apCommercialAbsentNow()); }
 function _apMayProduction(){ return currentCanProduction || (currentCanCommercial && _apProductionAbsentNow()); }
+// Darf eine (fremde) noch offene Anfrage terminieren = payload/gridData ins pending-Doc schreiben.
+// Rules-Spiegel: isAdmin() (role admin/manager) bzw. canApprove()/Super-Admin. NICHT der reine Ein-Flag-CEO.
+function _apMaySchedule(){ return currentCanApprove || currentUserRole==='admin' || currentUserRole==='manager'; }
 // Abgeleiteter Gesamtstatus aus den zwei Stufen (Frame: keine kaufm. Stufe)
 function _apDerivedStatus(d, tab){
     if(!d) return 'pending';
@@ -916,6 +925,7 @@ async function _apLoadAbsence(){
 let _apSalesMode=false;       // true wenn currentUserRole==='sales' → kalenderfreie Sales-Ansicht (kein Approver, kein Grid)
 let _apSalesListsUnsub=null;  // Listener unsubscribe für die persönlichen Sales-Listen (offen/freigegeben)
 let _reviewingPendingId=null; // ID of a pending_orders doc currently under review in the modal
+let _apReviewStages=null;     // «2-stage» {commercial,production} des aktuell im Vollmodal reviewten pending-Docs (Feld-Sperre/Buttons)
 let _editingOwnPendingId=null; // ID einer eigenen Pending-Anfrage, die der Manager selbst nachbearbeitet
 let _pendingUnsub=null;       // Listener unsubscribe for pending list (badge, all tabs)
 let _gridPendingUnsub=null;   // Listener unsubscribe for grid refresh (current tab only)
@@ -2790,37 +2800,18 @@ function openOrderModal(){
     hideShiftPopover();
     const delBtn=$('o_delete'); if(delBtn) delBtn.style.display='none';
     _reviewingPendingId=null;
+    _apReviewStages=null;   // «2-stage» kein Review aktiv → Feld-Sperre läuft im Neu-/Owner-Edit-Zweig
     _editingOwnPendingId=null;
     const banner=$('o_reviewBanner');
     if(banner){ banner.style.display='none'; banner.style.background=''; banner.style.borderColor=''; banner.style.color=''; }
     _applyOrderModalButtons();
-    // Daily output + KPI calculator: locked for managers (non-approvers) — plan is binding
-    const outEl=$('o_outday');
-    const kpiBtn=$('o_kpiBtn');
-    if(outEl){
-        if(currentCanApprove){
-            outEl.removeAttribute('readonly');
-            outEl.style.background='';
-            outEl.style.cursor='';
-            outEl.title='';
-        } else {
-            outEl.setAttribute('readonly','readonly');
-            outEl.style.background='#e5e7eb';
-            outEl.style.cursor='not-allowed';
-            outEl.title='Daily output is fixed by the shift plan — only approvers can change it.';
-        }
-    }
-    if(kpiBtn) kpiBtn.style.display = currentCanApprove ? '' : 'none';
-    // Manager: no input on shifts/KPI/weekend — only approvers may set those
-    const wkndBlock=$('o_wknd_block');
-    if(wkndBlock) wkndBlock.style.display = currentCanApprove ? '' : 'none';
-    // Approver-Preisfeld: nur fuer canApprove sichtbar; Wert/Touched-Flag bei jedem Modal-Open zuruecksetzen
-    const priceWrap=$('o_priceWrap');
-    if(priceWrap) priceWrap.style.display = currentCanApprove ? 'flex' : 'none';
+    // Approver-Preisfeld: Wert/Touched-Flag bei jedem Modal-Open zurücksetzen (Sichtbarkeit/Sperre via _apApplyModalFieldLocks)
     const priceInp=$('o_approverPrice');
     if(priceInp){ priceInp.value=''; delete priceInp.dataset.touched; }
     const priceCcy=$('o_approverPriceCcy');
     if(priceCcy) priceCcy.textContent='EUR';
+    // «2-stage» Feld-Farb-Sperre (Option B): Preis = kaufm. Stufe, Termin/Kapazität = Produktionsstufe.
+    _apApplyModalFieldLocks();
     const today=new Date();
     const _todayIso=toIsoDate(today);
     // Issue 2: neuer Auftrag startet am frühesten Tag mit freier Restkapazität → füllt automatisch den
@@ -2955,30 +2946,155 @@ function closeOrderModal(){
 // ---------- Approval-Workflow ----------
 function _pendingColForTab(tab){ return 'pending_orders_'+tab; }
 
+// «2-stage» Terminplan im Modal-Formular vorhanden? (Start + berechnete Dauer > 0)
+function _apModalHasSchedule(){
+    const start=String($('o_start')?.value||'').trim();
+    const days=parseInt(String($('o_days')?.value||'0').replace(/[^\d]/g,''),10)||0;
+    return !!start && days>0;
+}
 function _applyOrderModalButtons(){
     const reviewing=!!_reviewingPendingId;
     const ownerEdit=!!_editingOwnPendingId;
     const reqBtn=$('o_requestBtn');
-    const apprBtn=$('o_approveBtn');
     const directBtn=$('o_directBtn');
-    const rejectBtn=$('o_rejectBtn');
     const updBtn=$('o_updateBtn');
     const withdrawBtn=$('o_withdrawBtn');
+    const schedBtn=$('o_scheduleBtn');
+    const apprCommBtn=$('o_approveCommBtn');
+    const apprProdBtn=$('o_approveProdBtn');
+    const rejCommBtn=$('o_rejectCommBtn');
+    const rejProdBtn=$('o_rejectProdBtn');
     // "Request Approval" sichtbar für Manager-ohne-Approve UND zusätzlich für Admin (admin darf auch im Request-Flow agieren).
     // Approver-Manager (z.B. soojin/Marc) brauchen den Workflow nicht — sie nutzen "Direct Approve".
     // Restricted-Viewer (manager@lager.local) bekommt den Button gar nicht.
     const restrictedViewer=_apIsRestrictedViewer(currentUserEmail);
     const showReq = !reviewing && !ownerEdit && !restrictedViewer &&
                     (currentUserRole==='admin' || !currentCanApprove);
-    if(reqBtn)      reqBtn.style.display      = showReq ? '' : 'none';
-    // "Freigeben & Speichern" / "Ablehnen" nur im Review-Mode
-    if(apprBtn)     apprBtn.style.display     = reviewing ? '' : 'none';
-    if(rejectBtn)   rejectBtn.style.display   = reviewing ? '' : 'none';
-    // "Direct approve" only outside both special modes + only for canApprove
+    if(reqBtn) reqBtn.style.display = showReq ? '' : 'none';
+    // «2-stage» Review-Modus (Assembly): Stufen-Status aus dem reviewten Doc.
+    const st=_apReviewStages||{};
+    const cStatus=(st.commercial&&st.commercial.status)||'pending';
+    const pStatus=(st.production&&st.production.status)||'pending';
+    // Terminplan liegt vor, wenn das Doc bereits einen hatte ODER ein Planer (Manager/Admin) jetzt im Formular einen hat.
+    const prodSchedReady = reviewing && ( (st.docHadSchedule===true) || (_apMaySchedule() && _apModalHasSchedule()) );
+    // Kaufm. freigeben: kaufm. Recht + Stufe noch offen
+    if(apprCommBtn) apprCommBtn.style.display = (reviewing && _apMayCommercial() && cStatus!=='approved') ? '' : 'none';
+    // Produktion bestätigen: Produktions-Recht + Stufe offen + Terminplan bereit (ggf. mit-terminiert)
+    if(apprProdBtn) apprProdBtn.style.display = (reviewing && _apMayProduction() && pStatus!=='approved' && prodSchedReady) ? '' : 'none';
+    // Terminieren & speichern: Planer darf terminieren, kann aber (noch) nicht selbst freigeben → separater Speichern-Schritt.
+    const showSched = reviewing && _apMaySchedule() && pStatus!=='approved' && !(_apMayProduction() && prodSchedReady);
+    if(schedBtn) schedBtn.style.display = showSched ? '' : 'none';
+    // Reject je Stufe (nur solange die jeweilige Stufe offen ist + man das Recht hat)
+    if(rejCommBtn) rejCommBtn.style.display = (reviewing && _apMayCommercial() && cStatus==='pending') ? '' : 'none';
+    if(rejProdBtn) rejProdBtn.style.display = (reviewing && _apMayProduction() && pStatus==='pending') ? '' : 'none';
+    // "Direct approve" only outside both special modes + only for canApprove (God-Mode/beide Stufen)
     if(directBtn)   directBtn.style.display   = (!reviewing && !ownerEdit && currentCanApprove) ? '' : 'none';
     // Owner edit mode: withdraw + update
     if(updBtn)      updBtn.style.display      = ownerEdit ? '' : 'none';
     if(withdrawBtn) withdrawBtn.style.display = ownerEdit ? '' : 'none';
+}
+
+// «2-stage» Feld-Farb-Sperre (Option B) — setzt readonly + Farbklasse ohne feldspezifische Inline-Styles zu zerstören.
+let _apProdLocked=false;   // true → Grid-/Schicht-Klicks im Modal gesperrt (Produktionsstufe nicht editierbar)
+function _apLockField(el, editable, approved){
+    if(!el) return;
+    const ro=!editable;
+    if(el.tagName==='SELECT'){ el.disabled=ro; }
+    else { if(ro) el.setAttribute('readonly','readonly'); else el.removeAttribute('readonly'); }
+    el.classList.remove('ap-locked','ap-approved');
+    if(approved) el.classList.add('ap-approved');
+    else if(ro) el.classList.add('ap-locked');
+}
+// «2-stage» Feld-Farb-Zuordnung (Option B): welche Modal-Felder gehören zu welcher Stufe.
+// Basis = die vorhandenen CSS-Klassen ef-spa (orange = kaufm./CFO) bzw. ef-mvr (blau = Produktion/CEO). Legende Z.365-366.
+const _AP_ORANGE_IDS=['o_priceCustPo','o_approverPrice'];   // kaufmännische Stufe (ef-spa)
+const _AP_BLUE_IDS  =['o_so','o_po','o_art','o_cust','o_start','o_pickup','o_pal','o_outday','o_poIssueDate','o_pickupCustPo'];   // Produktionsstufe (ef-mvr)
+// Modal-Feld-ID → payload.header-Key (für den Finalizer-Merge). o_approverPrice läuft separat als commercial.price.
+const _AP_FIELD_TO_HEADER={o_priceCustPo:'priceCustPo',o_so:'so',o_po:'po',o_art:'art',o_cust:'cust',o_start:'start',o_pickup:'pickup',o_pal:'pal',o_outday:'outday',o_poIssueDate:'poIssueDate',o_pickupCustPo:'pickupCustPo'};
+// Sammelt die editierten Farbfeld-Werte einer Stufe → commercial.fields / production.fields.
+function _apCollectStageFields(stage){
+    const ids = stage==='commercial' ? _AP_ORANGE_IDS : _AP_BLUE_IDS;
+    const header={};
+    ids.forEach(id=>{ if(id==='o_approverPrice') return; const hk=_AP_FIELD_TO_HEADER[id]; const el=$(id); if(hk&&el) header[hk]=el.value; });
+    const fields={header};
+    if(stage==='production'){   // Produktionsstufe trägt zusätzlich den Terminplan
+        fields.gridData=JSON.parse(JSON.stringify(orderGridData||{}));
+        fields.perDayShifts=JSON.parse(JSON.stringify(perDayShifts||{}));
+        header.qty=$('o_qty')?.value||''; header.days=$('o_days')?.value||''; header.end=$('o_end')?.value||'';
+        header.sat=!!($('o_sat')&&$('o_sat').checked); header.sun=!!($('o_sun')&&$('o_sun').checked); header.holiday=!!($('o_holiday')&&$('o_holiday').checked);
+    }
+    return fields;
+}
+// Legt gespeicherte Stufen-Korrekturen über einen payload (Anzeige beim Re-Open + Finalizer-Merge).
+function _apMergeStageFields(payload, commercial, production){
+    const cF=(commercial&&commercial.fields)||{}, pF=(production&&production.fields)||{};
+    const out={...(payload||{})};
+    out.header={...((payload&&payload.header)||{}), ...(cF.header||{}), ...(pF.header||{})};
+    if(pF.gridData && Object.keys(pF.gridData).length) out.gridData=pF.gridData;
+    if(pF.perDayShifts) out.perDayShifts=pF.perDayShifts;
+    if(commercial&&commercial.price&&commercial.price.value!=null) out.approvedPrice={price:commercial.price.value, ccy:commercial.price.ccy||'EUR'};
+    return out;
+}
+// Zentrale Feld-Sperre für das Assembly-Order-Modal (Option B: orange=kaufm./CFO, blau=Produktion/CEO).
+function _apApplyModalFieldLocks(){
+    if(currentTab!=='assembly') return;   // Frame hat sein eigenes Modal
+    const reviewing=!!_reviewingPendingId;
+    const st=_apReviewStages||{};
+    const cApproved = reviewing && (st.commercial&&st.commercial.status)==='approved';
+    const pApproved = reviewing && (st.production&&st.production.status)==='approved';
+    const mayComm=_apMayCommercial();
+    const mayProd=_apMayProduction();
+    // Preis-Wrap (kaufm. Feld o_approverPrice): sichtbar für kaufm. Approver ODER wenn bereits freigegeben (Anzeige)
+    const priceWrap=$('o_priceWrap'); if(priceWrap) priceWrap.style.display = (mayComm || cApproved) ? 'flex' : 'none';
+    if(reviewing){
+        // Orange (ef-spa) = kaufmännische Stufe
+        const commEditable = mayComm && !cApproved;
+        _AP_ORANGE_IDS.forEach(id=>_apLockField($(id), commEditable, cApproved));
+        // Blau (ef-mvr) = Produktionsstufe (CEO editiert alle; Manager/Admin-Planer darf ebenfalls terminieren)
+        const prodEditable = (mayProd || _apMaySchedule()) && !pApproved;
+        _AP_BLUE_IDS.forEach(id=>_apLockField($(id), prodEditable, pApproved));
+        _apProdLocked = !prodEditable;
+        _apSetProductionAux(prodEditable, pApproved);
+        _apLockField($('o_comment'), false, false);   // Neutral: Kommentar im Review read-only
+    } else {
+        // Neu-/Owner-Edit: Ersteller füllt die Anfrage. MVR-Stammdaten + Sales-Preis frei; Daily Output nur mit
+        // Produktionsrecht (kommt sonst aus dem Schichtplan); Unit Price XO nur mit kaufm. Recht.
+        _apProdLocked=false;
+        _AP_BLUE_IDS.filter(id=>id!=='o_outday').forEach(id=>_apLockField($(id), true, false));
+        _apLockField($('o_outday'), mayProd, false);
+        _apLockField($('o_priceCustPo'), true, false);
+        _apLockField($('o_approverPrice'), mayComm, false);
+        _apLockField($('o_comment'), true, false);
+        _apSetProductionAux(mayProd, false);
+    }
+}
+// Produktions-Hilfselemente (KPI-Button / Weekend-Checkboxen) an die Produktionsstufe koppeln.
+function _apSetProductionAux(editable, approved){
+    const kpiBtn=$('o_kpiBtn'); if(kpiBtn) kpiBtn.style.display = editable ? '' : 'none';
+    const wkndBlock=$('o_wknd_block');
+    if(wkndBlock){
+        wkndBlock.style.display = (editable || approved) ? '' : 'none';
+        wkndBlock.style.opacity = approved ? '0.75' : '';
+        ['o_sat','o_sun','o_holiday'].forEach(id=>{ const c=$(id); if(c) c.disabled = !editable; });
+    }
+}
+
+// «2-stage» Stufen-Chips für das Review-Banner (Kaufm. + Produktion, mit approved-by/Preis bzw. Reject).
+function _apModalStageChips(data){
+    const mk=(lbl, stage, extra)=>{
+        const s=(stage&&stage.status)||'pending';
+        const col = s==='approved'?'#16a34a':(s==='rejected'?'#dc2626':'#f59e0b');
+        const ic  = s==='approved'?'✓':(s==='rejected'?'✗':'⏳');
+        const who = (s==='approved'||s==='rejected') && stage.byEmail ? ' · '+escHtml(String(stage.byEmail).replace('@lager.local','')) : '';
+        return `<span style="display:inline-flex;align-items:center;gap:4px;background:${col}1a;color:${col};border:1px solid ${col}55;padding:2px 9px;border-radius:6px;font-size:0.74rem;font-weight:700;white-space:nowrap">${lbl} ${ic}${who}${extra||''}</span>`;
+    };
+    const c=data.commercial||{status:'pending'};
+    const p=data.production||{status:'pending'};
+    let priceExtra='';
+    if(c.status==='approved' && c.price && c.price.value!=null){
+        priceExtra=' · '+Number(c.price.value).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(c.price.ccy||'EUR');
+    }
+    return `<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">${mk('Commercial',c,priceExtra)}${mk('Production',p,'')}</div>`;
 }
 
 // Reads all relevant order data from the modal into a plain object (for pending doc + PDF)
@@ -3971,7 +4087,7 @@ async function withdrawOwnPending(){
     }
 }
 async function openPendingForReview(id, tab){
-    if(!currentCanApprove){ alert('No permission.'); return; }
+    if(!(_apIsAnyApprover() || _apMaySchedule())){ alert('No permission.'); return; }   // «2-stage» jeder Stufen-Approver ODER Planer (Manager/Admin)
     closePendingModal();
     try{
         const doc=await db.collection(_pendingColForTab(tab)).doc(id).get();
@@ -4000,20 +4116,35 @@ async function openPendingForReview(id, tab){
             _applyFrameOrderModalButtons();
             return;
         }
-        // Open modal + write payload into fields
+        // Open modal + write payload into fields («2-stage»: bereits gespeicherte Stufen-Korrekturen einblenden)
         openOrderModal();
-        applyOrderPayload(data.payload||{});
+        applyOrderPayload(_apMergeStageFields(data.payload||{}, data.commercial, data.production));
         editingOrderSo=(data.payload&&data.payload.editingOrderSo)||null;
         _reviewingPendingId=id;
+        // «2-stage» Stufen-Status des reviewten Docs cachen (für Buttons + Feld-Sperre)
+        _apReviewStages={
+            commercial:data.commercial||{status:'pending'},
+            production:data.production||{status:'pending'},
+            docHadSchedule: !!(data.payload && data.payload.gridData && Object.keys(data.payload.gridData).length>0)
+        };
+        // Preis aus der kaufmännischen Stufe (commercial.price) ins Approver-Preisfeld spiegeln (nicht payload.approvedPrice)
+        if(data.commercial && data.commercial.price && data.commercial.price.value!=null){
+            const pInp=$('o_approverPrice'), pCcy=$('o_approverPriceCcy');
+            if(pInp){ pInp.value=Number(data.commercial.price.value).toFixed(2).replace('.',','); pInp.dataset.touched='1'; }
+            if(pCcy) pCcy.textContent=data.commercial.price.ccy||'EUR';
+        }
         const banner=$('o_reviewBanner');
         const info=$('o_reviewInfo');
         if(banner) banner.style.display='';
         if(info){
             const _reqC=String((data.payload&&data.payload.header&&data.payload.header.comment)||data.managerNote||'').trim();
             info.innerHTML=`Request ${escHtml(id.slice(0,6))}… from <strong>${escHtml((data.requestedByEmail||'?').replace('@lager.local',''))}</strong>`
+                + _apModalStageChips(data)
                 + (_reqC?`<div style="margin-top:6px;padding:8px 10px;background:#fff;border:1px solid #f59e0b;border-radius:6px;color:#92400e;white-space:pre-wrap"><strong>Requester comment:</strong> ${escHtml(_reqC)}</div>`:'');
         }
         _applyOrderModalButtons();
+        // «2-stage» Feld-Farb-Sperre jetzt anwenden (nach _reviewingPendingId + _apReviewStages gesetzt)
+        _apApplyModalFieldLocks();
         // Vorschau neu rechnen mit den geladenen Werten
         try{ if(typeof loadPreview4w==='function') await loadPreview4w(); }catch(_){}
         try{ if(typeof recalcOrder==='function') recalcOrder(true); }catch(_){}
@@ -4048,6 +4179,90 @@ async function rejectReviewing(){
         console.error('rejectReviewing:',e);
         alert('Error: '+e.message);
     }
+}
+
+// ============================================================================
+// «2-stage» Voll-Modal-Freigabe (Assembly) — mappt die Modal-Buttons auf die getesteten
+// Kern-Funktionen approveCommercial/approveProduction/_apRejectStage. Der Roll-out läuft
+// ausschließlich im Finalizer (kein dupliziertes sales_plan/PDF hier).
+// ============================================================================
+// Kaufmännisch freigeben: liest den Unit Price XO aus dem Modal → approveCommercial.
+async function _apApproveCommercialModal(){
+    const id=_reviewingPendingId; if(!id) return;
+    const tab=currentTab;
+    const raw=String($('o_approverPrice')?.value||'').trim();
+    const ccy=($('o_approverPriceCcy')?.textContent||'EUR').trim()||'EUR';
+    const num=parseFloat(raw.replace(/\s/g,'').replace(',','.'));
+    if(!(isFinite(num)&&num>0)){
+        alert('⚠ No Unit Price XO set — enter the price (€/1000 pcs.) before commercial release.');
+        const fld=$('o_approverPrice'); if(fld){ fld.style.borderColor='#ef4444'; fld.focus(); setTimeout(()=>{ fld.style.borderColor=''; },2500); }
+        return;
+    }
+    if(!confirm(`Commercial release at ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000 pcs.?`)) return;
+    const fields=_apCollectStageFields('commercial');   // «2-stage» Korrekturen an den orangen Feldern mitspeichern
+    const ok=await approveCommercial(id, tab, {value:num, ccy}, fields);
+    if(ok){ try{ showMsg('Commercial released.','success'); }catch(_){} closeOrderModal(); try{ await loadWeek(); }catch(_){} try{ renderPendingList(); }catch(_){} }
+}
+// Terminplan (Formular) validieren + ins pending-Doc schreiben (Planer-Write, status bleibt 'pending'). true/false.
+async function _apWriteScheduleToDoc(id, tab){
+    if(!_apModalHasSchedule()){ alert('Start date and a valid duration are required before scheduling.'); return false; }
+    let plan=null; try{ plan=computeOrderPlan(); }catch(_){}
+    if(plan && !plan.feasible && plan.blocked){
+        const b=plan.blocked; const soTxt=(b.sos&&b.sos.length)?b.sos.join(', '):'another order';
+        alert(`⛔ Cannot schedule: ${b.iso} is fully booked by ${soTxt} — choose a start date with free capacity.`);
+        return false;
+    }
+    // Schichtplan-Kollision (Warnung, bestätigbar) — Parität zum Direct-/Approve-Pfad.
+    try{
+        const spCheck=await checkShiftPlanConflicts(plan?plan.seq:[]);
+        if(spCheck && spCheck.shifts && spCheck.shifts.length>0){
+            const dowLabel={mon:'Mo',tue:'Tu',wed:'We',thu:'Th',fri:'Fr',sat:'Sa',sun:'Su'};
+            const lines=spCheck.shifts.map(c=>`• ${c.iso} (${dowLabel[c.dow]||c.dow}): ${c.planned} shift(s) planned – max ${c.allowed}`).join('\n');
+            if(!confirm(`⚠ Shift plan collision:\n\n${lines}\n\nSave schedule anyway?`)) return false;
+        }
+    }catch(_){}
+    // Payload sammeln (ohne approvedPrice — der Preis läuft über commercial.price), ins Doc mergen.
+    const payload=collectOrderPayload();
+    if(payload && ('approvedPrice' in payload)) delete payload.approvedPrice;
+    try{
+        await db.collection(_pendingColForTab(tab)).doc(id).update({ payload, status:'pending' });
+    }catch(e){ console.error('schedule write:',e); alert('Scheduling failed: '+e.message); return false; }
+    if(_apReviewStages) _apReviewStages.docHadSchedule=true;
+    try{ await _logProtocol('request_updated', id, tab, {payload, requestedBy:currentUid, requestedByEmail:currentUserEmail}, 'Scheduled by planner'); }catch(_){}
+    return true;
+}
+// Terminieren & speichern (Planer ohne eigene Produktionsfreigabe): schreibt nur den Terminplan.
+async function _apScheduleOnlyModal(){
+    const id=_reviewingPendingId; if(!id) return;
+    const ok=await _apWriteScheduleToDoc(id, currentTab);
+    if(ok){ try{ showMsg('Schedule saved — the production approver can now confirm.','success'); }catch(_){} closeOrderModal(); try{ await loadWeek(); }catch(_){} try{ renderPendingList(); }catch(_){} }
+}
+// Produktion bestätigen: (falls Planer + Formular-Termin) erst terminieren, dann approveProduction.
+async function _apApproveProductionModal(){
+    const id=_reviewingPendingId; if(!id) return;
+    const tab=currentTab;
+    // Terminplan muss vorliegen: im Modal geplant (blaue Stufe: Start+Grid) ODER schon im Doc.
+    if(!_apModalHasSchedule() && !(_apReviewStages&&_apReviewStages.docHadSchedule)){
+        alert('No schedule yet — set a start date and a valid duration, or have a manager schedule it first.'); return;
+    }
+    // Kapazitäts-HARD-BLOCK (falls im Modal neu/um-terminiert wurde)
+    let plan=null; try{ plan=computeOrderPlan(); }catch(_){}
+    if(plan && !plan.feasible && plan.blocked){
+        const b=plan.blocked; const soTxt=(b.sos&&b.sos.length)?b.sos.join(', '):'another order';
+        alert(`⛔ ${b.iso} is fully booked by ${soTxt} — choose a start date with free capacity.`); return;
+    }
+    if(!confirm('Confirm production release now?')) return;
+    const fields=_apCollectStageFields('production');   // «2-stage» blaue Feld-Korrekturen inkl. gridData mitspeichern
+    const ok=await approveProduction(id, tab, fields);
+    if(ok){ try{ showMsg('Production confirmed.','success'); }catch(_){} closeOrderModal(); try{ await loadWeek(); }catch(_){} try{ renderPendingList(); }catch(_){} }
+}
+// Stufen-Reject aus dem Modal.
+async function _apModalReject(stage){
+    const id=_reviewingPendingId; if(!id) return;
+    const c=prompt('Reason for rejection ('+(stage==='commercial'?'commercial':'production')+', optional):','');
+    if(c===null) return;
+    const ok=await _apRejectStage(id, currentTab, stage, c);
+    if(ok){ try{ showMsg('Rejected.','success'); }catch(_){} closeOrderModal(); try{ await loadWeek(); }catch(_){} try{ renderPendingList(); }catch(_){} }
 }
 
 // Inline approve directly from the Open Requests modal — does NOT open the order modal
@@ -4162,8 +4377,8 @@ async function rejectPending(id, tab){
 //   Roll-out) folgt in 2b-2b (eigener _apFrameRollout). Roll-out NUR wenn beide Stufen
 //   approved, via Finalizer mit Lease-Claim + Selbstheilungs-Sweep.
 // ============================================================================
-async function approveCommercial(id, tab, price){
-    // price = {value, ccy}. Setzt NUR die kaufmännische Stufe (Preis). KEIN Roll-out.
+async function approveCommercial(id, tab, price, fields){
+    // price = {value, ccy}; fields = {header:{…}} = Korrekturen an den ORANGEN (kaufm.) Feldern. Setzt NUR die kaufm. Stufe. KEIN Roll-out.
     if(!_apMayCommercial()){ alert('Keine Berechtigung (kaufmännisch).'); return false; }
     const ref=db.collection(_pendingColForTab(tab)).doc(id);
     const snap=await ref.get();
@@ -4175,9 +4390,11 @@ async function approveCommercial(id, tab, price){
     if(!isFinite(num)||num<=0){ alert('Bitte gültigen Preis €/1000 St. eingeben.'); return false; }
     const ccy=(price&&price.ccy)||'EUR';
     const ts=firebase.firestore.FieldValue.serverTimestamp();
+    const commercialData={status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts, price:{value:num, ccy}};
+    if(fields) commercialData.fields=fields;   // «2-stage» Approver-Korrekturen an den orangen Feldern (Teil der commercial-Map → rules-konform)
     try{
         await ref.update({
-            commercial:{status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts, price:{value:num, ccy}},
+            commercial:commercialData,
             status:'pending'   // Stage-Write setzt NIE 'approved' (nur der Finalizer)
         });
     }catch(e){ console.error('approveCommercial:',e); alert('Fehler: '+e.message); return false; }
@@ -4185,8 +4402,8 @@ async function approveCommercial(id, tab, price){
     await finalizeIfFullyApproved(id, tab);
     return true;
 }
-async function approveProduction(id, tab){
-    // Setzt NUR die Produktionsstufe. Terminplan (gridData) muss vorliegen (Manager plant vor).
+async function approveProduction(id, tab, fields){
+    // fields = {header:{…}, gridData, perDayShifts} = Korrekturen an den BLAUEN (Produktions-)Feldern inkl. Terminplan. Setzt NUR die Produktionsstufe.
     if(!_apMayProduction()){ alert('Keine Berechtigung (Produktion).'); return false; }
     const ref=db.collection(_pendingColForTab(tab)).doc(id);
     const snap=await ref.get();
@@ -4194,12 +4411,15 @@ async function approveProduction(id, tab){
     const d=snap.data();
     if((d.production&&d.production.status)==='approved'){ alert('Produktion bereits freigegeben.'); return false; }
     if(_apDerivedStatus(d,tab)==='rejected' || _apDerivedStatus(d,tab)==='deleted'){ alert('Anfrage ist abgelehnt/gelöscht.'); return false; }
-    const gridData=(d.payload&&d.payload.gridData)||{};
-    if(tab!=='frame' && Object.keys(gridData).length===0){ alert('Terminplan fehlt – bitte zuerst (Manager) terminieren.'); return false; }
+    // Terminplan: aus den Produktions-fields (CEO hat im Review terminiert) ODER dem Doc (Manager-Planer hat vor-terminiert).
+    const gridData=(fields&&fields.gridData&&Object.keys(fields.gridData).length)?fields.gridData:((d.payload&&d.payload.gridData)||{});
+    if(tab!=='frame' && Object.keys(gridData).length===0){ alert('Terminplan fehlt – bitte terminieren (Start + Dauer).'); return false; }
     const ts=firebase.firestore.FieldValue.serverTimestamp();
+    const productionData={status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts};
+    if(fields) productionData.fields=fields;   // «2-stage» Produktions-Korrekturen inkl. gridData (Teil der production-Map → rules-konform)
     try{
         await ref.update({
-            production:{status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts},
+            production:productionData,
             status:'pending'
         });
     }catch(e){ console.error('approveProduction:',e); alert('Fehler: '+e.message); return false; }
@@ -4229,9 +4449,9 @@ async function finalizeIfFullyApproved(id, tab){
     }catch(e){ console.warn('finalize claim:',e); return false; }
     if(!claimed) return false;
     const d=data, payload=(d&&d.payload)||{};
-    const price=(d.commercial&&d.commercial.price)||null;
-    const finalPayload = price ? {...payload, approvedPrice:{price:price.value, ccy:price.ccy}} : {...payload};
-    const gridData=payload.gridData||{};
+    // «2-stage» finaler Payload = Basis-payload + kaufm. Korrekturen (commercial.fields) + Produktions-Korrekturen (production.fields) + Preis
+    const finalPayload=_apMergeStageFields(payload, d.commercial, d.production);
+    const gridData=finalPayload.gridData||{};
     try{
         // (a) sales_plan Tages-Docs (byte-getreu aus approvePendingInline)
         const ts=firebase.firestore.FieldValue.serverTimestamp();
@@ -4240,7 +4460,7 @@ async function finalizeIfFullyApproved(id, tab){
             const fields=(gridData[iso]&&gridData[iso].fields)||{};
             const cleanFields={};
             Object.entries(fields).forEach(([k,v])=>{ if(v!==''&&v!=null) cleanFields[k]=v; });
-            { const _hdr=(payload&&payload.header)||{};
+            { const _hdr=(finalPayload&&finalPayload.header)||{};
               if(_hdr.poIssueDate)  cleanFields['PO Issue Date']=_hdr.poIssueDate;
               if(_hdr.pickupCustPo) cleanFields['Pick-Up (acc. Customer PO)']=_hdr.pickupCustPo; }
             let iw={year:0,week:0};
@@ -5024,6 +5244,7 @@ function computeOrderPlan(){
     return res;
 }
 function showShiftPopover(iso, anchorEl){
+    if(_apProdLocked) return;   // «2-stage» Produktionsstufe gesperrt/freigegeben → keine Schicht-/Grid-Änderung
     const pop=$('shiftPopover'); if(!pop) return;
     const mini=$('o_mini'); if(!mini) return;
     const body=mini.parentElement;
@@ -5051,7 +5272,7 @@ document.addEventListener('click',e=>{
 });
 // Enable/disable the order modal's action buttons (used to hard-block a capacity collision).
 function _setOrderActionsEnabled(enabled){
-    ['o_requestBtn','o_updateBtn','o_approveBtn','o_directBtn'].forEach(id=>{
+    ['o_requestBtn','o_updateBtn','o_scheduleBtn','o_approveCommBtn','o_approveProdBtn','o_directBtn'].forEach(id=>{
         const b=$(id); if(!b) return;
         b.disabled=!enabled;
         b.style.opacity=enabled?'':'0.5';
@@ -5155,6 +5376,8 @@ function recalcOrder(rebuildGrid){
     }
     renderOrderPreview();
     if(rebuildGrid) renderOrderGrid();
+    // «2-stage» im Review-Modus die Stufen-Buttons nachziehen (Confirm/Schedule hängen am Terminplan-Status)
+    if(_reviewingPendingId){ try{ _applyOrderModalButtons(); }catch(_){} }
 }
 function renderOrderGrid(){
     const start=$('o_start').value;
