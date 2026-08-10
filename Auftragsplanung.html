@@ -908,11 +908,23 @@ function _apMayProduction(){ return currentCanProduction || (currentCanCommercia
 // Rules-Spiegel: isAdmin() (role admin/manager) bzw. canApprove()/Super-Admin. NICHT der reine Ein-Flag-CEO.
 function _apMaySchedule(){ return currentCanApprove || currentUserRole==='admin' || currentUserRole==='manager'; }
 // Abgeleiteter Gesamtstatus aus den zwei Stufen (Frame: keine kaufm. Stufe)
+// «legacy» Effektiver Status einer Stufe. Nutzt die commercial/production-Map; fehlen BEIDE Maps
+// (echter Alt-Auftrag von VOR der Zwei-Stufen-Umstellung), wird der alte Gesamt-status abgeleitet
+// (approved/rejected → beide Stufen). Macht die einmalige Admin-SDK-Migration überflüssig.
+function _apStageStatus(d, stage){
+    const m = d && d[stage];
+    if(m && m.status) return m.status;
+    if(d && !d.commercial && !d.production){   // nur echter Alt-Auftrag (nicht halb-freigegeben)
+        if(d.status==='approved') return 'approved';
+        if(d.status==='rejected') return 'rejected';
+    }
+    return 'pending';
+}
 function _apDerivedStatus(d, tab){
     if(!d) return 'pending';
     if(d.status==='deleted' || d.deletedAt) return 'deleted';
-    const c=(d.commercial&&d.commercial.status)||'pending';
-    const p=(d.production&&d.production.status)||'pending';
+    const c=_apStageStatus(d,'commercial');
+    const p=_apStageStatus(d,'production');
     if(c==='rejected' || p==='rejected') return 'rejected';
     const commercialOk=(tab==='frame')?true:(c==='approved');
     if(commercialOk && p==='approved') return 'approved';
@@ -1340,6 +1352,9 @@ if(!(_apIsAnyApprover() || currentUserRole==='admin' || currentUserRole==='manag
         await auth.signOut().catch(()=>{});
         return;
     }
+    // «2c» Selbstheilungs-Sweep beim Boot: rollt Aufträge nach, die "beide Stufen approved, aber nicht
+    // finalisiert" hängen (z.B. Absturz zwischen Lease-Claim und Effekten). Nur Approver (Finalizer-Recht); fire-and-forget.
+    if(_apIsAnyApprover() && !_apSalesMode){ try{ _apFinalizeSweep('assembly').catch(()=>{}); }catch(_){} }
     document.getElementById('loginView').style.display='none';
     document.getElementById('appView').style.display='block';
     const uName=user.displayName||user.email.replace('@lager.local','');
@@ -1382,7 +1397,7 @@ if(!(_apIsAnyApprover() || currentUserRole==='admin' || currentUserRole==='manag
     startGridLiveListeners();
     // Shift/KPI planning button visible only for approvers — managers can only set per-order shifts
     const spBtn=$('shiftPlannerBtn');
-    if(spBtn) spBtn.style.display = currentCanApprove ? '' : 'none';
+    if(spBtn) spBtn.style.display = (_apMayProduction() || _apMaySchedule()) ? '' : 'none';   // «2c» Schicht-/KPI-Planung: Produktion (CEO) + Planer (Manager/Admin)
     // Pricelist sichtbar für alle admin/manager (Approver editieren, normale Manager nur lesen) —
     // ausser Restricted-Viewer (manager@lager.local). Vgl. Users_Permissions.xlsx AP.pricelist_view.
     const plBtn=$('pricelistBtn');
@@ -3088,8 +3103,8 @@ function _apModalStageChips(data){
         const who = (s==='approved'||s==='rejected') && stage.byEmail ? ' · '+escHtml(String(stage.byEmail).replace('@lager.local','')) : '';
         return `<span style="display:inline-flex;align-items:center;gap:4px;background:${col}1a;color:${col};border:1px solid ${col}55;padding:2px 9px;border-radius:6px;font-size:0.74rem;font-weight:700;white-space:nowrap">${lbl} ${ic}${who}${extra||''}</span>`;
     };
-    const c=data.commercial||{status:'pending'};
-    const p=data.production||{status:'pending'};
+    const c=data.commercial||{status:_apStageStatus(data,'commercial')};   // «legacy» Alt-Auftrag ohne Maps → aus altem status
+    const p=data.production||{status:_apStageStatus(data,'production')};
     let priceExtra='';
     if(c.status==='approved' && c.price && c.price.value!=null){
         priceExtra=' · '+Number(c.price.value).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(c.price.ccy||'EUR');
@@ -3809,7 +3824,7 @@ const _PRICELIST_SEED=[
     {region:"EU/Others",customer:"Refresco",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"}
 ];
 async function importPricelistFromXlsx(){
-    if(!currentCanApprove){ alert('Pricelist import is only allowed for Approvers/Admin.'); return; }
+    if(!_apMayCommercial()){ alert('Pricelist import is only allowed for the commercial approver (CFO)/Admin.'); return; }   // «2c» kaufm. Stufe
     if(!confirm('Replace ALL '+(pricelistRows?.length||0)+' current pricelist entries with '+_PRICELIST_SEED.length+' seed rows from Customer_Article_Price.xlsx?\n\nThis cannot be undone.')) return;
     const status=$('pl_status'); if(status){ status.textContent='Importing…'; status.style.color='#0284c7'; }
     try{
@@ -3869,7 +3884,7 @@ function _plWireResize(){
 async function openPricelist(){
     if(_apIsRestrictedViewer(currentUserEmail)){ alert('No permission.'); return; }
     // Approver/Admin: voll editierbar. Normale Manager: read-only (Edit-Pfade unten geblockt).
-    const addBtn=$('pl_addBtn'); if(addBtn) addBtn.style.display = currentCanApprove ? '' : 'none';
+    const addBtn=$('pl_addBtn'); if(addBtn) addBtn.style.display = _apMayCommercial() ? '' : 'none';   // «2c» Preisliste = kaufm. Stufe (CFO)
     $('pricelistModal').style.display='flex';
     await loadPricelist();
 }
@@ -3889,7 +3904,7 @@ async function loadPricelist(){
 }
 // Writes unique customer names to /pricelist_meta/customers so managers can read them
 async function _syncPricelistCustomers(){
-    if(!currentCanApprove) return;
+    if(!_apMayCommercial()) return;   // «2c» kaufm. Stufe (CFO)
     try{
         const names=[...new Set(pricelistRows.map(r=>String(r.customer||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
         await db.collection('pricelist_meta').doc('customers').set({names, updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedByEmail:currentUserEmail});
@@ -3932,7 +3947,7 @@ function renderPricelist(){
         _plWireResize();
         return;
     }
-    const _ro=!currentCanApprove; // normale Manager: read-only, kein Edit/Save/Delete
+    const _ro=!_apMayCommercial(); // «2c» Preisliste editierbar nur für kaufm. Approver (CFO); Rest read-only
     const baseStyle="width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;padding:5px 6px;border-radius:4px;font-size:0.78rem;font-family:inherit;line-height:1.3;color:#1a1a2e;display:block";
     const taStyle=baseStyle+";resize:none;overflow:hidden;min-height:28px;white-space:pre-wrap;word-break:break-word";
     const ta=(id,field,val)=>_ro
@@ -3969,7 +3984,7 @@ function renderPricelist(){
     _plWireResize();
 }
 async function _savePricelistField(inputEl){
-    if(!currentCanApprove) return; // Backstop: normale Manager dürfen Pricelist nicht speichern
+    if(!_apMayCommercial()) return; // «2c» Backstop: Preisliste-Schreiben nur kaufm. Approver (CFO)
     const id=inputEl.dataset.id;
     const field=inputEl.dataset.field;
     let value=inputEl.value;
@@ -3996,7 +4011,7 @@ async function _savePricelistField(inputEl){
     },300);
 }
 async function addPricelistRow(){
-    if(!currentCanApprove) return;
+    if(!_apMayCommercial()) return;   // «2c» kaufm. Stufe (CFO)
     try{
         const blank={region:'',customer:'',type:'',conversion:'',articleNr:'',articleStatus:'aktiv',dia:'',shell:'',shellSupplier:'',tier:'',unitPrice:null,ccy:'EUR',paymentTerm:'',note:''};
         const ref=await db.collection(PRICELIST_COL).add({...blank,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdByEmail:currentUserEmail});
@@ -4010,7 +4025,7 @@ async function addPricelistRow(){
     }
 }
 async function deletePricelistRow(id){
-    if(!currentCanApprove) return;
+    if(!_apMayCommercial()) return;   // «2c» kaufm. Stufe (CFO)
     if(!confirm('Really delete this row?')) return;
     try{
         await db.collection(PRICELIST_COL).doc(id).delete();
@@ -4521,8 +4536,8 @@ async function _apFinalizeSweep(tab){
 
 // «2-stage» Inline-UI: Stufen-Chips + zwei Freigabe-Buttons + Reject je Stufe (aktuell Assembly).
 function _apStageChips(it){
-    const c=(it.commercial&&it.commercial.status)||'pending';
-    const p=(it.production&&it.production.status)||'pending';
+    const c=_apStageStatus(it,'commercial');   // «legacy» Alt-Auftrag ohne Maps → aus altem status abgeleitet
+    const p=_apStageStatus(it,'production');
     const chip=(lbl,st)=>{ const col=st==='approved'?'#16a34a':(st==='rejected'?'#dc2626':'#f59e0b'); const ic=st==='approved'?'✓':(st==='rejected'?'✗':'⏳'); return `<span style="background:${col}1a;color:${col};border:1px solid ${col}55;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;white-space:nowrap">${lbl} ${ic}</span>`; };
     return `<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${it.tab==='frame'?'':chip('Kaufm.',c)}${chip('Produktion',p)}</span>`;
 }
