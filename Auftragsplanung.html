@@ -314,6 +314,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <button class="btn btn-sm btn-secondary" id="shiftPlannerBtn" onclick="openShiftPlanner()" style="display:none">Shift &amp; KPI Planning</button>
         <button class="btn btn-sm btn-secondary" id="pricelistBtn" onclick="openPricelist()" style="display:none">Pricelist</button>
         <button class="btn btn-sm btn-secondary" id="protocolBtn" onclick="openProtocol()" style="display:none">Protocol</button>
+        <button class="btn btn-sm btn-secondary" id="absenceBtn" onclick="openAbsenceModal()" style="display:none" title="Set an absence window so your counterpart can approve in your place">🗓 Absence</button>
         <button class="btn btn-sm" id="deleteAllTestBtn" onclick="deleteAllTestOrders()" style="display:none;background:#dc2626;color:#fff;border-color:#b91c1c" title="TEST: alle Auftrags-Anfragen (Assembly + Frame, alle Status) löschen">🗑 Test: Alle löschen</button>
         <button class="btn btn-sm btn-warning" id="pendingTopBtn" onclick="openPendingModal()" style="display:none" title="Open approval requests">🔔 Open Requests <span id="pendingTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <button class="btn btn-sm" id="myRejectedTopBtn" onclick="openMyRejectedModal()" style="display:none;background:#f97316;color:#fff;border-color:#ea580c" title="Your rejected requests">⚠ Rejected <span id="myRejectedTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
@@ -350,6 +351,59 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     <div class="modal-foot">
       <button class="btn btn-secondary" onclick="closeKpiModal()">Cancel</button>
       <button class="btn btn-primary" onclick="applyKpiOutput()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- «2d» Absence / deputy coverage (field-scoped: CFO=commercial/orange, CEO=production/blue) -->
+<div class="modal-overlay" id="absenceModal" style="z-index:800" onclick="if(event.target===this)closeAbsenceModal()">
+  <div class="modal-card" style="width:min(640px,96%)">
+    <div class="modal-head">
+      <h2>Absence / deputy coverage</h2>
+      <button class="btn btn-sm btn-secondary" onclick="closeAbsenceModal()">Close</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0 0 14px;font-size:0.86rem;color:#475569;line-height:1.5">
+        Set an absence window so your counterpart can approve in your place while you are away.
+        While a window is active the other approver may also handle your stage — every approval is still logged with the person who actually clicked.
+      </p>
+      <!-- Commercial (CFO / orange / SPA) -->
+      <div id="abs_commPanel" style="border:1px solid #fdba74;background:#fff7ed;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#ffedd5;border:1px solid #fdba74"></span>
+          <strong style="font-size:0.95rem">Commercial approval (CFO / SPA)</strong>
+        </div>
+        <div id="abs_commStatus" style="font-size:0.85rem;margin-bottom:10px"></div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:10px">
+          <label>From<input id="abs_commFrom" type="date"></label>
+          <label>Until<input id="abs_commUntil" type="date"></label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-sm btn-primary" id="abs_commSaveBtn" onclick="_apSaveAbsence('commercial')">Save absence</button>
+          <button class="btn btn-sm btn-secondary" id="abs_commEndBtn" onclick="_apEndAbsence('commercial')" style="display:none">End now</button>
+          <span id="abs_commNote" style="font-size:0.8rem;color:#64748b"></span>
+        </div>
+      </div>
+      <!-- Production (CEO / blue / MVR) -->
+      <div id="abs_prodPanel" style="border:1px solid #7dd3fc;background:#f0f9ff;border-radius:10px;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#e0f2fe;border:1px solid #7dd3fc"></span>
+          <strong style="font-size:0.95rem">Production approval (CEO / MVR)</strong>
+        </div>
+        <div id="abs_prodStatus" style="font-size:0.85rem;margin-bottom:10px"></div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:10px">
+          <label>From<input id="abs_prodFrom" type="date"></label>
+          <label>Until<input id="abs_prodUntil" type="date"></label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-sm btn-primary" id="abs_prodSaveBtn" onclick="_apSaveAbsence('production')">Save absence</button>
+          <button class="btn btn-sm btn-secondary" id="abs_prodEndBtn" onclick="_apEndAbsence('production')" style="display:none">End now</button>
+          <span id="abs_prodNote" style="font-size:0.8rem;color:#64748b"></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeAbsenceModal()">Close</button>
     </div>
   </div>
 </div>
@@ -934,6 +988,88 @@ async function _apLoadAbsence(){
     try{ const s=await db.collection('order_planning_absence').doc('state').get(); _apAbsence=s.exists?(s.data()||null):null; }
     catch(e){ console.warn('absence load:',e); _apAbsence=null; }
 }
+// ── «2d» Abwesenheits-/Vertretungs-SETZ-UI ──────────────────────────────────
+// Backend (rev33-Rules feld-skopiert + _apLoadAbsence/_apMay*) steht bereits; hier nur die Setz-UI.
+// Datumseingabe 'YYYY-MM-DD' → lokaler Tagesbeginn / Tagesende (damit der Bis-Tag ganz abgedeckt ist).
+function _apDateStartOfDay(s){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); if(!m) return null; return new Date(+m[1],+m[2]-1,+m[3],0,0,0,0); }
+function _apDateEndOfDay(s){   const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); if(!m) return null; return new Date(+m[1],+m[2]-1,+m[3],23,59,59,999); }
+// Firestore-Timestamp/Datum → 'YYYY-MM-DD' (lokal) für <input type=date>.
+function _apTsToDateInput(v){ const t=_apTs(v); if(!isFinite(t)) return ''; const d=new Date(t); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+// Status-Info eines Abwesenheitsfensters aus dem _apAbsence-Cache.
+function _apAbsWindowInfo(fromKey, untilKey){
+    const ft=_apTs(_apAbsence&&_apAbsence[fromKey]), ut=_apTs(_apAbsence&&_apAbsence[untilKey]);
+    if(!isFinite(ft)||!isFinite(ut)) return {set:false, html:'<span style="color:#64748b">No absence window set.</span>'};
+    const now=Date.now(); const fmt=t=>new Date(t).toLocaleDateString();
+    let badge;
+    if(ft<=now && now<=ut) badge='<span style="color:#16a34a;font-weight:700">● Active now</span>';
+    else if(now<ft)        badge='<span style="color:#d97706;font-weight:700">◷ Scheduled</span>';
+    else                   badge='<span style="color:#94a3b8">Expired</span>';
+    return {set:true, html:badge+' &nbsp;'+fmt(ft)+' &rarr; '+fmt(ut)};
+}
+function openAbsenceModal(){
+    if(!_apIsAnyApprover()){ alert('No permission.'); return; }
+    _apRenderAbsenceModal();
+    $('absenceModal').classList.add('open');
+}
+function closeAbsenceModal(){ $('absenceModal').classList.remove('open'); }
+// Füllt beide Panels aus dem Cache + schaltet Editierbarkeit je Schreibrecht.
+// Rules-Spiegel: commercial darf schreiben, wer canCommercial() (bzw. Superadmin: Login setzt alle 3 true → currentCanCommercial); production analog.
+function _apRenderAbsenceModal(){
+    _apRenderAbsencePanel('commercial', 'commercialAbsentFrom','commercialAbsentUntil','commercialAbsentBy', currentCanCommercial);
+    _apRenderAbsencePanel('production', 'productionAbsentFrom','productionAbsentUntil','productionAbsentBy', currentCanProduction);
+}
+function _apRenderAbsencePanel(stage, fromKey, untilKey, byKey, canEdit){
+    const isComm=stage==='commercial';
+    const fromEl=$(isComm?'abs_commFrom':'abs_prodFrom');
+    const untilEl=$(isComm?'abs_commUntil':'abs_prodUntil');
+    const statusEl=$(isComm?'abs_commStatus':'abs_prodStatus');
+    const saveBtn=$(isComm?'abs_commSaveBtn':'abs_prodSaveBtn');
+    const endBtn=$(isComm?'abs_commEndBtn':'abs_prodEndBtn');
+    const noteEl=$(isComm?'abs_commNote':'abs_prodNote');
+    const info=_apAbsWindowInfo(fromKey, untilKey);
+    if(statusEl){ const by=(info.set && _apAbsence && _apAbsence[byKey])?(' &middot; by '+_apAbsence[byKey]):''; statusEl.innerHTML=info.html+by; }
+    if(fromEl){ fromEl.value=_apTsToDateInput(_apAbsence&&_apAbsence[fromKey]); fromEl.disabled=!canEdit; }
+    if(untilEl){ untilEl.value=_apTsToDateInput(_apAbsence&&_apAbsence[untilKey]); untilEl.disabled=!canEdit; }
+    if(saveBtn) saveBtn.style.display=canEdit?'':'none';
+    if(endBtn) endBtn.style.display=(canEdit && info.set)?'':'none';
+    if(noteEl) noteEl.textContent = canEdit ? '' : ('Managed by the '+(isComm?'commercial approver (CFO)':'production approver (CEO)')+'.');
+}
+async function _apSaveAbsence(stage){
+    const isComm=stage==='commercial';
+    if(isComm ? !currentCanCommercial : !currentCanProduction){ alert('No permission for this stage.'); return; }
+    const fromStr=$(isComm?'abs_commFrom':'abs_prodFrom').value;
+    const untilStr=$(isComm?'abs_commUntil':'abs_prodUntil').value;
+    const fromDate=_apDateStartOfDay(fromStr), untilDate=_apDateEndOfDay(untilStr);
+    if(!fromDate || !untilDate){ alert('Please pick both a start and an end date.'); return; }
+    if(fromDate.getTime()>untilDate.getTime()){ alert('The end date must be on or after the start date.'); return; }
+    const Ts=firebase.firestore.Timestamp, sv=firebase.firestore.FieldValue.serverTimestamp();
+    const by=currentUserEmail||currentUid||'';
+    // Nur die 4 eigenen Farbfelder → rev33 create keys().hasOnly / update affectedKeys().hasOnly.
+    const data = isComm
+      ? { commercialAbsentFrom:Ts.fromDate(fromDate), commercialAbsentUntil:Ts.fromDate(untilDate), commercialAbsentBy:by, commercialAbsentAt:sv }
+      : { productionAbsentFrom:Ts.fromDate(fromDate), productionAbsentUntil:Ts.fromDate(untilDate), productionAbsentBy:by, productionAbsentAt:sv };
+    try{
+        await db.collection('order_planning_absence').doc('state').set(data, {merge:true});
+        await _apLoadAbsence();
+        _apRenderAbsenceModal();
+        alert('Absence window saved.');
+    }catch(e){ console.error('absence save',e); alert('Could not save the absence window: '+(e&&e.message||e)); }
+}
+async function _apEndAbsence(stage){
+    const isComm=stage==='commercial';
+    if(isComm ? !currentCanCommercial : !currentCanProduction){ alert('No permission for this stage.'); return; }
+    if(!confirm('End the '+(isComm?'commercial':'production')+' absence window now?')) return;
+    const del=firebase.firestore.FieldValue.delete();
+    const data = isComm
+      ? { commercialAbsentFrom:del, commercialAbsentUntil:del, commercialAbsentBy:del, commercialAbsentAt:del }
+      : { productionAbsentFrom:del, productionAbsentUntil:del, productionAbsentBy:del, productionAbsentAt:del };
+    try{
+        await db.collection('order_planning_absence').doc('state').set(data, {merge:true});
+        await _apLoadAbsence();
+        _apRenderAbsenceModal();
+        alert('Absence window ended.');
+    }catch(e){ console.error('absence end',e); alert('Could not end the absence window: '+(e&&e.message||e)); }
+}
 let _apSalesMode=false;       // true wenn currentUserRole==='sales' → kalenderfreie Sales-Ansicht (kein Approver, kein Grid)
 let _apSalesListsUnsub=null;  // Listener unsubscribe für die persönlichen Sales-Listen (offen/freigegeben)
 let _reviewingPendingId=null; // ID of a pending_orders doc currently under review in the modal
@@ -1405,6 +1541,9 @@ if(!(_apIsAnyApprover() || currentUserRole==='admin' || currentUserRole==='manag
     // Protocol visible only for approvers/admin
     const protoBtn=$('protocolBtn');
     if(protoBtn) protoBtn.style.display = _apIsAnyApprover() ? '' : 'none';   // «2c/3b» Approver sehen Audit (Rules: canApprove||canCommercial||canProduction)
+    // «2d» Abwesenheit/Vertretung: sichtbar für jeden Stufen-Approver (setzt sein eigenes Farbfenster)
+    const absBtn=$('absenceBtn');
+    if(absBtn) absBtn.style.display = _apIsAnyApprover() ? '' : 'none';
     // TEST-Bereinigung: nur Approver/Admin (canApprove) — nur die dürfen laut Rules fremde/freigegebene Einträge löschen
     const delAllBtn=$('deleteAllTestBtn');
     if(delAllBtn) delAllBtn.style.display = currentCanApprove ? '' : 'none';
@@ -3393,7 +3532,7 @@ let _apSalesLoaded=false;  // erst true nach dem ersten onSnapshot je Tab
 function _apApplySalesChrome(){
     document.querySelectorAll('.week-nav').forEach(e=>{ e.style.display='none'; });
     const tabsBar=document.querySelector('.tabs-bar'); if(tabsBar) tabsBar.style.display='none';
-    ['todayBtn','newOrderBtn','ordersOverviewBtn','orderSequenceBtn','shiftPlannerBtn','pricelistBtn','protocolBtn',
+    ['todayBtn','newOrderBtn','ordersOverviewBtn','orderSequenceBtn','shiftPlannerBtn','pricelistBtn','protocolBtn','absenceBtn',
      'pendingTopBtn','myRejectedTopBtn','pendingTabBtn','gridArea','footerBar','pendingArea']
         .forEach(id=>{ const el=$(id); if(el) el.style.display='none'; });
     const sv=$('salesView'); if(sv) sv.style.display='';
