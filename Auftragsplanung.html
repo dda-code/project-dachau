@@ -5639,8 +5639,12 @@ async function loadPreview4w(){
         snap.forEach(d=>{
             const dt=d.data(); if(!dt.datum) return;
             const fields=dt.fields||{};
+            const _so=fields[_soK]||'';
             if(!orderPreviewDocs[dt.datum]) orderPreviewDocs[dt.datum]=[];
-            orderPreviewDocs[dt.datum].push({fields, _so:fields[_soK]||'', _docId:d.id, _pendingId:null});
+            // «dedupe» Doppel-Doc überspringen: derselbe Auftrag (gleiche SO#) am selben Tag = Alt-Legacy-`{iso}`-Doc
+            // neben dem `{iso}__{SO}`-Doc → nur EINMAL zählen/anzeigen (sonst doppelte Zellen + doppelte Kapazitätsbelegung).
+            if(_so && orderPreviewDocs[dt.datum].some(e=>e._so===_so)) return;
+            orderPreviewDocs[dt.datum].push({fields, _so, _docId:d.id, _pendingId:null});
         });
         // Additionally show pending orders (grey-orange) as SEPARATE day-entries so they also occupy capacity.
         try{
