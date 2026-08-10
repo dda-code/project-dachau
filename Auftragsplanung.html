@@ -803,7 +803,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
 </div>
 
 <div class="modal-overlay" id="pricelistModal" style="display:none;z-index:850" onclick="if(event.target===this)closePricelist()">
-  <div class="modal-card" style="width:min(1400px,98%);max-height:94vh;overflow:auto">
+  <div class="modal-card" style="width:min(2200px,98vw);max-width:98vw;max-height:96vh;overflow:auto">
     <div class="modal-head">
       <h2>Pricelist – Customer Price &amp; Terms</h2>
       <button class="btn btn-sm btn-secondary" onclick="closePricelist()">Close</button>
@@ -811,7 +811,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     <div class="modal-body" style="padding:14px 16px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <input id="pl_search" type="text" placeholder="Search (Customer, Article, Tier, Note, …)" style="flex:1;min-width:240px;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.88rem" oninput="renderPricelist()">
-        <button id="pl_addBtn" class="btn btn-sm btn-primary" onclick="addPricelistRow()">+ New Customer</button>
+        <button id="pl_addBtn" class="btn btn-sm btn-primary" onclick="openNewPricelistCustomer()">+ New Customer</button>
       </div>
       <div id="pl_filter_row" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center;font-size:0.8rem">
         <label style="display:flex;align-items:center;gap:5px;color:#475569;font-weight:600">Region<select id="pl_f_region" onchange="renderPricelist()" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.8rem"><option value="">All</option></select></label>
@@ -866,6 +866,54 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         </table>
         </div><!-- /#pl_scaler -->
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- «new-customer» Eigenes Eingabe-Fenster für neue Preislisten-Einträge (ein Save → kein Inline-Fokus-Sprung) -->
+<div class="modal-overlay" id="plNewModal" style="display:none;z-index:870" onclick="if(event.target===this)closeNewPricelistCustomer()">
+  <div class="modal-card" style="width:min(820px,96vw);max-height:94vh;overflow:auto">
+    <div class="modal-head">
+      <h2>New pricelist entry</h2>
+      <button class="btn btn-sm btn-secondary" onclick="closeNewPricelistCustomer()">Close</button>
+    </div>
+    <div class="modal-body" style="padding:16px 18px">
+      <p style="margin:0 0 14px;font-size:0.86rem;color:#475569">Fill in the entry and click <strong>Save entry</strong>. Nothing is written until you save.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 16px">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Customer <span style="color:#dc2626">*</span>
+          <input id="pln_customer" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Region
+          <input id="pln_region" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Type
+          <input id="pln_type" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Conversion
+          <select id="pln_conversion" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"><option value="No">No</option><option value="Yes">Yes</option></select></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Article Number
+          <input id="pln_articleNr" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #fdba74;border-radius:6px;font-size:0.9rem;font-family:inherit;background:#fffbeb"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Article Status
+          <select id="pln_articleStatus" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"><option value="aktiv">aktiv</option><option value="inaktiv">inaktiv</option></select></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Dia
+          <input id="pln_dia" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Shell
+          <input id="pln_shell" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Shell Supplier
+          <input id="pln_shellSupplier" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Tier
+          <input id="pln_tier" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Unit Price (€/1000 pcs.)
+          <input id="pln_unitPrice" type="text" inputmode="decimal" autocomplete="off" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit;text-align:right"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">CCY
+          <select id="pln_ccy" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"><option value="EUR">EUR</option><option value="USD">USD</option></select></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569;grid-column:1/-1">Payment Term
+          <textarea id="pln_paymentTerm" rows="2" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical"></textarea></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569;grid-column:1/-1">Note
+          <textarea id="pln_note" rows="2" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit;resize:vertical"></textarea></label>
+      </div>
+      <div id="pln_err" style="color:#b91c1c;font-size:0.82rem;margin-top:12px;min-height:1.1em"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeNewPricelistCustomer()">Cancel</button>
+      <button class="btn btn-primary" id="pln_saveBtn" onclick="saveNewPricelistCustomer()">Save entry</button>
     </div>
   </div>
 </div>
@@ -4031,7 +4079,8 @@ function _plFitScaler(){
     const natural=table.offsetWidth||1700;
     const avail=wrap.clientWidth;
     if(avail<=0) return;
-    const scale=Math.min(1, avail/natural);
+    // «dynamic» füllt die verfügbare Breite AUS — skaliert auch HOCH (Schrift wächst mit dem Fenster/Screen), Cap 2×.
+    const scale=Math.min(2.0, avail/natural);
     inner.style.transform='scale('+scale+')';
     inner.style.width=natural+'px';
     // Adjust wrapper height to scaled table height to avoid empty space at the bottom
@@ -4189,18 +4238,46 @@ async function _savePricelistField(inputEl){
         }
     },300);
 }
-async function addPricelistRow(){
-    if(!_apMayCommercial()) return;   // «2c» kaufm. Stufe (CFO)
+// «new-customer» Eigenes Eingabe-Fenster statt Inline-Zeile: EIN Save → der Live-Listener zeichnet die Tabelle
+// genau EINMAL neu → kein Fokus-Sprung mehr (der Inline-Ansatz verlor bei jedem Feld-Blur den Cursor, weil
+// jedes Auto-Save ein Firestore-Update und damit ein onSnapshot-Re-Render auslöste).
+function openNewPricelistCustomer(){
+    if(!_apMayCommercial()){ alert('No permission.'); return; }
+    ['pln_region','pln_customer','pln_type','pln_articleNr','pln_dia','pln_shell','pln_shellSupplier','pln_tier','pln_unitPrice','pln_paymentTerm','pln_note'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+    const cv=$('pln_conversion'); if(cv) cv.value='No';
+    const st=$('pln_articleStatus'); if(st) st.value='aktiv';
+    const ccy=$('pln_ccy'); if(ccy) ccy.value='EUR';
+    const err=$('pln_err'); if(err) err.textContent='';
+    $('plNewModal').style.display='flex';
+    setTimeout(()=>{ const c=$('pln_customer'); if(c) c.focus(); },60);
+}
+function closeNewPricelistCustomer(){ const m=$('plNewModal'); if(m) m.style.display='none'; }
+async function saveNewPricelistCustomer(){
+    if(!_apMayCommercial()){ alert('No permission.'); return; }
+    const g=id=>String(($(id)?.value)||'').trim();
+    const err=$('pln_err'); if(err){ err.textContent=''; err.style.color='#b91c1c'; }
+    const customer=g('pln_customer');
+    if(!customer){ if(err) err.textContent='Customer is required.'; $('pln_customer')?.focus(); return; }
+    let unitPrice=null;
+    const rawP=g('pln_unitPrice');
+    if(rawP){ const n=parseFloat(rawP.replace(/\s/g,'').replace(',','.')); if(!isFinite(n)){ if(err) err.textContent='Unit price must be a number (or left empty).'; $('pln_unitPrice')?.focus(); return; } unitPrice=n; }
+    const data={
+        region:g('pln_region'), customer, type:g('pln_type'), conversion:g('pln_conversion')||'No',
+        articleNr:g('pln_articleNr'), articleStatus:g('pln_articleStatus')||'aktiv', dia:g('pln_dia'),
+        shell:g('pln_shell'), shellSupplier:g('pln_shellSupplier'), tier:g('pln_tier'),
+        unitPrice, ccy:g('pln_ccy')||'EUR', paymentTerm:g('pln_paymentTerm'), note:g('pln_note')
+    };
+    const btn=$('pln_saveBtn'); if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
     try{
-        const blank={region:'',customer:'',type:'',conversion:'',articleNr:'',articleStatus:'aktiv',dia:'',shell:'',shellSupplier:'',tier:'',unitPrice:null,ccy:'EUR',paymentTerm:'',note:''};
-        const ref=await db.collection(PRICELIST_COL).add({...blank,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdByEmail:currentUserEmail});
-        pricelistRows.unshift({id:ref.id,...blank});
-        renderPricelist();
-        // Fokus auf erste Zelle der neuen Zeile
-        setTimeout(()=>{ const inp=$('pl_tbody').querySelector(`textarea[data-id="${ref.id}"][data-field="customer"]`); if(inp) inp.focus(); },50);
+        await db.collection(PRICELIST_COL).add({...data, createdAt:firebase.firestore.FieldValue.serverTimestamp(), createdByEmail:currentUserEmail});
+        // Live-Listener (onSnapshot) zeichnet die Tabelle mit der neuen Zeile EINMAL neu.
+        closeNewPricelistCustomer();
+        try{ $('pl_status').textContent='✓ New entry added: '+customer; }catch(_){}
     }catch(e){
-        console.error('addPricelistRow:',e);
-        alert('Error creating row: '+e.message);
+        console.error('saveNewPricelistCustomer:',e);
+        if(err) err.textContent='Error: '+(e&&e.message||e);
+    }finally{
+        if(btn){ btn.disabled=false; btn.textContent='Save entry'; }
     }
 }
 async function deletePricelistRow(id){
