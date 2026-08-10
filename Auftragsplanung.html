@@ -1368,7 +1368,7 @@ if(!(_apIsAnyApprover() || currentUserRole==='admin' || currentUserRole==='manag
     if(_pendingUnsub){ try{ _pendingUnsub(); }catch(_){} _pendingUnsub=null; }
     if(_myRejectedUnsub){ try{ _myRejectedUnsub(); }catch(_){} _myRejectedUnsub=null; }
     if(_apSalesListsUnsub){ try{ _apSalesListsUnsub(); }catch(_){} _apSalesListsUnsub=null; }
-    if(currentCanApprove){
+    if(_apIsAnyApprover()){   // «2c/3b» jeder Stufen-Approver (auch Einzel-Flag CFO/CEO), nicht nur God-Mode canApprove
         if(pendBtn) pendBtn.style.display='';
         startPendingBadgeListener();
         const myRejBtn=$('myRejectedTopBtn'); if(myRejBtn) myRejBtn.style.display='none';
@@ -1389,7 +1389,7 @@ if(!(_apIsAnyApprover() || currentUserRole==='admin' || currentUserRole==='manag
     if(plBtn) plBtn.style.display = _apIsRestrictedViewer(currentUserEmail) ? 'none' : '';
     // Protocol visible only for approvers/admin
     const protoBtn=$('protocolBtn');
-    if(protoBtn) protoBtn.style.display = currentCanApprove ? '' : 'none';
+    if(protoBtn) protoBtn.style.display = _apIsAnyApprover() ? '' : 'none';   // «2c/3b» Approver sehen Audit (Rules: canApprove||canCommercial||canProduction)
     // TEST-Bereinigung: nur Approver/Admin (canApprove) — nur die dürfen laut Rules fremde/freigegebene Einträge löschen
     const delAllBtn=$('deleteAllTestBtn');
     if(delAllBtn) delAllBtn.style.display = currentCanApprove ? '' : 'none';
@@ -2395,7 +2395,7 @@ function renderGrid(){
         td.addEventListener('click',()=>{
             const pendId=td.dataset.pendingId;
             if(pendId){
-                if(currentCanApprove){ openPendingForReview(pendId, currentTab); return; }
+                if(_apIsAnyApprover()){ openPendingForReview(pendId, currentTab); return; }   // «2c/3b» Einzel-Flag-Approver dürfen reviewen
                 // Manager: own request → edit/withdraw; others' → notice only.
                 // Locate the matching pending slot (multi-slot days may have multiple pendings on same iso).
                 const iso=td.dataset.iso;
@@ -3196,7 +3196,7 @@ function startPendingBadgeListener(){
         const topBtn=$('pendingTopBtn');
         const topCount=$('pendingTopCount');
         if(topBtn){
-            if(currentCanApprove && total>0){
+            if(_apIsAnyApprover() && total>0){   // «2c/3b» Einzel-Flag-Approver sehen die offene Queue
                 topBtn.style.display='';
                 if(topCount) topCount.textContent=String(total);
             } else {
@@ -3228,7 +3228,7 @@ function startMyRejectedListener(){
         const btn=$('myRejectedTopBtn');
         const cnt=$('myRejectedTopCount');
         if(btn){
-            if(!currentCanApprove && total>0){
+            if(!_apIsAnyApprover() && total>0){   // «2c/3b» Nicht-Approver (Manager/Sales) sehen ihre eigenen abgelehnten Anträge
                 btn.style.display='';
                 if(cnt) cnt.textContent=String(total);
             } else {
@@ -3739,7 +3739,7 @@ async function renderPendingList(targetId){
 }
 
 async function openPendingModal(){
-    if(!currentCanApprove){ alert('No permission.'); return; }
+    if(!_apIsAnyApprover()){ alert('No permission.'); return; }   // «2c/3b» Einzel-Flag-Approver dürfen die Freigabe-Liste öffnen
     $('pendingModal').style.display='flex';
     // Load pricelist in the background for price lookup
     if(!pricelistRows.length){ try{ await loadPricelist(); }catch(_){} }
