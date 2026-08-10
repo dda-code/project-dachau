@@ -1499,7 +1499,7 @@ if(!(_apIsAnyApprover() || currentUserRole==='admin' || currentUserRole==='manag
     // finalisiert" hängen (z.B. Absturz zwischen Lease-Claim und Effekten). Nur Approver (Finalizer-Recht); fire-and-forget.
     if(_apIsAnyApprover() && !_apSalesMode){
         try{ _apFinalizeSweep('assembly').catch(()=>{}); }catch(_){}
-        if(currentCanProduction){ try{ _apFinalizeSweep('frame').catch(()=>{}); }catch(_){} }   // «2b-2b» Frame-Sweep nur mit Frame-Leserecht (rev33 Frame-read=canProduction)
+        if(_apMayProduction()){ try{ _apFinalizeSweep('frame').catch(()=>{}); }catch(_){} }   // «2b-2b/rev34» Frame-Sweep für Produktions-Approver + Deputy (rev34 Frame-read=mayDoProduction; unter rev33 fängt der Sweep-try/catch den Deputy-Deny harmlos ab)
     }
     document.getElementById('loginView').style.display='none';
     document.getElementById('appView').style.display='block';
