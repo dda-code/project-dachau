@@ -310,12 +310,12 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <button class="btn btn-sm btn-secondary" id="todayBtn" onclick="gotoToday()">Today</button>
         <button class="btn btn-sm btn-primary" id="newOrderBtn" onclick="openOrderModal()">New Order</button>
         <button class="btn btn-sm btn-secondary" id="ordersOverviewBtn" onclick="openOrdersOverview()">Orders Overview</button>
-        <button class="btn btn-sm btn-secondary" id="orderSequenceBtn" onclick="openOrderSequence()" style="display:none" title="Produktions-Reihenfolge festlegen">Order Sequence</button>
+        <button class="btn btn-sm btn-secondary" id="orderSequenceBtn" onclick="openOrderSequence()" style="display:none" title="Set production sequence">Order Sequence</button>
         <button class="btn btn-sm btn-secondary" id="shiftPlannerBtn" onclick="openShiftPlanner()" style="display:none">Shift &amp; KPI Planning</button>
         <button class="btn btn-sm btn-secondary" id="pricelistBtn" onclick="openPricelist()" style="display:none">Pricelist</button>
         <button class="btn btn-sm btn-secondary" id="protocolBtn" onclick="openProtocol()" style="display:none">Protocol</button>
         <button class="btn btn-sm btn-secondary" id="absenceBtn" onclick="openAbsenceModal()" style="display:none" title="Set an absence window so your counterpart can approve in your place">🗓 Absence</button>
-        <button class="btn btn-sm" id="deleteAllTestBtn" onclick="deleteAllTestOrders()" style="display:none;background:#dc2626;color:#fff;border-color:#b91c1c" title="TEST: alle Auftrags-Anfragen (Assembly + Frame, alle Status) löschen">🗑 Test: Alle löschen</button>
+        <button class="btn btn-sm" id="deleteAllTestBtn" onclick="deleteAllTestOrders()" style="display:none;background:#dc2626;color:#fff;border-color:#b91c1c" title="TEST: delete all order requests (Assembly + Frame, all statuses)">🗑 Test: Delete all</button>
         <button class="btn btn-sm btn-warning" id="pendingTopBtn" onclick="openPendingModal()" style="display:none" title="Open approval requests">🔔 Open Requests <span id="pendingTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <button class="btn btn-sm" id="myRejectedTopBtn" onclick="openMyRejectedModal()" style="display:none;background:#f97316;color:#fff;border-color:#ea580c" title="Your rejected requests">⚠ Rejected <span id="myRejectedTopCount" style="background:rgba(255,255,255,0.25);border-radius:10px;padding:1px 7px;margin-left:4px;font-weight:700">0</span></button>
         <span id="userEmail" style="font-size:0.85rem;color:#475569"></span>
@@ -709,16 +709,16 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
     <div class="modal-body" style="overflow:visible">
       <div style="font-size:0.85rem;color:#475569;margin-bottom:10px;max-width:840px">Set the order via drag &amp; drop (<strong>1 = produced first</strong>). When moving an item, enter a new start date — the plan is recalculated around it (shifts, holidays, changeover times). Only "Apply" writes to the calendar.</div>
       <div id="seqAnchorBar" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:12px">
-        <span style="font-weight:600;color:#1e40af">Verschoben: <span id="seqAnchorLbl">–</span></span>
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;flex-direction:row">Neuer Starttermin<span style="color:#dc2626;font-weight:700"> *</span><input type="date" id="seqAnchorDate" class="ef" style="width:auto"></label>
-        <button class="btn btn-sm btn-primary" onclick="seqPreview()">Vorschau aktualisieren</button>
+        <span style="font-weight:600;color:#1e40af">Moved: <span id="seqAnchorLbl">–</span></span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;flex-direction:row">New start date<span style="color:#dc2626;font-weight:700"> *</span><input type="date" id="seqAnchorDate" class="ef" style="width:auto"></label>
+        <button class="btn btn-sm btn-primary" onclick="seqPreview()">Refresh preview</button>
       </div>
       <div id="seqWarn" style="display:none;background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.85rem"></div>
       <div id="orderSequenceList"><div class="orders-empty">Loading orders…</div></div>
     </div>
     <div class="modal-foot">
-      <button class="btn btn-secondary" onclick="closeOrderSequence()">Abbrechen</button>
-      <button class="btn btn-primary" id="seqApplyBtn" onclick="seqApply()" disabled>Anwenden</button>
+      <button class="btn btn-secondary" onclick="closeOrderSequence()">Cancel</button>
+      <button class="btn btn-primary" id="seqApplyBtn" onclick="seqApply()" disabled>Apply</button>
     </div>
   </div>
 </div>
@@ -891,7 +891,7 @@ tr.transfer-row-redo:hover td{background:#fef3c7}
         <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Article Number
           <input id="pln_articleNr" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #fdba74;border-radius:6px;font-size:0.9rem;font-family:inherit;background:#fffbeb"></label>
         <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Article Status
-          <select id="pln_articleStatus" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"><option value="aktiv">aktiv</option><option value="inaktiv">inaktiv</option></select></label>
+          <select id="pln_articleStatus" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"><option value="active">active</option><option value="inactive">inactive</option></select></label>
         <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Dia
           <input id="pln_dia" type="text" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.9rem;font-family:inherit"></label>
         <label style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;font-weight:600;color:#475569">Shell
@@ -971,7 +971,7 @@ const _PFX_EXCLUDE=new Set(['users']);
 // v2SetRole entfernt — Live-Betrieb mit echten Rollen aus /users/{uid}.
 try{ localStorage.removeItem('V2_OVERRIDE_ROLE'); localStorage.removeItem('V2_OVERRIDE_CAN_APPROVE'); }catch(_){}
 if(COL_PREFIX){
-    console.log('%c[V2-SANDBOX] Collection-Prefix aktiv: '+COL_PREFIX+'*  — KEINE Live-Daten!','background:#16a34a;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;font-size:13px');
+    console.log('%c[V2-SANDBOX] Collection prefix active: '+COL_PREFIX+'*  — NO live data!','background:#16a34a;color:#fff;padding:3px 8px;border-radius:4px;font-weight:700;font-size:13px');
     document.addEventListener('DOMContentLoaded',function(){
         const b=document.createElement('div');
         b.textContent='V2 SANDBOX — Prefix '+COL_PREFIX+'  (no live data)';
@@ -985,7 +985,7 @@ if(_USE_EMULATOR){
     try{
         auth.useEmulator('http://127.0.0.1:9099',{disableWarnings:true});
         db.useEmulator('127.0.0.1',8080);
-        console.log('%c[EMULATOR] Auth+Firestore lokal — keine Cloud-Calls','background:#f97316;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700');
+        console.log('%c[EMULATOR] Auth+Firestore local — no cloud calls','background:#f97316;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700');
     }catch(e){console.warn('Emulator connect failed:',e);}
 }
 
@@ -1141,14 +1141,14 @@ function _apProdStatusClass(s){s=String(s||'').toLowerCase().trim();if(s==='done
 function _lvDivergence(prodId){
     if(!prodId || !_lvProdLoaded) return null;
     const lv=_lvProdById[prodId];
-    if(!lv) return {type:'del', label:'In Produktion gelöscht', sig:'del'};
+    if(!lv) return {type:'del', label:'Deleted in production', sig:'del'};
     const r=[];
-    if(lv.snapPal!=null && lv.pal!==lv.snapPal) r.push('Paletten '+lv.snapPal+'→'+lv.pal);
-    if(lv.snapMenge!=null && lv.menge!==lv.snapMenge) r.push('Menge '+lv.snapMenge+'→'+lv.menge);
-    if(lv.statusClass==='cancelled') r.push('Storniert/Verschoben');
-    else if(lv.statusClass==='stopped') r.push('Gestoppt');
+    if(lv.snapPal!=null && lv.pal!==lv.snapPal) r.push('Pallets '+lv.snapPal+'→'+lv.pal);
+    if(lv.snapMenge!=null && lv.menge!==lv.snapMenge) r.push('Qty '+lv.snapMenge+'→'+lv.menge);
+    if(lv.statusClass==='cancelled') r.push('Cancelled/postponed');
+    else if(lv.statusClass==='stopped') r.push('Stopped');
     if(!r.length) return null;
-    return {type:'chg', label:'In Produktion geändert: '+r.join(', '), sig:'chg:'+r.join('|')};
+    return {type:'chg', label:'Changed in production: '+r.join(', '), sig:'chg:'+r.join('|')};
 }
 // "Quittieren" — Bestätigung pro Produktionsplan-Doc-ID; gleiche Signatur ⇒ Marker bleibt aus,
 // eine NEUE Abweichung erzeugt eine neue Signatur ⇒ Marker erscheint erneut.
@@ -1156,7 +1156,7 @@ async function ackLvChange(prodId,sig){
     if(!prodId) return;
     if(!confirm('Acknowledge the change/deletion by production and remove the marker?')) return;
     try{ await db.collection('lv_change_ack').doc(prodId).set({sig:sig||'',ackAt:firebase.firestore.FieldValue.serverTimestamp(),ackBy:currentUid||''},{merge:true}); }
-    catch(e){ alert('Quittieren fehlgeschlagen: '+(e&&e.message?e.message:e)); }
+    catch(e){ alert('Acknowledge failed: '+(e&&e.message?e.message:e)); }
 }
 let _gridReloadTimer=null;
 function _scheduleGridReload(){
@@ -1225,7 +1225,7 @@ function _uidLabel(uid){
 let currentYear, currentWeek, currentMonth;
 let currentAnchor=null; // Montag der ersten angezeigten Woche
 let previewAnchor=null;  // Montag der ersten Zeile im Order-Preview-Kalender (per Pfeiltasten navigierbar)
-const MONTH_NAMES_DE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
 function mondayOf(date){
     const d=new Date(date.getFullYear(),date.getMonth(),date.getDate());
     const dow=d.getDay()||7;
@@ -1269,17 +1269,17 @@ function _addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r;
 function getHolidaysBremen(year){
     if(_holidayCache[year]) return _holidayCache[year];
     const map={};
-    map[`${year}-01-01`]='Neujahr';
-    map[`${year}-05-01`]='Tag der Arbeit';
-    map[`${year}-10-03`]='Tag der Deutschen Einheit';
-    map[`${year}-10-31`]='Reformationstag';
-    map[`${year}-12-25`]='1. Weihnachtstag';
-    map[`${year}-12-26`]='2. Weihnachtstag';
+    map[`${year}-01-01`]='New Year’s Day';
+    map[`${year}-05-01`]='Labour Day';
+    map[`${year}-10-03`]='German Unity Day';
+    map[`${year}-10-31`]='Reformation Day';
+    map[`${year}-12-25`]='Christmas Day';
+    map[`${year}-12-26`]='Boxing Day';
     const es=_easterSunday(year);
-    map[_isoFromDate(_addDays(es,-2))]='Karfreitag';
-    map[_isoFromDate(_addDays(es, 1))]='Ostermontag';
-    map[_isoFromDate(_addDays(es,39))]='Christi Himmelfahrt';
-    map[_isoFromDate(_addDays(es,50))]='Pfingstmontag';
+    map[_isoFromDate(_addDays(es,-2))]='Good Friday';
+    map[_isoFromDate(_addDays(es, 1))]='Easter Monday';
+    map[_isoFromDate(_addDays(es,39))]='Ascension Day';
+    map[_isoFromDate(_addDays(es,50))]='Whit Monday';
     _holidayCache[year]=map;
     return map;
 }
@@ -1355,7 +1355,7 @@ async function loadPalletAndSleeve(){
     try{
         const snap=await db.collection('artikelstamm_ta0006').where('_cat','==','xoend').get();
         ingest(snap.docs.map(d=>d.data()));
-    }catch(e){ console.warn('Pallet/Sleeve aus Firestore (xoend) fehlgeschlagen:',e); }
+    }catch(e){ console.warn('Pallet/Sleeve from Firestore (xoend) failed:',e); }
     if(!Object.keys(PALLET_BY_ARTNR).length || !Object.keys(SLEEVE_BY_ARTNR).length){
         try{
             const res=await fetch('artikelliste_all.json',{cache:'no-store'});
@@ -1389,7 +1389,7 @@ const TAB_CONFIG={
     frame:   { salesCol:'sales_plan_frame', prodCol:'produktionsplan_spritzguss', title:'Injection Frame' }
 };
 
-const DAY_LABELS=['Mo','Di','Mi','Do','Fr','Sa','So'];
+const DAY_LABELS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
 // ---------- Schema ----------
 // Gruppen: group -> sub -> fields[]
@@ -2213,7 +2213,7 @@ function renderGrid(){
         }catch{ return ''; }
     }
     let html='<table class="sales-grid"><thead><tr>';
-    html+='<th style="width:28px"></th><th class="lbl-sub">&nbsp;</th><th class="lbl-field">Feld</th>';
+    html+='<th style="width:28px"></th><th class="lbl-sub">&nbsp;</th><th class="lbl-field">Field</th>';
     dates.forEach((d,i)=>{
         const iso=toIsoDate(d);
         const dow=d.getDay();
@@ -2268,8 +2268,8 @@ function renderGrid(){
                             if(_div && !_acked){
                                 // Rot: in der Lagerverwaltung gelöscht/geändert (klicken zum Quittieren)
                                 const _icon=_div.type==='del'?'✗':'⚠';
-                                const _word=_div.type==='del'?'gelöscht':'geändert';
-                                const _t='Lagerverwaltung: '+_div.label+' — klicken zum Quittieren';
+                                const _word=_div.type==='del'?'deleted':'changed';
+                                const _t='Warehouse: '+_div.label+' — click to acknowledge';
                                 const _pa=String(_pid).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
                                 const _sa=String(_div.sig).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
                                 badge=`<span class="lv-change-badge" title="${escHtml(_t)}" onclick="ackLvChange('${_pa}','${_sa}')">${_icon} ${_word}</span>`;
@@ -2688,7 +2688,7 @@ function renderGrid(){
 function setDirty(d){
     dirty=d;
     const el=$('dirtyFlag'); if(!el) return;
-    if(d){ el.textContent='Speichere…'; el.classList.remove('clean'); }
+    if(d){ el.textContent='Saving…'; el.classList.remove('clean'); }
     else { el.textContent='All changes saved'; el.classList.add('clean'); }
 }
 function flashSaved(){
@@ -3712,7 +3712,7 @@ function _apSalesCard(it, mode){
 // Nur Approver/Admin (canApprove) — Firestore-Rules erlauben nur diesen das Löschen fremder/freigegebener
 // Einträge. Das Audit-Protokoll (approval_protocol) ist unveränderlich und bleibt erhalten.
 async function deleteAllTestOrders(){
-    if(!currentCanApprove){ alert('Nur Approver/Admin dürfen alle Einträge löschen.'); return; }
+    if(!currentCanApprove){ alert('Only approvers/admins may delete all entries.'); return; }
     const tabs=Object.keys(TAB_CONFIG);
     const refs=[];
     try{
@@ -3720,16 +3720,16 @@ async function deleteAllTestOrders(){
             const snap=await db.collection(_pendingColForTab(t)).get();
             snap.forEach(d=>refs.push(d.ref));
         }
-    }catch(e){ alert('Laden fehlgeschlagen: '+e.message); return; }
-    if(!refs.length){ alert('Keine Auftrags-Anfragen vorhanden.'); return; }
-    if(!confirm('TEST-Bereinigung:\n\nWirklich ALLE '+refs.length+' Auftrags-Anfragen (Assembly + Frame, inkl. approved/rejected) unwiderruflich löschen?\n\nDas Audit-Protokoll bleibt erhalten.')) return;
-    if(!confirm('Sicher? Diese Aktion kann NICHT rückgängig gemacht werden.')) return;
+    }catch(e){ alert('Loading failed: '+e.message); return; }
+    if(!refs.length){ alert('No order requests present.'); return; }
+    if(!confirm('TEST cleanup:\n\nReally delete ALL '+refs.length+' order requests (Assembly + Frame, incl. approved/rejected) irreversibly?\n\nThe audit log is kept.')) return;
+    if(!confirm('Are you sure? This action CANNOT be undone.')) return;
     let ok=0, fail=0;
     let batch=db.batch(), n=0;
     const commit=async()=>{ if(n===0) return; try{ await batch.commit(); ok+=n; }catch(e){ fail+=n; console.warn('Batch-Delete fehlgeschlagen:',e); } batch=db.batch(); n=0; };
     for(const ref of refs){ batch.delete(ref); if(++n>=400) await commit(); }
     await commit();
-    alert('Fertig: '+ok+' gelöscht'+(fail?(' · '+fail+' fehlgeschlagen (evtl. fehlende Rechte)'):'')+'.');
+    alert('Done: '+ok+' deleted'+(fail?(' · '+fail+' failed (possibly missing permissions)'):'')+'.');
     try{ if(typeof renderPendingList==='function') renderPendingList('pendingModalBody'); }catch(_){}
     try{ if(typeof loadWeek==='function') await loadWeek(); }catch(_){}
 }
@@ -3805,7 +3805,7 @@ async function renderPendingList(targetId){
                 const snap=await db.collection(_pendingColForTab(t))
                     .where('status','==','pending').get();
                 snap.forEach(d=>all.push({id:d.id, tab:t, ...d.data()}));
-            }catch(e){ console.warn('pending list: Tab',t,'nicht lesbar (übersprungen):',e.message); }
+            }catch(e){ console.warn('pending list: Tab',t,'not readable (skipped):',e.message); }
         }
         all.sort((a,b)=>{
             const ta=a.requestedAt&&a.requestedAt.toMillis?a.requestedAt.toMillis():0;
@@ -4006,32 +4006,32 @@ async function populateCustomerDropdown(){
 const PRICELIST_COL='customer_price_terms';
 // Seed data from Customer_Article_Price.xlsx (as of 2026-04-28, 26 entries)
 const _PRICELIST_SEED=[
-    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1042",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
-    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1039",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
-    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-3027",articleStatus:"aktiv",dia:202,shell:"202 CDL+",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
-    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-3028",articleStatus:"aktiv",dia:202,shell:"202 CDL+",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
-    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7018",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
-    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7019",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
-    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7023",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
-    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2048",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2047",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
-    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-1037",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
-    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-1039",articleStatus:"aktiv",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
-    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2045",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
-    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
-    {region:"North America",customer:"ABI",type:"Brand",conversion:"No",articleNr:"XO-206-7020",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"Ball Mexico S de RL de CL",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"Yes",articleNr:"XO-202-2042",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ball EU",tier:"Tier 1",unitPrice:78.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"Yes",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:78.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7016",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7021",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7022",articleStatus:"aktiv",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"HCC Canning",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"HCC Canning",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"Refresco",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inaktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
-    {region:"EU/Others",customer:"Refresco",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"aktiv",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"}
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1042",articleStatus:"active",dia:202,shell:"202 B64",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-1039",articleStatus:"active",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-3027",articleStatus:"active",dia:202,shell:"202 CDL+",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-202-3028",articleStatus:"active",dia:202,shell:"202 CDL+",shellSupplier:"Ardagh US",tier:"Tier 4",unitPrice:97.00,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7018",articleStatus:"active",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7019",articleStatus:"active",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"North America",customer:"Gamer",type:"Distributor",conversion:"No",articleNr:"XO-206-7023",articleStatus:"active",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 4",unitPrice:116.50,ccy:"EUR",paymentTerm:"60% prepay / 40% after delivery",note:"USD Payment @1.16x"},
+    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inactive",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"active",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Monster",type:"Brand",conversion:"No",articleNr:"XO-202-2048",articleStatus:"inactive",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:89.77,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2047",articleStatus:"active",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-1037",articleStatus:"active",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-1039",articleStatus:"active",dia:202,shell:"202 B64",shellSupplier:"JN Pack",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2045",articleStatus:"inactive",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"Asia",customer:"Egnis",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"active",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Contracted",unitPrice:64.00,ccy:"EUR",paymentTerm:"100% Prepay",note:""},
+    {region:"North America",customer:"ABI",type:"Brand",conversion:"No",articleNr:"XO-206-7020",articleStatus:"active",dia:206,shell:"206 CDLw",shellSupplier:"Ball Mexico S de RL de CL",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"Yes",articleNr:"XO-202-2042",articleStatus:"active",dia:202,shell:"202 CDLe",shellSupplier:"Ball EU",tier:"Tier 1",unitPrice:78.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"Yes",articleNr:"XO-202-2044",articleStatus:"inactive",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:78.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Canowater",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"active",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7016",articleStatus:"active",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7021",articleStatus:"active",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"North America",customer:"Gallo",type:"Brand",conversion:"No",articleNr:"XO-206-7022",articleStatus:"active",dia:206,shell:"206 CDLw",shellSupplier:"CANPACK",tier:"Tier 1",unitPrice:126.50,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"HCC Canning",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"active",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"HCC Canning",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inactive",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Refresco",type:"Brand",conversion:"No",articleNr:"XO-202-2044",articleStatus:"inactive",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"},
+    {region:"EU/Others",customer:"Refresco",type:"Brand",conversion:"No",articleNr:"XO-202-2046",articleStatus:"active",dia:202,shell:"202 CDLe",shellSupplier:"Ardagh EU",tier:"Tier 1",unitPrice:97.00,ccy:"EUR",paymentTerm:"100% after delivery",note:"Subject to Rebate"}
 ];
 async function importPricelistFromXlsx(){
     if(!_apMayCommercial()){ alert('Pricelist import is only allowed for the commercial approver (CFO)/Admin.'); return; }   // «2c» kaufm. Stufe
@@ -4245,7 +4245,7 @@ function openNewPricelistCustomer(){
     if(!_apMayCommercial()){ alert('No permission.'); return; }
     ['pln_region','pln_customer','pln_type','pln_articleNr','pln_dia','pln_shell','pln_shellSupplier','pln_tier','pln_unitPrice','pln_paymentTerm','pln_note'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
     const cv=$('pln_conversion'); if(cv) cv.value='No';
-    const st=$('pln_articleStatus'); if(st) st.value='aktiv';
+    const st=$('pln_articleStatus'); if(st) st.value='active';
     const ccy=$('pln_ccy'); if(ccy) ccy.value='EUR';
     const err=$('pln_err'); if(err) err.textContent='';
     $('plNewModal').style.display='flex';
@@ -4263,7 +4263,7 @@ async function saveNewPricelistCustomer(){
     if(rawP){ const n=parseFloat(rawP.replace(/\s/g,'').replace(',','.')); if(!isFinite(n)){ if(err) err.textContent='Unit price must be a number (or left empty).'; $('pln_unitPrice')?.focus(); return; } unitPrice=n; }
     const data={
         region:g('pln_region'), customer, type:g('pln_type'), conversion:g('pln_conversion')||'No',
-        articleNr:g('pln_articleNr'), articleStatus:g('pln_articleStatus')||'aktiv', dia:g('pln_dia'),
+        articleNr:g('pln_articleNr'), articleStatus:g('pln_articleStatus')||'active', dia:g('pln_dia'),
         shell:g('pln_shell'), shellSupplier:g('pln_shellSupplier'), tier:g('pln_tier'),
         unitPrice, ccy:g('pln_ccy')||'EUR', paymentTerm:g('pln_paymentTerm'), note:g('pln_note')
     };
@@ -4547,15 +4547,15 @@ async function _apModalReject(stage){
 // ============================================================================
 async function approveCommercial(id, tab, price, fields){
     // price = {value, ccy}; fields = {header:{…}} = Korrekturen an den ORANGEN (kaufm.) Feldern. Setzt NUR die kaufm. Stufe. KEIN Roll-out.
-    if(!_apMayCommercial()){ alert('Keine Berechtigung (kaufmännisch).'); return false; }
+    if(!_apMayCommercial()){ alert('No permission (commercial).'); return false; }
     const ref=db.collection(_pendingColForTab(tab)).doc(id);
     const snap=await ref.get();
-    if(!snap.exists){ alert('Anfrage existiert nicht mehr.'); return false; }
+    if(!snap.exists){ alert('Request no longer exists.'); return false; }
     const d=snap.data();
-    if((d.commercial&&d.commercial.status)==='approved'){ alert('Kaufmännisch bereits freigegeben.'); return false; }
-    if(_apDerivedStatus(d,tab)==='rejected' || _apDerivedStatus(d,tab)==='deleted'){ alert('Anfrage ist abgelehnt/gelöscht.'); return false; }
+    if((d.commercial&&d.commercial.status)==='approved'){ alert('Commercial already released.'); return false; }
+    if(_apDerivedStatus(d,tab)==='rejected' || _apDerivedStatus(d,tab)==='deleted'){ alert('Request is rejected/deleted.'); return false; }
     const num=parseFloat(String((price&&price.value!=null)?price.value:'').replace(/[.\s]/g,'').replace(',','.'));
-    if(!isFinite(num)||num<=0){ alert('Bitte gültigen Preis €/1000 St. eingeben.'); return false; }
+    if(!isFinite(num)||num<=0){ alert('Please enter a valid price in €/1000 pcs.'); return false; }
     const ccy=(price&&price.ccy)||'EUR';
     const ts=firebase.firestore.FieldValue.serverTimestamp();
     const commercialData={status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts, price:{value:num, ccy}};
@@ -4565,23 +4565,23 @@ async function approveCommercial(id, tab, price, fields){
             commercial:commercialData,
             status:'pending'   // Stage-Write setzt NIE 'approved' (nur der Finalizer)
         });
-    }catch(e){ console.error('approveCommercial:',e); alert('Fehler: '+e.message); return false; }
-    try{ await _logProtocol('commercial_approved', id, tab, {payload:d.payload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, `Preis ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000`); }catch(e){ console.warn('protocol:',e); }
+    }catch(e){ console.error('approveCommercial:',e); alert('Error: '+e.message); return false; }
+    try{ await _logProtocol('commercial_approved', id, tab, {payload:d.payload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, `Price ${num.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} ${ccy}/1000`); }catch(e){ console.warn('protocol:',e); }
     await finalizeIfFullyApproved(id, tab);
     return true;
 }
 async function approveProduction(id, tab, fields){
     // fields = {header:{…}, gridData, perDayShifts} = Korrekturen an den BLAUEN (Produktions-)Feldern inkl. Terminplan. Setzt NUR die Produktionsstufe.
-    if(!_apMayProduction()){ alert('Keine Berechtigung (Produktion).'); return false; }
+    if(!_apMayProduction()){ alert('No permission (production).'); return false; }
     const ref=db.collection(_pendingColForTab(tab)).doc(id);
     const snap=await ref.get();
-    if(!snap.exists){ alert('Anfrage existiert nicht mehr.'); return false; }
+    if(!snap.exists){ alert('Request no longer exists.'); return false; }
     const d=snap.data();
-    if((d.production&&d.production.status)==='approved'){ alert('Produktion bereits freigegeben.'); return false; }
-    if(_apDerivedStatus(d,tab)==='rejected' || _apDerivedStatus(d,tab)==='deleted'){ alert('Anfrage ist abgelehnt/gelöscht.'); return false; }
+    if((d.production&&d.production.status)==='approved'){ alert('Production already released.'); return false; }
+    if(_apDerivedStatus(d,tab)==='rejected' || _apDerivedStatus(d,tab)==='deleted'){ alert('Request is rejected/deleted.'); return false; }
     // Terminplan: aus den Produktions-fields (CEO hat im Review terminiert) ODER dem Doc (Manager-Planer hat vor-terminiert).
     const gridData=(fields&&fields.gridData&&Object.keys(fields.gridData).length)?fields.gridData:((d.payload&&d.payload.gridData)||{});
-    if(tab!=='frame' && Object.keys(gridData).length===0){ alert('Terminplan fehlt – bitte terminieren (Start + Dauer).'); return false; }
+    if(tab!=='frame' && Object.keys(gridData).length===0){ alert('No schedule yet — please schedule it (start + duration).'); return false; }
     const ts=firebase.firestore.FieldValue.serverTimestamp();
     const productionData={status:'approved', by:currentUid, byEmail:currentUserEmail, at:ts};
     if(fields) productionData.fields=fields;   // «2-stage» Produktions-Korrekturen inkl. gridData (Teil der production-Map → rules-konform)
@@ -4590,7 +4590,7 @@ async function approveProduction(id, tab, fields){
             production:productionData,
             status:'pending'
         });
-    }catch(e){ console.error('approveProduction:',e); alert('Fehler: '+e.message); return false; }
+    }catch(e){ console.error('approveProduction:',e); alert('Error: '+e.message); return false; }
     try{ await _logProtocol('production_approved', id, tab, {payload:d.payload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, ''); }catch(e){ console.warn('protocol:',e); }
     await finalizeIfFullyApproved(id, tab);
     return true;
@@ -4627,7 +4627,7 @@ async function finalizeIfFullyApproved(id, tab){
         try{
             const tMsg=await _frameRollout(framePayload);
             try{ generateOrderPdf(framePayload,'approved',{ id, approvedByEmail:currentUserEmail, approvedAt:new Date().toISOString(), requestedByEmail:d.requestedByEmail||'', requestedAt:d.requestedAt||null }); }catch(e){ console.warn('pdf:',e); }
-            try{ await _logProtocol('rolled_out', id, tab, {payload:framePayload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, 'Roll-out nach Produktionsfreigabe'+(tMsg?(' · '+tMsg):'')); }catch(e){ console.warn('protocol:',e); }
+            try{ await _logProtocol('rolled_out', id, tab, {payload:framePayload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, 'Roll-out after production release'+(tMsg?(' · '+tMsg):'')); }catch(e){ console.warn('protocol:',e); }
             await ref.update({ status:'approved', finalizedAt:firebase.firestore.FieldValue.serverTimestamp(), approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp() });
         }catch(e){ console.error('frame finalize effects:',e); return false; }   // Lease läuft nach 60s ab → Sweep heilt.
         try{ await loadWeek(); }catch(_){}
@@ -4661,7 +4661,7 @@ async function finalizeIfFullyApproved(id, tab){
         // (c) Freigabe-PDF
         try{ generateOrderPdf(finalPayload,'approved',{ id, approvedByEmail:currentUserEmail, approvedAt:new Date().toISOString(), requestedByEmail:d.requestedByEmail||'', requestedAt:d.requestedAt||null }); }catch(e){ console.warn('pdf:',e); }
         // (d) Protokoll
-        try{ await _logProtocol('rolled_out', id, tab, {payload:finalPayload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, 'Roll-out nach beiden Freigaben'); }catch(e){ console.warn('protocol:',e); }
+        try{ await _logProtocol('rolled_out', id, tab, {payload:finalPayload, requestedBy:d.requestedBy, requestedByEmail:d.requestedByEmail, requestedAt:d.requestedAt}, 'Roll-out after both releases'); }catch(e){ console.warn('protocol:',e); }
         // (e) Abschluss
         await ref.update({ status:'approved', finalizedAt:firebase.firestore.FieldValue.serverTimestamp(), approvedBy:currentUid, approvedByEmail:currentUserEmail, approvedAt:firebase.firestore.FieldValue.serverTimestamp() });
     }catch(e){
@@ -4672,9 +4672,9 @@ async function finalizeIfFullyApproved(id, tab){
     return true;
 }
 async function _apRejectStage(id, tab, stage, comment){
-    if(!(stage==='commercial'?_apMayCommercial():_apMayProduction())){ alert('Keine Berechtigung.'); return false; }
+    if(!(stage==='commercial'?_apMayCommercial():_apMayProduction())){ alert('No permission.'); return false; }
     const ref=db.collection(_pendingColForTab(tab)).doc(id);
-    const snap=await ref.get(); if(!snap.exists){ alert('Anfrage existiert nicht mehr.'); return false; }
+    const snap=await ref.get(); if(!snap.exists){ alert('Request no longer exists.'); return false; }
     const pendDoc=snap.data();
     const ts=firebase.firestore.FieldValue.serverTimestamp();
     try{
@@ -4683,7 +4683,7 @@ async function _apRejectStage(id, tab, stage, comment){
             rejectedStage:stage, rejectedBy:currentUid, rejectedByEmail:currentUserEmail, rejectedAt:ts, rejectComment:comment||'',
             status:'rejected'
         });
-    }catch(e){ console.error('_apRejectStage:',e); alert('Fehler: '+e.message); return false; }
+    }catch(e){ console.error('_apRejectStage:',e); alert('Error: '+e.message); return false; }
     try{ await _logProtocol('rejected', id, tab, pendDoc, comment||''); }catch(_){}
     return true;
 }
@@ -4707,7 +4707,7 @@ function _apStageChips(it){
     const c=_apStageStatus(it,'commercial');   // «legacy» Alt-Auftrag ohne Maps → aus altem status abgeleitet
     const p=_apStageStatus(it,'production');
     const chip=(lbl,st)=>{ const col=st==='approved'?'#16a34a':(st==='rejected'?'#dc2626':'#f59e0b'); const ic=st==='approved'?'✓':(st==='rejected'?'✗':'⏳'); return `<span style="background:${col}1a;color:${col};border:1px solid ${col}55;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:700;white-space:nowrap">${lbl} ${ic}</span>`; };
-    return `<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${it.tab==='frame'?'':chip('Kaufm.',c)}${chip('Produktion',p)}</span>`;
+    return `<span style="display:inline-flex;gap:6px;flex-wrap:wrap">${it.tab==='frame'?'':chip('Commercial',c)}${chip('Production',p)}</span>`;
 }
 function _apInlineFooter(it){
     const isFrame=it.tab==='frame';
@@ -4718,33 +4718,33 @@ function _apInlineFooter(it){
     const hasSched = isFrame ? !!(it.payload && it.payload.startDate) : (!!h.start && it.payload && it.payload.gridData && Object.keys(it.payload.gridData).length>0);
     let btns='';
     if(!isFrame && c!=='approved' && _apMayCommercial())
-        btns+=`<button class="btn btn-sm btn-primary" onclick="_apApproveCommercialInline('${escHtml(it.id)}','${escHtml(it.tab)}')">Kaufm. freigeben</button>`;
+        btns+=`<button class="btn btn-sm btn-primary" onclick="_apApproveCommercialInline('${escHtml(it.id)}','${escHtml(it.tab)}')">Approve commercial</button>`;
     if(p!=='approved' && _apMayProduction()){
-        if(hasSched) btns+=`<button class="btn btn-sm btn-primary" onclick="_apApproveProductionInline('${escHtml(it.id)}','${escHtml(it.tab)}')">Produktion bestätigen</button>`;
-        else btns+=`<button class="btn btn-sm btn-secondary" onclick="openPendingForReview('${escHtml(it.id)}','${escHtml(it.tab)}')" title="Terminplan fehlt – erst terminieren">Terminieren &amp; freigeben</button>`;
+        if(hasSched) btns+=`<button class="btn btn-sm btn-primary" onclick="_apApproveProductionInline('${escHtml(it.id)}','${escHtml(it.tab)}')">Confirm production</button>`;
+        else btns+=`<button class="btn btn-sm btn-secondary" onclick="openPendingForReview('${escHtml(it.id)}','${escHtml(it.tab)}')" title="No schedule yet — schedule it first">Schedule &amp; approve</button>`;
     }
     if(!isFrame && c==='pending' && _apMayCommercial())
-        btns+=`<button class="btn btn-sm btn-secondary" onclick="_apRejectInline('${escHtml(it.id)}','${escHtml(it.tab)}','commercial')">Kaufm. ablehnen</button>`;
+        btns+=`<button class="btn btn-sm btn-secondary" onclick="_apRejectInline('${escHtml(it.id)}','${escHtml(it.tab)}','commercial')">Reject commercial</button>`;
     if(p==='pending' && _apMayProduction())
-        btns+=`<button class="btn btn-sm btn-secondary" onclick="_apRejectInline('${escHtml(it.id)}','${escHtml(it.tab)}','production')">Produktion ablehnen</button>`;
-    return btns||'<span style="color:#94a3b8;font-size:0.8rem">Keine offene Aktion für dich</span>';
+        btns+=`<button class="btn btn-sm btn-secondary" onclick="_apRejectInline('${escHtml(it.id)}','${escHtml(it.tab)}','production')">Reject production</button>`;
+    return btns||'<span style="color:#94a3b8;font-size:0.8rem">No open action for you</span>';
 }
 async function _apApproveCommercialInline(id,tab){
     const inp=document.getElementById('pp_'+id);
     const raw=inp?inp.value:'';
     const ccy=(inp&&inp.dataset&&inp.dataset.ccy)||'EUR';
     const ok=await approveCommercial(id,tab,{value:raw,ccy});
-    if(ok){ try{ showMsg('Kaufmännisch freigegeben.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
+    if(ok){ try{ showMsg('Commercial released.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
 }
 async function _apApproveProductionInline(id,tab){
     const ok=await approveProduction(id,tab);
-    if(ok){ try{ showMsg('Produktion freigegeben.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
+    if(ok){ try{ showMsg('Production released.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
 }
 async function _apRejectInline(id,tab,stage){
-    const c=prompt('Grund der Ablehnung ('+(stage==='commercial'?'kaufmännisch':'Produktion')+', optional):','');
+    const c=prompt('Reason for rejection ('+(stage==='commercial'?'commercial':'production')+', optional):','');
     if(c===null) return;
     const ok=await _apRejectStage(id,tab,stage,c);
-    if(ok){ try{ showMsg('Abgelehnt.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
+    if(ok){ try{ showMsg('Rejected.','success'); }catch(_){} renderPendingList('pendingModalBody'); }
 }
 
 const PROTOCOL_COL='approval_protocol';
@@ -5914,7 +5914,7 @@ async function checkShiftPlanConflicts(seq){
                 if(v>maxAllowed) maxAllowed=v;
             });
             if(Number(s.shifts)>maxAllowed){
-                result.shifts.push({iso, dow:key, planned:Number(s.shifts), allowed:maxAllowed, planNames:matching.map(p=>p.name||'(ohne Name)')});
+                result.shifts.push({iso, dow:key, planned:Number(s.shifts), allowed:maxAllowed, planNames:matching.map(p=>p.name||'(no name)')});
             }
         }
         // KPI deviation: compare current order KPI (from k_* fields / defaults) against the shift plan covering the first order day
@@ -5936,7 +5936,7 @@ async function checkShiftPlanConflicts(seq){
                 const b=String(planKpi[k]||'').trim();
                 if(a && b && a!==b) diffs.push({field:k, order:a, plan:b});
             });
-            if(diffs.length) result.kpi.push({planName:planForOrder.name||'(ohne Name)', diffs});
+            if(diffs.length) result.kpi.push({planName:planForOrder.name||'(no name)', diffs});
         }
     }catch(e){ console.warn('checkShiftPlanConflicts:',e); }
     return result;
@@ -6710,19 +6710,19 @@ function recomputeLineSchedule(seqOrders, anchorIdx, anchorStartIso){
         // Gewünschter Linienstart = nEarlier Prod-Tage VOR dem Anker.
         const desiredIso=toIsoDate(_apProdDayBackward(anchorStartIso, nEarlier));
         if(desiredIso>earliestIso){ lineStartIso=desiredIso; }
-        else { lineStartIso=earliestIso; warning='Frühere Aufträge passen nicht vollständig vor den gewünschten Anker-Start — der Anker wurde automatisch nach hinten verschoben.'; }
+        else { lineStartIso=earliestIso; warning='Earlier orders do not fit completely before the requested anchor start — the anchor was moved back automatically.'; }
     } else if(anchorStartIso){
         // Anker ist der erste Auftrag: Start = max(gewünscht, frühester).
         lineStartIso = (anchorStartIso>earliestIso)?anchorStartIso:earliestIso;
-        if(lineStartIso!==anchorStartIso) warning='Anker-Start liegt vor dem frühesten möglichen Tag — auf '+lineStartIso+' verschoben.';
+        if(lineStartIso!==anchorStartIso) warning='Anchor start is before the earliest possible day — moved to '+lineStartIso+'.';
     }
     const full=_apPackSequence(seqOrders, lineStartIso);
     const anchorActual=(anchorIdx>=0 && full[anchorIdx])?full[anchorIdx].startIso:(full[0]?full[0].startIso:'');
     if(anchorStartIso && anchorActual && anchorActual!==anchorStartIso && !warning){
-        warning='Anker-Start '+anchorStartIso+' → tatsächlich '+anchorActual+' (durch Werktage/Schichten/Umrüstzeiten).';
+        warning='Anchor start '+anchorStartIso+' → actually '+anchorActual+' (due to workdays/shifts/changeover times).';
     }
     const overflow=full.filter(o=>!o.feasible).map(o=>o.id);
-    if(overflow.length) warning=(warning?warning+' ':'')+'Achtung: Auftrag/Aufträge passen nicht vollständig in den Planungshorizont: '+overflow.join(', ')+'.';
+    if(overflow.length) warning=(warning?warning+' ':'')+'Warning: order(s) do not fit completely into the planning horizon: '+overflow.join(', ')+'.';
     return {orders:full, lineStartIso, anchorActual, warning, overflow};
 }
 
@@ -7437,7 +7437,7 @@ async function deleteFrameOrder(){
             await db.collection(sgCol).doc(baseDocId).delete();
         }catch(e){ console.warn('Spritzguss production plan cleanup:',e); }
         // Freigegebenen Anfrage-Datensatz als „gelöscht" markieren → erscheint so in der Sales-Liste.
-        try{ if(ioNr) await _apMarkApprovedDeleted('frame', ioNr, 'Auftrag im Kalender gelöscht'); }catch(_){}
+        try{ if(ioNr) await _apMarkApprovedDeleted('frame', ioNr, 'Order deleted in calendar'); }catch(_){}
         showMsg('Frame order deleted.','success');
         closeFrameOrderModal();
         await loadWeek();
@@ -7586,7 +7586,7 @@ async function saveShiftPlan(){
         const ts=firebase.firestore.FieldValue.serverTimestamp();
         if(_editingShiftPlanId){
             await db.collection(SHIFT_PLAN_COL).doc(_editingShiftPlanId).update({
-                name:name||'(ohne Name)',
+                name:name||'(no name)',
                 fromIso:from, toIso:to,
                 shifts, kpi, changeover,
                 tab:currentTab,
@@ -7595,7 +7595,7 @@ async function saveShiftPlan(){
             showMsg('Shift plan updated.','success');
         } else {
             await db.collection(SHIFT_PLAN_COL).add({
-                name:name||'(ohne Name)',
+                name:name||'(no name)',
                 fromIso:from, toIso:to,
                 shifts, kpi, changeover,
                 tab:currentTab,
@@ -7642,7 +7642,7 @@ async function loadShiftPlans(){
                 const n=Number(s[d]||0);
                 const we=(i>=5)?' we':'';
                 const zero=n===0?' z':'';
-                return `<span class="${('').trim()}${we}${zero}" title="${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}: ${n} Schicht${n===1?'':'en'}">${n}</span>`;
+                return `<span class="${('').trim()}${we}${zero}" title="${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}: ${n} shift${n===1?'':'s'}">${n}</span>`;
             }).join('');
             const kpiTxt=[
                 k.Cycle?k.Cycle+'s':'–',
@@ -7653,7 +7653,7 @@ async function loadShiftPlans(){
                 (k.OEE?k.OEE+'% OEE':'–')
             ].join(' · ');
             return `<tr data-id="${escHtml(r.id)}">
-                <td class="sp-name">${escHtml(r.name||'(ohne Name)')}</td>
+                <td class="sp-name">${escHtml(r.name||'(no name)')}</td>
                 <td class="sp-range">${escHtml(fmtRange(r.fromIso,r.toIso))}</td>
                 <td><div class="sp-shifts">${shiftCells}</div></td>
                 <td class="sp-kpi-cell">${escHtml(kpiTxt)}</td>
@@ -7847,7 +7847,7 @@ async function deleteOrder(){
                 count+' day(s) removed');
         }catch(e){ console.warn('protocol log (order_deleted):',e); }
         // Freigegebenen Anfrage-Datensatz als „gelöscht" markieren → erscheint so in der Sales-Liste.
-        try{ await _apMarkApprovedDeleted(currentTab, so, 'Auftrag im Kalender gelöscht'); }catch(_){}
+        try{ await _apMarkApprovedDeleted(currentTab, so, 'Order deleted in calendar'); }catch(_){}
         showMsg(`Order ${so} deleted (${count} day(s)).`,'success');
         editingOrderSo=null;
         closeOrderModal();
@@ -7992,7 +7992,7 @@ async function ovDeleteOrder(id){
             await _logProtocol('order_deleted', null, tab, {payload:{header:headerSnap}, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null}, docs.length+' day(s) removed (Orders Overview)');
         }catch(e){ console.warn('protocol log (order_deleted):',e); }
         // Freigegebenen Anfrage-Datensatz als „gelöscht" markieren → erscheint so in der Sales-Liste.
-        try{ await _apMarkApprovedDeleted(tab, id, 'Auftrag im Kalender gelöscht'); }catch(_){}
+        try{ await _apMarkApprovedDeleted(tab, id, 'Order deleted in calendar'); }catch(_){}
         showMsg('Order '+id+' deleted ('+docs.length+' day(s)).','success');
         await loadWeek();
         await openOrdersOverview();
@@ -8048,7 +8048,7 @@ async function openOrderSequence(){
         orders.sort((a,b)=>{ const pa=(a.id in pos)?pos[a.id]:9999, pb=(b.id in pos)?pos[b.id]:9999; return pa!==pb?pa-pb:String(a.startIso).localeCompare(String(b.startIso)); });
         _seqState={ tab, isFrame, orders, orderIds:orders.map(o=>o.id), anchorId:null, anchorStartIso:'', preview:null };
         renderSeqList();
-    }catch(e){ console.error('openOrderSequence:',e); $('orderSequenceList').innerHTML='<div class="orders-empty">Fehler: '+escHtml(e.message)+'</div>'; }
+    }catch(e){ console.error('openOrderSequence:',e); $('orderSequenceList').innerHTML='<div class="orders-empty">Error: '+escHtml(e.message)+'</div>'; }
 }
 function closeOrderSequence(){ $('orderSequenceModal').classList.remove('open'); _seqState=null; }
 
@@ -8070,8 +8070,8 @@ function renderSeqList(){
         return '<tr class="seq-row" draggable="true" data-id="'+escHtml(id)+'" '
             +'style="cursor:grab;background:'+(isAnchor?'#eff6ff':'#fff')+';border:1px solid '+(isAnchor?'#3b82f6':'#e2e8f0')+'">'
             +'<td style="text-align:center;font-weight:700;color:#64748b">'+(i+1)+'</td>'
-            +'<td style="text-align:center;color:#94a3b8;cursor:grab" title="Zum Verschieben ziehen">⠿</td>'
-            +'<td style="font-weight:700">'+escHtml(id)+(isAnchor?' <span style="background:#3b82f6;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.7rem">Anker</span>':'')+'</td>'
+            +'<td style="text-align:center;color:#94a3b8;cursor:grab" title="Drag to move">⠿</td>'
+            +'<td style="font-weight:700">'+escHtml(id)+(isAnchor?' <span style="background:#3b82f6;color:#fff;border-radius:4px;padding:1px 6px;font-size:0.7rem">Anchor</span>':'')+'</td>'
             +'<td>'+escHtml(o.art||'–')+'</td>'
             +(isFrame?'':'<td>'+escHtml((o.fields&&o.fields[custKey])||'–')+'</td>')
             +'<td style="text-align:right">'+_seqFmtN(o.qty)+'</td>'
@@ -8088,7 +8088,7 @@ function renderSeqList(){
         +(isFrame?'':'<th>Customer</th>')
         +'<th style="text-align:right">Qty</th>'
         +(isFrame?'':'<th style="text-align:right">PAL</th><th>PO Issue</th><th>Pick-Up (Deadl.)</th><th>Pick-Up (Cust. PO)</th>')
-        +'<th>Start</th><th>Ende</th><th style="color:#1e40af">Neu Start</th><th style="color:#1e40af">Neu Ende</th>'
+        +'<th>Start</th><th>End</th><th style="color:#1e40af">New start</th><th style="color:#1e40af">New end</th>'
         +'</tr></thead><tbody>'+rows+'</tbody></table>'
         +'<div class="ov-foot">'+_seqState.orderIds.length+' order(s) · drag &amp; drop to reorder · "New" columns show the preview.</div>';
     _seqWireDnD();
@@ -8139,14 +8139,14 @@ function seqPreview(){
 }
 
 async function seqApply(){
-    if(!_seqState || !_seqState.preview){ alert('Bitte zuerst eine Vorschau berechnen.'); return; }
-    if(!_apMayProduction()){ alert('Keine Berechtigung.'); return; }   // «Review» order_sequence+sales_plan WRITE = mayDoProduction/canProduction → nur Produktions-Approver/Deputy (Manager ohne Flag würde permission-denied bekommen)
+    if(!_seqState || !_seqState.preview){ alert('Please calculate a preview first.'); return; }
+    if(!_apMayProduction()){ alert('No permission.'); return; }   // «Review» order_sequence+sales_plan WRITE = mayDoProduction/canProduction → nur Produktions-Approver/Deputy (Manager ohne Flag würde permission-denied bekommen)
     const { tab, isFrame, orders, preview }=_seqState;
     const byId={}; orders.forEach(o=>byId[o.id]=o);
     const changed=preview.orders.filter(p=>{ const o=byId[p.id]; if(!o) return false; const newIsos=p.seq.map(s=>s.iso).join(','); const oldIsos=(o.isos||[]).join(','); return newIsos!==oldIsos; });
     if(!changed.length){ alert('No date changes — nothing to save.'); return; }
-    if(!confirm('Reihenfolge anwenden? '+changed.length+' Auftrag/Aufträge werden im Kalender neu terminiert'+
-                (preview.warning?('\n\n⚠ '+preview.warning):'')+'\n\nFortfahren?')) return;
+    if(!confirm('Apply sequence? '+changed.length+' order(s) will be rescheduled in the calendar'+
+                (preview.warning?('\n\n⚠ '+preview.warning):'')+'\n\nContinue?')) return;
     try{
         const salesCol=TAB_CONFIG[tab].salesCol;
         const qtyKey=fieldKey('Production Plan','','Qty');
@@ -8193,12 +8193,12 @@ async function seqApply(){
         // Audit-Protokoll (append-only)
         try{
             await _logProtocol('resequenced', null, tab, { payload:{ header:{ so:'(Order Sequence)' } }, requestedBy:currentUid, requestedByEmail:currentUserEmail, requestedAt:null },
-                'Neue Reihenfolge: '+_seqState.orderIds.join(' → ')+(_seqState.anchorId?(' · Anker '+_seqState.anchorId+' @ '+_seqState.anchorStartIso):'')+(preview.warning?(' · '+preview.warning):''));
+                'New sequence: '+_seqState.orderIds.join(' → ')+(_seqState.anchorId?(' · anchor '+_seqState.anchorId+' @ '+_seqState.anchorStartIso):'')+(preview.warning?(' · '+preview.warning):''));
         }catch(e){ console.warn('protocol (resequenced):',e); }
-        showMsg('Reihenfolge angewendet · '+changed.length+' Auftrag/Aufträge neu terminiert.','success');
+        showMsg('Sequence applied · '+changed.length+' order(s) rescheduled.','success');
         closeOrderSequence();
         await loadWeek();
-    }catch(e){ console.error('seqApply:',e); alert('Anwenden fehlgeschlagen: '+e.message); }
+    }catch(e){ console.error('seqApply:',e); alert('Apply failed: '+e.message); }
 }
 
 async function flushPending(){
@@ -8309,7 +8309,7 @@ async function saveWeek(){
 function exportCSV(){
     const dates=twoWeekDates(currentAnchor);
     const rows=[];
-    const header=['Gruppe','Sub','Feld', ...dates.map((d,i)=>`${DAY_LABELS[i%7]} ${toIsoDate(d)}`)];
+    const header=['Group','Sub','Field', ...dates.map((d,i)=>`${DAY_LABELS[i%7]} ${toIsoDate(d)}`)];
     rows.push(header.map(escCsv).join(';'));
     getSchema().forEach(block=>{
         block.fields.forEach(field=>{
