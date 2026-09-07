@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://firebaseinstallations.googleapis.com https://firebaseappcheck.googleapis.com https://www.google.com https://www.recaptcha.net; frame-src https://www.google.com https://www.recaptcha.net; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';">
+    <title>Terminplanung</title>
+    <meta name="theme-color" content="#4361ee">
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap">
+    <style>
+/* ===========================================================
+   XOLUTION Corporate Design (Vorlage: www.xolution.com)
+   Nunito  |  Schwarz/Weiss  |  Blue-Grey-Typografie  |  flache Flaechen
+   =========================================================== */
+:root {
+    --xo-black:       #000000;
+    --xo-ink:         #263238;   /* Ueberschriften / starker Text */
+    --xo-body:        #546e7a;   /* Fliesstext (Grundfarbe der Website) */
+    --xo-muted:       #90a4ae;   /* Sekundaertext, Labels */
+    --xo-line:        #e0e4e7;   /* Trennlinien */
+    --xo-line-strong: #cfd8dc;   /* Feldraender */
+    --xo-surface:     #ffffff;
+    --xo-bg:          #f5f5f5;
+    --xo-bg-soft:     #fafafa;
+    --xo-accent:      #156aa3;   /* Akzentblau der Website */
+    --xo-ok:   #2e7d32;  --xo-ok-bg:   #f1f7f1;  --xo-ok-line:   #cfe3cf;
+    --xo-err:  #c62828;  --xo-err-bg:  #fdf3f3;  --xo-err-line:  #f2cccc;
+    --xo-warn: #ef6c00;  --xo-warn-bg: #fff8f0;  --xo-warn-line: #ffe0b2;
+    --r: 3px;
+    --r2: 2px;
+    --font: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: var(--font);
+    font-size: 15px; line-height: 1.65; font-weight: 400;
+    background: var(--xo-bg); color: var(--xo-body);
+    min-height: 100vh; min-height: 100dvh; overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3 { color: var(--xo-ink); font-weight: 300; line-height: 1.25; }
+strong, b { font-weight: 700; color: var(--xo-ink); }
+
+/* --- Marke ------------------------------------------------ */
+.xo-logo { display: block; width: auto; }
+.xo-logo-invert { filter: invert(1); }   /* schwarzes Logo auf schwarzem Grund -> weiss */
+
+/* --- Login / Ersteinrichtung ------------------------------ */
+.login-page { display: none; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; background: var(--xo-black); padding: 24px 16px; }
+.login-page.show { display: flex; }
+.login-card { background: var(--xo-surface); border-radius: var(--r); padding: 40px 34px 34px; width: 100%; max-width: 400px; }
+.login-brand { display: flex; justify-content: center; margin-bottom: 22px; }
+.login-brand .xo-logo { height: 66px; }
+.login-card h1 { text-align: center; font-size: 1.3rem; font-weight: 300; letter-spacing: 0.17em; text-transform: uppercase; margin-bottom: 10px; }
+.login-card .subtitle { text-align: center; color: var(--xo-muted); margin-bottom: 26px; font-size: 0.85rem; line-height: 1.55; }
+
+/* --- Formulare -------------------------------------------- */
+.form-group { margin-bottom: 16px; }
+.form-group label, .sub-label {
+    display: block; font-size: 0.7rem; font-weight: 700; color: var(--xo-muted);
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+}
+.form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--xo-line-strong); border-radius: var(--r2);
+    font-size: 0.95rem; background: var(--xo-surface); font-family: inherit; color: var(--xo-ink);
+}
+.form-group textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: var(--xo-black); box-shadow: 0 0 0 2px rgba(0,0,0,0.07);
+}
+.form-group input::placeholder, .form-group textarea::placeholder { color: #b0bec5; }
+.form-hint { font-size: 0.76rem; color: var(--xo-muted); margin-top: 5px; line-height: 1.5; }
+.form-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.form-row > .form-group { flex: 1 1 170px; }
+.check-line { display: flex; gap: 9px; align-items: center; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--xo-ink); }
+.check-line input { width: 16px; height: 16px; min-width: 16px; accent-color: #000; }
+
+/* --- Buttons ---------------------------------------------- */
+.btn {
+    padding: 11px 22px; border: 1px solid transparent; border-radius: var(--r2);
+    font-family: inherit; font-size: 0.78rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.09em;
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn:disabled { opacity: 0.4; pointer-events: none; }
+.btn-block { width: 100%; }
+.btn-primary  { background: var(--xo-black); color: #fff; }
+.btn-primary:hover { background: var(--xo-ink); }
+.btn-success  { background: var(--xo-black); color: #fff; }
+.btn-success:hover { background: var(--xo-ink); }
+.btn-secondary { background: var(--xo-surface); color: var(--xo-ink); border-color: var(--xo-line-strong); }
+.btn-secondary:hover { border-color: var(--xo-ink); background: var(--xo-bg-soft); }
+.btn-danger { background: var(--xo-surface); color: var(--xo-err); border-color: var(--xo-err-line); }
+.btn-danger:hover { background: var(--xo-err); color: #fff; border-color: var(--xo-err); }
+.btn-sm { padding: 8px 14px; font-size: 0.72rem; }
+.btn-xs { padding: 6px 10px; font-size: 0.66rem; letter-spacing: 0.04em; }
+
+.error-msg   { color: var(--xo-err); background: var(--xo-err-bg); border: 1px solid var(--xo-err-line); border-left: 3px solid var(--xo-err); border-radius: 0 var(--r2) var(--r2) 0; padding: 9px 13px; font-size: 0.85rem; margin-top: 12px; display: none; line-height: 1.5; }
+.success-msg { color: var(--xo-ok); background: var(--xo-ok-bg); border: 1px solid var(--xo-ok-line); border-left: 3px solid var(--xo-ok); border-radius: 0 var(--r2) var(--r2) 0; padding: 9px 13px; font-size: 0.85rem; margin-top: 12px; display: none; line-height: 1.5; }
+.warn-box { color: #8a4b00; background: var(--xo-warn-bg); border: 1px solid var(--xo-warn-line); border-left: 3px solid var(--xo-warn); border-radius: 0 var(--r2) var(--r2) 0; padding: 11px 14px; font-size: 0.83rem; line-height: 1.6; margin-bottom: 18px; }
+
+/* --- App-Rahmen ------------------------------------------- */
+.app-page { display: none; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+.app-page.show { display: flex; }
+.app-header {
+    background: var(--xo-black); color: #fff; padding: 0 22px; min-height: 62px;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    flex-wrap: wrap; position: sticky; top: 0; z-index: 40;
+}
+.app-header .brand { display: flex; align-items: center; gap: 16px; padding: 10px 0; }
+.app-header .brand .xo-logo { height: 34px; }
+.app-header h1 {
+    font-size: 0.9rem; font-weight: 300; color: #fff;
+    text-transform: uppercase; letter-spacing: 0.2em;
+    padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.28);
+}
+.app-header .user-info { display: flex; align-items: center; gap: 12px; font-size: 0.82rem; color: rgba(255,255,255,0.72); flex-wrap: wrap; padding: 8px 0; }
+.logout-btn {
+    background: none; border: 1px solid rgba(255,255,255,0.35); border-radius: var(--r2);
+    padding: 6px 13px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+    cursor: pointer; color: #fff; font-family: inherit;
+}
+.logout-btn:hover { background: #fff; color: #000; border-color: #fff; }
+.main { padding: 26px 22px 40px; max-width: 1180px; width: 100%; margin: 0 auto; }
+.boot-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; color: var(--xo-body); font-size: 0.92rem; padding: 24px; text-align: center; line-height: 1.65; }
+
+/* --- Tabs ------------------------------------------------- */
+.tabs { display: flex; gap: 0; margin-bottom: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--xo-line); }
+.tab {
+    padding: 11px 20px; border: none; background: none; color: var(--xo-muted);
+    font-family: inherit; font-size: 0.73rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab:hover { color: var(--xo-ink); }
+.tab.active { color: var(--xo-black); border-bottom-color: var(--xo-black); }
+.view { display: none; }
+.view.active { display: block; }
+
+/* --- Karten ----------------------------------------------- */
+.card { background: var(--xo-surface); border: 1px solid var(--xo-line); border-radius: var(--r); padding: 22px 24px; margin-bottom: 18px; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+.card-title { font-size: 1.15rem; font-weight: 300; color: var(--xo-ink); line-height: 1.3; }
+.card-meta { color: var(--xo-muted); font-size: 0.84rem; line-height: 1.7; margin-bottom: 14px; }
+.card-desc { color: var(--xo-body); font-size: 0.92rem; line-height: 1.65; margin-bottom: 16px; white-space: pre-wrap; }
+.section-title { font-size: 1.05rem; font-weight: 300; color: var(--xo-ink); margin-bottom: 16px; }
+.sub-label { margin-bottom: 10px; }
+.info-msg { color: var(--xo-muted); font-size: 0.88rem; text-align: center; padding: 30px 14px; line-height: 1.6; }
+
+/* --- Badges ----------------------------------------------- */
+.badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: var(--r2);
+    font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+    white-space: nowrap; border: 1px solid transparent;
+}
+.badge-open   { background: var(--xo-surface); color: var(--xo-ink); border-color: var(--xo-ink); }
+.badge-done   { background: var(--xo-ok-bg); color: var(--xo-ok); border-color: var(--xo-ok-line); }
+.badge-closed { background: var(--xo-bg); color: var(--xo-muted); border-color: var(--xo-line); }
+.badge-late   { background: var(--xo-warn-bg); color: var(--xo-warn); border-color: var(--xo-warn-line); }
+.badge-admin  { background: var(--xo-black); color: #fff; border-color: var(--xo-black); }
+
+/* --- Terminoptionen --------------------------------------- */
+.opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.opt {
+    text-align: left; background: var(--xo-surface); border: 1px solid var(--xo-line-strong);
+    border-radius: var(--r2); padding: 13px 15px; cursor: pointer; font-family: inherit;
+    display: flex; gap: 11px; align-items: flex-start; transition: border-color 0.15s, background 0.15s;
+}
+.opt:hover:not(:disabled) { border-color: var(--xo-ink); }
+.opt:disabled { cursor: default; opacity: 0.7; }
+.opt.sel { border-color: var(--xo-black); background: var(--xo-bg); box-shadow: inset 0 0 0 1px var(--xo-black); }
+.opt-check { width: 20px; height: 20px; min-width: 20px; border-radius: var(--r2); border: 1px solid var(--xo-line-strong); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #fff; font-weight: 800; background: var(--xo-surface); margin-top: 2px; }
+.opt.sel .opt-check { background: var(--xo-black); border-color: var(--xo-black); }
+.opt-body { flex: 1; min-width: 0; }
+.opt-date { display: block; font-weight: 700; font-size: 0.93rem; color: var(--xo-ink); line-height: 1.35; }
+.opt-time { display: block; color: var(--xo-body); font-size: 0.84rem; margin-top: 2px; }
+.opt-note { display: block; color: var(--xo-muted); font-size: 0.79rem; margin-top: 4px; line-height: 1.45; }
+.save-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.save-state { font-size: 0.78rem; color: var(--xo-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+.save-state.ok { color: var(--xo-ok); }
+.save-state.err { color: var(--xo-err); text-transform: none; letter-spacing: 0; font-weight: 600; }
+
+/* --- Editor-Zeilen ---------------------------------------- */
+.opt-edit { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; padding: 12px; border: 1px solid var(--xo-line); border-radius: var(--r2); margin-bottom: 9px; background: var(--xo-bg-soft); }
+.opt-edit .form-group { margin-bottom: 0; }
+.opt-edit .fg-date { flex: 1 1 145px; }
+.opt-edit .fg-time { flex: 0 1 105px; }
+.opt-edit .fg-note { flex: 2 1 140px; }
+.opt-rm { padding: 0; width: 34px; height: 38px; min-width: 34px; font-size: 1.1rem; line-height: 1; letter-spacing: 0; color: var(--xo-muted); }
+.opt-rm:hover { background: var(--xo-err); border-color: var(--xo-err); color: #fff; }
+
+/* --- Teilnehmerauswahl ------------------------------------ */
+.people { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px; max-height: 260px; overflow-y: auto; border: 1px solid var(--xo-line); border-radius: var(--r2); padding: 10px; background: var(--xo-bg-soft); }
+.person { display: flex; gap: 9px; align-items: flex-start; font-size: 0.86rem; padding: 6px 7px; border-radius: var(--r2); cursor: pointer; line-height: 1.4; color: var(--xo-ink); font-weight: 600; }
+.person:hover { background: #eceff1; }
+.person input { margin-top: 3px; width: 15px; height: 15px; min-width: 15px; accent-color: #000; }
+.person .pmail { display: block; color: var(--xo-muted); font-size: 0.74rem; font-weight: 400; }
+
+/* --- Tabellen --------------------------------------------- */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--xo-line); vertical-align: top; line-height: 1.45; }
+th { background: var(--xo-bg-soft); font-weight: 700; color: var(--xo-muted); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.09em; white-space: nowrap; border-bottom: 1px solid var(--xo-line-strong); }
+td { color: var(--xo-body); }
+td strong { color: var(--xo-ink); }
+td.center, th.center { text-align: center; }
+tr:last-child td { border-bottom: none; }
+.matrix th.opt-col { color: var(--xo-ink); font-size: 0.7rem; }
+.matrix th.best { background: var(--xo-bg); color: var(--xo-black); border-bottom: 2px solid var(--xo-black); }
+.matrix td.yes { color: var(--xo-black); font-weight: 800; font-size: 1rem; }
+.matrix td.no { color: var(--xo-line-strong); font-weight: 700; }
+.matrix tr.sum td { background: var(--xo-bg-soft); font-weight: 800; color: var(--xo-ink); border-top: 1px solid var(--xo-line-strong); }
+.matrix td.missing { color: var(--xo-muted); font-style: italic; }
+.result-best { margin-top: 16px; padding: 14px 16px; background: var(--xo-bg); border-left: 3px solid var(--xo-black); border-radius: 0 var(--r2) var(--r2) 0; font-size: 0.88rem; line-height: 1.6; color: var(--xo-ink); }
+.comment-item { border-left: 2px solid var(--xo-ink); background: var(--xo-bg-soft); border-radius: 0 var(--r2) var(--r2) 0; padding: 10px 14px; margin-bottom: 9px; }
+.comment-item .who { font-weight: 700; font-size: 0.79rem; color: var(--xo-ink); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+.comment-item .txt { font-size: 0.89rem; color: var(--xo-body); white-space: pre-wrap; line-height: 1.6; }
+.pw-cell { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 0.84rem; color: var(--xo-ink); }
+
+/* --- Modal ------------------------------------------------ */
+.modal-back { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.62); z-index: 100; padding: 16px; overflow-y: auto; }
+.modal-back.open { display: flex; align-items: flex-start; justify-content: center; }
+.modal { background: var(--xo-surface); border-radius: var(--r); width: 100%; max-width: 720px; margin: 24px 0; }
+.modal.narrow { max-width: 520px; }
+.modal-head { padding: 18px 22px; border-bottom: 1px solid var(--xo-line); display: flex; justify-content: space-between; align-items: center; gap: 12px; position: sticky; top: 0; background: var(--xo-surface); border-radius: var(--r) var(--r) 0 0; z-index: 2; }
+.modal-head h2 { font-size: 0.95rem; font-weight: 700; color: var(--xo-ink); text-transform: uppercase; letter-spacing: 0.11em; }
+.modal-body { padding: 22px; }
+.modal-foot { padding: 16px 22px; border-top: 1px solid var(--xo-line); display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.x-btn { background: none; border: none; font-size: 1.4rem; line-height: 1; color: var(--xo-muted); cursor: pointer; padding: 2px 6px; font-family: inherit; }
+.x-btn:hover { color: var(--xo-black); }
+
+/* --- Einladungstexte ---------------------------------------------- */
+.inv-list { border: 1px solid var(--xo-line); border-radius: var(--r2); overflow: hidden; }
+.inv-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--xo-line); cursor: pointer; background: var(--xo-surface); }
+.inv-row:last-child { border-bottom: none; }
+.inv-row:hover { background: var(--xo-bg-soft); }
+.inv-row.active { background: var(--xo-bg); box-shadow: inset 3px 0 0 var(--xo-black); }
+.inv-who { flex: 1; min-width: 0; font-size: 0.87rem; font-weight: 700; color: var(--xo-ink); line-height: 1.35; }
+.inv-who span { display: block; font-weight: 400; font-size: 0.75rem; color: var(--xo-muted); }
+.inv-act { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.inv-preview { margin-top: 6px; }
+.inv-subject { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 0.82rem; color: var(--xo-ink); background: var(--xo-bg); border: 1px solid var(--xo-line); border-radius: var(--r2); padding: 8px 11px; margin-bottom: 8px; word-break: break-word; }
+.inv-body { background: var(--xo-bg-soft); border: 1px solid var(--xo-line); border-left: 3px solid var(--xo-black); border-radius: 0 var(--r2) var(--r2) 0; padding: 14px 16px; font-size: 0.86rem; line-height: 1.7; white-space: pre-wrap; color: var(--xo-ink); max-height: 320px; overflow-y: auto; }
+.tpl-vars { font-size: 0.74rem; color: var(--xo-muted); line-height: 1.8; }
+.tpl-vars code { font-family: ui-monospace, Consolas, monospace; background: var(--xo-bg); border: 1px solid var(--xo-line); border-radius: 2px; padding: 1px 5px; color: var(--xo-ink); }
+#tplBox { display: none; }
+#tplBox.open { display: block; }
+
+/* --- Eigener Bestaetigungsdialog + Hinweise (statt window.confirm/alert,
+       die der Browser unterdruecken kann) ------------------------------- */
+.ask-text { font-size: 0.94rem; line-height: 1.65; color: var(--xo-body); white-space: pre-line; }
+.ask-title { font-size: 1.05rem; font-weight: 300; color: var(--xo-ink); margin-bottom: 12px; }
+.toast-wrap { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; width: calc(100% - 32px); max-width: 460px; pointer-events: none; }
+.toast { background: var(--xo-ink); color: #fff; border-radius: var(--r2); padding: 12px 16px; font-size: 0.86rem; line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,0.25); width: 100%; }
+.toast.err { background: var(--xo-err); }
+.toast.ok  { background: var(--xo-ok); }
+
+.chip-row { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 11px; align-items: center; }
+.chip { background: var(--xo-bg); color: var(--xo-body); border: 1px solid var(--xo-line); border-radius: var(--r2); padding: 4px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.access-box { background: var(--xo-bg-soft); border: 1px solid var(--xo-line); border-left: 3px solid var(--xo-black); border-radius: 0 var(--r2) var(--r2) 0; padding: 13px 15px; font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 0.82rem; white-space: pre-wrap; line-height: 1.7; word-break: break-all; color: var(--xo-ink); }
+
+@media (max-width: 620px) {
+    .main { padding: 18px 14px 32px; }
+    .card { padding: 17px 16px; }
+    .opt-grid { grid-template-columns: 1fr; }
+    /* Kopfzeile kompakt: Marke oben, Nutzerzeile darunter — statt drei Umbruchzeilen */
+    .app-header { padding: 0 14px; min-height: 0; }
+    .app-header .brand { width: 100%; gap: 12px; padding: 9px 0 0; }
+    .app-header .brand .xo-logo { height: 28px; }
+    .app-header h1 { padding-left: 12px; letter-spacing: 0.14em; font-size: 0.78rem; }
+    .app-header .user-info { width: 100%; justify-content: space-between; gap: 8px;
+        font-size: 0.76rem; padding: 5px 0 10px; flex-wrap: nowrap; }
+    .app-header .user-info > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .app-header .badge-admin { display: none !important; }   /* Rolle steht schon in den Reitern */
+    /* Reiter in einer Zeile, horizontal wischbar */
+    .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { padding: 10px 13px; font-size: 0.68rem; white-space: nowrap; flex: 0 0 auto; }
+    .login-card { padding: 32px 22px 26px; }
+    .login-brand .xo-logo { height: 56px; }
+}
+    </style>
+</head>
+<body>
+
+<!-- ══════════════ START / VERBINDUNG ══════════════ -->
+<div class="boot-screen" id="bootView">Verbinde mit der Datenbank&hellip;</div>
+
+<!-- ══════════════ ERSTEINRICHTUNG ══════════════ -->
+<div class="login-page" id="setupView">
+    <form class="login-card" id="setupForm" autocomplete="off">
+        <div class="login-brand"><img class="xo-logo" data-xo-logo alt="XOLUTION"></div>
+        <h1>Ersteinrichtung</h1>
+        <p class="subtitle">Es ist noch kein Zugang vorhanden.<br>Legen Sie hier den ersten Administrator an.</p>
+        <div class="form-group">
+            <label for="setupName">Ihr Name</label>
+            <input type="text" id="setupName" required maxlength="80">
+        </div>
+        <div class="form-group">
+            <label for="setupLogin">Anmeldename</label>
+            <input type="text" id="setupLogin" required maxlength="120" autocapitalize="none" spellcheck="false">
+        </div>
+        <div class="form-group">
+            <label for="setupPw">Passwort</label>
+            <input type="text" id="setupPw" required minlength="4" maxlength="60">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="setupBtn">Administrator anlegen</button>
+        <div class="error-msg" id="setupError"></div>
+    </form>
+</div>
+
+<!-- ══════════════ ANMELDUNG ══════════════ -->
+<div class="login-page" id="loginView">
+    <form class="login-card" id="loginForm" autocomplete="on">
+        <div class="login-brand"><img class="xo-logo" data-xo-logo alt="XOLUTION"></div>
+        <h1>Terminplanung</h1>
+        <p class="subtitle">Bitte mit den Zugangsdaten anmelden,<br>die Sie erhalten haben.</p>
+        <div class="form-group">
+            <label for="loginUser">Anmeldename</label>
+            <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        </div>
+        <div class="form-group">
+            <label for="loginPw">Passwort</label>
+            <input type="password" id="loginPw" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Anmelden</button>
+        <div class="error-msg" id="loginError"></div>
+    </form>
+</div>
+
+<!-- ══════════════ APP ══════════════ -->
+<div class="app-page" id="appView">
+    <header class="app-header">
+        <div class="brand">
+            <img class="xo-logo xo-logo-invert" data-xo-logo alt="XOLUTION">
+            <h1>Terminplanung</h1>
+        </div>
+        <div class="user-info">
+            <span id="userDisplay"></span>
+            <span class="badge badge-admin" id="adminBadge" style="display:none">Administrator</span>
+            <button class="logout-btn" id="logoutBtn" type="button">Abmelden</button>
+        </div>
+    </header>
+
+    <div class="main">
+        <div class="tabs" id="tabs">
+            <button class="tab active" type="button" data-view="myEvents">Meine Termine</button>
+            <button class="tab" type="button" data-view="adminEvents" data-admin="1" style="display:none">Termine verwalten</button>
+            <button class="tab" type="button" data-view="adminResults" data-admin="1" style="display:none">Auswertung</button>
+            <button class="tab" type="button" data-view="adminPeople" data-admin="1" style="display:none">Teilnehmer</button>
+        </div>
+
+        <!-- Teilnehmer-Ansicht -->
+        <section class="view active" id="view-myEvents">
+            <div id="myEventsList"><div class="info-msg">Lade Termine&hellip;</div></div>
+        </section>
+
+        <!-- Admin: Termine -->
+        <section class="view" id="view-adminEvents">
+            <div class="card">
+                <div class="card-head">
+                    <div class="card-title">Terminabfragen</div>
+                    <button class="btn btn-primary btn-sm" type="button" id="newEventBtn">+ Neue Terminabfrage</button>
+                </div>
+                <div id="adminEventsList"><div class="info-msg">Lade&hellip;</div></div>
+            </div>
+        </section>
+
+        <!-- Admin: Auswertung -->
+        <section class="view" id="view-adminResults">
+            <div class="card">
+                <div class="form-group" style="margin-bottom:0">
+                    <label for="resultSelect">Terminabfrage</label>
+                    <select id="resultSelect"></select>
+                </div>
+            </div>
+            <div id="resultsBox"><div class="info-msg">Bitte eine Terminabfrage wählen.</div></div>
+        </section>
+
+        <!-- Admin: Teilnehmer -->
+        <section class="view" id="view-adminPeople">
+            <div class="card">
+                <div class="section-title">Teilnehmer hinzufügen</div>
+                <div class="warn-box">
+                    Die Zugangsdaten stehen im Klartext in der Datenbank, damit Sie sie hier jederzeit ablesen
+                    und weitergeben können. Bitte deshalb <strong>keine Passwörter verwenden, die die Personen
+                    anderswo benutzen</strong> — der Zugang gilt ausschließlich für diese Terminplanung.
+                </div>
+                <form id="addPersonForm" autocomplete="off">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pName">Name</label>
+                            <input type="text" id="pName" required maxlength="80" placeholder="Max Muster">
+                        </div>
+                        <div class="form-group">
+                            <label for="pCompany">Firma (optional)</label>
+                            <input type="text" id="pCompany" maxlength="80" placeholder="Fremdfirma GmbH">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pLogin">Anmeldename</label>
+                            <input type="text" id="pLogin" required maxlength="120" autocapitalize="none" spellcheck="false" placeholder="z.B. m.muster oder max@fremdfirma.de">
+                            <div class="form-hint">Frei wählbar. Wird eine E-Mail-Adresse eingetragen, lässt sich die Einladung zusätzlich direkt im Mail-Programm öffnen.</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="pPw">Passwort</label>
+                            <input type="text" id="pPw" required minlength="4" maxlength="60">
+                            <div class="form-hint"><button type="button" class="btn btn-secondary btn-xs" id="genPwBtn">Passwort erzeugen</button></div>
+                        </div>
+                    </div>
+                    <label class="check-line">
+                        <input type="checkbox" id="pAdmin"> Administrator (darf Termine und Teilnehmer verwalten)
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm" id="addPersonBtn" style="margin-top:14px">Teilnehmer hinzufügen</button>
+                    <div class="error-msg" id="addPersonError"></div>
+                    <div class="success-msg" id="addPersonSuccess"></div>
+                </form>
+            </div>
+            <div class="card">
+                <div class="card-head">
+                    <div class="card-title">Teilnehmerliste</div>
+                    <button class="btn btn-secondary btn-sm" type="button" id="copyAllBtn">Alle Zugangsdaten kopieren</button>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr><th>Name</th><th>Firma</th><th>Anmeldename</th><th>Passwort</th><th>Rolle</th><th>Status</th><th>Aktion</th></tr></thead>
+                        <tbody id="peopleTableBody"><tr><td colspan="7" class="info-msg">Lade&hellip;</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- ══════════════ MODAL: Termin-Editor ══════════════ -->
+<div class="modal-back" id="eventModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+        <div class="modal-head">
+            <h2 id="eventModalTitle">Neue Terminabfrage</h2>
+            <button class="x-btn" type="button" id="eventModalClose" aria-label="Schließen">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="evTitle">Titel</label>
+                <input type="text" id="evTitle" maxlength="120">
+            </div>
+            <div class="form-group">
+                <label for="evDesc">Beschreibung (optional)</label>
+                <textarea id="evDesc" maxlength="2000"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="evLocation">Ort (optional)</label>
+                    <input type="text" id="evLocation" maxlength="120">
+                </div>
+                <div class="form-group">
+                    <label for="evDeadline">Rückmeldung bis (optional)</label>
+                    <input type="date" id="evDeadline">
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="sub-label">Terminvorschläge</div>
+                <div id="evOptions"></div>
+                <button class="btn btn-secondary btn-sm" type="button" id="addOptBtn">+ Vorschlag hinzufügen</button>
+            </div>
+            <div class="form-group">
+                <div class="sub-label">Teilnehmer</div>
+                <div class="chip-row">
+                    <button class="btn btn-secondary btn-xs" type="button" id="selAllPeople">Alle auswählen</button>
+                    <button class="btn btn-secondary btn-xs" type="button" id="selNonePeople">Auswahl leeren</button>
+                    <span class="chip" id="peopleCount">0 ausgewählt</span>
+                </div>
+                <div class="people" id="evPeople"></div>
+            </div>
+            <div class="error-msg" id="evError"></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-secondary btn-sm" type="button" id="evCancel">Abbrechen</button>
+            <button class="btn btn-primary btn-sm" type="button" id="evSave">Speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════ MODAL: Teilnehmer bearbeiten ══════════════ -->
+<div class="modal-back" id="personModal">
+    <div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="personModalTitle">
+        <div class="modal-head">
+            <h2 id="personModalTitle">Teilnehmer bearbeiten</h2>
+            <button class="x-btn" type="button" id="personModalClose" aria-label="Schließen">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="edName">Name</label>
+                <input type="text" id="edName" maxlength="80">
+            </div>
+            <div class="form-group">
+                <label for="edCompany">Firma (optional)</label>
+                <input type="text" id="edCompany" maxlength="80">
+            </div>
+            <div class="form-group">
+                <label for="edLogin">Anmeldename</label>
+                <input type="text" id="edLogin" maxlength="120" autocapitalize="none" spellcheck="false">
+            </div>
+            <div class="form-group">
+                <label for="edPw">Passwort</label>
+                <input type="text" id="edPw" maxlength="60">
+                <div class="form-hint"><button type="button" class="btn btn-secondary btn-xs" id="edGenPwBtn">Neues Passwort erzeugen</button></div>
+            </div>
+            <label class="check-line" style="margin-bottom:10px">
+                <input type="checkbox" id="edAdmin"> Administrator
+            </label>
+            <label class="check-line" style="margin-bottom:16px">
+                <input type="checkbox" id="edDisabled"> Zugang gesperrt
+            </label>
+            <div class="sub-label">Zugangsdaten zum Weitergeben</div>
+            <div class="access-box" id="edAccess"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="edCopyBtn" style="margin-top:10px">In die Zwischenablage kopieren</button>
+            <div class="error-msg" id="edError"></div>
+            <div class="success-msg" id="edSuccess"></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-danger btn-sm" type="button" id="edDelete" style="margin-right:auto">Löschen</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="edCancel">Abbrechen</button>
+            <button class="btn btn-primary btn-sm" type="button" id="edSave">Speichern</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════ MODAL: Einladungstexte ══════════════ -->
+<div class="modal-back" id="inviteModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="invTitle">
+        <div class="modal-head">
+            <h2 id="invTitle">Einladungstexte</h2>
+            <button class="x-btn" type="button" id="invClose" aria-label="Schließen">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="chip-row">
+                <button class="btn btn-secondary btn-xs" type="button" id="invCopyAll">Alle Texte kopieren</button>
+                <button class="btn btn-secondary btn-xs" type="button" id="tplToggle">Vorlage bearbeiten</button>
+            </div>
+
+            <div id="tplBox">
+                <div class="form-group">
+                    <label for="tplSubject">Betreff</label>
+                    <input type="text" id="tplSubject" maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="tplBody">Textvorlage</label>
+                    <textarea id="tplBody" style="min-height:230px" maxlength="4000"></textarea>
+                    <div class="form-hint tpl-vars">
+                        Platzhalter: <code>{name}</code> <code>{firma}</code> <code>{titel}</code>
+                        <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code>
+                        <code>{frist}</code> <code>{link}</code> <code>{login}</code>
+                        <code>{passwort}</code> <code>{absender}</code><br>
+                        Leere Angaben (z.B. kein Ort) lassen ihre Zeile automatisch verschwinden.
+                        Die Vorlage gilt für Ihren Zugang und für alle Terminabfragen.
+                    </div>
+                </div>
+                <div class="chip-row">
+                    <button class="btn btn-primary btn-xs" type="button" id="tplSave">Vorlage speichern</button>
+                    <button class="btn btn-secondary btn-xs" type="button" id="tplReset">Standardtext wiederherstellen</button>
+                </div>
+                <div class="error-msg" id="tplError"></div>
+                <div class="success-msg" id="tplSuccess"></div>
+            </div>
+
+            <div class="sub-label" style="margin-top:16px">Teilnehmer</div>
+            <div class="inv-list" id="invList"></div>
+
+            <div class="inv-preview">
+                <div class="sub-label" style="margin-top:16px">Vorschau</div>
+                <div class="inv-subject" id="invSubject"></div>
+                <div class="inv-body" id="invBody"></div>
+                <div class="chip-row" style="margin-top:12px">
+                    <button class="btn btn-primary btn-sm" type="button" id="invCopyOne">Betreff + Text kopieren</button>
+                    <button class="btn btn-secondary btn-sm" type="button" id="invMailto">Im Mail-Programm öffnen</button>
+                </div>
+                <div class="success-msg" id="invCopyMsg"></div>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-secondary btn-sm" type="button" id="invDone">Schließen</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════ MODAL: Rueckfrage (ersetzt window.confirm) ══════════════ -->
+<div class="modal-back" id="askModal">
+    <div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="askTitle">
+        <div class="modal-head">
+            <h2 id="askTitle">Bitte bestätigen</h2>
+            <button class="x-btn" type="button" id="askClose" aria-label="Schließen">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="ask-text" id="askText"></div>
+        </div>
+        <div class="modal-foot">
+            <button class="btn btn-secondary btn-sm" type="button" id="askNo">Abbrechen</button>
+            <button class="btn btn-danger btn-sm" type="button" id="askYes">Löschen</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hinweise (ersetzt window.alert) -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ══════════════ Firebase ══════════════ -->
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-check-compat.js"></script>
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyAR9TGY3oz3bhO5nl6zgwnVHcS_IDmk5T0",
+    authDomain: "project-dachau.firebaseapp.com",
+    projectId: "project-dachau",
+    storageBucket: "project-dachau.firebasestorage.app",
+    messagingSenderId: "231877107728",
+    appId: "1:231877107728:web:e210dc4e59ac3d5bc66a95"
+};
+// XOLUTION Firmenlogo (identisch zur Lagerverwaltung V2, als data-URI eingebettet)
+const XO_LOGO = 'data:image/gif;base64,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6B1YM3HGZCYux9cm5D2zmMGkJjRlAanDXTN11uQmJtGjzbd9s5s9IScw4ZGps52znNFkJzb7d6+XvTN4v6BnxsJZq4Hds3nZ5GcC0mksff2zn6gg6ALoh61mHVi0egZlKEJJQTRHPfR8mqCoGTJBtTldlHz04ejBhvIwK320fiElKUgvyDYhndR/h2DpCVwqx2K9VIEppKm/bMpI/tx0gzLkKU7dUE0C/TSEeyGqtozKOy8dRNWGjGFqtCxTUXk9tYiZoSplvIi/bl11jU7iqiECOcOafZWsZaXk2MyaVrUKsnFrdetb41g6uM6VrmLUX13xmteuUlCvNX316xdd8lfBDjauhyTsYRHbR+gklrGN3Ws2HBtZyV7SgJO17GVZSRXMbpazxExqZ0EbWtGOKJa0pTXtaVGbWtWulrWtde1rYRtb2c6WtrW17W1xm1vd7pa3vfXtb4EnG1zhDpe4xTXucZGbXOUul7nNde5zoRtd6U6XutW17nWxm13tbpe7I9317nfBG17xjpe85TXvedGbXvWul73tde974Rtf+c6XvvW1Ie998Ztf/e6Xv/31738BHGABD5jABTbwgRGcYAUvmMENdiDwgyEcYQlPmMIVtvCFMZxhDW+Ywx328IdBHGIRj5jEJSA28YlRnGIVr5jFLXbxi2EcYxnPmMY1tvGNcZxjHe+Yxxw99vGPgRxkIQ+ZyEU28pGRnGQlL5nJTXbyk6EcHGUpT5nKVbbylbGcZS1vmctd9vKXwRxmMY+ZzGUbNvOZ0ZxmNa+ZzW1285vhHGc5z5nOdbbznfGcG2c975nPffbznwEdaEEPmtCFNvShEZ1oRS+a0RqNdvSjIR1pSU+a0pW29KUxnWlNb5rTnfb0pxhBHWpRj5rUpTb1qVGdalWvmtWtdvWrYR0Ya1nPmta1tvWtcZ1rXe+a17329a+BHWxhFw+b2MU29rGRnWxlL5vZzXb2s6EdbWlPGJva1bb2tbGdbW1vm9vd9va3wR1ucY+b3BblNve50Z1uda+b3e1297vhHW95z5veFvW2973xnW9975vf/fb3vwEecIEPnOAUBTf4wRGecIUvnOENd/jDIR5xiU8VnOIVt/jFMZ5xjW+c4x33+MdBHnKRFI+c5CU3+clRnnKVr5zlLXf5y2EeFXOZz5zmNbf5zXGec53vnOc99/nPgRMedKEPnehFN/rRkZ50pS+d6U13FPrToR51qU+d6lW3+tWxnnWtb53rE133+tfBHnaxj53sZTf72dGedrUSr53tbXf72+Eed7nPne51t/vdE/Ged73vne999/vfAR94wQ+e8IUSN/zhEZ94xS+e8Y13/OMhH3nJEk+e8pW3/OUxn3nNb57znff85xJBH3rRj570pTf96VGfetWvnvUQrXf962Efe9nPnva1t/3tcRKfe93vnve99/3vgR984Q+f+MUQN/7xkZ985S+f+c13/vOhHxF96U+f+tW3/vWxn33tb5/73RD3/vfBH37xj5/85Tf/+dGfEX71r5/97Xf/++Eff/nPn/71Brf//X1fAAA7';
+const COL_PEOPLE = 'terminplanung_participants';
+const COL_EVENTS = 'terminplanung_events';
+const MAX_COMMENT = 2000;
+const MAX_OPTIONS = 50;
+const SESSION_KEY = 'tp_session';
+const SESSION_HOURS = 12;
+
+firebase.initializeApp(firebaseConfig);
+try {
+    firebase.appCheck().activate(
+        new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc5mLssAAAAAPOlBYLdTQ3eC-xOzHyRlFT8DQz2'),
+        true
+    );
+} catch (e) { console.warn('App Check nicht aktiviert:', e && e.message); }
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+const $ = id => document.getElementById(id);
+document.querySelectorAll('img[data-xo-logo]').forEach(img => { img.src = XO_LOGO; });
+const SRV = () => firebase.firestore.FieldValue.serverTimestamp();
+
+// ============================================================
+// HELFER
+// ============================================================
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+const norm = s => String(s == null ? '' : s).trim().toLowerCase();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;   // nur zur Erkennung: ist der Anmeldename eine E-Mail?
+const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+function fmtDate(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '';
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    if (isNaN(dt.getTime())) return iso;
+    return WEEKDAYS[dt.getDay()] + ', ' + String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.' + y;
+}
+function todayIso() {
+    const n = new Date();
+    return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+}
+function optLabel(o) {
+    let t;
+    if (o.from && o.to) t = o.from + '–' + o.to + ' Uhr';
+    else if (o.from) t = 'ab ' + o.from + ' Uhr';
+    else t = 'ganztägig';
+    return { date: fmtDate(o.date), time: t, note: o.note || '' };
+}
+const optSortKey = o => (o.date || '') + ' ' + (o.from || '00:00');
+function genPassword() {
+    const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let s = '';
+    const buf = new Uint32Array(8);
+    (window.crypto || window.msCrypto).getRandomValues(buf);
+    for (let i = 0; i < 8; i++) s += abc[buf[i] % abc.length];
+    return s;
+}
+const appUrl = () => location.origin + location.pathname;
+function accessText(p) {
+    return 'Terminplanung XOLUTION\n'
+        + 'Link:     ' + appUrl() + '\n'
+        + 'Login:    ' + (p.login || '') + '\n'
+        + 'Passwort: ' + (p.password || '');
+}
+async function copyText(text, okEl) {
+    let ok = false;
+    try {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+        ta.remove();
+    }
+    if (okEl) {
+        okEl.textContent = ok ? 'In die Zwischenablage kopiert.' : 'Kopieren nicht möglich — Text bitte manuell markieren.';
+        okEl.style.display = 'block';
+        setTimeout(() => { okEl.style.display = 'none'; }, 2800);
+    }
+    return ok;
+}
+// Eigene Rueckfrage statt window.confirm: Browser koennen native Dialoge
+// unterdruecken ("Weitere Dialoge verhindern"), confirm() liefert dann stumm false
+// und Aktionen wie Loeschen passieren scheinbar gar nicht.
+let _askResolve = null;
+function askConfirm(opts) {
+    const o = opts || {};
+    $('askTitle').textContent = o.title || 'Bitte bestätigen';
+    $('askText').textContent = o.text || '';
+    const yes = $('askYes');
+    yes.textContent = o.confirmLabel || 'Löschen';
+    yes.className = 'btn btn-sm ' + (o.danger === false ? 'btn-primary' : 'btn-danger');
+    $('askModal').classList.add('open');
+    setTimeout(() => yes.focus(), 30);
+    return new Promise(resolve => { _askResolve = resolve; });
+}
+function _askEnd(answer) {
+    $('askModal').classList.remove('open');
+    const r = _askResolve; _askResolve = null;
+    if (r) r(answer);
+}
+
+// Hinweis-Einblendung statt window.alert (aus demselben Grund)
+function notify(text, art) {
+    const el = document.createElement('div');
+    el.className = 'toast' + (art ? ' ' + art : '');
+    el.textContent = text;
+    $('toastWrap').appendChild(el);
+    setTimeout(() => { el.remove(); }, art === 'err' ? 6000 : 4000);
+}
+
+function dbError(ex) {
+    const code = (ex && ex.code) || '';
+    if (code === 'permission-denied') return 'Die Datenbank verweigert den Zugriff. Sind die Firestore-Regeln für die Terminplanung eingespielt?';
+    if (code === 'unavailable') return 'Keine Verbindung zur Datenbank.';
+    return 'Fehler: ' + (code || (ex && ex.message) || 'unbekannt');
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let _me = null;         // angemeldeter Teilnehmer (Dokument aus COL_PEOPLE)
+let _people = [];       // alle Teilnehmer
+let _events = [];       // alle Terminabfragen
+let _responses = {};    // eventId -> { pid: response }
+let _draft = {};        // eventId -> { selected:Set, comment, dirty }
+let _unsubPeople = null, _unsubEvents = null;
+let _unsubResp = {};
+let _editEventId = null, _editPersonId = null;
+let _flash = {};        // eventId -> Zeitpunkt der letzten Speicherung (Bestaetigung ueberlebt den Live-Neuaufbau)
+let _bootDone = false;
+
+// ============================================================
+// START: anonyme Datenbank-Session, dann Teilnehmer laden
+// ============================================================
+(async function boot() {
+    try {
+        if (!auth.currentUser) await auth.signInAnonymously();
+    } catch (ex) {
+        $('bootView').innerHTML = '<div style="max-width:520px">'
+            + '<strong>Die anonyme Anmeldung ist im Firebase-Projekt nicht aktiviert.</strong><br><br>'
+            + 'Firebase-Konsole &rarr; Authentication &rarr; Sign-in method &rarr; <em>Anonymous</em> aktivieren, '
+            + 'dann diese Seite neu laden.<br><br><span style="color:#94a3b8">' + esc(dbError(ex)) + '</span></div>';
+        return;
+    }
+    startPeopleListener();
+})();
+
+function startPeopleListener() {
+    if (_unsubPeople) _unsubPeople();
+    _unsubPeople = db.collection(COL_PEOPLE).onSnapshot(snap => {
+        _people = snap.docs.map(d => Object.assign({ id: d.id }, d.data()))
+            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        if (!_me) {
+            if (!_bootDone) {
+                _bootDone = true;
+                showScreen(_people.length ? 'login' : 'setup');
+                restoreSession();
+            } else {
+                showScreen(_people.length ? 'login' : 'setup');
+            }
+            return;
+        }
+        const fresh = _people.find(p => p.id === _me.id);
+        if (!fresh || fresh.disabled === true) {
+            const grund = fresh ? 'Ihr Zugang wurde gesperrt.' : 'Ihr Zugang wurde entfernt.';
+            logout();
+            const err = $('loginError');
+            err.textContent = grund + ' Bitte an den Organisator wenden.';
+            err.style.display = 'block';
+            return;
+        }
+        _me = fresh;
+        $('userDisplay').textContent = _me.name || _me.login;
+        applyAdminVisibility();
+        renderPeopleTable();
+        renderMyEvents();
+    }, err => {
+        console.error('Teilnehmer-Listener:', err);
+        showScreen('boot');
+        $('bootView').innerHTML = '<div style="max-width:520px">' + esc(dbError(err)) + '</div>';
+    });
+}
+
+function showScreen(name) {
+    $('bootView').style.display = name === 'boot' ? 'flex' : 'none';
+    $('setupView').classList.toggle('show', name === 'setup');
+    $('loginView').classList.toggle('show', name === 'login');
+    $('appView').classList.toggle('show', name === 'app');
+}
+
+// ============================================================
+// ERSTEINRICHTUNG
+// ============================================================
+$('setupForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = $('setupError'); err.style.display = 'none';
+    const name = $('setupName').value.trim().slice(0, 80);
+    const login = norm($('setupLogin').value);
+    const pw = $('setupPw').value;
+    if (!name || !login || pw.length < 4) {
+        err.textContent = 'Bitte Name, Anmeldename und ein Passwort mit mindestens 4 Zeichen angeben.';
+        err.style.display = 'block'; return;
+    }
+    if (_people.length) { err.textContent = 'Es existiert bereits ein Zugang. Bitte die Seite neu laden.'; err.style.display = 'block'; return; }
+    $('setupBtn').disabled = true;
+    try {
+        const ref = await db.collection(COL_PEOPLE).add({
+            name: name, login: login, password: pw, company: '',
+            isAdmin: true, disabled: false, createdAt: SRV()
+        });
+        signIn({ id: ref.id, name: name, login: login, password: pw, company: '', isAdmin: true, disabled: false });
+    } catch (ex) {
+        err.textContent = dbError(ex); err.style.display = 'block';
+    } finally { $('setupBtn').disabled = false; }
+});
+
+// ============================================================
+// ANMELDUNG (app-eigen, ohne Firebase-Auth-Konten)
+// ============================================================
+$('loginForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const err = $('loginError'); err.style.display = 'none';
+    const login = norm($('loginUser').value);
+    const pw = $('loginPw').value;
+    const hit = _people.find(p => norm(p.login) === login);
+    if (!hit || String(hit.password || '') !== pw) {
+        err.textContent = 'Anmeldename oder Passwort ist falsch.'; err.style.display = 'block'; return;
+    }
+    if (hit.disabled === true) {
+        err.textContent = 'Dieser Zugang ist gesperrt. Bitte an den Organisator wenden.'; err.style.display = 'block'; return;
+    }
+    $('loginPw').value = '';
+    signIn(hit);
+});
+
+function signIn(person) {
+    _me = person;
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ id: person.id, ts: Date.now() })); } catch (e) { /* privates Fenster */ }
+    $('userDisplay').textContent = person.name || person.login;
+    applyAdminVisibility();
+    showScreen('app');
+    switchView('myEvents');
+    startEventListener();
+}
+
+function restoreSession() {
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { s = null; }
+    if (!s || !s.id) return;
+    if (Date.now() - (s.ts || 0) > SESSION_HOURS * 3600 * 1000) {
+        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+        return;
+    }
+    const hit = _people.find(p => p.id === s.id);
+    if (hit && hit.disabled !== true) signIn(hit);
+}
+
+function logout() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    if (_unsubEvents) { _unsubEvents(); _unsubEvents = null; }
+    Object.keys(_unsubResp).forEach(k => { try { _unsubResp[k](); } catch (e) {} });
+    _unsubResp = {};
+    _me = null; _events = []; _responses = {}; _draft = {}; _flash = {};
+    closeEventModal(); closePersonModal();
+    $('loginUser').value = ''; $('loginPw').value = '';
+    showScreen(_people.length ? 'login' : 'setup');
+}
+$('logoutBtn').addEventListener('click', logout);
+
+const isAdmin = () => !!(_me && _me.isAdmin === true);
+function applyAdminVisibility() {
+    document.querySelectorAll('[data-admin]').forEach(el => { el.style.display = isAdmin() ? '' : 'none'; });
+    $('adminBadge').style.display = isAdmin() ? 'inline-flex' : 'none';
+    const active = document.querySelector('.tab.active');
+    if (!isAdmin() && active && active.dataset.admin) switchView('myEvents');
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchView(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === name));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+    if (name === 'adminResults') renderResults();
+    if (name === 'adminPeople') renderPeopleTable();
+}
+$('tabs').addEventListener('click', e => {
+    const t = e.target.closest('.tab');
+    if (t) switchView(t.dataset.view);
+});
+
+$('askYes').addEventListener('click', () => _askEnd(true));
+$('askNo').addEventListener('click', () => _askEnd(false));
+$('askClose').addEventListener('click', () => _askEnd(false));
+$('askModal').addEventListener('click', e => { if (e.target === $('askModal')) _askEnd(false); });
+
+// ============================================================
+// TERMINABFRAGEN (live)
+// ============================================================
+function startEventListener() {
+    if (_unsubEvents) _unsubEvents();
+    _unsubEvents = db.collection(COL_EVENTS).onSnapshot(snap => {
+        _events = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+        _events.sort((a, b) => {
+            if (!!a.closed !== !!b.closed) return a.closed ? 1 : -1;
+            return String(a.deadline || '9999').localeCompare(String(b.deadline || '9999'))
+                || String(a.title || '').localeCompare(String(b.title || ''));
+        });
+        syncResponseListeners();
+        renderMyEvents();
+        if (isAdmin()) { renderAdminEvents(); fillResultSelect(); renderResults(); }
+    }, err => {
+        console.error('Termin-Listener:', err);
+        $('myEventsList').innerHTML = '<div class="card"><div class="error-msg" style="display:block">' + esc(dbError(err)) + '</div></div>';
+    });
+}
+
+// Rückmeldungen live mitlesen — für die eigene Ansicht und (als Admin) für die Auswertung.
+function syncResponseListeners() {
+    const want = new Set(_events.map(e => e.id));
+    Object.keys(_unsubResp).forEach(id => {
+        if (want.has(id)) return;
+        try { _unsubResp[id](); } catch (e) {}
+        delete _unsubResp[id]; delete _responses[id]; delete _draft[id];
+    });
+    _events.forEach(ev => {
+        if (_unsubResp[ev.id]) return;
+        _unsubResp[ev.id] = db.collection(COL_EVENTS).doc(ev.id).collection('responses').onSnapshot(snap => {
+            const map = {};
+            snap.docs.forEach(d => { map[d.id] = Object.assign({ pid: d.id }, d.data()); });
+            _responses[ev.id] = map;
+            const mine = _me ? map[_me.id] : null;
+            if (!_draft[ev.id]) {
+                _draft[ev.id] = {
+                    selected: new Set(mine && Array.isArray(mine.selected) ? mine.selected : []),
+                    comment: mine ? String(mine.comment || '') : '',
+                    dirty: false
+                };
+            }
+            renderMyEvents();
+            if (isAdmin()) { renderAdminEvents(); renderResults(); }
+        }, err => console.warn('Rückmeldungen (' + ev.id + '):', err && err.message));
+    });
+}
+
+const myResponse = evId => (_me && _responses[evId]) ? _responses[evId][_me.id] : null;
+
+// ============================================================
+// TEILNEHMER-ANSICHT
+// ============================================================
+function eventState(ev) {
+    if (ev.closed) return { label: 'geschlossen', cls: 'badge-closed' };
+    if (myResponse(ev.id)) return { label: 'beantwortet', cls: 'badge-done' };
+    if (ev.deadline && ev.deadline < todayIso()) return { label: 'Frist abgelaufen', cls: 'badge-late' };
+    return { label: 'offen', cls: 'badge-open' };
+}
+
+function renderMyEvents() {
+    if (!_me) return;
+    const box = $('myEventsList');
+    const mine = _events.filter(ev => Array.isArray(ev.invitedIds) && ev.invitedIds.indexOf(_me.id) >= 0);
+    if (!mine.length) {
+        box.innerHTML = '<div class="card"><div class="info-msg">'
+            + (isAdmin()
+                ? 'Sie sind zu keiner Terminabfrage eingeladen. Neue Abfragen legen Sie unter „Termine verwalten“ an.'
+                : 'Aktuell sind keine Termine für Sie zu planen.')
+            + '</div></div>';
+        return;
+    }
+    box.innerHTML = mine.map(ev => {
+        const st = eventState(ev);
+        const locked = !!ev.closed;
+        const d = _draft[ev.id] || { selected: new Set(), comment: '', dirty: false };
+        const opts = (Array.isArray(ev.options) ? ev.options.slice() : []).sort((a, b) => optSortKey(a).localeCompare(optSortKey(b)));
+        const optHtml = opts.length ? opts.map(o => {
+            const l = optLabel(o);
+            const sel = d.selected.has(o.id);
+            return '<button type="button" class="opt' + (sel ? ' sel' : '') + '"'
+                + ' data-ev="' + esc(ev.id) + '" data-opt="' + esc(o.id) + '" data-act="toggle"'
+                + (locked ? ' disabled' : '') + ' aria-pressed="' + (sel ? 'true' : 'false') + '">'
+                + '<span class="opt-check">' + (sel ? '&#10003;' : '') + '</span>'
+                + '<span class="opt-body">'
+                + '<span class="opt-date">' + esc(l.date) + '</span>'
+                + '<span class="opt-time">' + esc(l.time) + '</span>'
+                + (l.note ? '<span class="opt-note">' + esc(l.note) + '</span>' : '')
+                + '</span></button>';
+        }).join('') : '<div class="info-msg">Keine Terminvorschläge hinterlegt.</div>';
+
+        const saved = myResponse(ev.id);
+        const savedRecently = !d.dirty && (Date.now() - (_flash[ev.id] || 0) < 6000);
+        const savedInfo = saved
+            ? 'Ihre Rückmeldung ist gespeichert: ' + (Array.isArray(saved.selected) ? saved.selected.length : 0) + ' von ' + opts.length + ' Terminen machbar'
+            : 'Noch keine Rückmeldung gespeichert';
+
+        return '<div class="card">'
+            + '<div class="card-head"><div class="card-title">' + esc(ev.title || '(ohne Titel)') + '</div>'
+            + '<span class="badge ' + st.cls + '">' + esc(st.label) + '</span></div>'
+            + '<div class="card-meta">'
+            + (ev.location ? 'Ort: ' + esc(ev.location) + '<br>' : '')
+            + (ev.deadline ? 'Rückmeldung bis: ' + esc(fmtDate(ev.deadline)) + '<br>' : '')
+            + esc(savedInfo) + '</div>'
+            + (ev.description ? '<div class="card-desc">' + esc(ev.description) + '</div>' : '')
+            + '<div class="sub-label">Welche Termine sind für Sie machbar?</div>'
+            + '<div class="opt-grid">' + optHtml + '</div>'
+            + '<div class="form-group"><label for="cmt_' + esc(ev.id) + '">Kommentar (optional)</label>'
+            + '<textarea id="cmt_' + esc(ev.id) + '" maxlength="' + MAX_COMMENT + '" data-ev="' + esc(ev.id) + '" data-act="comment"'
+            + (locked ? ' disabled' : '') + ' placeholder="z.B. Am 12. nur vormittags, ab 14 Uhr Kundentermin">'
+            + esc(d.comment) + '</textarea></div>'
+            + (locked
+                ? '<div class="save-state">Diese Terminabfrage ist geschlossen — Änderungen sind nicht mehr möglich.</div>'
+                : '<div class="save-row"><button type="button" class="btn btn-success btn-sm" data-ev="' + esc(ev.id) + '" data-act="save">Rückmeldung speichern</button>'
+                  + '<span class="save-state' + (savedRecently ? ' ok' : '') + '" id="st_' + esc(ev.id) + '">'
+                  + (d.dirty ? 'Nicht gespeichert' : (savedRecently ? 'Gespeichert ✓' : '')) + '</span></div>')
+            + '</div>';
+    }).join('');
+}
+
+$('myEventsList').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const evId = btn.dataset.ev;
+    if (btn.dataset.act === 'toggle') {
+        const d = _draft[evId]; if (!d) return;
+        const optId = btn.dataset.opt;
+        if (d.selected.has(optId)) d.selected.delete(optId); else d.selected.add(optId);
+        d.dirty = true;
+        btn.classList.toggle('sel', d.selected.has(optId));
+        btn.setAttribute('aria-pressed', d.selected.has(optId) ? 'true' : 'false');
+        const chk = btn.querySelector('.opt-check');
+        if (chk) chk.innerHTML = d.selected.has(optId) ? '&#10003;' : '';
+        const st = $('st_' + evId);
+        if (st) { st.textContent = 'Nicht gespeichert'; st.className = 'save-state'; }
+    } else if (btn.dataset.act === 'save') {
+        await saveResponse(evId, btn);
+    }
+});
+$('myEventsList').addEventListener('input', e => {
+    const ta = e.target.closest('[data-act="comment"]');
+    if (!ta) return;
+    const d = _draft[ta.dataset.ev]; if (!d) return;
+    d.comment = ta.value.slice(0, MAX_COMMENT);
+    d.dirty = true;
+    const st = $('st_' + ta.dataset.ev);
+    if (st) { st.textContent = 'Nicht gespeichert'; st.className = 'save-state'; }
+});
+
+async function saveResponse(evId, btn) {
+    const ev = _events.find(x => x.id === evId);
+    const d = _draft[evId];
+    if (!ev || !d || !_me) return;
+    const st = $('st_' + evId);
+    const valid = new Set((Array.isArray(ev.options) ? ev.options : []).map(o => o.id));
+    const selected = Array.from(d.selected).filter(id => valid.has(id)).slice(0, MAX_OPTIONS);
+    btn.disabled = true;
+    if (st) { st.textContent = 'Speichere…'; st.className = 'save-state'; }
+    try {
+        await db.collection(COL_EVENTS).doc(evId).collection('responses').doc(_me.id).set({
+            selected: selected,
+            comment: String(d.comment || '').slice(0, MAX_COMMENT),
+            name: _me.name || _me.login || '',
+            login: _me.login || '',
+            company: _me.company || '',
+            updatedAt: SRV()
+        });
+        d.dirty = false;
+        _flash[evId] = Date.now();
+        if (st) { st.textContent = 'Gespeichert ✓'; st.className = 'save-state ok'; }
+        // Nach dem Ablauf der Bestaetigung einmal neu zeichnen, damit der Hinweis verschwindet
+        setTimeout(() => { if (!_draft[evId] || !_draft[evId].dirty) renderMyEvents(); }, 6200);
+    } catch (ex) {
+        console.error('Rückmeldung speichern:', ex);
+        if (st) { st.textContent = dbError(ex); st.className = 'save-state err'; }
+    } finally { btn.disabled = false; }
+}
+
+// ============================================================
+// ADMIN: TERMINLISTE
+// ============================================================
+function renderAdminEvents() {
+    if (!isAdmin()) return;
+    const box = $('adminEventsList');
+    if (!_events.length) { box.innerHTML = '<div class="info-msg">Noch keine Terminabfrage angelegt.</div>'; return; }
+    box.innerHTML = '<div class="table-wrap"><table><thead><tr>'
+        + '<th>Titel</th><th class="center">Vorschläge</th><th class="center">Teilnehmer</th><th class="center">Antworten</th><th>Frist</th><th>Status</th><th>Aktion</th>'
+        + '</tr></thead><tbody>'
+        + _events.map(ev => {
+            const nResp = _responses[ev.id] ? Object.keys(_responses[ev.id]).length : 0;
+            return '<tr>'
+                + '<td><strong>' + esc(ev.title || '(ohne Titel)') + '</strong>'
+                + (ev.location ? '<br><span style="color:var(--xo-muted);font-size:0.78rem">' + esc(ev.location) + '</span>' : '') + '</td>'
+                + '<td class="center">' + (ev.options || []).length + '</td>'
+                + '<td class="center">' + (ev.invitedIds || []).length + '</td>'
+                + '<td class="center">' + nResp + '</td>'
+                + '<td>' + esc(ev.deadline ? fmtDate(ev.deadline) : '–') + '</td>'
+                + '<td><span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? 'geschlossen' : 'offen') + '</span></td>'
+                + '<td style="white-space:nowrap">'
+                + '<button class="btn btn-secondary btn-xs" type="button" data-act="invite" data-ev="' + esc(ev.id) + '">Einladung</button> '
+                + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-ev="' + esc(ev.id) + '">Bearbeiten</button> '
+                + '<button class="btn btn-secondary btn-xs" type="button" data-act="toggleClosed" data-ev="' + esc(ev.id) + '">' + (ev.closed ? 'Öffnen' : 'Schließen') + '</button> '
+                + '<button class="btn btn-danger btn-xs" type="button" data-act="del" data-ev="' + esc(ev.id) + '">Löschen</button>'
+                + '</td></tr>';
+        }).join('')
+        + '</tbody></table></div>';
+}
+
+$('adminEventsList').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn || !isAdmin()) return;
+    const ev = _events.find(x => x.id === btn.dataset.ev);
+    if (!ev) return;
+    if (btn.dataset.act === 'edit') { openEventModal(ev.id); return; }
+    if (btn.dataset.act === 'invite') { openInviteModal(ev.id); return; }
+    btn.disabled = true;
+    try {
+        if (btn.dataset.act === 'toggleClosed') {
+            await db.collection(COL_EVENTS).doc(ev.id).update({ closed: !ev.closed, updatedAt: SRV() });
+        } else if (btn.dataset.act === 'del') {
+            const nResp = _responses[ev.id] ? Object.keys(_responses[ev.id]).length : 0;
+            const ok = await askConfirm({
+                title: 'Terminabfrage löschen',
+                text: '„' + (ev.title || '') + '“ wird endgültig gelöscht'
+                    + (nResp ? ', zusammen mit ' + nResp + ' gespeicherten Rückmeldung' + (nResp === 1 ? '' : 'en') : '')
+                    + '.\n\nDas lässt sich nicht zurücknehmen.',
+                confirmLabel: 'Endgültig löschen'
+            });
+            if (!ok) { btn.disabled = false; return; }
+            const resps = await db.collection(COL_EVENTS).doc(ev.id).collection('responses').get();
+            for (const r of resps.docs) await r.ref.delete();
+            await db.collection(COL_EVENTS).doc(ev.id).delete();
+            notify('Terminabfrage „' + (ev.title || '') + '“ gelöscht.', 'ok');
+        }
+    } catch (ex) { notify(dbError(ex), 'err'); }
+    finally { btn.disabled = false; }
+});
+
+// ============================================================
+// ADMIN: TERMIN-EDITOR
+// ============================================================
+let _optRows = 0;
+function addOptRow(o) {
+    o = o || {};
+    const id = o.id || ('o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
+    const rid = 'or' + (++_optRows);
+    const div = document.createElement('div');
+    div.className = 'opt-edit';
+    div.dataset.optId = id;
+    div.innerHTML =
+        '<div class="form-group fg-date"><label for="' + rid + 'd">Datum</label><input type="date" id="' + rid + 'd" class="oe-date" value="' + esc(o.date || '') + '"></div>'
+        + '<div class="form-group fg-time"><label for="' + rid + 'f">von</label><input type="time" id="' + rid + 'f" class="oe-from" value="' + esc(o.from || '') + '"></div>'
+        + '<div class="form-group fg-time"><label for="' + rid + 't">bis</label><input type="time" id="' + rid + 't" class="oe-to" value="' + esc(o.to || '') + '"></div>'
+        + '<div class="form-group fg-note"><label for="' + rid + 'n">Hinweis (optional)</label><input type="text" id="' + rid + 'n" class="oe-note" maxlength="120" value="' + esc(o.note || '') + '"></div>'
+        + '<button class="btn btn-secondary opt-rm" type="button" data-act="rmOpt" title="Vorschlag entfernen" aria-label="Vorschlag entfernen">&times;</button>';
+    $('evOptions').appendChild(div);
+}
+$('addOptBtn').addEventListener('click', () => {
+    if ($('evOptions').children.length >= MAX_OPTIONS) { notify('Mehr als ' + MAX_OPTIONS + ' Terminvorschläge sind nicht möglich.', 'err'); return; }
+    addOptRow();
+});
+$('evOptions').addEventListener('click', e => {
+    const b = e.target.closest('[data-act="rmOpt"]');
+    if (b) b.closest('.opt-edit').remove();
+});
+
+function renderEvPeople(selectedIds) {
+    const sel = new Set(selectedIds || []);
+    const list = _people.filter(p => p.disabled !== true);
+    $('evPeople').innerHTML = list.length ? list.map(p =>
+        '<label class="person"><input type="checkbox" class="pp" value="' + esc(p.id) + '"' + (sel.has(p.id) ? ' checked' : '') + '>'
+        + '<span>' + esc(p.name || p.login)
+        + '<span class="pmail">' + esc(p.login || '') + (p.company ? ' · ' + esc(p.company) : '') + '</span></span></label>'
+    ).join('') : '<div class="info-msg">Keine Teilnehmer vorhanden — bitte erst im Reiter „Teilnehmer“ anlegen.</div>';
+    updateEvPeopleCount();
+}
+function updateEvPeopleCount() {
+    $('peopleCount').textContent = $('evPeople').querySelectorAll('.pp:checked').length + ' ausgewählt';
+}
+$('evPeople').addEventListener('change', updateEvPeopleCount);
+$('selAllPeople').addEventListener('click', () => { $('evPeople').querySelectorAll('.pp').forEach(c => { c.checked = true; }); updateEvPeopleCount(); });
+$('selNonePeople').addEventListener('click', () => { $('evPeople').querySelectorAll('.pp').forEach(c => { c.checked = false; }); updateEvPeopleCount(); });
+
+function openEventModal(eventId) {
+    if (!isAdmin()) return;
+    _editEventId = eventId || null;
+    const ev = eventId ? _events.find(x => x.id === eventId) : null;
+    $('eventModalTitle').textContent = ev ? 'Terminabfrage bearbeiten' : 'Neue Terminabfrage';
+    $('evTitle').value = ev ? (ev.title || '') : '';
+    $('evDesc').value = ev ? (ev.description || '') : '';
+    $('evLocation').value = ev ? (ev.location || '') : '';
+    $('evDeadline').value = ev ? (ev.deadline || '') : '';
+    $('evOptions').innerHTML = '';
+    const opts = ev && Array.isArray(ev.options) ? ev.options.slice().sort((a, b) => optSortKey(a).localeCompare(optSortKey(b))) : [];
+    if (opts.length) opts.forEach(addOptRow); else { addOptRow(); addOptRow(); }
+    // Neue Abfrage: alle aktiven Teilnehmer sind vorausgewählt
+    renderEvPeople(ev ? ev.invitedIds : _people.filter(p => p.disabled !== true).map(p => p.id));
+    $('evError').style.display = 'none';
+    $('eventModal').classList.add('open');
+    $('evTitle').focus();
+}
+function closeEventModal() { $('eventModal').classList.remove('open'); _editEventId = null; }
+$('newEventBtn').addEventListener('click', () => openEventModal(null));
+$('eventModalClose').addEventListener('click', closeEventModal);
+$('evCancel').addEventListener('click', closeEventModal);
+$('eventModal').addEventListener('click', e => { if (e.target === $('eventModal')) closeEventModal(); });
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if ($('askModal').classList.contains('open')) { _askEnd(false); return; }
+    if ($('inviteModal').classList.contains('open')) { closeInviteModal(); return; }
+    if ($('eventModal').classList.contains('open')) closeEventModal();
+    if ($('personModal').classList.contains('open')) closePersonModal();
+});
+
+$('evSave').addEventListener('click', async () => {
+    if (!isAdmin()) return;
+    const err = $('evError'); err.style.display = 'none';
+    const title = $('evTitle').value.trim();
+    if (!title) { err.textContent = 'Bitte einen Titel angeben.'; err.style.display = 'block'; return; }
+
+    const options = [];
+    for (const row of $('evOptions').querySelectorAll('.opt-edit')) {
+        const date = row.querySelector('.oe-date').value;
+        const from = row.querySelector('.oe-from').value;
+        const to = row.querySelector('.oe-to').value;
+        const note = row.querySelector('.oe-note').value.trim().slice(0, 120);
+        if (!date) continue;
+        if (from && to && to <= from) { err.textContent = 'Bei ' + fmtDate(date) + ' liegt die Endzeit nicht nach der Startzeit.'; err.style.display = 'block'; return; }
+        options.push({ id: row.dataset.optId, date: date, from: from || '', to: to || '', note: note });
+    }
+    if (!options.length) { err.textContent = 'Bitte mindestens einen Terminvorschlag mit Datum angeben.'; err.style.display = 'block'; return; }
+    const seen = new Set();
+    for (const o of options) {
+        const k = o.date + '|' + o.from + '|' + o.to;
+        if (seen.has(k)) { err.textContent = 'Doppelter Terminvorschlag: ' + fmtDate(o.date) + '.'; err.style.display = 'block'; return; }
+        seen.add(k);
+    }
+    const invitedIds = Array.from($('evPeople').querySelectorAll('.pp:checked')).map(c => c.value);
+    if (!invitedIds.length) { err.textContent = 'Bitte mindestens einen Teilnehmer auswählen.'; err.style.display = 'block'; return; }
+
+    const payload = {
+        title: title,
+        description: $('evDesc').value.trim().slice(0, 2000),
+        location: $('evLocation').value.trim().slice(0, 120),
+        deadline: $('evDeadline').value || '',
+        options: options,
+        invitedIds: invitedIds,
+        updatedAt: SRV()
+    };
+    $('evSave').disabled = true;
+    try {
+        if (_editEventId) {
+            await db.collection(COL_EVENTS).doc(_editEventId).update(payload);
+        } else {
+            payload.closed = false;
+            payload.createdAt = SRV();
+            payload.createdByName = _me.name || _me.login || '';
+            await db.collection(COL_EVENTS).add(payload);
+        }
+        closeEventModal();
+    } catch (ex) {
+        console.error('Termin speichern:', ex);
+        err.textContent = dbError(ex); err.style.display = 'block';
+    } finally { $('evSave').disabled = false; }
+});
+
+// ============================================================
+// ADMIN: EINLADUNGSTEXTE
+// ============================================================
+const DEFAULT_INVITE_SUBJECT = 'Terminabfrage: {titel}';
+const DEFAULT_INVITE_BODY =
+    'Guten Tag {name},\n'
+  + '\n'
+  + 'für „{titel}“ suche ich einen Termin, der für alle Beteiligten passt.\n'
+  + '{beschreibung}\n'
+  + '{ort}\n'
+  + 'Bitte melden Sie online zurück, welche der folgenden Termine für Sie machbar sind:\n'
+  + '\n'
+  + '{termine}\n'
+  + '\n'
+  + 'Ihr persönlicher Zugang:\n'
+  + 'Link:        {link}\n'
+  + 'Anmeldename: {login}\n'
+  + 'Passwort:    {passwort}\n'
+  + '\n'
+  + 'Sie können mehrere Termine als machbar markieren und im Kommentarfeld Anmerkungen hinterlassen.\n'
+  + '{frist}\n'
+  + '\n'
+  + 'Vielen Dank und viele Grüße\n'
+  + '{absender}';
+
+let _invEventId = null;
+let _invPid = null;
+
+const inviteSubjectTpl = () => (_me && _me.inviteSubject) || DEFAULT_INVITE_SUBJECT;
+const inviteBodyTpl    = () => (_me && _me.inviteTemplate) || DEFAULT_INVITE_BODY;
+
+// Erzeugt Betreff + Text für genau einen Teilnehmer einer Terminabfrage.
+function buildInvite(ev, p, subjectTpl, bodyTpl) {
+    const opts = (Array.isArray(ev.options) ? ev.options.slice() : [])
+        .sort((a, b) => optSortKey(a).localeCompare(optSortKey(b)));
+    const termine = opts.map(o => {
+        const l = optLabel(o);
+        return '- ' + l.date + ', ' + l.time + (l.note ? ' (' + l.note + ')' : '');
+    }).join('\n');
+    const werte = {
+        '{name}':         p.name || p.login || '',
+        '{firma}':        p.company || '',
+        '{titel}':        ev.title || '',
+        '{beschreibung}': (ev.description || '').trim(),
+        '{ort}':          ev.location ? 'Ort: ' + ev.location : '',
+        '{termine}':      termine,
+        '{frist}':        ev.deadline ? 'Bitte antworten Sie bis ' + fmtDate(ev.deadline) + '.' : '',
+        '{link}':         appUrl(),
+        '{login}':        p.login || '',
+        '{passwort}':     p.password || '',
+        '{absender}':     (_me && (_me.name || _me.login)) || ''
+    };
+    const fill = tpl => {
+        let out = String(tpl || '');
+        Object.keys(werte).forEach(k => { out = out.split(k).join(werte[k]); });
+        // Zeilen, die nur wegen eines leeren Platzhalters leer sind, nicht stehen lassen
+        return out.replace(/\n{3,}/g, '\n\n').trim();
+    };
+    return { subject: fill(subjectTpl).replace(/\s+/g, ' ').trim(), body: fill(bodyTpl) };
+}
+
+function invitedPeopleOf(ev) {
+    return (ev.invitedIds || [])
+        .map(id => _people.find(p => p.id === id))
+        .filter(Boolean);
+}
+
+function openInviteModal(eventId) {
+    if (!isAdmin()) return;
+    const ev = _events.find(x => x.id === eventId);
+    if (!ev) return;
+    _invEventId = eventId;
+    $('invTitle').textContent = 'Einladungstexte: ' + (ev.title || '');
+    $('tplSubject').value = inviteSubjectTpl();
+    $('tplBody').value = inviteBodyTpl();
+    $('tplBox').classList.remove('open');
+    $('tplError').style.display = 'none'; $('tplSuccess').style.display = 'none';
+    $('invCopyMsg').style.display = 'none';
+    const people = invitedPeopleOf(ev);
+    _invPid = people.length ? people[0].id : null;
+    renderInviteList();
+    renderInvitePreview();
+    $('inviteModal').classList.add('open');
+}
+function closeInviteModal() { $('inviteModal').classList.remove('open'); _invEventId = null; _invPid = null; }
+
+function renderInviteList() {
+    const ev = _events.find(x => x.id === _invEventId);
+    if (!ev) return;
+    const people = invitedPeopleOf(ev);
+    $('invList').innerHTML = people.length ? people.map(p =>
+        '<div class="inv-row' + (p.id === _invPid ? ' active' : '') + '" data-pid="' + esc(p.id) + '">'
+        + '<div class="inv-who">' + esc(p.name || p.login)
+        + '<span>' + esc(p.login || '') + (p.company ? ' · ' + esc(p.company) : '') + '</span></div>'
+        + '<div class="inv-act">'
+        + '<button class="btn btn-secondary btn-xs" type="button" data-inv="copy" data-pid="' + esc(p.id) + '">Kopieren</button>'
+        + '</div></div>'
+    ).join('') : '<div class="info-msg">Zu dieser Terminabfrage sind keine (noch vorhandenen) Teilnehmer eingeladen.</div>';
+}
+
+function renderInvitePreview() {
+    const ev = _events.find(x => x.id === _invEventId);
+    const p = _people.find(x => x.id === _invPid);
+    if (!ev || !p) {
+        $('invSubject').textContent = '';
+        $('invBody').textContent = 'Kein Teilnehmer ausgewählt.';
+        $('invCopyOne').disabled = true; $('invMailto').disabled = true;
+        return;
+    }
+    const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
+    $('invSubject').textContent = 'Betreff: ' + m.subject;
+    $('invBody').textContent = m.body;
+    $('invCopyOne').disabled = false;
+    const istMail = EMAIL_RE.test(p.login || '');
+    $('invMailto').disabled = !istMail;
+    $('invMailto').title = istMail ? 'Öffnet eine neue Mail an ' + p.login
+        : 'Der Anmeldename dieses Teilnehmers ist keine E-Mail-Adresse';
+}
+
+$('invList').addEventListener('click', async e => {
+    const copyBtn = e.target.closest('[data-inv="copy"]');
+    const row = e.target.closest('.inv-row');
+    const ev = _events.find(x => x.id === _invEventId);
+    if (!ev) return;
+    if (copyBtn) {
+        const p = _people.find(x => x.id === copyBtn.dataset.pid);
+        if (!p) return;
+        const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
+        const ok = await copyText('Betreff: ' + m.subject + '\n\n' + m.body, null);
+        copyBtn.textContent = ok ? 'Kopiert \u2713' : 'Fehlgeschlagen';
+        setTimeout(() => { copyBtn.textContent = 'Kopieren'; }, 2000);
+        return;
+    }
+    if (row) { _invPid = row.dataset.pid; renderInviteList(); renderInvitePreview(); }
+});
+
+$('invCopyOne').addEventListener('click', async () => {
+    const ev = _events.find(x => x.id === _invEventId);
+    const p = _people.find(x => x.id === _invPid);
+    if (!ev || !p) return;
+    const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
+    const ok = await copyText('Betreff: ' + m.subject + '\n\n' + m.body, $('invCopyMsg'));
+    if (!ok) markiereVorschau();   // Rueckfall: Text markieren, dann genuegt Strg+C
+});
+
+// Sperrt der Browser den Zugriff auf die Zwischenablage, wird der Vorschautext markiert —
+// der Nutzer kommt dann mit Strg+C trotzdem an den Text.
+function markiereVorschau() {
+    try {
+        const sel = window.getSelection();
+        const r = document.createRange();
+        r.selectNodeContents($('invBody'));
+        sel.removeAllRanges();
+        sel.addRange(r);
+        $('invBody').scrollIntoView({ block: 'nearest' });
+    } catch (e) { /* nichts zu tun */ }
+}
+
+$('invCopyAll').addEventListener('click', async () => {
+    const ev = _events.find(x => x.id === _invEventId);
+    if (!ev) return;
+    const people = invitedPeopleOf(ev);
+    if (!people.length) return;
+    const text = people.map(p => {
+        const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
+        return '=== ' + (p.name || p.login) + ' <' + (p.login || '') + '> ===\n'
+             + 'Betreff: ' + m.subject + '\n\n' + m.body;
+    }).join('\n\n' + '-'.repeat(60) + '\n\n');
+    const ok = await copyText(text, $('invCopyMsg'));
+    if (ok) notify(people.length + ' Einladungstexte kopiert.', 'ok');
+});
+
+$('invMailto').addEventListener('click', () => {
+    const ev = _events.find(x => x.id === _invEventId);
+    const p = _people.find(x => x.id === _invPid);
+    if (!ev || !p || !EMAIL_RE.test(p.login || '')) return;
+    const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
+    // Mail-Programm nur oeffnen — verschickt wird nichts automatisch
+    window.location.href = 'mailto:' + encodeURIComponent(p.login)
+        + '?subject=' + encodeURIComponent(m.subject)
+        + '&body=' + encodeURIComponent(m.body);
+});
+
+$('tplToggle').addEventListener('click', () => {
+    const box = $('tplBox');
+    box.classList.toggle('open');
+    $('tplToggle').textContent = box.classList.contains('open') ? 'Vorlage ausblenden' : 'Vorlage bearbeiten';
+});
+['tplSubject', 'tplBody'].forEach(id => $(id).addEventListener('input', renderInvitePreview));
+
+$('tplSave').addEventListener('click', async () => {
+    if (!isAdmin() || !_me) return;
+    const err = $('tplError'), suc = $('tplSuccess');
+    err.style.display = 'none'; suc.style.display = 'none';
+    $('tplSave').disabled = true;
+    try {
+        const patch = { inviteSubject: $('tplSubject').value.slice(0, 200), inviteTemplate: $('tplBody').value.slice(0, 4000) };
+        await db.collection(COL_PEOPLE).doc(_me.id).update(patch);
+        _me = Object.assign({}, _me, patch);
+        suc.textContent = 'Vorlage gespeichert.'; suc.style.display = 'block';
+    } catch (ex) {
+        err.textContent = dbError(ex); err.style.display = 'block';
+    } finally { $('tplSave').disabled = false; }
+});
+
+$('tplReset').addEventListener('click', () => {
+    $('tplSubject').value = DEFAULT_INVITE_SUBJECT;
+    $('tplBody').value = DEFAULT_INVITE_BODY;
+    renderInvitePreview();
+    $('tplSuccess').textContent = 'Standardtext eingesetzt — zum Übernehmen noch „Vorlage speichern“ drücken.';
+    $('tplSuccess').style.display = 'block';
+});
+
+$('invClose').addEventListener('click', closeInviteModal);
+$('invDone').addEventListener('click', closeInviteModal);
+$('inviteModal').addEventListener('click', e => { if (e.target === $('inviteModal')) closeInviteModal(); });
+
+// ============================================================
+// ADMIN: AUSWERTUNG
+// ============================================================
+function fillResultSelect() {
+    const sel = $('resultSelect');
+    const prev = sel.value;
+    sel.innerHTML = _events.length
+        ? _events.map(ev => '<option value="' + esc(ev.id) + '">' + esc(ev.title || '(ohne Titel)') + (ev.closed ? ' (geschlossen)' : '') + '</option>').join('')
+        : '<option value="">– keine Terminabfrage –</option>';
+    if (prev && _events.some(e => e.id === prev)) sel.value = prev;
+}
+$('resultSelect').addEventListener('change', renderResults);
+
+function renderResults() {
+    if (!isAdmin()) return;
+    const box = $('resultsBox');
+    const ev = _events.find(x => x.id === $('resultSelect').value);
+    if (!ev) { box.innerHTML = '<div class="card"><div class="info-msg">Bitte eine Terminabfrage wählen.</div></div>'; return; }
+    const resp = _responses[ev.id] || {};
+    const opts = (Array.isArray(ev.options) ? ev.options.slice() : []).sort((a, b) => optSortKey(a).localeCompare(optSortKey(b)));
+    const invited = (ev.invitedIds || []).slice();
+
+    const counts = {};
+    opts.forEach(o => { counts[o.id] = 0; });
+    Object.values(resp).forEach(r => (Array.isArray(r.selected) ? r.selected : []).forEach(id => { if (counts[id] !== undefined) counts[id]++; }));
+    const maxCount = Math.max(0, ...opts.map(o => counts[o.id]));
+
+    const personOf = pid => {
+        const p = _people.find(x => x.id === pid);
+        if (p) return { name: p.name || p.login, sub: (p.login || '') + (p.company ? ' · ' + p.company : '') };
+        const r = resp[pid];
+        return { name: (r && r.name) || 'Unbekannt', sub: (r && r.login) || 'gelöschter Teilnehmer' };
+    };
+
+    let html = '<div class="card">'
+        + '<div class="card-head"><div class="card-title">' + esc(ev.title || '') + '</div>'
+        + '<span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? 'geschlossen' : 'offen') + '</span></div>'
+        + '<div class="card-meta">'
+        + (ev.location ? 'Ort: ' + esc(ev.location) + '<br>' : '')
+        + (ev.deadline ? 'Rückmeldung bis: ' + esc(fmtDate(ev.deadline)) + '<br>' : '')
+        + 'Rückmeldungen: ' + Object.keys(resp).length + ' von ' + invited.length + ' Teilnehmern</div>';
+
+    if (!opts.length || !invited.length) {
+        box.innerHTML = html + '<div class="info-msg">Keine Vorschläge oder keine Teilnehmer hinterlegt.</div></div>';
+        return;
+    }
+
+    html += '<div class="table-wrap"><table class="matrix"><thead><tr><th>Teilnehmer</th>'
+        + opts.map(o => {
+            const l = optLabel(o);
+            const best = counts[o.id] === maxCount && maxCount > 0;
+            return '<th class="center opt-col' + (best ? ' best' : '') + '">' + esc(l.date)
+                + '<br><span style="font-weight:400;color:var(--xo-body)">' + esc(l.time) + '</span></th>';
+        }).join('')
+        + '<th class="center">Auswahl</th></tr></thead><tbody>';
+
+    invited.forEach(pid => {
+        const who = personOf(pid);
+        const r = resp[pid];
+        html += '<tr><td>' + esc(who.name) + '<br><span style="color:var(--xo-muted);font-size:0.74rem">' + esc(who.sub) + '</span></td>';
+        if (!r) { html += '<td class="center missing" colspan="' + (opts.length + 1) + '">keine Rückmeldung</td></tr>'; return; }
+        const selSet = new Set(Array.isArray(r.selected) ? r.selected : []);
+        opts.forEach(o => {
+            const yes = selSet.has(o.id);
+            html += '<td class="center ' + (yes ? 'yes' : 'no') + '">' + (yes ? '&#10003;' : '&ndash;') + '</td>';
+        });
+        html += '<td class="center">' + selSet.size + '</td></tr>';
+    });
+
+    html += '<tr class="sum"><td>Summe „machbar“</td>'
+        + opts.map(o => '<td class="center">' + counts[o.id] + ' / ' + invited.length + '</td>').join('')
+        + '<td></td></tr></tbody></table></div>';
+
+    if (maxCount > 0) {
+        const bests = opts.filter(o => counts[o.id] === maxCount).map(o => { const l = optLabel(o); return l.date + ', ' + l.time; });
+        html += '<div class="result-best">'
+            + '<strong>Größte Zustimmung (' + maxCount + ' von ' + invited.length + '):</strong><br>' + esc(bests.join(' | ')) + '</div>';
+    }
+    html += '</div>';
+
+    const withComment = Object.values(resp).filter(r => String(r.comment || '').trim());
+    html += '<div class="card"><div class="section-title">Kommentare (' + withComment.length + ')</div>'
+        + (withComment.length ? withComment.map(r =>
+            '<div class="comment-item"><div class="who">' + esc(r.name || r.login || '') + (r.company ? ' · ' + esc(r.company) : '') + '</div>'
+            + '<div class="txt">' + esc(r.comment) + '</div></div>').join('')
+          : '<div class="info-msg">Keine Kommentare abgegeben.</div>')
+        + '</div>';
+
+    box.innerHTML = html;
+}
+
+// ============================================================
+// ADMIN: TEILNEHMERVERWALTUNG
+// ============================================================
+$('genPwBtn').addEventListener('click', () => { $('pPw').value = genPassword(); });
+$('edGenPwBtn').addEventListener('click', () => { $('edPw').value = genPassword(); updateAccessBox(); });
+
+$('addPersonForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!isAdmin()) return;
+    const err = $('addPersonError'), suc = $('addPersonSuccess');
+    err.style.display = 'none'; suc.style.display = 'none';
+    const name = $('pName').value.trim().slice(0, 80);
+    const company = $('pCompany').value.trim().slice(0, 80);
+    const login = norm($('pLogin').value);
+    const pw = $('pPw').value;
+    if (!name || !login) { err.textContent = 'Bitte Name und Anmeldename angeben.'; err.style.display = 'block'; return; }
+    if (pw.length < 4) { err.textContent = 'Das Passwort muss mindestens 4 Zeichen haben.'; err.style.display = 'block'; return; }
+    if (_people.some(p => norm(p.login) === login)) { err.textContent = 'Dieser Anmeldename ist bereits vergeben.'; err.style.display = 'block'; return; }
+    $('addPersonBtn').disabled = true;
+    try {
+        await db.collection(COL_PEOPLE).add({
+            name: name, company: company, login: login, password: pw,
+            isAdmin: $('pAdmin').checked === true, disabled: false, createdAt: SRV()
+        });
+        suc.innerHTML = 'Teilnehmer <strong>' + esc(name) + '</strong> angelegt. Zugangsdaten: <strong>'
+            + esc(login) + '</strong> / <strong>' + esc(pw) + '</strong> — in der Liste unten jederzeit kopierbar.';
+        suc.style.display = 'block';
+        $('pName').value = ''; $('pCompany').value = ''; $('pLogin').value = ''; $('pPw').value = ''; $('pAdmin').checked = false;
+        $('pName').focus();
+    } catch (ex) {
+        err.textContent = dbError(ex); err.style.display = 'block';
+    } finally { $('addPersonBtn').disabled = false; }
+});
+
+function renderPeopleTable() {
+    if (!isAdmin()) return;
+    const tb = $('peopleTableBody');
+    if (!_people.length) { tb.innerHTML = '<tr><td colspan="7" class="info-msg">Noch keine Teilnehmer.</td></tr>'; return; }
+    tb.innerHTML = _people.map(p => {
+        const self = _me && p.id === _me.id;
+        return '<tr>'
+            + '<td>' + esc(p.name || '–') + (self ? ' <span style="color:var(--xo-muted);font-size:0.74rem">(Sie)</span>' : '') + '</td>'
+            + '<td>' + esc(p.company || '–') + '</td>'
+            + '<td>' + esc(p.login || '') + '</td>'
+            + '<td class="pw-cell">' + esc(p.password || '') + '</td>'
+            + '<td>' + (p.isAdmin === true ? '<span class="badge badge-admin">Administrator</span>' : 'Teilnehmer') + '</td>'
+            + '<td>' + (p.disabled === true ? '<span class="badge badge-closed">gesperrt</span>' : '<span class="badge badge-done">aktiv</span>') + '</td>'
+            + '<td style="white-space:nowrap">'
+            + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-pid="' + esc(p.id) + '">Bearbeiten</button> '
+            + '<button class="btn btn-secondary btn-xs" type="button" data-act="copy" data-pid="' + esc(p.id) + '">Kopieren</button>'
+            + '</td></tr>';
+    }).join('');
+}
+
+$('peopleTableBody').addEventListener('click', async e => {
+    const b = e.target.closest('[data-act]');
+    if (!b || !isAdmin()) return;
+    const p = _people.find(x => x.id === b.dataset.pid);
+    if (!p) return;
+    if (b.dataset.act === 'edit') { openPersonModal(p.id); return; }
+    if (b.dataset.act === 'copy') {
+        const ok = await copyText(accessText(p), null);
+        b.textContent = ok ? 'Kopiert ✓' : 'Fehlgeschlagen';
+        setTimeout(() => { b.textContent = 'Kopieren'; }, 2000);
+    }
+});
+
+$('copyAllBtn').addEventListener('click', async () => {
+    if (!_people.length) return;
+    const text = 'Terminplanung XOLUTION — ' + appUrl() + '\n\n'
+        + _people.filter(p => p.disabled !== true)
+            .map(p => (p.name || '') + (p.company ? ' (' + p.company + ')' : '')
+                + '\n  Login:    ' + (p.login || '')
+                + '\n  Passwort: ' + (p.password || ''))
+            .join('\n\n');
+    const ok = await copyText(text, null);
+    $('copyAllBtn').textContent = ok ? 'Kopiert ✓' : 'Fehlgeschlagen';
+    setTimeout(() => { $('copyAllBtn').textContent = 'Alle Zugangsdaten kopieren'; }, 2000);
+});
+
+function updateAccessBox() {
+    $('edAccess').textContent = accessText({ login: norm($('edLogin').value), password: $('edPw').value });
+}
+['edLogin', 'edPw'].forEach(id => $(id).addEventListener('input', updateAccessBox));
+
+function openPersonModal(pid) {
+    if (!isAdmin()) return;
+    const p = _people.find(x => x.id === pid);
+    if (!p) return;
+    _editPersonId = pid;
+    const self = _me && pid === _me.id;
+    $('personModalTitle').textContent = 'Teilnehmer: ' + (p.name || p.login);
+    $('edName').value = p.name || '';
+    $('edCompany').value = p.company || '';
+    $('edLogin').value = p.login || '';
+    $('edPw').value = p.password || '';
+    $('edAdmin').checked = p.isAdmin === true;
+    $('edDisabled').checked = p.disabled === true;
+    // Eigenes Konto: Adminrechte und Sperre nicht versehentlich selbst entziehen
+    $('edAdmin').disabled = !!self;
+    $('edDisabled').disabled = !!self;
+    $('edDelete').style.display = self ? 'none' : '';
+    $('edError').style.display = 'none'; $('edSuccess').style.display = 'none';
+    updateAccessBox();
+    $('personModal').classList.add('open');
+}
+function closePersonModal() { $('personModal').classList.remove('open'); _editPersonId = null; }
+$('personModalClose').addEventListener('click', closePersonModal);
+$('edCancel').addEventListener('click', closePersonModal);
+$('personModal').addEventListener('click', e => { if (e.target === $('personModal')) closePersonModal(); });
+$('edCopyBtn').addEventListener('click', () => copyText($('edAccess').textContent, $('edSuccess')));
+
+$('edSave').addEventListener('click', async () => {
+    if (!isAdmin() || !_editPersonId) return;
+    const err = $('edError'); err.style.display = 'none';
+    const name = $('edName').value.trim().slice(0, 80);
+    const login = norm($('edLogin').value);
+    const pw = $('edPw').value;
+    if (!name || !login) { err.textContent = 'Bitte Name und Anmeldename angeben.'; err.style.display = 'block'; return; }
+    if (pw.length < 4) { err.textContent = 'Das Passwort muss mindestens 4 Zeichen haben.'; err.style.display = 'block'; return; }
+    if (_people.some(p => p.id !== _editPersonId && norm(p.login) === login)) { err.textContent = 'Dieser Anmeldename ist bereits vergeben.'; err.style.display = 'block'; return; }
+    const self = _me.id === _editPersonId;
+    $('edSave').disabled = true;
+    try {
+        const patch = {
+            name: name,
+            company: $('edCompany').value.trim().slice(0, 80),
+            login: login,
+            password: pw,
+            updatedAt: SRV()
+        };
+        if (!self) {
+            patch.isAdmin = $('edAdmin').checked === true;
+            patch.disabled = $('edDisabled').checked === true;
+        }
+        await db.collection(COL_PEOPLE).doc(_editPersonId).update(patch);
+        if (self) { _me = Object.assign({}, _me, patch); $('userDisplay').textContent = name; }
+        closePersonModal();
+    } catch (ex) {
+        err.textContent = dbError(ex); err.style.display = 'block';
+    } finally { $('edSave').disabled = false; }
+});
+
+$('edDelete').addEventListener('click', async () => {
+    if (!isAdmin() || !_editPersonId || (_me && _editPersonId === _me.id)) return;
+    const p = _people.find(x => x.id === _editPersonId);
+    const inEvents = _events.filter(ev => (ev.invitedIds || []).indexOf(_editPersonId) >= 0).length;
+    const pid = _editPersonId;
+    const ok = await askConfirm({
+        title: 'Teilnehmer löschen',
+        text: '„' + ((p && p.name) || '') + '“ verliert damit den Zugang.'
+            + (inEvents ? '\n\nDie Person ist in ' + inEvents + ' Terminabfrage' + (inEvents === 1 ? '' : 'n')
+                + ' eingeladen; bereits gespeicherte Rückmeldungen bleiben in der Auswertung stehen.' : ''),
+        confirmLabel: 'Löschen'
+    });
+    if (!ok) return;
+    $('edDelete').disabled = true;
+    try {
+        await db.collection(COL_PEOPLE).doc(pid).delete();
+        closePersonModal();
+        notify('Teilnehmer „' + ((p && p.name) || '') + '“ gelöscht.', 'ok');
+    } catch (ex) {
+        $('edError').textContent = dbError(ex); $('edError').style.display = 'block';
+    } finally { $('edDelete').disabled = false; }
+});
+</script>
+</body>
+</html>
