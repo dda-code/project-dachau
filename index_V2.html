@@ -151,7 +151,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
             <p class="scan-instruction" style="margin-bottom:8px">Wohin wird die Palette versendet?</p>
             <button class="btn versand-ziel-btn" data-ziel="DICO" style="background:#7c3aed;color:white;font-size:1.1rem;padding:16px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px">Versand an DICO</button>
             <button class="btn versand-ziel-btn" data-ziel="K&amp;R-Lager" style="background:#7c3aed;color:white;font-size:1.1rem;padding:16px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px">Versand an K&amp;R Au&szlig;enlager</button>
-            <button class="btn versand-ziel-btn" data-ziel="Seepack" style="background:#7c3aed;color:white;font-size:1.1rem;padding:16px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px">Versand an Seepack Au&szlig;enlager</button>
+            <button class="btn versand-ziel-btn" data-ziel="DATRANS" style="background:#7c3aed;color:white;font-size:1.1rem;padding:16px;border-radius:12px;width:100%;max-width:300px;margin-bottom:10px">Versand an DATRANS Au&szlig;enlager</button>
             <button class="btn versand-ziel-btn" data-ziel="Endkunde" style="background:#7c3aed;color:white;font-size:1.1rem;padding:16px;border-radius:12px;width:100%;max-width:300px">Versand an Endkunde</button>
         </div>
     </div>
@@ -901,7 +901,7 @@ function showStep(id){
 }
 
 let currentMode='lager'; // 'lager' | 'fertigware' | 'bunker' | 'versand'
-let versandZiel='';      // gewähltes Versandziel (standortNach): DICO | K&R-Lager | Seepack | Endkunde
+let versandZiel='';      // gewähltes Versandziel (standortNach): DICO | K&R-Lager | DATRANS | Endkunde
 function goToStep0(){
     inboundData=null; currentLabelTyp=null;
     currentMode='lager'; versandZiel='';
@@ -1190,7 +1190,7 @@ $('confirmBtn').addEventListener('click', async ()=>{
 // VERSAND — Palette aus dem Aumundswiese-Bestand versenden
 // ============================================================
 // Speicherwert von standortNach -> Anzeige-Label
-const _VERSAND_ZIEL_LABEL={'DICO':'DICO','K&R-Lager':'K&R Außenlager','Seepack':'Seepack Außenlager','Endkunde':'Endkunde'};
+const _VERSAND_ZIEL_LABEL={'DICO':'DICO','K&R-Lager':'K&R Außenlager','DATRANS':'DATRANS Außenlager','Endkunde':'Endkunde'};
 
 // Sucht die zu versendende Palette im Bestand. Doc-ID = sscc||internalBarcode||palettenNr
 // (identisch zur Einlagerung), zusätzlich Feld-Query als Fallback. Sucht in

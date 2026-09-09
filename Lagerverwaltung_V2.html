@@ -730,12 +730,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <section class="view active" id="view-dashboard">
         <h3 style="margin-top:0">Bestand Halbfabrikate</h3>
         <table class="data-table"><thead>
-<tr><th rowspan="2">Artikelnr.</th><th rowspan="2">Bezeichnung</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Aumundswiese">Aumundswiese</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort K&amp;R-Lager">K&amp;R-Lager</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Seepack">Seepack</th><th rowspan="2" title="Paletten gesamt über alle Standorte">Gesamt Pal</th><th rowspan="2">Menge gesamt</th><th rowspan="2" style="color:#10b981">Freigegeben</th><th rowspan="2" style="color:#ef4444">Gesperrt</th></tr>
+<tr><th rowspan="2">Artikelnr.</th><th rowspan="2">Bezeichnung</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Aumundswiese">Aumundswiese</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort K&amp;R-Lager">K&amp;R-Lager</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort DATRANS">DATRANS</th><th rowspan="2" title="Paletten gesamt über alle Standorte">Gesamt Pal</th><th rowspan="2">Menge gesamt</th><th rowspan="2" style="color:#10b981">Freigegeben</th><th rowspan="2" style="color:#ef4444">Gesperrt</th></tr>
 <tr><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th></tr>
 </thead><tbody id="dashArtikelBody"></tbody></table>
         <h3 style="margin-top:24px">Bestand Fertigware</h3>
         <table class="data-table"><thead>
-<tr><th rowspan="2">Artikelnr.</th><th rowspan="2">Bezeichnung</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Aumundswiese">Aumundswiese</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort K&amp;R-Lager">K&amp;R-Lager</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Seepack">Seepack</th><th rowspan="2" title="Paletten gesamt über alle Standorte">Gesamt Pal</th><th rowspan="2">Menge gesamt</th><th rowspan="2" style="color:#10b981">Freigegeben</th><th rowspan="2" style="color:#ef4444">Gesperrt</th></tr>
+<tr><th rowspan="2">Artikelnr.</th><th rowspan="2">Bezeichnung</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort Aumundswiese">Aumundswiese</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort K&amp;R-Lager">K&amp;R-Lager</th><th colspan="2" style="text-align:center;border-bottom:1px solid #e2e8f0" title="Bestand am Standort DATRANS">DATRANS</th><th rowspan="2" title="Paletten gesamt über alle Standorte">Gesamt Pal</th><th rowspan="2">Menge gesamt</th><th rowspan="2" style="color:#10b981">Freigegeben</th><th rowspan="2" style="color:#ef4444">Gesperrt</th></tr>
 <tr><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th><th style="font-weight:500;color:#64748b">Pal</th><th style="font-weight:500;color:#64748b">Stk</th></tr>
 </thead><tbody id="dashFertigBody"></tbody></table>
     </section>
@@ -2089,7 +2089,7 @@ async function loadDashboard(){
     const _stdKey=p=>{
         const s=(p.standort||'').trim();
         if(s==='K&R-Lager')return 'kr';
-        if(s==='Seepack')return 'sp';
+        if(s==='DATRANS'||s==='Seepack')return 'sp'; // 'Seepack' = Alt-Name des Standorts (Legacy-Daten vor Umbenennung)
         return 'aum'; // 'Aumundswiese' oder leer
     };
     const _emptyAgg=()=>({count:0,cntAum:0,cntKR:0,cntSP:0,menge:0,mengeAum:0,mengeKR:0,mengeSP:0,mengeFrei:0,mengeGesperrt:0});
@@ -2571,7 +2571,7 @@ async function onArtikelSelect(){
     let snap;try{snap=await db.collection('paletten').where('artikelNr','==',nr).get();}catch(e){ed.innerHTML='<p class="error-msg">Fehler: '+e.message+'</p>';ed.style.display='block';return;}
     if(snap.empty){ed.style.display='block';return;}
     const allPal=[];snap.forEach(d=>{if(d.id==='_config_orderpin'||String(d.id).charAt(0)==='_')return;allPal.push({id:d.id,...d.data()});});
-    // FIFO-Scope: nur Aumundswiese-Bestand (Außenlager K&R/Seepack laufen über den Extern-Scanner),
+    // FIFO-Scope: nur Aumundswiese-Bestand (Außenlager K&R/DATRANS laufen über den Extern-Scanner),
     // damit PC und Scanner denselben "Ältesten" bestimmen.
     const pal=allPal.filter(p=>!p.gesperrt && _fifoStandortLV(p)==='Aumundswiese');
     if(!pal.length){ed.innerHTML='<p class="info-msg">Keine entnehmbare (nicht gesperrte) Palette dieses Artikels in Aumundswiese.</p>';ed.style.display='block';return;}

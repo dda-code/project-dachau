@@ -1363,7 +1363,7 @@ async function onArtikelSelect(){
     let snap;try{snap=await db.collection('paletten').where('artikelNr','==',nr).get();}catch(e){ed.innerHTML='<p class="error-msg">Fehler: '+e.message+'</p>';ed.style.display='block';return;}
     if(snap.empty){ed.style.display='block';return;}
     const allPal=[];snap.forEach(d=>{if(d.id==='_config_orderpin'||String(d.id).charAt(0)==='_')return;allPal.push({id:d.id,...d.data()});});
-    // FIFO-Scope: nur Aumundswiese-Bestand (Außenlager K&R/Seepack laufen über den Extern-Scanner).
+    // FIFO-Scope: nur Aumundswiese-Bestand (Außenlager K&R/DATRANS laufen über den Extern-Scanner).
     const pal=allPal.filter(p=>!p.gesperrt && _fifoStandortLV(p)==='Aumundswiese');
     if(!pal.length){ed.innerHTML='<p class="info-msg">Keine entnehmbare (nicht gesperrte) Palette dieses Artikels in Aumundswiese.</p>';ed.style.display='block';return;}
     // FIFO nach Produktionsdatum (+ Uhrzeit), NICHT nach Einlagerdatum; stabiler Tiebreak.
