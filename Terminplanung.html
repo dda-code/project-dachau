@@ -350,7 +350,7 @@ tr:last-child td { border-bottom: none; }
         <div class="tabs" id="tabs">
             <button class="tab active" type="button" data-view="myEvents">Meine Termine</button>
             <button class="tab" type="button" data-view="adminEvents" data-admin="1" style="display:none">Termine verwalten</button>
-            <button class="tab" type="button" data-view="adminResults" data-admin="1" style="display:none">Auswertung</button>
+            <button class="tab" type="button" data-view="adminResults">Auswertung</button>
             <button class="tab" type="button" data-view="adminPeople" data-admin="1" style="display:none">Teilnehmer</button>
         </div>
 
@@ -943,7 +943,9 @@ function startEventListener() {
         });
         syncResponseListeners();
         renderMyEvents();
-        if (isAdmin()) { renderAdminEvents(); fillResultSelect(); renderResults(); }
+        fillResultSelect();
+        renderResults();
+        if (isAdmin()) renderAdminEvents();
     }, err => {
         console.error('Termin-Listener:', err);
         $('myEventsList').innerHTML = '<div class="card"><div class="error-msg" style="display:block">' + esc(dbError(err)) + '</div></div>';
@@ -973,7 +975,8 @@ function syncResponseListeners() {
                 };
             }
             renderMyEvents();
-            if (isAdmin()) { renderAdminEvents(); renderResults(); }
+            renderResults();
+            if (isAdmin()) renderAdminEvents();
         }, err => console.warn('Rückmeldungen (' + ev.id + '):', err && err.message));
     });
 }
@@ -1406,7 +1409,7 @@ function renderInvitePreview() {
         return;
     }
     const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
-    $('invSubject').textContent = 'Betreff: ' + m.subject;
+    $('invSubject').textContent = m.subject;
     $('invBody').textContent = m.body;
     $('invCopyOne').disabled = false;
     const istMail = EMAIL_RE.test(p.login || '');
@@ -1424,7 +1427,7 @@ $('invList').addEventListener('click', async e => {
         const p = _people.find(x => x.id === copyBtn.dataset.pid);
         if (!p) return;
         const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
-        const ok = await copyText('Betreff: ' + m.subject + '\n\n' + m.body, null);
+        const ok = await copyText(m.subject + '\n\n' + m.body, null);
         copyBtn.textContent = ok ? 'Kopiert \u2713' : 'Fehlgeschlagen';
         setTimeout(() => { copyBtn.textContent = 'Kopieren'; }, 2000);
         return;
@@ -1437,7 +1440,7 @@ $('invCopyOne').addEventListener('click', async () => {
     const p = _people.find(x => x.id === _invPid);
     if (!ev || !p) return;
     const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
-    const ok = await copyText('Betreff: ' + m.subject + '\n\n' + m.body, $('invCopyMsg'));
+    const ok = await copyText(m.subject + '\n\n' + m.body, $('invCopyMsg'));
     if (!ok) markiereVorschau();   // Rueckfall: Text markieren, dann genuegt Strg+C
 });
 
@@ -1462,7 +1465,7 @@ $('invCopyAll').addEventListener('click', async () => {
     const text = people.map(p => {
         const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
         return '=== ' + (p.name || p.login) + ' <' + (p.login || '') + '> ===\n'
-             + 'Betreff: ' + m.subject + '\n\n' + m.body;
+             + m.subject + '\n\n' + m.body;
     }).join('\n\n' + '-'.repeat(60) + '\n\n');
     const ok = await copyText(text, $('invCopyMsg'));
     if (ok) notify(people.length + ' Einladungstexte kopiert.', 'ok');
@@ -1514,23 +1517,37 @@ $('invDone').addEventListener('click', closeInviteModal);
 $('inviteModal').addEventListener('click', e => { if (e.target === $('inviteModal')) closeInviteModal(); });
 
 // ============================================================
-// ADMIN: AUSWERTUNG
+// AUSWERTUNG (fuer alle angemeldeten Teilnehmer)
 // ============================================================
+// Admins werten alle Abfragen aus, alle uebrigen Teilnehmer die, zu denen sie eingeladen sind.
+function resultEvents() {
+    if (!_me) return [];
+    if (isAdmin()) return _events;
+    return _events.filter(ev => Array.isArray(ev.invitedIds) && ev.invitedIds.indexOf(_me.id) >= 0);
+}
+
 function fillResultSelect() {
     const sel = $('resultSelect');
     const prev = sel.value;
-    sel.innerHTML = _events.length
-        ? _events.map(ev => '<option value="' + esc(ev.id) + '">' + esc(ev.title || '(ohne Titel)') + (ev.closed ? ' (geschlossen)' : '') + '</option>').join('')
+    const list = resultEvents();
+    sel.innerHTML = list.length
+        ? list.map(ev => '<option value="' + esc(ev.id) + '">' + esc(ev.title || '(ohne Titel)') + (ev.closed ? ' (geschlossen)' : '') + '</option>').join('')
         : '<option value="">– keine Terminabfrage –</option>';
-    if (prev && _events.some(e => e.id === prev)) sel.value = prev;
+    if (prev && list.some(e => e.id === prev)) sel.value = prev;
 }
 $('resultSelect').addEventListener('change', renderResults);
 
 function renderResults() {
-    if (!isAdmin()) return;
+    if (!_me) return;
     const box = $('resultsBox');
-    const ev = _events.find(x => x.id === $('resultSelect').value);
-    if (!ev) { box.innerHTML = '<div class="card"><div class="info-msg">Bitte eine Terminabfrage wählen.</div></div>'; return; }
+    const list = resultEvents();
+    const ev = list.find(x => x.id === $('resultSelect').value);
+    if (!ev) {
+        box.innerHTML = '<div class="card"><div class="info-msg">'
+            + (list.length ? 'Bitte eine Terminabfrage wählen.' : 'Für Sie liegt derzeit keine Terminabfrage zur Auswertung vor.')
+            + '</div></div>';
+        return;
+    }
     const resp = _responses[ev.id] || {};
     const opts = (Array.isArray(ev.options) ? ev.options.slice() : []).sort((a, b) => optSortKey(a).localeCompare(optSortKey(b)));
     const invited = (ev.invitedIds || []).slice();
@@ -1542,9 +1559,16 @@ function renderResults() {
 
     const personOf = pid => {
         const p = _people.find(x => x.id === pid);
-        if (p) return { name: p.name || p.login, sub: (p.login || '') + (p.company ? ' · ' + p.company : '') };
+        // Anmeldenamen sind Zugangsdaten - sie stehen nur Administratoren in der Tabelle.
+        if (p) return {
+            name: p.name || p.login,
+            sub: isAdmin() ? (p.login || '') + (p.company ? ' · ' + p.company : '') : (p.company || '')
+        };
         const r = resp[pid];
-        return { name: (r && r.name) || 'Unbekannt', sub: (r && r.login) || 'gelöschter Teilnehmer' };
+        return {
+            name: (r && r.name) || 'Unbekannt',
+            sub: isAdmin() ? ((r && r.login) || 'gelöschter Teilnehmer') : ((r && r.company) || 'gelöschter Teilnehmer')
+        };
     };
 
     let html = '<div class="card">'
@@ -1596,7 +1620,7 @@ function renderResults() {
     const withComment = Object.values(resp).filter(r => String(r.comment || '').trim());
     html += '<div class="card"><div class="section-title">Kommentare (' + withComment.length + ')</div>'
         + (withComment.length ? withComment.map(r =>
-            '<div class="comment-item"><div class="who">' + esc(r.name || r.login || '') + (r.company ? ' · ' + esc(r.company) : '') + '</div>'
+            '<div class="comment-item"><div class="who">' + esc(r.name || (isAdmin() ? r.login : '') || 'Teilnehmer') + (r.company ? ' · ' + esc(r.company) : '') + '</div>'
             + '<div class="txt">' + esc(r.comment) + '</div></div>').join('')
           : '<div class="info-msg">Keine Kommentare abgegeben.</div>')
         + '</div>';
