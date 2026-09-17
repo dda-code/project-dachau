@@ -209,12 +209,49 @@ td { color: var(--xo-body); }
 td strong { color: var(--xo-ink); }
 td.center, th.center { text-align: center; }
 tr:last-child td { border-bottom: none; }
+/* --- Auswertungsmatrix: Zeilen = Termine, Spalten = Teilnehmer ---------
+   Die Spaltenbreiten setzt fitResultTable() als CSS-Variablen, damit die
+   Tabelle auf den jeweiligen Bildschirm passt und nicht gescrollt werden muss. */
+table.matrix { table-layout: fixed; width: 100%; }
+.matrix th, .matrix td { padding: 7px 6px; overflow: hidden; }
+.matrix col.c-opt { width: var(--mx-first, 180px); }
+.matrix col.c-p   { width: var(--mx-col, 64px); }
+.matrix col.c-sum { width: var(--mx-sum, 72px); }
+.matrix th.sum-col { white-space: normal; overflow-wrap: break-word; vertical-align: bottom;
+    font-size: 0.62rem; letter-spacing: 0.04em; }
 .matrix th.opt-col { color: var(--xo-ink); font-size: 0.7rem; }
-.matrix th.best { background: var(--xo-bg); color: var(--xo-black); border-bottom: 2px solid var(--xo-black); }
-.matrix td.yes { color: var(--xo-black); font-weight: 800; font-size: 1rem; }
+.matrix th.p-col {
+    text-align: center; vertical-align: bottom; color: var(--xo-ink);
+    font-size: var(--mx-head-fs, 0.66rem); letter-spacing: 0.02em;
+    white-space: normal; overflow-wrap: break-word;
+}
+.matrix th.p-col .lbl { display: block; }
+.matrix th.p-col .sub { display: block; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--xo-muted); font-size: 0.92em; }
+.matrix th.noresp { color: var(--xo-muted); font-style: italic; }
+/* Viele Teilnehmer: Namen hochkant — so bleiben die Spalten schmal genug fuer den Bildschirm */
+.matrix.rot th.p-col, .matrix.rot th.sum-col { height: var(--mx-head-h, 130px); padding: 6px 2px; text-align: center; }
+.matrix.rot th.p-col .lbl, .matrix.rot th.sum-col .lbl {
+    writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+    display: inline-block; max-height: calc(var(--mx-head-h, 130px) - 18px);
+    overflow: hidden; text-overflow: ellipsis;
+}
+.matrix.rot th.p-col .sub { display: none; }
+.matrix td.opt-cell { color: var(--xo-ink); font-weight: 700; white-space: normal; font-size: var(--mx-first-fs, 0.8rem); }
+.matrix td.opt-cell .short { display: none; }
+.matrix.compact td.opt-cell .long { display: none; }
+.matrix.compact td.opt-cell .short { display: block; }
+.matrix td.opt-cell .t { display: block; font-weight: 400; color: var(--xo-body); font-size: 0.92em; }
+.matrix td.opt-cell .n { display: block; font-weight: 400; color: var(--xo-muted); font-size: 0.86em; }
+/* Terminspalte bleibt stehen, falls doch einmal gescrollt werden muss */
+.matrix th.stick, .matrix td.stick { position: sticky; left: 0; z-index: 1; background: var(--xo-surface); }
+.matrix thead th.stick { background: var(--xo-bg-soft); z-index: 2; }
+.matrix tr.best td { background: var(--xo-bg); }
+.matrix tr.best td.stick { background: var(--xo-bg); box-shadow: inset 3px 0 0 var(--xo-black); }
+.matrix td.yes { color: var(--xo-black); font-weight: 800; font-size: var(--mx-mark-fs, 1rem); }
 .matrix td.no { color: var(--xo-line-strong); font-weight: 700; }
+.matrix td.unset { color: var(--xo-muted); }
 .matrix tr.sum td { background: var(--xo-bg-soft); font-weight: 800; color: var(--xo-ink); border-top: 1px solid var(--xo-line-strong); }
-.matrix td.missing { color: var(--xo-muted); font-style: italic; }
+.matrix-legend { margin-top: 9px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.76rem; color: var(--xo-muted); }
 .result-best { margin-top: 16px; padding: 14px 16px; background: var(--xo-bg); border-left: 3px solid var(--xo-black); border-radius: 0 var(--r2) var(--r2) 0; font-size: 0.88rem; line-height: 1.6; color: var(--xo-ink); }
 .comment-item { border-left: 2px solid var(--xo-ink); background: var(--xo-bg-soft); border-radius: 0 var(--r2) var(--r2) 0; padding: 10px 14px; margin-bottom: 9px; }
 .comment-item .who { font-weight: 700; font-size: 0.79rem; color: var(--xo-ink); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
@@ -666,6 +703,14 @@ function fmtDate(iso) {
     const dt = new Date(y, m - 1, d);
     if (isNaN(dt.getTime())) return iso;
     return WEEKDAYS[dt.getDay()] + ', ' + String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.' + y;
+}
+// Kurzform fuer schmale Bildschirme: "Di, 22.09."
+function fmtDateShort(iso) {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '';
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    if (isNaN(dt.getTime())) return iso;
+    return WEEKDAYS[dt.getDay()].slice(0, 2) + '., ' + String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.';
 }
 function todayIso() {
     const n = new Date();
@@ -1584,31 +1629,54 @@ function renderResults() {
         return;
     }
 
-    html += '<div class="table-wrap"><table class="matrix"><thead><tr><th>Teilnehmer</th>'
-        + opts.map(o => {
-            const l = optLabel(o);
-            const best = counts[o.id] === maxCount && maxCount > 0;
-            return '<th class="center opt-col' + (best ? ' best' : '') + '">' + esc(l.date)
-                + '<br><span style="font-weight:400;color:var(--xo-body)">' + esc(l.time) + '</span></th>';
-        }).join('')
-        + '<th class="center">Auswahl</th></tr></thead><tbody>';
-
-    invited.forEach(pid => {
+    // Zeilen = Termine, Spalten = Teilnehmer: die Termine liest man so als Liste von oben nach unten
+    const persons = invited.map(pid => {
         const who = personOf(pid);
         const r = resp[pid];
-        html += '<tr><td>' + esc(who.name) + '<br><span style="color:var(--xo-muted);font-size:0.74rem">' + esc(who.sub) + '</span></td>';
-        if (!r) { html += '<td class="center missing" colspan="' + (opts.length + 1) + '">keine Rückmeldung</td></tr>'; return; }
-        const selSet = new Set(Array.isArray(r.selected) ? r.selected : []);
-        opts.forEach(o => {
-            const yes = selSet.has(o.id);
+        return {
+            pid: pid, name: who.name, sub: who.sub, r: r,
+            sel: new Set(r && Array.isArray(r.selected) ? r.selected : [])
+        };
+    });
+    const longest = Math.max(4, ...persons.map(p => String(p.name || '').length));
+    // laengstes Wortstueck (an Leerzeichen/Bindestrich trennbar) — danach richtet sich,
+    // ob ein Name waagerecht noch sauber umbricht oder hochkant gestellt wird
+    const longWord = Math.max(3, ...persons.map(p =>
+        Math.max(0, ...String(p.name || '').split(/[\s-]+/).map(w => w.length))));
+
+    html += '<div class="table-wrap"><table class="matrix" data-cols="' + persons.length + '" data-longest="' + longest + '" data-longword="' + longWord + '">'
+        + '<colgroup><col class="c-opt">' + persons.map(() => '<col class="c-p">').join('') + '<col class="c-sum"></colgroup>'
+        + '<thead><tr><th class="stick opt-col">Termin</th>'
+        + persons.map(p => '<th class="p-col' + (p.r ? '' : ' noresp') + '" title="'
+            + esc(p.name + (p.sub ? ' — ' + p.sub : '') + (p.r ? '' : ' — keine Rückmeldung')) + '">'
+            + '<span class="lbl">' + esc(p.name) + '</span>'
+            + (p.sub ? '<span class="sub">' + esc(p.sub) + '</span>' : '')
+            + (p.r ? '' : '<span class="sub">offen</span>') + '</th>').join('')
+        + '<th class="center sum-col"><span class="lbl">Machbar</span></th></tr></thead><tbody>';
+
+    opts.forEach(o => {
+        const l = optLabel(o);
+        const best = counts[o.id] === maxCount && maxCount > 0;
+        html += '<tr' + (best ? ' class="best"' : '') + '><td class="stick opt-cell">'
+            + '<span class="long">' + esc(l.date) + '</span>'
+            + '<span class="short">' + esc(fmtDateShort(o.date)) + '</span>'
+            + '<span class="t">' + esc(l.time) + '</span>'
+            + (l.note ? '<span class="n">' + esc(l.note) + '</span>' : '')
+            + '</td>';
+        persons.forEach(p => {
+            if (!p.r) { html += '<td class="center unset" title="keine Rückmeldung">&middot;</td>'; return; }
+            const yes = p.sel.has(o.id);
             html += '<td class="center ' + (yes ? 'yes' : 'no') + '">' + (yes ? '&#10003;' : '&ndash;') + '</td>';
         });
-        html += '<td class="center">' + selSet.size + '</td></tr>';
+        html += '<td class="center">' + counts[o.id] + ' / ' + invited.length + '</td></tr>';
     });
 
-    html += '<tr class="sum"><td>Summe „machbar“</td>'
-        + opts.map(o => '<td class="center">' + counts[o.id] + ' / ' + invited.length + '</td>').join('')
-        + '<td></td></tr></tbody></table></div>';
+    html += '<tr class="sum"><td class="stick">Termine gewählt</td>'
+        + persons.map(p => '<td class="center">'
+            + (p.r ? [...p.sel].filter(id => counts[id] !== undefined).length : '&ndash;') + '</td>').join('')
+        + '<td></td></tr></tbody></table></div>'
+        + '<div class="matrix-legend"><span>&#10003; machbar</span><span>&ndash; nicht machbar</span>'
+        + '<span>&middot; keine Rückmeldung</span></div>';
 
     if (maxCount > 0) {
         const bests = opts.filter(o => counts[o.id] === maxCount).map(o => { const l = optLabel(o); return l.date + ', ' + l.time; });
@@ -1626,6 +1694,66 @@ function renderResults() {
         + '</div>';
 
     box.innerHTML = html;
+    fitResultTable();
+}
+
+// Passt die Matrix an die verfuegbare Breite an: erst schrumpfen die Spalten,
+// dann werden die Namen hochkant gestellt — waagerecht gescrollt wird erst,
+// wenn selbst das nicht mehr reicht (sehr viele Teilnehmer auf schmalem Schirm).
+function fitResultTable() {
+    const tbl = document.querySelector('#resultsBox table.matrix');
+    if (!tbl) return;
+    const wrap = tbl.parentElement;
+    const W = Math.floor(wrap.clientWidth);
+    const n = Number(tbl.dataset.cols || 0);
+    if (!W || !n) return;                       // Reiter gerade nicht sichtbar
+
+    let SUM = 74;                               // Spalte „Machbar“ (waagerechte Beschriftung)
+    let first = Math.round(Math.min(210, Math.max(108, W * 0.26)));   // Terminspalte
+    let col = (W - first - SUM) / n;
+    // Waagerecht darf der Name auf ~3 Zeilen umbrechen; reicht die Spalte auch dafuer
+    // nicht, werden die Namen hochkant gestellt (spart Breite statt zu scrollen).
+    const longest = Number(tbl.dataset.longest || 12);
+    const longWord = Number(tbl.dataset.longword || 8);
+    const needFlat = Math.min(104, Math.max(46, Math.round(longWord * 5.9) + 14));
+    const rot = col < needFlat;
+    if (rot) { SUM = 48; col = (W - first - SUM) / n; }   // hochkant braucht der Kopf weniger Breite
+    const MIN = rot ? 26 : 46;
+    if (col < MIN) {                            // lieber die Terminspalte hergeben als scrollen
+        first = Math.max(84, W - SUM - n * MIN);
+        col = Math.max(MIN, (W - first - SUM) / n);
+    }
+    const capped = col > 190;                   // wenige Teilnehmer: Spalten nicht ins Leere ziehen
+    if (capped) col = 190;
+    const total = first + SUM + n * col;
+
+    tbl.classList.toggle('rot', rot);
+    tbl.classList.toggle('compact', first < 132);   // dann nur noch "Di., 22.09." statt des langen Datums
+    tbl.style.width = (capped || total > W + 1) ? Math.round(total) + 'px' : '100%';
+    const st = tbl.style;
+    st.setProperty('--mx-first', Math.round(first) + 'px');
+    st.setProperty('--mx-col', (Math.floor(col * 100) / 100) + 'px');
+    st.setProperty('--mx-sum', SUM + 'px');
+    st.setProperty('--mx-head-fs', rot ? '0.66rem' : Math.max(0.56, Math.min(0.7, col / 100)).toFixed(3) + 'rem');
+    st.setProperty('--mx-mark-fs', Math.max(0.78, Math.min(1, col / 62)).toFixed(3) + 'rem');
+    st.setProperty('--mx-first-fs', (first < 130 ? 0.72 : 0.8) + 'rem');
+    if (rot) {
+        st.setProperty('--mx-head-h', Math.min(156, Math.max(76, Math.round(longest * 6.6) + 26)) + 'px');
+    } else {
+        st.removeProperty('--mx-head-h');
+    }
+}
+
+let _fitRaf = null;
+function scheduleFit() {
+    if (_fitRaf) cancelAnimationFrame(_fitRaf);
+    _fitRaf = requestAnimationFrame(() => { _fitRaf = null; fitResultTable(); });
+}
+window.addEventListener('resize', scheduleFit);
+window.addEventListener('orientationchange', scheduleFit);
+if (typeof ResizeObserver !== 'undefined') {
+    // faengt auch Breitenaenderungen ab, die kein resize ausloesen (Reiterwechsel, Scrollbalken)
+    new ResizeObserver(scheduleFit).observe($('resultsBox'));
 }
 
 // ============================================================
