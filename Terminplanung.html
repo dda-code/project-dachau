@@ -1043,8 +1043,17 @@ function syncResponseListeners() {
 
 const myResponse = evId => (_me && _responses[evId]) ? _responses[evId][_me.id] : null;
 
-// Organisator-Zugang einer Terminabfrage (oder null, wenn es ihn nicht mehr gibt)
-const ownerOf = ev => (ev && ev.createdBy) ? (_people.find(x => x.id === ev.createdBy) || null) : null;
+// Organisator-Zugang einer Terminabfrage (oder null, wenn es ihn nicht mehr gibt).
+// Aeltere Abfragen haben nur `createdByName` — dann wird der Zugang ueber den Namen
+// gesucht und nur uebernommen, wenn die Zuordnung eindeutig ist.
+function ownerOf(ev) {
+    if (!ev) return null;
+    if (ev.createdBy) return _people.find(x => x.id === ev.createdBy) || null;
+    const nm = norm(ev.createdByName || '');
+    if (!nm) return null;
+    const treffer = _people.filter(x => norm(x.name || '') === nm || norm(x.login || '') === nm);
+    return treffer.length === 1 ? treffer[0] : null;
+}
 const isOwner = ev => { const o = ownerOf(ev); return !!(o && _me && o.id === _me.id); };
 
 // Wer darf eine Terminabfrage bearbeiten, einladen, schliessen und loeschen?
@@ -1428,6 +1437,8 @@ $('evSave').addEventListener('click', async () => {
     // Die Liste der Mitberechtigten vergibt nur der Organisator — sonst bleibt sie unveraendert.
     if (!bestehend || isOwner(bestehend)) {
         payload.editorIds = Array.from($('evEditors').querySelectorAll('.pe:checked')).map(c => c.value);
+        // Alte Abfragen kennen nur den Namen: ID beim Speichern nachtragen
+        if (bestehend && !bestehend.createdBy) payload.createdBy = _me.id;
     }
     $('evSave').disabled = true;
     try {
