@@ -258,6 +258,9 @@ table.matrix { table-layout: fixed; width: 100%; }
 #adminEventsList .btn-xs { padding: 6px 8px; letter-spacing: 0.02em; }
 .org-none { color: var(--xo-muted); font-style: italic; }
 .org-self { color: var(--xo-muted); font-weight: 700; font-size: 0.74rem; }
+.org-editors { display: block; color: var(--xo-muted); font-size: 0.74rem; }
+#evEditors { max-height: 190px; }
+.person input:disabled + span { opacity: 0.55; }
 .matrix-legend { margin-top: 9px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.76rem; color: var(--xo-muted); }
 .result-best { margin-top: 16px; padding: 14px 16px; background: var(--xo-bg); border-left: 3px solid var(--xo-black); border-radius: 0 var(--r2) var(--r2) 0; font-size: 0.88rem; line-height: 1.6; color: var(--xo-ink); }
 .comment-item { border-left: 2px solid var(--xo-ink); background: var(--xo-bg-soft); border-radius: 0 var(--r2) var(--r2) 0; padding: 10px 14px; margin-bottom: 9px; }
@@ -520,6 +523,11 @@ table.matrix { table-layout: fixed; width: 100%; }
                     <span class="chip" id="peopleCount">0 ausgewählt</span>
                 </div>
                 <div class="people" id="evPeople"></div>
+            </div>
+            <div class="form-group">
+                <div class="sub-label">Bearbeiten dürfen</div>
+                <div class="form-hint" id="evEditorsHint" style="margin-top:0;margin-bottom:8px"></div>
+                <div class="people" id="evEditors"></div>
             </div>
             <div class="error-msg" id="evError"></div>
         </div>
@@ -1035,6 +1043,22 @@ function syncResponseListeners() {
 
 const myResponse = evId => (_me && _responses[evId]) ? _responses[evId][_me.id] : null;
 
+// Organisator-Zugang einer Terminabfrage (oder null, wenn es ihn nicht mehr gibt)
+const ownerOf = ev => (ev && ev.createdBy) ? (_people.find(x => x.id === ev.createdBy) || null) : null;
+const isOwner = ev => { const o = ownerOf(ev); return !!(o && _me && o.id === _me.id); };
+
+// Wer darf eine Terminabfrage bearbeiten, einladen, schliessen und loeschen?
+// Der Organisator und die von ihm benannten Administratoren. Hat eine Abfrage keinen
+// (mehr) auffindbaren Organisator — Altbestand oder geloeschter Zugang —, duerfen alle
+// Administratoren ran, sonst waere sie fuer niemanden mehr verwaltbar.
+function canManageEvent(ev) {
+    if (!isAdmin() || !_me) return false;
+    const o = ownerOf(ev);
+    if (!o) return true;
+    if (o.id === _me.id) return true;
+    return Array.isArray(ev.editorIds) && ev.editorIds.indexOf(_me.id) >= 0;
+}
+
 // Organisator einer Terminabfrage: bevorzugt der aktuelle Name des anlegenden Zugangs,
 // sonst der beim Anlegen gespeicherte Name (Zugang geloescht/umbenannt).
 function organizerOf(ev) {
@@ -1175,10 +1199,19 @@ async function saveResponse(evId, btn) {
 // ============================================================
 // ADMIN: TERMINLISTE
 // ============================================================
-function organizerCell(ev) {
+function organizerCell(ev, withEditors) {
     const o = organizerOf(ev);
-    if (!o.known) return '<span class="org-none">nicht hinterlegt</span>';
-    return esc(o.name) + (o.self ? ' <span class="org-self">(Sie)</span>' : '');
+    let html = o.known
+        ? esc(o.name) + (o.self ? ' <span class="org-self">(Sie)</span>' : '')
+        : '<span class="org-none">nicht hinterlegt</span>';
+    if (withEditors) {
+        const ed = (Array.isArray(ev.editorIds) ? ev.editorIds : [])
+            .map(id => _people.find(x => x.id === id)).filter(Boolean);
+        if (ed.length) html += '<span class="org-editors" title="'
+            + esc(ed.map(x => x.name || x.login).join(', ')) + '">+ ' + ed.length
+            + (ed.length === 1 ? ' weiterer Bearbeiter' : ' weitere Bearbeiter') + '</span>';
+    }
+    return html;
 }
 
 function renderAdminEvents() {
@@ -1193,17 +1226,19 @@ function renderAdminEvents() {
             return '<tr>'
                 + '<td><strong>' + esc(ev.title || '(ohne Titel)') + '</strong>'
                 + (ev.location ? '<br><span style="color:var(--xo-muted);font-size:0.78rem">' + esc(ev.location) + '</span>' : '') + '</td>'
-                + '<td>' + organizerCell(ev) + '</td>'
+                + '<td>' + organizerCell(ev, true) + '</td>'
                 + '<td class="center">' + (ev.options || []).length + '</td>'
                 + '<td class="center">' + (ev.invitedIds || []).length + '</td>'
                 + '<td class="center">' + nResp + '</td>'
                 + '<td>' + esc(ev.deadline ? fmtDate(ev.deadline) : '–') + '</td>'
                 + '<td><span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? 'geschlossen' : 'offen') + '</span></td>'
                 + '<td style="white-space:nowrap">'
-                + '<button class="btn btn-secondary btn-xs" type="button" data-act="invite" data-ev="' + esc(ev.id) + '">Einladung</button> '
-                + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-ev="' + esc(ev.id) + '">Bearbeiten</button> '
-                + '<button class="btn btn-secondary btn-xs" type="button" data-act="toggleClosed" data-ev="' + esc(ev.id) + '">' + (ev.closed ? 'Öffnen' : 'Schließen') + '</button> '
-                + '<button class="btn btn-danger btn-xs" type="button" data-act="del" data-ev="' + esc(ev.id) + '">Löschen</button>'
+                + (canManageEvent(ev)
+                    ? '<button class="btn btn-secondary btn-xs" type="button" data-act="invite" data-ev="' + esc(ev.id) + '">Einladung</button> '
+                      + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-ev="' + esc(ev.id) + '">Bearbeiten</button> '
+                      + '<button class="btn btn-secondary btn-xs" type="button" data-act="toggleClosed" data-ev="' + esc(ev.id) + '">' + (ev.closed ? 'Öffnen' : 'Schließen') + '</button> '
+                      + '<button class="btn btn-danger btn-xs" type="button" data-act="del" data-ev="' + esc(ev.id) + '">Löschen</button>'
+                    : '<span class="org-none">keine Berechtigung</span>')
                 + '</td></tr>';
         }).join('')
         + '</tbody></table></div>';
@@ -1214,6 +1249,7 @@ $('adminEventsList').addEventListener('click', async e => {
     if (!btn || !isAdmin()) return;
     const ev = _events.find(x => x.id === btn.dataset.ev);
     if (!ev) return;
+    if (!canManageEvent(ev)) { notify(keineBerechtigungText(ev), 'err'); return; }
     if (btn.dataset.act === 'edit') { openEventModal(ev.id); return; }
     if (btn.dataset.act === 'invite') { openInviteModal(ev.id); return; }
     btn.disabled = true;
@@ -1284,10 +1320,44 @@ $('evPeople').addEventListener('change', updateEvPeopleCount);
 $('selAllPeople').addEventListener('click', () => { $('evPeople').querySelectorAll('.pp').forEach(c => { c.checked = true; }); updateEvPeopleCount(); });
 $('selNonePeople').addEventListener('click', () => { $('evPeople').querySelectorAll('.pp').forEach(c => { c.checked = false; }); updateEvPeopleCount(); });
 
+function keineBerechtigungText(ev) {
+    const o = organizerOf(ev);
+    return 'Diese Terminabfrage kann nur ' + (o.known ? o.name : 'der Organisator')
+        + ' bearbeiten — oder ein Administrator, den ' + (o.known ? o.name : 'er') + ' dafür benannt hat.';
+}
+
+// Auswahl der mitberechtigten Administratoren. Aendern darf sie nur der Organisator;
+// fuer alle anderen ist die Liste sichtbar, aber gesperrt.
+function renderEvEditors(ev) {
+    const owner = ownerOf(ev);
+    const ownerId = ev ? (ev.createdBy || '') : (_me ? _me.id : '');
+    const darfAendern = ev ? isOwner(ev) : true;
+    const admins = _people.filter(x => x.isAdmin === true && x.disabled !== true && x.id !== ownerId);
+    const sel = new Set(Array.isArray(ev && ev.editorIds) ? ev.editorIds : []);
+    $('evEditors').innerHTML = admins.length ? admins.map(x =>
+        '<label class="person"><input type="checkbox" class="pe" value="' + esc(x.id) + '"'
+        + (sel.has(x.id) ? ' checked' : '') + (darfAendern ? '' : ' disabled') + '>'
+        + '<span>' + esc(x.name || x.login)
+        + '<span class="pmail">' + esc(x.login || '') + (x.company ? ' · ' + esc(x.company) : '') + '</span></span></label>'
+    ).join('') : '<div class="info-msg">Es gibt keine weiteren Administratoren.</div>';
+    let hint;
+    if (darfAendern) {
+        hint = 'Ohne Auswahl kann ausschließlich der Organisator diese Terminabfrage bearbeiten, '
+             + 'Einladungen erstellen, schließen und löschen. Ausgewählte Administratoren dürfen das ebenfalls.';
+    } else if (owner) {
+        hint = 'Diese Auswahl kann nur der Organisator (' + (owner.name || owner.login) + ') ändern.';
+    } else {
+        hint = 'Für diese Terminabfrage ist kein Organisator hinterlegt — sie kann von allen Administratoren bearbeitet werden.';
+    }
+    $('evEditorsHint').textContent = hint;
+}
+
 function openEventModal(eventId) {
     if (!isAdmin()) return;
-    _editEventId = eventId || null;
     const ev = eventId ? _events.find(x => x.id === eventId) : null;
+    if (eventId && !ev) return;
+    if (ev && !canManageEvent(ev)) { notify(keineBerechtigungText(ev), 'err'); return; }
+    _editEventId = eventId || null;
     $('eventModalTitle').textContent = ev ? 'Terminabfrage bearbeiten' : 'Neue Terminabfrage';
     $('evTitle').value = ev ? (ev.title || '') : '';
     $('evDesc').value = ev ? (ev.description || '') : '';
@@ -1298,6 +1368,7 @@ function openEventModal(eventId) {
     if (opts.length) opts.forEach(addOptRow); else { addOptRow(); addOptRow(); }
     // Neue Abfrage: alle aktiven Teilnehmer sind vorausgewählt
     renderEvPeople(ev ? ev.invitedIds : _people.filter(p => p.disabled !== true).map(p => p.id));
+    renderEvEditors(ev);
     $('evError').style.display = 'none';
     $('eventModal').classList.add('open');
     $('evTitle').focus();
@@ -1350,6 +1421,14 @@ $('evSave').addEventListener('click', async () => {
         invitedIds: invitedIds,
         updatedAt: SRV()
     };
+    const bestehend = _editEventId ? _events.find(x => x.id === _editEventId) : null;
+    if (bestehend && !canManageEvent(bestehend)) {
+        err.textContent = keineBerechtigungText(bestehend); err.style.display = 'block'; return;
+    }
+    // Die Liste der Mitberechtigten vergibt nur der Organisator — sonst bleibt sie unveraendert.
+    if (!bestehend || isOwner(bestehend)) {
+        payload.editorIds = Array.from($('evEditors').querySelectorAll('.pe:checked')).map(c => c.value);
+    }
     $('evSave').disabled = true;
     try {
         if (_editEventId) {
@@ -1439,6 +1518,7 @@ function openInviteModal(eventId) {
     if (!isAdmin()) return;
     const ev = _events.find(x => x.id === eventId);
     if (!ev) return;
+    if (!canManageEvent(ev)) { notify(keineBerechtigungText(ev), 'err'); return; }
     _invEventId = eventId;
     $('invTitle').textContent = 'Einladungstexte: ' + (ev.title || '');
     $('tplSubject').value = inviteSubjectTpl();
