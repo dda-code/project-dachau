@@ -119,6 +119,21 @@ strong, b { font-weight: 700; color: var(--xo-ink); }
     padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.28);
 }
 .app-header .user-info { display: flex; align-items: center; gap: 12px; font-size: 0.82rem; color: rgba(255,255,255,0.72); flex-wrap: wrap; padding: 8px 0; }
+.lang-switch { display: inline-flex; border: 1px solid rgba(255,255,255,0.35); border-radius: var(--r2); overflow: hidden; }
+.lang-switch button {
+    background: none; border: none; color: rgba(255,255,255,0.72); font-family: inherit;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+    padding: 5px 9px; cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.lang-switch button:hover { color: #fff; }
+.lang-switch button[aria-pressed="true"] { background: #fff; color: var(--xo-black); }
+.login-lang { display: flex; justify-content: center; gap: 6px; margin-top: 18px; }
+.login-lang button {
+    background: none; border: 1px solid var(--xo-line-strong); border-radius: var(--r2);
+    color: var(--xo-muted); font-family: inherit; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.09em; text-transform: uppercase; padding: 5px 11px; cursor: pointer;
+}
+.login-lang button[aria-pressed="true"] { background: var(--xo-black); color: #fff; border-color: var(--xo-black); }
 .logout-btn {
     background: none; border: 1px solid rgba(255,255,255,0.35); border-radius: var(--r2);
     padding: 6px 13px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
@@ -335,27 +350,27 @@ table.matrix { table-layout: fixed; width: 100%; }
 <body>
 
 <!-- ══════════════ START / VERBINDUNG ══════════════ -->
-<div class="boot-screen" id="bootView">Verbinde mit der Datenbank&hellip;</div>
+<div class="boot-screen" id="bootView" data-i18n="boot.connecting">Verbinde mit der Datenbank&hellip;</div>
 
 <!-- ══════════════ ERSTEINRICHTUNG ══════════════ -->
 <div class="login-page" id="setupView">
     <form class="login-card" id="setupForm" autocomplete="off">
         <div class="login-brand"><img class="xo-logo" data-xo-logo alt="XOLUTION"></div>
-        <h1>Ersteinrichtung</h1>
-        <p class="subtitle">Es ist noch kein Zugang vorhanden.<br>Legen Sie hier den ersten Administrator an.</p>
+        <h1 data-i18n="setup.title">Ersteinrichtung</h1>
+        <p class="subtitle" data-i18n-html="setup.sub">Es ist noch kein Zugang vorhanden.<br>Legen Sie hier den ersten Administrator an.</p>
         <div class="form-group">
-            <label for="setupName">Ihr Name</label>
+            <label for="setupName" data-i18n="field.yourName">Ihr Name</label>
             <input type="text" id="setupName" required maxlength="80">
         </div>
         <div class="form-group">
-            <label for="setupLogin">Anmeldename</label>
+            <label for="setupLogin" data-i18n="field.login">Anmeldename</label>
             <input type="text" id="setupLogin" required maxlength="120" autocapitalize="none" spellcheck="false">
         </div>
         <div class="form-group">
-            <label for="setupPw">Passwort</label>
+            <label for="setupPw" data-i18n="field.password">Passwort</label>
             <input type="text" id="setupPw" required minlength="4" maxlength="60">
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="setupBtn">Administrator anlegen</button>
+        <button type="submit" class="btn btn-primary btn-block" id="setupBtn" data-i18n="setup.create">Administrator anlegen</button>
         <div class="error-msg" id="setupError"></div>
     </form>
 </div>
@@ -364,18 +379,22 @@ table.matrix { table-layout: fixed; width: 100%; }
 <div class="login-page" id="loginView">
     <form class="login-card" id="loginForm" autocomplete="on">
         <div class="login-brand"><img class="xo-logo" data-xo-logo alt="XOLUTION"></div>
-        <h1>Terminplanung</h1>
-        <p class="subtitle">Bitte mit den Zugangsdaten anmelden,<br>die Sie erhalten haben.</p>
+        <h1 data-i18n="app.title">Terminplanung</h1>
+        <p class="subtitle" data-i18n-html="login.sub">Bitte mit den Zugangsdaten anmelden,<br>die Sie erhalten haben.</p>
         <div class="form-group">
-            <label for="loginUser">Anmeldename</label>
+            <label for="loginUser" data-i18n="field.login">Anmeldename</label>
             <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false" required>
         </div>
         <div class="form-group">
-            <label for="loginPw">Passwort</label>
+            <label for="loginPw" data-i18n="field.password">Passwort</label>
             <input type="password" id="loginPw" autocomplete="current-password" required>
         </div>
-        <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Anmelden</button>
+        <button type="submit" class="btn btn-primary btn-block" id="loginBtn" data-i18n="btn.login">Anmelden</button>
         <div class="error-msg" id="loginError"></div>
+        <div class="login-lang" id="loginLang" role="group" aria-label="Sprache / Language">
+            <button type="button" data-lang="de" aria-pressed="true">Deutsch</button>
+            <button type="button" data-lang="en" aria-pressed="false">English</button>
+        </div>
     </form>
 </div>
 
@@ -384,36 +403,40 @@ table.matrix { table-layout: fixed; width: 100%; }
     <header class="app-header">
         <div class="brand">
             <img class="xo-logo xo-logo-invert" data-xo-logo alt="XOLUTION">
-            <h1>Terminplanung</h1>
+            <h1 data-i18n="app.title">Terminplanung</h1>
         </div>
         <div class="user-info">
             <span id="userDisplay"></span>
-            <span class="badge badge-admin" id="adminBadge" style="display:none">Administrator</span>
-            <button class="logout-btn" id="logoutBtn" type="button">Abmelden</button>
+            <span class="badge badge-admin" id="adminBadge" style="display:none" data-i18n="role.admin">Administrator</span>
+            <span class="lang-switch" id="langSwitch" role="group" aria-label="Sprache / Language">
+                <button type="button" data-lang="de" aria-pressed="true">DE</button>
+                <button type="button" data-lang="en" aria-pressed="false">EN</button>
+            </span>
+            <button class="logout-btn" id="logoutBtn" type="button" data-i18n="btn.logout">Abmelden</button>
         </div>
     </header>
 
     <div class="main">
         <div class="tabs" id="tabs">
-            <button class="tab active" type="button" data-view="myEvents">Meine Termine</button>
-            <button class="tab" type="button" data-view="adminEvents" data-admin="1" style="display:none">Termine verwalten</button>
-            <button class="tab" type="button" data-view="adminResults">Auswertung</button>
-            <button class="tab" type="button" data-view="adminPeople" data-admin="1" style="display:none">Teilnehmer</button>
+            <button class="tab active" type="button" data-view="myEvents" data-i18n="tab.myEvents">Meine Termine</button>
+            <button class="tab" type="button" data-view="adminEvents" data-admin="1" style="display:none" data-i18n="tab.manage">Termine verwalten</button>
+            <button class="tab" type="button" data-view="adminResults" data-i18n="tab.results">Auswertung</button>
+            <button class="tab" type="button" data-view="adminPeople" data-admin="1" style="display:none" data-i18n="tab.people">Teilnehmer</button>
         </div>
 
         <!-- Teilnehmer-Ansicht -->
         <section class="view active" id="view-myEvents">
-            <div id="myEventsList"><div class="info-msg">Lade Termine&hellip;</div></div>
+            <div id="myEventsList"><div class="info-msg" data-i18n="msg.loadingEvents">Lade Termine&hellip;</div></div>
         </section>
 
         <!-- Admin: Termine -->
         <section class="view" id="view-adminEvents">
             <div class="card">
                 <div class="card-head">
-                    <div class="card-title">Terminabfragen</div>
-                    <button class="btn btn-primary btn-sm" type="button" id="newEventBtn">+ Neue Terminabfrage</button>
+                    <div class="card-title" data-i18n="manage.title">Terminabfragen</div>
+                    <button class="btn btn-primary btn-sm" type="button" id="newEventBtn" data-i18n="manage.new">+ Neue Terminabfrage</button>
                 </div>
-                <div id="adminEventsList"><div class="info-msg">Lade&hellip;</div></div>
+                <div id="adminEventsList"><div class="info-msg" data-i18n="msg.loading">Lade&hellip;</div></div>
             </div>
         </section>
 
@@ -421,18 +444,18 @@ table.matrix { table-layout: fixed; width: 100%; }
         <section class="view" id="view-adminResults">
             <div class="card">
                 <div class="form-group" style="margin-bottom:0">
-                    <label for="resultSelect">Terminabfrage</label>
+                    <label for="resultSelect" data-i18n="results.pick">Terminabfrage</label>
                     <select id="resultSelect"></select>
                 </div>
             </div>
-            <div id="resultsBox"><div class="info-msg">Bitte eine Terminabfrage wählen.</div></div>
+            <div id="resultsBox"><div class="info-msg" data-i18n="results.choose">Bitte eine Terminabfrage wählen.</div></div>
         </section>
 
         <!-- Admin: Teilnehmer -->
         <section class="view" id="view-adminPeople">
             <div class="card">
-                <div class="section-title">Teilnehmer hinzufügen</div>
-                <div class="warn-box">
+                <div class="section-title" data-i18n="people.add">Teilnehmer hinzufügen</div>
+                <div class="warn-box" data-i18n-html="people.warn">
                     Die Zugangsdaten stehen im Klartext in der Datenbank, damit Sie sie hier jederzeit ablesen
                     und weitergeben können. Bitte deshalb <strong>keine Passwörter verwenden, die die Personen
                     anderswo benutzen</strong> — der Zugang gilt ausschließlich für diese Terminplanung.
@@ -440,43 +463,43 @@ table.matrix { table-layout: fixed; width: 100%; }
                 <form id="addPersonForm" autocomplete="off">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="pName">Name</label>
-                            <input type="text" id="pName" required maxlength="80" placeholder="Max Muster">
+                            <label for="pName" data-i18n="field.name">Name</label>
+                            <input type="text" id="pName" required maxlength="80" placeholder="Max Muster" data-i18n-ph="ph.name">
                         </div>
                         <div class="form-group">
-                            <label for="pCompany">Firma (optional)</label>
-                            <input type="text" id="pCompany" maxlength="80" placeholder="Fremdfirma GmbH">
+                            <label for="pCompany" data-i18n="field.company">Firma (optional)</label>
+                            <input type="text" id="pCompany" maxlength="80" placeholder="Fremdfirma GmbH" data-i18n-ph="ph.company">
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="pLogin">Anmeldename</label>
-                            <input type="text" id="pLogin" required maxlength="120" autocapitalize="none" spellcheck="false" placeholder="z.B. m.muster oder max@fremdfirma.de">
-                            <div class="form-hint">Frei wählbar. Wird eine E-Mail-Adresse eingetragen, lässt sich die Einladung zusätzlich direkt im Mail-Programm öffnen.</div>
+                            <label for="pLogin" data-i18n="field.login">Anmeldename</label>
+                            <input type="text" id="pLogin" required maxlength="120" autocapitalize="none" spellcheck="false" placeholder="z.B. m.muster oder max@fremdfirma.de" data-i18n-ph="ph.login">
+                            <div class="form-hint" data-i18n="people.loginHint">Frei wählbar. Wird eine E-Mail-Adresse eingetragen, lässt sich die Einladung zusätzlich direkt im Mail-Programm öffnen.</div>
                         </div>
                         <div class="form-group">
-                            <label for="pPw">Passwort</label>
+                            <label for="pPw" data-i18n="field.password">Passwort</label>
                             <input type="text" id="pPw" required minlength="4" maxlength="60">
-                            <div class="form-hint"><button type="button" class="btn btn-secondary btn-xs" id="genPwBtn">Passwort erzeugen</button></div>
+                            <div class="form-hint"><button type="button" class="btn btn-secondary btn-xs" id="genPwBtn" data-i18n="people.genPw">Passwort erzeugen</button></div>
                         </div>
                     </div>
                     <label class="check-line">
-                        <input type="checkbox" id="pAdmin"> Administrator (darf Termine und Teilnehmer verwalten)
+                        <input type="checkbox" id="pAdmin"> <span data-i18n="people.adminHint">Administrator (darf Termine und Teilnehmer verwalten)</span>
                     </label>
-                    <button type="submit" class="btn btn-primary btn-sm" id="addPersonBtn" style="margin-top:14px">Teilnehmer hinzufügen</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="addPersonBtn" style="margin-top:14px" data-i18n="people.add">Teilnehmer hinzufügen</button>
                     <div class="error-msg" id="addPersonError"></div>
                     <div class="success-msg" id="addPersonSuccess"></div>
                 </form>
             </div>
             <div class="card">
                 <div class="card-head">
-                    <div class="card-title">Teilnehmerliste</div>
-                    <button class="btn btn-secondary btn-sm" type="button" id="copyAllBtn">Alle Zugangsdaten kopieren</button>
+                    <div class="card-title" data-i18n="people.list">Teilnehmerliste</div>
+                    <button class="btn btn-secondary btn-sm" type="button" id="copyAllBtn" data-i18n="people.copyAll">Alle Zugangsdaten kopieren</button>
                 </div>
                 <div class="table-wrap">
                     <table>
-                        <thead><tr><th>Name</th><th>Firma</th><th>Anmeldename</th><th>Passwort</th><th>Rolle</th><th>Status</th><th>Aktion</th></tr></thead>
-                        <tbody id="peopleTableBody"><tr><td colspan="7" class="info-msg">Lade&hellip;</td></tr></tbody>
+                        <thead><tr><th data-i18n="field.name">Name</th><th data-i18n="col.company">Firma</th><th data-i18n="field.login">Anmeldename</th><th data-i18n="field.password">Passwort</th><th data-i18n="col.role">Rolle</th><th data-i18n="col.status">Status</th><th data-i18n="col.action">Aktion</th></tr></thead>
+                        <tbody id="peopleTableBody"><tr><td colspan="7" class="info-msg" data-i18n="msg.loading">Lade&hellip;</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -488,52 +511,52 @@ table.matrix { table-layout: fixed; width: 100%; }
 <div class="modal-back" id="eventModal">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
         <div class="modal-head">
-            <h2 id="eventModalTitle">Neue Terminabfrage</h2>
-            <button class="x-btn" type="button" id="eventModalClose" aria-label="Schließen">&times;</button>
+            <h2 id="eventModalTitle" data-i18n="event.newTitle">Neue Terminabfrage</h2>
+            <button class="x-btn" type="button" id="eventModalClose" aria-label="Schließen" data-i18n-title="btn.close">&times;</button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label for="evTitle">Titel</label>
+                <label for="evTitle" data-i18n="field.title">Titel</label>
                 <input type="text" id="evTitle" maxlength="120">
             </div>
             <div class="form-group">
-                <label for="evDesc">Beschreibung (optional)</label>
+                <label for="evDesc" data-i18n="field.desc">Beschreibung (optional)</label>
                 <textarea id="evDesc" maxlength="2000"></textarea>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="evLocation">Ort (optional)</label>
+                    <label for="evLocation" data-i18n="field.location">Ort (optional)</label>
                     <input type="text" id="evLocation" maxlength="120">
                 </div>
                 <div class="form-group">
-                    <label for="evDeadline">Rückmeldung bis (optional)</label>
+                    <label for="evDeadline" data-i18n="field.deadline">Rückmeldung bis (optional)</label>
                     <input type="date" id="evDeadline">
                 </div>
             </div>
             <div class="form-group">
-                <div class="sub-label">Terminvorschläge</div>
+                <div class="sub-label" data-i18n="event.options">Terminvorschläge</div>
                 <div id="evOptions"></div>
-                <button class="btn btn-secondary btn-sm" type="button" id="addOptBtn">+ Vorschlag hinzufügen</button>
+                <button class="btn btn-secondary btn-sm" type="button" id="addOptBtn" data-i18n="event.addOption">+ Vorschlag hinzufügen</button>
             </div>
             <div class="form-group">
-                <div class="sub-label">Teilnehmer</div>
+                <div class="sub-label" data-i18n="tab.people">Teilnehmer</div>
                 <div class="chip-row">
-                    <button class="btn btn-secondary btn-xs" type="button" id="selAllPeople">Alle auswählen</button>
-                    <button class="btn btn-secondary btn-xs" type="button" id="selNonePeople">Auswahl leeren</button>
+                    <button class="btn btn-secondary btn-xs" type="button" id="selAllPeople" data-i18n="event.selectAll">Alle auswählen</button>
+                    <button class="btn btn-secondary btn-xs" type="button" id="selNonePeople" data-i18n="event.selectNone">Auswahl leeren</button>
                     <span class="chip" id="peopleCount">0 ausgewählt</span>
                 </div>
                 <div class="people" id="evPeople"></div>
             </div>
             <div class="form-group">
-                <div class="sub-label">Bearbeiten dürfen</div>
+                <div class="sub-label" data-i18n="event.editors">Bearbeiten dürfen</div>
                 <div class="form-hint" id="evEditorsHint" style="margin-top:0;margin-bottom:8px"></div>
                 <div class="people" id="evEditors"></div>
             </div>
             <div class="error-msg" id="evError"></div>
         </div>
         <div class="modal-foot">
-            <button class="btn btn-secondary btn-sm" type="button" id="evCancel">Abbrechen</button>
-            <button class="btn btn-primary btn-sm" type="button" id="evSave">Speichern</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="evCancel" data-i18n="btn.cancel">Abbrechen</button>
+            <button class="btn btn-primary btn-sm" type="button" id="evSave" data-i18n="btn.save">Speichern</button>
         </div>
     </div>
 </div>
@@ -542,43 +565,43 @@ table.matrix { table-layout: fixed; width: 100%; }
 <div class="modal-back" id="personModal">
     <div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="personModalTitle">
         <div class="modal-head">
-            <h2 id="personModalTitle">Teilnehmer bearbeiten</h2>
-            <button class="x-btn" type="button" id="personModalClose" aria-label="Schließen">&times;</button>
+            <h2 id="personModalTitle" data-i18n="person.edit">Teilnehmer bearbeiten</h2>
+            <button class="x-btn" type="button" id="personModalClose" aria-label="Schließen" data-i18n-title="btn.close">&times;</button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label for="edName">Name</label>
+                <label for="edName" data-i18n="field.name">Name</label>
                 <input type="text" id="edName" maxlength="80">
             </div>
             <div class="form-group">
-                <label for="edCompany">Firma (optional)</label>
+                <label for="edCompany" data-i18n="field.company">Firma (optional)</label>
                 <input type="text" id="edCompany" maxlength="80">
             </div>
             <div class="form-group">
-                <label for="edLogin">Anmeldename</label>
+                <label for="edLogin" data-i18n="field.login">Anmeldename</label>
                 <input type="text" id="edLogin" maxlength="120" autocapitalize="none" spellcheck="false">
             </div>
             <div class="form-group">
-                <label for="edPw">Passwort</label>
+                <label for="edPw" data-i18n="field.password">Passwort</label>
                 <input type="text" id="edPw" maxlength="60">
-                <div class="form-hint"><button type="button" class="btn btn-secondary btn-xs" id="edGenPwBtn">Neues Passwort erzeugen</button></div>
+                <div class="form-hint"><button type="button" class="btn btn-secondary btn-xs" id="edGenPwBtn" data-i18n="person.newPw">Neues Passwort erzeugen</button></div>
             </div>
             <label class="check-line" style="margin-bottom:10px">
-                <input type="checkbox" id="edAdmin"> Administrator
+                <input type="checkbox" id="edAdmin"> <span data-i18n="role.admin">Administrator</span>
             </label>
             <label class="check-line" style="margin-bottom:16px">
-                <input type="checkbox" id="edDisabled"> Zugang gesperrt
+                <input type="checkbox" id="edDisabled"> <span data-i18n="person.blocked">Zugang gesperrt</span>
             </label>
-            <div class="sub-label">Zugangsdaten zum Weitergeben</div>
+            <div class="sub-label" data-i18n="person.access">Zugangsdaten zum Weitergeben</div>
             <div class="access-box" id="edAccess"></div>
-            <button type="button" class="btn btn-secondary btn-sm" id="edCopyBtn" style="margin-top:10px">In die Zwischenablage kopieren</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="edCopyBtn" style="margin-top:10px" data-i18n="person.copy">In die Zwischenablage kopieren</button>
             <div class="error-msg" id="edError"></div>
             <div class="success-msg" id="edSuccess"></div>
         </div>
         <div class="modal-foot">
-            <button class="btn btn-danger btn-sm" type="button" id="edDelete" style="margin-right:auto">Löschen</button>
-            <button class="btn btn-secondary btn-sm" type="button" id="edCancel">Abbrechen</button>
-            <button class="btn btn-primary btn-sm" type="button" id="edSave">Speichern</button>
+            <button class="btn btn-danger btn-sm" type="button" id="edDelete" style="margin-right:auto" data-i18n="btn.delete">Löschen</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="edCancel" data-i18n="btn.cancel">Abbrechen</button>
+            <button class="btn btn-primary btn-sm" type="button" id="edSave" data-i18n="btn.save">Speichern</button>
         </div>
     </div>
 </div>
@@ -587,24 +610,24 @@ table.matrix { table-layout: fixed; width: 100%; }
 <div class="modal-back" id="inviteModal">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="invTitle">
         <div class="modal-head">
-            <h2 id="invTitle">Einladungstexte</h2>
-            <button class="x-btn" type="button" id="invClose" aria-label="Schließen">&times;</button>
+            <h2 id="invTitle" data-i18n="invite.title">Einladungstexte</h2>
+            <button class="x-btn" type="button" id="invClose" aria-label="Schließen" data-i18n-title="btn.close">&times;</button>
         </div>
         <div class="modal-body">
             <div class="chip-row">
-                <button class="btn btn-secondary btn-xs" type="button" id="invCopyAll">Alle Texte kopieren</button>
-                <button class="btn btn-secondary btn-xs" type="button" id="tplToggle">Vorlage bearbeiten</button>
+                <button class="btn btn-secondary btn-xs" type="button" id="invCopyAll" data-i18n="invite.copyAll">Alle Texte kopieren</button>
+                <button class="btn btn-secondary btn-xs" type="button" id="tplToggle" data-i18n="invite.tplEdit">Vorlage bearbeiten</button>
             </div>
 
             <div id="tplBox">
                 <div class="form-group">
-                    <label for="tplSubject">Betreff</label>
+                    <label for="tplSubject" data-i18n="invite.subject">Betreff</label>
                     <input type="text" id="tplSubject" maxlength="200">
                 </div>
                 <div class="form-group">
-                    <label for="tplBody">Textvorlage</label>
+                    <label for="tplBody" data-i18n="invite.template">Textvorlage</label>
                     <textarea id="tplBody" style="min-height:230px" maxlength="4000"></textarea>
-                    <div class="form-hint tpl-vars">
+                    <div class="form-hint tpl-vars" data-i18n-html="invite.vars">
                         Platzhalter: <code>{name}</code> <code>{firma}</code> <code>{titel}</code>
                         <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code>
                         <code>{frist}</code> <code>{link}</code> <code>{login}</code>
@@ -614,29 +637,29 @@ table.matrix { table-layout: fixed; width: 100%; }
                     </div>
                 </div>
                 <div class="chip-row">
-                    <button class="btn btn-primary btn-xs" type="button" id="tplSave">Vorlage speichern</button>
-                    <button class="btn btn-secondary btn-xs" type="button" id="tplReset">Standardtext wiederherstellen</button>
+                    <button class="btn btn-primary btn-xs" type="button" id="tplSave" data-i18n="invite.tplSave">Vorlage speichern</button>
+                    <button class="btn btn-secondary btn-xs" type="button" id="tplReset" data-i18n="invite.tplReset">Standardtext wiederherstellen</button>
                 </div>
                 <div class="error-msg" id="tplError"></div>
                 <div class="success-msg" id="tplSuccess"></div>
             </div>
 
-            <div class="sub-label" style="margin-top:16px">Teilnehmer</div>
+            <div class="sub-label" style="margin-top:16px" data-i18n="tab.people">Teilnehmer</div>
             <div class="inv-list" id="invList"></div>
 
             <div class="inv-preview">
-                <div class="sub-label" style="margin-top:16px">Vorschau</div>
+                <div class="sub-label" style="margin-top:16px" data-i18n="invite.preview">Vorschau</div>
                 <div class="inv-subject" id="invSubject"></div>
                 <div class="inv-body" id="invBody"></div>
                 <div class="chip-row" style="margin-top:12px">
-                    <button class="btn btn-primary btn-sm" type="button" id="invCopyOne">Betreff + Text kopieren</button>
-                    <button class="btn btn-secondary btn-sm" type="button" id="invMailto">Im Mail-Programm öffnen</button>
+                    <button class="btn btn-primary btn-sm" type="button" id="invCopyOne" data-i18n="invite.copyOne">Betreff + Text kopieren</button>
+                    <button class="btn btn-secondary btn-sm" type="button" id="invMailto" data-i18n="invite.mailto">Im Mail-Programm öffnen</button>
                 </div>
                 <div class="success-msg" id="invCopyMsg"></div>
             </div>
         </div>
         <div class="modal-foot">
-            <button class="btn btn-secondary btn-sm" type="button" id="invDone">Schließen</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="invDone" data-i18n="btn.close">Schließen</button>
         </div>
     </div>
 </div>
@@ -645,14 +668,14 @@ table.matrix { table-layout: fixed; width: 100%; }
 <div class="modal-back" id="askModal">
     <div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="askTitle">
         <div class="modal-head">
-            <h2 id="askTitle">Bitte bestätigen</h2>
-            <button class="x-btn" type="button" id="askClose" aria-label="Schließen">&times;</button>
+            <h2 id="askTitle" data-i18n="ask.title">Bitte bestätigen</h2>
+            <button class="x-btn" type="button" id="askClose" aria-label="Schließen" data-i18n-title="btn.close">&times;</button>
         </div>
         <div class="modal-body">
             <div class="ask-text" id="askText"></div>
         </div>
         <div class="modal-foot">
-            <button class="btn btn-secondary btn-sm" type="button" id="askNo">Abbrechen</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="askNo" data-i18n="btn.cancel">Abbrechen</button>
             <button class="btn btn-danger btn-sm" type="button" id="askYes">Löschen</button>
         </div>
     </div>
@@ -698,6 +721,477 @@ try {
 const auth = firebase.auth();
 const db = firebase.firestore();
 const $ = id => document.getElementById(id);
+// ============================================================
+// SPRACHE — Deutsch / Englisch
+// Texte stehen zentral in I18N; t('schluessel', {platzhalter}) liefert den
+// Text der aktiven Sprache, fehlt er, faellt er auf Deutsch zurueck.
+// ============================================================
+const LANG_KEY = 'tp_lang';
+let _lang = 'de';
+try { const g = localStorage.getItem(LANG_KEY); if (g === 'en' || g === 'de') _lang = g; } catch (e) { /* privates Fenster */ }
+
+const I18N = {
+de: {
+'app.title': 'Terminplanung',
+'boot.connecting': 'Verbinde mit der Datenbank…',
+'boot.anonOff': '<strong>Die anonyme Anmeldung ist im Firebase-Projekt nicht aktiviert.</strong><br><br>Firebase-Konsole &rarr; Authentication &rarr; Sign-in method &rarr; <em>Anonymous</em> aktivieren, dann diese Seite neu laden.<br><br>',
+'setup.title': 'Ersteinrichtung',
+'setup.sub': 'Es ist noch kein Zugang vorhanden.<br>Legen Sie hier den ersten Administrator an.',
+'setup.create': 'Administrator anlegen',
+'setup.errFields': 'Bitte Name, Anmeldename und ein Passwort mit mindestens 4 Zeichen angeben.',
+'setup.errExists': 'Es existiert bereits ein Zugang. Bitte die Seite neu laden.',
+'login.sub': 'Bitte mit den Zugangsdaten anmelden,<br>die Sie erhalten haben.',
+'login.errWrong': 'Anmeldename oder Passwort ist falsch.',
+'login.errBlocked': 'Dieser Zugang ist gesperrt. Bitte an den Organisator wenden.',
+'acc.blocked': 'Ihr Zugang wurde gesperrt.',
+'acc.removed': 'Ihr Zugang wurde entfernt.',
+'acc.contact': ' Bitte an den Organisator wenden.',
+'btn.login': 'Anmelden',
+'btn.logout': 'Abmelden',
+'btn.save': 'Speichern',
+'btn.cancel': 'Abbrechen',
+'btn.delete': 'Löschen',
+'btn.close': 'Schließen',
+'role.admin': 'Administrator',
+'role.user': 'Teilnehmer',
+'tab.myEvents': 'Meine Termine',
+'tab.manage': 'Termine verwalten',
+'tab.results': 'Auswertung',
+'tab.people': 'Teilnehmer',
+'msg.loading': 'Lade…',
+'msg.loadingEvents': 'Lade Termine…',
+'err.permDenied': 'Die Datenbank verweigert den Zugriff. Sind die Firestore-Regeln für die Terminplanung eingespielt?',
+'err.unavailable': 'Keine Verbindung zur Datenbank.',
+'err.generic': 'Fehler: {code}',
+'err.unknown': 'unbekannt',
+'ask.title': 'Bitte bestätigen',
+'copy.ok': 'In die Zwischenablage kopiert.',
+'copy.fail': 'Kopieren nicht möglich — Text bitte manuell markieren.',
+'access.head': 'Terminplanung XOLUTION',
+'access.link': 'Link:     ',
+'access.login': 'Login:    ',
+'access.pw': 'Passwort: ',
+'state.closed': 'geschlossen',
+'state.answered': 'beantwortet',
+'state.late': 'Frist abgelaufen',
+'state.open': 'offen',
+'opt.allDay': 'ganztägig',
+'opt.fromOnly': 'ab {from} Uhr',
+'opt.range': '{from}–{to} Uhr',
+'my.noneAdmin': 'Sie sind zu keiner Terminabfrage eingeladen. Neue Abfragen legen Sie unter „Termine verwalten“ an.',
+'my.noneUser': 'Aktuell sind keine Termine für Sie zu planen.',
+'my.noOptions': 'Keine Terminvorschläge hinterlegt.',
+'my.savedInfo': 'Ihre Rückmeldung ist gespeichert: {n} von {m} Terminen machbar',
+'my.notSaved': 'Noch keine Rückmeldung gespeichert',
+'my.question': 'Welche Termine sind für Sie machbar?',
+'my.comment': 'Kommentar (optional)',
+'my.commentPh': 'z.B. Am 12. nur vormittags, ab 14 Uhr Kundentermin',
+'my.closedNote': 'Diese Terminabfrage ist geschlossen — Änderungen sind nicht mehr möglich.',
+'my.saveBtn': 'Rückmeldung speichern',
+'my.saving': 'Speichere…',
+'my.saved': 'Gespeichert ✓',
+'my.unsaved': 'Nicht gespeichert',
+'lbl.location': 'Ort: ',
+'lbl.deadline': 'Rückmeldung bis: ',
+'lbl.noTitle': '(ohne Titel)',
+'manage.title': 'Terminabfragen',
+'manage.new': '+ Neue Terminabfrage',
+'manage.none': 'Noch keine Terminabfrage angelegt.',
+'manage.noPerm': 'keine Berechtigung',
+'col.title': 'Titel',
+'col.organizer': 'Organisator',
+'col.options': 'Vorschläge',
+'col.people': 'Teilnehmer',
+'col.answers': 'Antworten',
+'col.deadline': 'Frist',
+'col.status': 'Status',
+'col.action': 'Aktion',
+'col.company': 'Firma',
+'col.role': 'Rolle',
+'btn.invite': 'Einladung',
+'btn.edit': 'Bearbeiten',
+'btn.open': 'Öffnen',
+'btn.closeEvent': 'Schließen',
+'btn.copy': 'Kopieren',
+'org.none': 'nicht hinterlegt',
+'org.self': '(Sie)',
+'org.more': '+ {n} weitere Bearbeiter',
+'org.more1': '+ 1 weiterer Bearbeiter',
+'perm.text': 'Diese Terminabfrage kann nur {name} bearbeiten — oder ein Administrator, der dafür benannt wurde.',
+'perm.textGeneric': 'Diese Terminabfrage kann nur der Organisator bearbeiten — oder ein Administrator, der dafür benannt wurde.',
+'del.title': 'Terminabfrage löschen',
+'del.text': '„{titel}“ wird endgültig gelöscht.\n\nDas lässt sich nicht zurücknehmen.',
+'del.textResp': '„{titel}“ wird endgültig gelöscht, zusammen mit {n} gespeicherten Rückmeldungen.\n\nDas lässt sich nicht zurücknehmen.',
+'del.textResp1': '„{titel}“ wird endgültig gelöscht, zusammen mit 1 gespeicherten Rückmeldung.\n\nDas lässt sich nicht zurücknehmen.',
+'del.confirm': 'Endgültig löschen',
+'del.done': 'Terminabfrage „{titel}“ gelöscht.',
+'event.newTitle': 'Neue Terminabfrage',
+'event.editTitle': 'Terminabfrage bearbeiten',
+'event.options': 'Terminvorschläge',
+'event.addOption': '+ Vorschlag hinzufügen',
+'event.selectAll': 'Alle auswählen',
+'event.selectNone': 'Auswahl leeren',
+'event.editors': 'Bearbeiten dürfen',
+'event.countSel': '{n} ausgewählt',
+'event.noPeople': 'Keine Teilnehmer vorhanden — bitte erst im Reiter „Teilnehmer“ anlegen.',
+'event.maxOptions': 'Mehr als {n} Terminvorschläge sind nicht möglich.',
+'event.errTitle': 'Bitte einen Titel angeben.',
+'event.errOptions': 'Bitte mindestens einen Terminvorschlag mit Datum angeben.',
+'event.errDup': 'Doppelter Terminvorschlag: {datum}.',
+'event.errPeople': 'Bitte mindestens einen Teilnehmer auswählen.',
+'opt.date': 'Datum',
+'opt.from': 'von',
+'opt.to': 'bis',
+'opt.note': 'Hinweis (optional)',
+'opt.remove': 'Vorschlag entfernen',
+'editors.hintOwner': 'Ohne Auswahl kann ausschließlich der Organisator diese Terminabfrage bearbeiten, Einladungen erstellen, schließen und löschen. Ausgewählte Administratoren dürfen das ebenfalls.',
+'editors.hintOther': 'Diese Auswahl kann nur der Organisator ({name}) ändern.',
+'editors.hintNoOwner': 'Für diese Terminabfrage ist kein Organisator hinterlegt — sie kann von allen Administratoren bearbeitet werden.',
+'editors.noAdmins': 'Es gibt keine weiteren Administratoren.',
+'field.name': 'Name',
+'field.yourName': 'Ihr Name',
+'field.login': 'Anmeldename',
+'field.password': 'Passwort',
+'field.company': 'Firma (optional)',
+'field.title': 'Titel',
+'field.desc': 'Beschreibung (optional)',
+'field.location': 'Ort (optional)',
+'field.deadline': 'Rückmeldung bis (optional)',
+'ph.name': 'Max Muster',
+'ph.company': 'Fremdfirma GmbH',
+'ph.login': 'z.B. m.muster oder max@fremdfirma.de',
+'people.add': 'Teilnehmer hinzufügen',
+'people.list': 'Teilnehmerliste',
+'people.copyAll': 'Alle Zugangsdaten kopieren',
+'people.genPw': 'Passwort erzeugen',
+'people.warn': 'Die Zugangsdaten stehen im Klartext in der Datenbank, damit Sie sie hier jederzeit ablesen und weitergeben können. Bitte deshalb <strong>keine Passwörter verwenden, die die Personen anderswo benutzen</strong> — der Zugang gilt ausschließlich für diese Terminplanung.',
+'people.loginHint': 'Frei wählbar. Wird eine E-Mail-Adresse eingetragen, lässt sich die Einladung zusätzlich direkt im Mail-Programm öffnen.',
+'people.adminHint': 'Administrator (darf Termine und Teilnehmer verwalten)',
+'people.noneYet': 'Noch keine Teilnehmer.',
+'people.errNameLogin': 'Bitte Name und Anmeldename angeben.',
+'people.errPwShort': 'Das Passwort muss mindestens 4 Zeichen haben.',
+'people.errLoginTaken': 'Dieser Anmeldename ist bereits vergeben.',
+'people.addedHtml': 'Teilnehmer <strong>{name}</strong> angelegt. Zugangsdaten: <strong>{login}</strong> / <strong>{pw}</strong> — in der Liste unten jederzeit kopierbar.',
+'people.copied': 'Kopiert ✓',
+'people.copyFail': 'Fehlgeschlagen',
+'people.allCopied': 'Zugangsdaten aller aktiven Teilnehmer kopiert.',
+'person.edit': 'Teilnehmer bearbeiten',
+'person.newPw': 'Neues Passwort erzeugen',
+'person.access': 'Zugangsdaten zum Weitergeben',
+'person.copy': 'In die Zwischenablage kopieren',
+'person.blocked': 'Zugang gesperrt',
+'person.saved': 'Gespeichert.',
+'person.editFor': 'Teilnehmer: {name}',
+'person.delTitle': 'Teilnehmer löschen',
+'person.delText': '„{name}“ verliert damit den Zugang.',
+'person.delEvents1': '\n\nDie Person ist in 1 Terminabfrage eingeladen; bereits gespeicherte Rückmeldungen bleiben in der Auswertung stehen.',
+'person.delEvents': '\n\nDie Person ist in {n} Terminabfragen eingeladen; bereits gespeicherte Rückmeldungen bleiben in der Auswertung stehen.',
+'person.deleted': 'Teilnehmer „{name}“ gelöscht.',
+'state.active': 'aktiv',
+'state.blocked': 'gesperrt',
+'invite.title': 'Einladungstexte',
+'invite.titleFor': 'Einladungstexte: {titel}',
+'invite.copyAll': 'Alle Texte kopieren',
+'invite.copyOne': 'Betreff + Text kopieren',
+'invite.tplEdit': 'Vorlage bearbeiten',
+'invite.tplHide': 'Vorlage ausblenden',
+'invite.tplSave': 'Vorlage speichern',
+'invite.tplReset': 'Standardtext wiederherstellen',
+'invite.tplSaved': 'Vorlage gespeichert.',
+'invite.tplResetHint': 'Standardtext eingesetzt — zum Übernehmen noch „Vorlage speichern“ drücken.',
+'invite.subject': 'Betreff',
+'invite.template': 'Textvorlage',
+'invite.preview': 'Vorschau',
+'invite.mailto': 'Im Mail-Programm öffnen',
+'invite.mailYes': 'Öffnet eine neue Mail an {login}',
+'invite.mailNo': 'Der Anmeldename dieses Teilnehmers ist keine E-Mail-Adresse',
+'invite.noPeople': 'Zu dieser Terminabfrage sind keine (noch vorhandenen) Teilnehmer eingeladen.',
+'invite.noPick': 'Kein Teilnehmer ausgewählt.',
+'invite.copiedN': '{n} Einladungstexte kopiert.',
+'invite.vars': 'Platzhalter: <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Leere Angaben (z.B. kein Ort) lassen ihre Zeile automatisch verschwinden. Die Vorlage gilt für Ihren Zugang und für alle Terminabfragen.',
+'invite.defSubject': 'Terminabfrage: {titel}',
+'invite.defBody': 'Guten Tag {name},\n\nfür „{titel}“ suche ich einen Termin, der für alle Beteiligten passt.\n{beschreibung}\n{ort}\nBitte melden Sie online zurück, welche der folgenden Termine für Sie machbar sind:\n\n{termine}\n\nIhr persönlicher Zugang:\nLink:        {link}\nAnmeldename: {login}\nPasswort:    {passwort}\n\nSie können mehrere Termine als machbar markieren und im Kommentarfeld Anmerkungen hinterlassen.\n{frist}\n\nVielen Dank und viele Grüße\n{absender}',
+'invite.locLine': 'Ort: {ort}',
+'invite.deadlineLine': 'Bitte antworten Sie bis {datum}.',
+'results.pick': 'Terminabfrage',
+'results.choose': 'Bitte eine Terminabfrage wählen.',
+'results.noneForYou': 'Für Sie liegt derzeit keine Terminabfrage zur Auswertung vor.',
+'results.noneOption': '– keine Terminabfrage –',
+'results.organizer': 'Organisator: ',
+'results.answers': 'Rückmeldungen: {n} von {m} Teilnehmern',
+'results.empty': 'Keine Vorschläge oder keine Teilnehmer hinterlegt.',
+'results.colDate': 'Termin',
+'results.colFeasible': 'Machbar',
+'results.sumRow': 'Termine gewählt',
+'results.legendYes': '✓ machbar',
+'results.legendNo': '– nicht machbar',
+'results.legendUnset': '· keine Rückmeldung',
+'results.best': 'Größte Zustimmung ({n} von {m}):',
+'results.comments': 'Kommentare ({n})',
+'results.noComments': 'Keine Kommentare abgegeben.',
+'results.unknown': 'Unbekannt',
+'results.deletedPerson': 'gelöschter Teilnehmer',
+'results.noResponse': 'keine Rückmeldung',
+'results.openShort': 'offen',
+'results.participant': 'Teilnehmer'
+},
+en: {
+'app.title': 'Meeting scheduler',
+'boot.connecting': 'Connecting to the database…',
+'boot.anonOff': '<strong>Anonymous sign-in is not enabled in the Firebase project.</strong><br><br>Firebase console &rarr; Authentication &rarr; Sign-in method &rarr; enable <em>Anonymous</em>, then reload this page.<br><br>',
+'setup.title': 'Initial setup',
+'setup.sub': 'No account exists yet.<br>Create the first administrator here.',
+'setup.create': 'Create administrator',
+'setup.errFields': 'Please enter a name, a username and a password with at least 4 characters.',
+'setup.errExists': 'An account already exists. Please reload the page.',
+'login.sub': 'Please sign in with the credentials<br>you have received.',
+'login.errWrong': 'Username or password is incorrect.',
+'login.errBlocked': 'This account is blocked. Please contact the organiser.',
+'acc.blocked': 'Your account has been blocked.',
+'acc.removed': 'Your account has been removed.',
+'acc.contact': ' Please contact the organiser.',
+'btn.login': 'Sign in',
+'btn.logout': 'Sign out',
+'btn.save': 'Save',
+'btn.cancel': 'Cancel',
+'btn.delete': 'Delete',
+'btn.close': 'Close',
+'role.admin': 'Administrator',
+'role.user': 'Participant',
+'tab.myEvents': 'My meetings',
+'tab.manage': 'Manage meetings',
+'tab.results': 'Results',
+'tab.people': 'Participants',
+'msg.loading': 'Loading…',
+'msg.loadingEvents': 'Loading meetings…',
+'err.permDenied': 'The database denied access. Have the Firestore rules for the scheduler been deployed?',
+'err.unavailable': 'No connection to the database.',
+'err.generic': 'Error: {code}',
+'err.unknown': 'unknown',
+'ask.title': 'Please confirm',
+'copy.ok': 'Copied to the clipboard.',
+'copy.fail': 'Copying failed — please select the text manually.',
+'access.head': 'XOLUTION meeting scheduler',
+'access.link': 'Link:     ',
+'access.login': 'Username: ',
+'access.pw': 'Password: ',
+'state.closed': 'closed',
+'state.answered': 'answered',
+'state.late': 'deadline passed',
+'state.open': 'open',
+'opt.allDay': 'all day',
+'opt.fromOnly': 'from {from}',
+'opt.range': '{from}–{to}',
+'my.noneAdmin': 'You are not invited to any meeting poll. Create new polls under “Manage meetings”.',
+'my.noneUser': 'There are currently no meetings to plan for you.',
+'my.noOptions': 'No dates proposed.',
+'my.savedInfo': 'Your reply is saved: {n} of {m} dates feasible',
+'my.notSaved': 'No reply saved yet',
+'my.question': 'Which dates work for you?',
+'my.comment': 'Comment (optional)',
+'my.commentPh': 'e.g. on the 12th mornings only, customer meeting from 2 pm',
+'my.closedNote': 'This meeting poll is closed — changes are no longer possible.',
+'my.saveBtn': 'Save reply',
+'my.saving': 'Saving…',
+'my.saved': 'Saved ✓',
+'my.unsaved': 'Not saved',
+'lbl.location': 'Location: ',
+'lbl.deadline': 'Reply by: ',
+'lbl.noTitle': '(untitled)',
+'manage.title': 'Meeting polls',
+'manage.new': '+ New meeting poll',
+'manage.none': 'No meeting poll created yet.',
+'manage.noPerm': 'no permission',
+'col.title': 'Title',
+'col.organizer': 'Organiser',
+'col.options': 'Dates',
+'col.people': 'Participants',
+'col.answers': 'Replies',
+'col.deadline': 'Deadline',
+'col.status': 'Status',
+'col.action': 'Action',
+'col.company': 'Company',
+'col.role': 'Role',
+'btn.invite': 'Invitation',
+'btn.edit': 'Edit',
+'btn.open': 'Reopen',
+'btn.closeEvent': 'Close',
+'btn.copy': 'Copy',
+'org.none': 'not recorded',
+'org.self': '(you)',
+'org.more': '+ {n} more editors',
+'org.more1': '+ 1 more editor',
+'perm.text': 'Only {name} can edit this meeting poll — or an administrator appointed for it.',
+'perm.textGeneric': 'Only the organiser can edit this meeting poll — or an administrator appointed for it.',
+'del.title': 'Delete meeting poll',
+'del.text': '“{titel}” will be deleted permanently.\n\nThis cannot be undone.',
+'del.textResp': '“{titel}” will be deleted permanently, together with {n} saved replies.\n\nThis cannot be undone.',
+'del.textResp1': '“{titel}” will be deleted permanently, together with 1 saved reply.\n\nThis cannot be undone.',
+'del.confirm': 'Delete permanently',
+'del.done': 'Meeting poll “{titel}” deleted.',
+'event.newTitle': 'New meeting poll',
+'event.editTitle': 'Edit meeting poll',
+'event.options': 'Proposed dates',
+'event.addOption': '+ Add date',
+'event.selectAll': 'Select all',
+'event.selectNone': 'Clear selection',
+'event.editors': 'May edit',
+'event.countSel': '{n} selected',
+'event.noPeople': 'No participants yet — please create them under “Participants” first.',
+'event.maxOptions': 'More than {n} proposed dates are not possible.',
+'event.errTitle': 'Please enter a title.',
+'event.errOptions': 'Please provide at least one proposed date.',
+'event.errDup': 'Duplicate proposed date: {datum}.',
+'event.errPeople': 'Please select at least one participant.',
+'opt.date': 'Date',
+'opt.from': 'from',
+'opt.to': 'to',
+'opt.note': 'Note (optional)',
+'opt.remove': 'Remove date',
+'editors.hintOwner': 'Without a selection, only the organiser can edit this meeting poll, create invitations, close and delete it. Selected administrators may do the same.',
+'editors.hintOther': 'Only the organiser ({name}) can change this selection.',
+'editors.hintNoOwner': 'No organiser is recorded for this meeting poll — it can be edited by all administrators.',
+'editors.noAdmins': 'There are no other administrators.',
+'field.name': 'Name',
+'field.yourName': 'Your name',
+'field.login': 'Username',
+'field.password': 'Password',
+'field.company': 'Company (optional)',
+'field.title': 'Title',
+'field.desc': 'Description (optional)',
+'field.location': 'Location (optional)',
+'field.deadline': 'Reply by (optional)',
+'ph.name': 'John Doe',
+'ph.company': 'External Company Ltd',
+'ph.login': 'e.g. j.doe or john@company.com',
+'people.add': 'Add participant',
+'people.list': 'Participant list',
+'people.copyAll': 'Copy all credentials',
+'people.genPw': 'Generate password',
+'people.warn': 'The credentials are stored in plain text in the database so that you can read and pass them on at any time. Therefore please <strong>do not use passwords that these people use elsewhere</strong> — the account is valid for this scheduler only.',
+'people.loginHint': 'Freely chosen. If you enter an e-mail address, the invitation can also be opened directly in the mail program.',
+'people.adminHint': 'Administrator (may manage meetings and participants)',
+'people.noneYet': 'No participants yet.',
+'people.errNameLogin': 'Please enter a name and a username.',
+'people.errPwShort': 'The password must have at least 4 characters.',
+'people.errLoginTaken': 'This username is already taken.',
+'people.addedHtml': 'Participant <strong>{name}</strong> created. Credentials: <strong>{login}</strong> / <strong>{pw}</strong> — you can copy them from the list below at any time.',
+'people.copied': 'Copied ✓',
+'people.copyFail': 'Failed',
+'people.allCopied': 'Credentials of all active participants copied.',
+'person.edit': 'Edit participant',
+'person.newPw': 'Generate new password',
+'person.access': 'Credentials to pass on',
+'person.copy': 'Copy to clipboard',
+'person.blocked': 'Account blocked',
+'person.saved': 'Saved.',
+'person.editFor': 'Participant: {name}',
+'person.delTitle': 'Delete participant',
+'person.delText': '“{name}” will lose access.',
+'person.delEvents1': '\n\nThis person is invited to 1 meeting poll; replies already saved remain in the results.',
+'person.delEvents': '\n\nThis person is invited to {n} meeting polls; replies already saved remain in the results.',
+'person.deleted': 'Participant “{name}” deleted.',
+'state.active': 'active',
+'state.blocked': 'blocked',
+'invite.title': 'Invitation texts',
+'invite.titleFor': 'Invitation texts: {titel}',
+'invite.copyAll': 'Copy all texts',
+'invite.copyOne': 'Copy subject + text',
+'invite.tplEdit': 'Edit template',
+'invite.tplHide': 'Hide template',
+'invite.tplSave': 'Save template',
+'invite.tplReset': 'Restore default text',
+'invite.tplSaved': 'Template saved.',
+'invite.tplResetHint': 'Default text inserted — press “Save template” to keep it.',
+'invite.subject': 'Subject',
+'invite.template': 'Text template',
+'invite.preview': 'Preview',
+'invite.mailto': 'Open in mail program',
+'invite.mailYes': 'Opens a new mail to {login}',
+'invite.mailNo': 'The username of this participant is not an e-mail address',
+'invite.noPeople': 'No (still existing) participants are invited to this meeting poll.',
+'invite.noPick': 'No participant selected.',
+'invite.copiedN': '{n} invitation texts copied.',
+'invite.vars': 'Placeholders: <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Empty entries (e.g. no location) remove their line automatically. The template applies to your account and to all meeting polls.',
+'invite.defSubject': 'Meeting poll: {titel}',
+'invite.defBody': 'Dear {name},\n\nI am looking for a date for “{titel}” that suits everyone involved.\n{beschreibung}\n{ort}\nPlease let me know online which of the following dates work for you:\n\n{termine}\n\nYour personal access:\nLink:     {link}\nUsername: {login}\nPassword: {passwort}\n\nYou can mark several dates as feasible and leave a note in the comment field.\n{frist}\n\nThank you and best regards\n{absender}',
+'invite.locLine': 'Location: {ort}',
+'invite.deadlineLine': 'Please reply by {datum}.',
+'results.pick': 'Meeting poll',
+'results.choose': 'Please choose a meeting poll.',
+'results.noneForYou': 'There is currently no meeting poll to evaluate for you.',
+'results.noneOption': '– no meeting poll –',
+'results.organizer': 'Organiser: ',
+'results.answers': 'Replies: {n} of {m} participants',
+'results.empty': 'No dates or no participants recorded.',
+'results.colDate': 'Date',
+'results.colFeasible': 'Feasible',
+'results.sumRow': 'Dates selected',
+'results.legendYes': '✓ feasible',
+'results.legendNo': '– not feasible',
+'results.legendUnset': '· no reply',
+'results.best': 'Most agreement ({n} of {m}):',
+'results.comments': 'Comments ({n})',
+'results.noComments': 'No comments given.',
+'results.unknown': 'Unknown',
+'results.deletedPerson': 'deleted participant',
+'results.noResponse': 'no reply',
+'results.openShort': 'open',
+'results.participant': 'Participant'
+}
+};
+
+function t(key, vars) {
+    let txt = (I18N[_lang] && I18N[_lang][key]);
+    if (txt === undefined) txt = I18N.de[key];
+    if (txt === undefined) return key;
+    if (vars) Object.keys(vars).forEach(k => { txt = txt.split('{' + k + '}').join(vars[k]); });
+    return txt;
+}
+
+// Setzt alle fest hinterlegten Texte und zeichnet die dynamischen Ansichten neu.
+function applyI18n() {
+    document.documentElement.lang = _lang;
+    document.title = t('app.title');
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nTitle)); });
+    document.querySelectorAll('[data-lang]').forEach(b => b.setAttribute('aria-pressed', b.dataset.lang === _lang ? 'true' : 'false'));
+    $('tplToggle').textContent = $('tplBox').classList.contains('open') ? t('invite.tplHide') : t('invite.tplEdit');
+    if (_me) {
+        renderMyEvents();
+        fillResultSelect(); renderResults();
+        if (isAdmin()) { renderAdminEvents(); renderPeopleTable(); }
+    }
+    if ($('eventModal').classList.contains('open')) {
+        const ev = _editEventId ? _events.find(x => x.id === _editEventId) : null;
+        $('eventModalTitle').textContent = t(ev ? 'event.editTitle' : 'event.newTitle');
+        renderEvOptionLabels();
+        renderEvPeople(Array.from($('evPeople').querySelectorAll('.pp:checked')).map(c => c.value));
+        renderEvEditors(ev);
+    }
+    if ($('inviteModal').classList.contains('open')) {
+        const ev = _events.find(x => x.id === _invEventId);
+        if (ev) $('invTitle').textContent = t('invite.titleFor', { titel: ev.title || '' });
+        // Eine selbst gespeicherte Vorlage bleibt unangetastet; die Standardvorlage
+        // folgt der Sprache.
+        if (!(_me && _me.inviteSubject)) $('tplSubject').value = DEFAULT_INVITE_SUBJECT();
+        if (!(_me && _me.inviteTemplate)) $('tplBody').value = DEFAULT_INVITE_BODY();
+        renderInviteList(); renderInvitePreview();
+    }
+}
+
+function setLang(l) {
+    _lang = (l === 'en') ? 'en' : 'de';
+    try { localStorage.setItem(LANG_KEY, _lang); } catch (e) { /* privates Fenster */ }
+    applyI18n();
+}
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-lang]');
+    if (b) setLang(b.dataset.lang);
+});
+
 document.querySelectorAll('img[data-xo-logo]').forEach(img => { img.src = XO_LOGO; });
 const SRV = () => firebase.firestore.FieldValue.serverTimestamp();
 
@@ -711,32 +1205,37 @@ function esc(s) {
 }
 const norm = s => String(s == null ? '' : s).trim().toLowerCase();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;   // nur zur Erkennung: ist der Anmeldename eine E-Mail?
-const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const WEEKDAYS_DE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const WEEKDAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const weekdays = () => (_lang === 'en' ? WEEKDAYS_EN : WEEKDAYS_DE);
 function fmtDate(iso) {
     if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '';
     const [y, m, d] = iso.split('-').map(Number);
     const dt = new Date(y, m - 1, d);
     if (isNaN(dt.getTime())) return iso;
-    return WEEKDAYS[dt.getDay()] + ', ' + String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.' + y;
+    if (_lang === 'en') return WEEKDAYS_EN[dt.getDay()] + ', ' + d + ' ' + MONTHS_EN[m - 1] + ' ' + y;
+    return WEEKDAYS_DE[dt.getDay()] + ', ' + String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.' + y;
 }
-// Kurzform fuer schmale Bildschirme: "Di, 22.09."
+// Kurzform fuer schmale Bildschirme: "Di., 22.09." / "Tue, 22 Sep"
 function fmtDateShort(iso) {
     if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '';
     const [y, m, d] = iso.split('-').map(Number);
     const dt = new Date(y, m - 1, d);
     if (isNaN(dt.getTime())) return iso;
-    return WEEKDAYS[dt.getDay()].slice(0, 2) + '., ' + String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.';
+    if (_lang === 'en') return WEEKDAYS_EN[dt.getDay()].slice(0, 3) + ', ' + d + ' ' + MONTHS_EN[m - 1];
+    return WEEKDAYS_DE[dt.getDay()].slice(0, 2) + '., ' + String(d).padStart(2, '0') + '.' + String(m).padStart(2, '0') + '.';
 }
 function todayIso() {
     const n = new Date();
     return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
 }
 function optLabel(o) {
-    let t;
-    if (o.from && o.to) t = o.from + '–' + o.to + ' Uhr';
-    else if (o.from) t = 'ab ' + o.from + ' Uhr';
-    else t = 'ganztägig';
-    return { date: fmtDate(o.date), time: t, note: o.note || '' };
+    let zeit;
+    if (o.from && o.to) zeit = t('opt.range', { from: o.from, to: o.to });
+    else if (o.from) zeit = t('opt.fromOnly', { from: o.from });
+    else zeit = t('opt.allDay');
+    return { date: fmtDate(o.date), time: zeit, note: o.note || '' };
 }
 const optSortKey = o => (o.date || '') + ' ' + (o.from || '00:00');
 function genPassword() {
@@ -749,10 +1248,10 @@ function genPassword() {
 }
 const appUrl = () => location.origin + location.pathname;
 function accessText(p) {
-    return 'Terminplanung XOLUTION\n'
-        + 'Link:     ' + appUrl() + '\n'
-        + 'Login:    ' + (p.login || '') + '\n'
-        + 'Passwort: ' + (p.password || '');
+    return t('access.head') + '\n'
+        + t('access.link') + appUrl() + '\n'
+        + t('access.login') + (p.login || '') + '\n'
+        + t('access.pw') + (p.password || '');
 }
 async function copyText(text, okEl) {
     let ok = false;
@@ -767,7 +1266,7 @@ async function copyText(text, okEl) {
         ta.remove();
     }
     if (okEl) {
-        okEl.textContent = ok ? 'In die Zwischenablage kopiert.' : 'Kopieren nicht möglich — Text bitte manuell markieren.';
+        okEl.textContent = ok ? t('copy.ok') : t('copy.fail');
         okEl.style.display = 'block';
         setTimeout(() => { okEl.style.display = 'none'; }, 2800);
     }
@@ -779,10 +1278,10 @@ async function copyText(text, okEl) {
 let _askResolve = null;
 function askConfirm(opts) {
     const o = opts || {};
-    $('askTitle').textContent = o.title || 'Bitte bestätigen';
+    $('askTitle').textContent = o.title || t('ask.title');
     $('askText').textContent = o.text || '';
     const yes = $('askYes');
-    yes.textContent = o.confirmLabel || 'Löschen';
+    yes.textContent = o.confirmLabel || t('btn.delete');
     yes.className = 'btn btn-sm ' + (o.danger === false ? 'btn-primary' : 'btn-danger');
     $('askModal').classList.add('open');
     setTimeout(() => yes.focus(), 30);
@@ -805,9 +1304,9 @@ function notify(text, art) {
 
 function dbError(ex) {
     const code = (ex && ex.code) || '';
-    if (code === 'permission-denied') return 'Die Datenbank verweigert den Zugriff. Sind die Firestore-Regeln für die Terminplanung eingespielt?';
-    if (code === 'unavailable') return 'Keine Verbindung zur Datenbank.';
-    return 'Fehler: ' + (code || (ex && ex.message) || 'unbekannt');
+    if (code === 'permission-denied') return t('err.permDenied');
+    if (code === 'unavailable') return t('err.unavailable');
+    return t('err.generic', { code: code || (ex && ex.message) || t('err.unknown') });
 }
 
 // ============================================================
@@ -831,10 +1330,8 @@ let _bootDone = false;
     try {
         if (!auth.currentUser) await auth.signInAnonymously();
     } catch (ex) {
-        $('bootView').innerHTML = '<div style="max-width:520px">'
-            + '<strong>Die anonyme Anmeldung ist im Firebase-Projekt nicht aktiviert.</strong><br><br>'
-            + 'Firebase-Konsole &rarr; Authentication &rarr; Sign-in method &rarr; <em>Anonymous</em> aktivieren, '
-            + 'dann diese Seite neu laden.<br><br><span style="color:#94a3b8">' + esc(dbError(ex)) + '</span></div>';
+        $('bootView').innerHTML = '<div style="max-width:520px">' + t('boot.anonOff')
+            + '<span style="color:#94a3b8">' + esc(dbError(ex)) + '</span></div>';
         return;
     }
     startPeopleListener();
@@ -857,10 +1354,10 @@ function startPeopleListener() {
         }
         const fresh = _people.find(p => p.id === _me.id);
         if (!fresh || fresh.disabled === true) {
-            const grund = fresh ? 'Ihr Zugang wurde gesperrt.' : 'Ihr Zugang wurde entfernt.';
+            const grund = fresh ? t('acc.blocked') : t('acc.removed');
             logout();
             const err = $('loginError');
-            err.textContent = grund + ' Bitte an den Organisator wenden.';
+            err.textContent = grund + t('acc.contact');
             err.style.display = 'block';
             return;
         }
@@ -893,10 +1390,10 @@ $('setupForm').addEventListener('submit', async e => {
     const login = norm($('setupLogin').value);
     const pw = $('setupPw').value;
     if (!name || !login || pw.length < 4) {
-        err.textContent = 'Bitte Name, Anmeldename und ein Passwort mit mindestens 4 Zeichen angeben.';
+        err.textContent = t('setup.errFields');
         err.style.display = 'block'; return;
     }
-    if (_people.length) { err.textContent = 'Es existiert bereits ein Zugang. Bitte die Seite neu laden.'; err.style.display = 'block'; return; }
+    if (_people.length) { err.textContent = t('setup.errExists'); err.style.display = 'block'; return; }
     $('setupBtn').disabled = true;
     try {
         const ref = await db.collection(COL_PEOPLE).add({
@@ -919,10 +1416,10 @@ $('loginForm').addEventListener('submit', e => {
     const pw = $('loginPw').value;
     const hit = _people.find(p => norm(p.login) === login);
     if (!hit || String(hit.password || '') !== pw) {
-        err.textContent = 'Anmeldename oder Passwort ist falsch.'; err.style.display = 'block'; return;
+        err.textContent = t('login.errWrong'); err.style.display = 'block'; return;
     }
     if (hit.disabled === true) {
-        err.textContent = 'Dieser Zugang ist gesperrt. Bitte an den Organisator wenden.'; err.style.display = 'block'; return;
+        err.textContent = t('login.errBlocked'); err.style.display = 'block'; return;
     }
     $('loginPw').value = '';
     signIn(hit);
@@ -1081,10 +1578,10 @@ function organizerOf(ev) {
 // TEILNEHMER-ANSICHT
 // ============================================================
 function eventState(ev) {
-    if (ev.closed) return { label: 'geschlossen', cls: 'badge-closed' };
-    if (myResponse(ev.id)) return { label: 'beantwortet', cls: 'badge-done' };
-    if (ev.deadline && ev.deadline < todayIso()) return { label: 'Frist abgelaufen', cls: 'badge-late' };
-    return { label: 'offen', cls: 'badge-open' };
+    if (ev.closed) return { label: t('state.closed'), cls: 'badge-closed' };
+    if (myResponse(ev.id)) return { label: t('state.answered'), cls: 'badge-done' };
+    if (ev.deadline && ev.deadline < todayIso()) return { label: t('state.late'), cls: 'badge-late' };
+    return { label: t('state.open'), cls: 'badge-open' };
 }
 
 function renderMyEvents() {
@@ -1093,9 +1590,7 @@ function renderMyEvents() {
     const mine = _events.filter(ev => Array.isArray(ev.invitedIds) && ev.invitedIds.indexOf(_me.id) >= 0);
     if (!mine.length) {
         box.innerHTML = '<div class="card"><div class="info-msg">'
-            + (isAdmin()
-                ? 'Sie sind zu keiner Terminabfrage eingeladen. Neue Abfragen legen Sie unter „Termine verwalten“ an.'
-                : 'Aktuell sind keine Termine für Sie zu planen.')
+            + (isAdmin() ? t('my.noneAdmin') : t('my.noneUser'))
             + '</div></div>';
         return;
     }
@@ -1116,33 +1611,33 @@ function renderMyEvents() {
                 + '<span class="opt-time">' + esc(l.time) + '</span>'
                 + (l.note ? '<span class="opt-note">' + esc(l.note) + '</span>' : '')
                 + '</span></button>';
-        }).join('') : '<div class="info-msg">Keine Terminvorschläge hinterlegt.</div>';
+        }).join('') : '<div class="info-msg">' + t('my.noOptions') + '</div>';
 
         const saved = myResponse(ev.id);
         const savedRecently = !d.dirty && (Date.now() - (_flash[ev.id] || 0) < 6000);
         const savedInfo = saved
-            ? 'Ihre Rückmeldung ist gespeichert: ' + (Array.isArray(saved.selected) ? saved.selected.length : 0) + ' von ' + opts.length + ' Terminen machbar'
-            : 'Noch keine Rückmeldung gespeichert';
+            ? t('my.savedInfo', { n: (Array.isArray(saved.selected) ? saved.selected.length : 0), m: opts.length })
+            : t('my.notSaved');
 
         return '<div class="card">'
-            + '<div class="card-head"><div class="card-title">' + esc(ev.title || '(ohne Titel)') + '</div>'
+            + '<div class="card-head"><div class="card-title">' + esc(ev.title || t('lbl.noTitle')) + '</div>'
             + '<span class="badge ' + st.cls + '">' + esc(st.label) + '</span></div>'
             + '<div class="card-meta">'
-            + (ev.location ? 'Ort: ' + esc(ev.location) + '<br>' : '')
-            + (ev.deadline ? 'Rückmeldung bis: ' + esc(fmtDate(ev.deadline)) + '<br>' : '')
+            + (ev.location ? t('lbl.location') + esc(ev.location) + '<br>' : '')
+            + (ev.deadline ? t('lbl.deadline') + esc(fmtDate(ev.deadline)) + '<br>' : '')
             + esc(savedInfo) + '</div>'
             + (ev.description ? '<div class="card-desc">' + esc(ev.description) + '</div>' : '')
-            + '<div class="sub-label">Welche Termine sind für Sie machbar?</div>'
+            + '<div class="sub-label">' + t('my.question') + '</div>'
             + '<div class="opt-grid">' + optHtml + '</div>'
-            + '<div class="form-group"><label for="cmt_' + esc(ev.id) + '">Kommentar (optional)</label>'
+            + '<div class="form-group"><label for="cmt_' + esc(ev.id) + '">' + t('my.comment') + '</label>'
             + '<textarea id="cmt_' + esc(ev.id) + '" maxlength="' + MAX_COMMENT + '" data-ev="' + esc(ev.id) + '" data-act="comment"'
-            + (locked ? ' disabled' : '') + ' placeholder="z.B. Am 12. nur vormittags, ab 14 Uhr Kundentermin">'
+            + (locked ? ' disabled' : '') + ' placeholder="' + esc(t('my.commentPh')) + '">'
             + esc(d.comment) + '</textarea></div>'
             + (locked
-                ? '<div class="save-state">Diese Terminabfrage ist geschlossen — Änderungen sind nicht mehr möglich.</div>'
-                : '<div class="save-row"><button type="button" class="btn btn-success btn-sm" data-ev="' + esc(ev.id) + '" data-act="save">Rückmeldung speichern</button>'
+                ? '<div class="save-state">' + t('my.closedNote') + '</div>'
+                : '<div class="save-row"><button type="button" class="btn btn-success btn-sm" data-ev="' + esc(ev.id) + '" data-act="save">' + t('my.saveBtn') + '</button>'
                   + '<span class="save-state' + (savedRecently ? ' ok' : '') + '" id="st_' + esc(ev.id) + '">'
-                  + (d.dirty ? 'Nicht gespeichert' : (savedRecently ? 'Gespeichert ✓' : '')) + '</span></div>')
+                  + (d.dirty ? t('my.unsaved') : (savedRecently ? t('my.saved') : '')) + '</span></div>')
             + '</div>';
     }).join('');
 }
@@ -1161,7 +1656,7 @@ $('myEventsList').addEventListener('click', async e => {
         const chk = btn.querySelector('.opt-check');
         if (chk) chk.innerHTML = d.selected.has(optId) ? '&#10003;' : '';
         const st = $('st_' + evId);
-        if (st) { st.textContent = 'Nicht gespeichert'; st.className = 'save-state'; }
+        if (st) { st.textContent = t('my.unsaved'); st.className = 'save-state'; }
     } else if (btn.dataset.act === 'save') {
         await saveResponse(evId, btn);
     }
@@ -1173,7 +1668,7 @@ $('myEventsList').addEventListener('input', e => {
     d.comment = ta.value.slice(0, MAX_COMMENT);
     d.dirty = true;
     const st = $('st_' + ta.dataset.ev);
-    if (st) { st.textContent = 'Nicht gespeichert'; st.className = 'save-state'; }
+    if (st) { st.textContent = t('my.unsaved'); st.className = 'save-state'; }
 });
 
 async function saveResponse(evId, btn) {
@@ -1184,7 +1679,7 @@ async function saveResponse(evId, btn) {
     const valid = new Set((Array.isArray(ev.options) ? ev.options : []).map(o => o.id));
     const selected = Array.from(d.selected).filter(id => valid.has(id)).slice(0, MAX_OPTIONS);
     btn.disabled = true;
-    if (st) { st.textContent = 'Speichere…'; st.className = 'save-state'; }
+    if (st) { st.textContent = t('my.saving'); st.className = 'save-state'; }
     try {
         await db.collection(COL_EVENTS).doc(evId).collection('responses').doc(_me.id).set({
             selected: selected,
@@ -1196,7 +1691,7 @@ async function saveResponse(evId, btn) {
         });
         d.dirty = false;
         _flash[evId] = Date.now();
-        if (st) { st.textContent = 'Gespeichert ✓'; st.className = 'save-state ok'; }
+        if (st) { st.textContent = t('my.saved'); st.className = 'save-state ok'; }
         // Nach dem Ablauf der Bestaetigung einmal neu zeichnen, damit der Hinweis verschwindet
         setTimeout(() => { if (!_draft[evId] || !_draft[evId].dirty) renderMyEvents(); }, 6200);
     } catch (ex) {
@@ -1211,14 +1706,14 @@ async function saveResponse(evId, btn) {
 function organizerCell(ev, withEditors) {
     const o = organizerOf(ev);
     let html = o.known
-        ? esc(o.name) + (o.self ? ' <span class="org-self">(Sie)</span>' : '')
-        : '<span class="org-none">nicht hinterlegt</span>';
+        ? esc(o.name) + (o.self ? ' <span class="org-self">' + t('org.self') + '</span>' : '')
+        : '<span class="org-none">' + t('org.none') + '</span>';
     if (withEditors) {
         const ed = (Array.isArray(ev.editorIds) ? ev.editorIds : [])
             .map(id => _people.find(x => x.id === id)).filter(Boolean);
         if (ed.length) html += '<span class="org-editors" title="'
-            + esc(ed.map(x => x.name || x.login).join(', ')) + '">+ ' + ed.length
-            + (ed.length === 1 ? ' weiterer Bearbeiter' : ' weitere Bearbeiter') + '</span>';
+            + esc(ed.map(x => x.name || x.login).join(', ')) + '">'
+            + (ed.length === 1 ? t('org.more1') : t('org.more', { n: ed.length })) + '</span>';
     }
     return html;
 }
@@ -1226,28 +1721,31 @@ function organizerCell(ev, withEditors) {
 function renderAdminEvents() {
     if (!isAdmin()) return;
     const box = $('adminEventsList');
-    if (!_events.length) { box.innerHTML = '<div class="info-msg">Noch keine Terminabfrage angelegt.</div>'; return; }
+    if (!_events.length) { box.innerHTML = '<div class="info-msg">' + t('manage.none') + '</div>'; return; }
     box.innerHTML = '<div class="table-wrap"><table><thead><tr>'
-        + '<th>Titel</th><th>Organisator</th><th class="center">Vorschläge</th><th class="center">Teilnehmer</th><th class="center">Antworten</th><th>Frist</th><th>Status</th><th>Aktion</th>'
+        + '<th>' + t('col.title') + '</th><th>' + t('col.organizer') + '</th>'
+        + '<th class="center">' + t('col.options') + '</th><th class="center">' + t('col.people') + '</th>'
+        + '<th class="center">' + t('col.answers') + '</th><th>' + t('col.deadline') + '</th>'
+        + '<th>' + t('col.status') + '</th><th>' + t('col.action') + '</th>'
         + '</tr></thead><tbody>'
         + _events.map(ev => {
             const nResp = _responses[ev.id] ? Object.keys(_responses[ev.id]).length : 0;
             return '<tr>'
-                + '<td><strong>' + esc(ev.title || '(ohne Titel)') + '</strong>'
+                + '<td><strong>' + esc(ev.title || t('lbl.noTitle')) + '</strong>'
                 + (ev.location ? '<br><span style="color:var(--xo-muted);font-size:0.78rem">' + esc(ev.location) + '</span>' : '') + '</td>'
                 + '<td>' + organizerCell(ev, true) + '</td>'
                 + '<td class="center">' + (ev.options || []).length + '</td>'
                 + '<td class="center">' + (ev.invitedIds || []).length + '</td>'
                 + '<td class="center">' + nResp + '</td>'
                 + '<td>' + esc(ev.deadline ? fmtDate(ev.deadline) : '–') + '</td>'
-                + '<td><span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? 'geschlossen' : 'offen') + '</span></td>'
+                + '<td><span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? t('state.closed') : t('state.open')) + '</span></td>'
                 + '<td style="white-space:nowrap">'
                 + (canManageEvent(ev)
-                    ? '<button class="btn btn-secondary btn-xs" type="button" data-act="invite" data-ev="' + esc(ev.id) + '">Einladung</button> '
-                      + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-ev="' + esc(ev.id) + '">Bearbeiten</button> '
-                      + '<button class="btn btn-secondary btn-xs" type="button" data-act="toggleClosed" data-ev="' + esc(ev.id) + '">' + (ev.closed ? 'Öffnen' : 'Schließen') + '</button> '
-                      + '<button class="btn btn-danger btn-xs" type="button" data-act="del" data-ev="' + esc(ev.id) + '">Löschen</button>'
-                    : '<span class="org-none">keine Berechtigung</span>')
+                    ? '<button class="btn btn-secondary btn-xs" type="button" data-act="invite" data-ev="' + esc(ev.id) + '">' + t('btn.invite') + '</button> '
+                      + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-ev="' + esc(ev.id) + '">' + t('btn.edit') + '</button> '
+                      + '<button class="btn btn-secondary btn-xs" type="button" data-act="toggleClosed" data-ev="' + esc(ev.id) + '">' + (ev.closed ? t('btn.open') : t('btn.closeEvent')) + '</button> '
+                      + '<button class="btn btn-danger btn-xs" type="button" data-act="del" data-ev="' + esc(ev.id) + '">' + t('btn.delete') + '</button>'
+                    : '<span class="org-none">' + t('manage.noPerm') + '</span>')
                 + '</td></tr>';
         }).join('')
         + '</tbody></table></div>';
@@ -1268,17 +1766,17 @@ $('adminEventsList').addEventListener('click', async e => {
         } else if (btn.dataset.act === 'del') {
             const nResp = _responses[ev.id] ? Object.keys(_responses[ev.id]).length : 0;
             const ok = await askConfirm({
-                title: 'Terminabfrage löschen',
-                text: '„' + (ev.title || '') + '“ wird endgültig gelöscht'
-                    + (nResp ? ', zusammen mit ' + nResp + ' gespeicherten Rückmeldung' + (nResp === 1 ? '' : 'en') : '')
-                    + '.\n\nDas lässt sich nicht zurücknehmen.',
-                confirmLabel: 'Endgültig löschen'
+                title: t('del.title'),
+                text: nResp === 0 ? t('del.text', { titel: ev.title || '' })
+                    : (nResp === 1 ? t('del.textResp1', { titel: ev.title || '' })
+                                   : t('del.textResp', { titel: ev.title || '', n: nResp })),
+                confirmLabel: t('del.confirm')
             });
             if (!ok) { btn.disabled = false; return; }
             const resps = await db.collection(COL_EVENTS).doc(ev.id).collection('responses').get();
             for (const r of resps.docs) await r.ref.delete();
             await db.collection(COL_EVENTS).doc(ev.id).delete();
-            notify('Terminabfrage „' + (ev.title || '') + '“ gelöscht.', 'ok');
+            notify(t('del.done', { titel: ev.title || '' }), 'ok');
         }
     } catch (ex) { notify(dbError(ex), 'err'); }
     finally { btn.disabled = false; }
@@ -1296,21 +1794,30 @@ function addOptRow(o) {
     div.className = 'opt-edit';
     div.dataset.optId = id;
     div.innerHTML =
-        '<div class="form-group fg-date"><label for="' + rid + 'd">Datum</label><input type="date" id="' + rid + 'd" class="oe-date" value="' + esc(o.date || '') + '"></div>'
-        + '<div class="form-group fg-time"><label for="' + rid + 'f">von</label><input type="time" id="' + rid + 'f" class="oe-from" value="' + esc(o.from || '') + '"></div>'
-        + '<div class="form-group fg-time"><label for="' + rid + 't">bis</label><input type="time" id="' + rid + 't" class="oe-to" value="' + esc(o.to || '') + '"></div>'
-        + '<div class="form-group fg-note"><label for="' + rid + 'n">Hinweis (optional)</label><input type="text" id="' + rid + 'n" class="oe-note" maxlength="120" value="' + esc(o.note || '') + '"></div>'
-        + '<button class="btn btn-secondary opt-rm" type="button" data-act="rmOpt" title="Vorschlag entfernen" aria-label="Vorschlag entfernen">&times;</button>';
+        '<div class="form-group fg-date"><label for="' + rid + 'd" data-oe="date">' + t('opt.date') + '</label><input type="date" id="' + rid + 'd" class="oe-date" value="' + esc(o.date || '') + '"></div>'
+        + '<div class="form-group fg-time"><label for="' + rid + 'f" data-oe="from">' + t('opt.from') + '</label><input type="time" id="' + rid + 'f" class="oe-from" value="' + esc(o.from || '') + '"></div>'
+        + '<div class="form-group fg-time"><label for="' + rid + 't" data-oe="to">' + t('opt.to') + '</label><input type="time" id="' + rid + 't" class="oe-to" value="' + esc(o.to || '') + '"></div>'
+        + '<div class="form-group fg-note"><label for="' + rid + 'n" data-oe="note">' + t('opt.note') + '</label><input type="text" id="' + rid + 'n" class="oe-note" maxlength="120" value="' + esc(o.note || '') + '"></div>'
+        + '<button class="btn btn-secondary opt-rm" type="button" data-act="rmOpt" title="' + esc(t('opt.remove')) + '" aria-label="' + esc(t('opt.remove')) + '">&times;</button>';
     $('evOptions').appendChild(div);
 }
 $('addOptBtn').addEventListener('click', () => {
-    if ($('evOptions').children.length >= MAX_OPTIONS) { notify('Mehr als ' + MAX_OPTIONS + ' Terminvorschläge sind nicht möglich.', 'err'); return; }
+    if ($('evOptions').children.length >= MAX_OPTIONS) { notify(t('event.maxOptions', { n: MAX_OPTIONS }), 'err'); return; }
     addOptRow();
 });
 $('evOptions').addEventListener('click', e => {
     const b = e.target.closest('[data-act="rmOpt"]');
     if (b) b.closest('.opt-edit').remove();
 });
+
+// Beschriftungen bestehender Vorschlagszeilen nach einem Sprachwechsel auffrischen
+function renderEvOptionLabels() {
+    const map = { date: 'opt.date', from: 'opt.from', to: 'opt.to', note: 'opt.note' };
+    $('evOptions').querySelectorAll('[data-oe]').forEach(el => { el.textContent = t(map[el.dataset.oe]); });
+    $('evOptions').querySelectorAll('[data-act="rmOpt"]').forEach(b => {
+        b.title = t('opt.remove'); b.setAttribute('aria-label', t('opt.remove'));
+    });
+}
 
 function renderEvPeople(selectedIds) {
     const sel = new Set(selectedIds || []);
@@ -1319,11 +1826,11 @@ function renderEvPeople(selectedIds) {
         '<label class="person"><input type="checkbox" class="pp" value="' + esc(p.id) + '"' + (sel.has(p.id) ? ' checked' : '') + '>'
         + '<span>' + esc(p.name || p.login)
         + '<span class="pmail">' + esc(p.login || '') + (p.company ? ' · ' + esc(p.company) : '') + '</span></span></label>'
-    ).join('') : '<div class="info-msg">Keine Teilnehmer vorhanden — bitte erst im Reiter „Teilnehmer“ anlegen.</div>';
+    ).join('') : '<div class="info-msg">' + t('event.noPeople') + '</div>';
     updateEvPeopleCount();
 }
 function updateEvPeopleCount() {
-    $('peopleCount').textContent = $('evPeople').querySelectorAll('.pp:checked').length + ' ausgewählt';
+    $('peopleCount').textContent = t('event.countSel', { n: $('evPeople').querySelectorAll('.pp:checked').length });
 }
 $('evPeople').addEventListener('change', updateEvPeopleCount);
 $('selAllPeople').addEventListener('click', () => { $('evPeople').querySelectorAll('.pp').forEach(c => { c.checked = true; }); updateEvPeopleCount(); });
@@ -1331,8 +1838,7 @@ $('selNonePeople').addEventListener('click', () => { $('evPeople').querySelector
 
 function keineBerechtigungText(ev) {
     const o = organizerOf(ev);
-    return 'Diese Terminabfrage kann nur ' + (o.known ? o.name : 'der Organisator')
-        + ' bearbeiten — oder ein Administrator, den ' + (o.known ? o.name : 'er') + ' dafür benannt hat.';
+    return o.known ? t('perm.text', { name: o.name }) : t('perm.textGeneric');
 }
 
 // Auswahl der mitberechtigten Administratoren. Aendern darf sie nur der Organisator;
@@ -1348,16 +1854,11 @@ function renderEvEditors(ev) {
         + (sel.has(x.id) ? ' checked' : '') + (darfAendern ? '' : ' disabled') + '>'
         + '<span>' + esc(x.name || x.login)
         + '<span class="pmail">' + esc(x.login || '') + (x.company ? ' · ' + esc(x.company) : '') + '</span></span></label>'
-    ).join('') : '<div class="info-msg">Es gibt keine weiteren Administratoren.</div>';
+    ).join('') : '<div class="info-msg">' + t('editors.noAdmins') + '</div>';
     let hint;
-    if (darfAendern) {
-        hint = 'Ohne Auswahl kann ausschließlich der Organisator diese Terminabfrage bearbeiten, '
-             + 'Einladungen erstellen, schließen und löschen. Ausgewählte Administratoren dürfen das ebenfalls.';
-    } else if (owner) {
-        hint = 'Diese Auswahl kann nur der Organisator (' + (owner.name || owner.login) + ') ändern.';
-    } else {
-        hint = 'Für diese Terminabfrage ist kein Organisator hinterlegt — sie kann von allen Administratoren bearbeitet werden.';
-    }
+    if (darfAendern) hint = t('editors.hintOwner');
+    else if (owner) hint = t('editors.hintOther', { name: owner.name || owner.login });
+    else hint = t('editors.hintNoOwner');
     $('evEditorsHint').textContent = hint;
 }
 
@@ -1367,7 +1868,7 @@ function openEventModal(eventId) {
     if (eventId && !ev) return;
     if (ev && !canManageEvent(ev)) { notify(keineBerechtigungText(ev), 'err'); return; }
     _editEventId = eventId || null;
-    $('eventModalTitle').textContent = ev ? 'Terminabfrage bearbeiten' : 'Neue Terminabfrage';
+    $('eventModalTitle').textContent = t(ev ? 'event.editTitle' : 'event.newTitle');
     $('evTitle').value = ev ? (ev.title || '') : '';
     $('evDesc').value = ev ? (ev.description || '') : '';
     $('evLocation').value = ev ? (ev.location || '') : '';
@@ -1399,7 +1900,7 @@ $('evSave').addEventListener('click', async () => {
     if (!isAdmin()) return;
     const err = $('evError'); err.style.display = 'none';
     const title = $('evTitle').value.trim();
-    if (!title) { err.textContent = 'Bitte einen Titel angeben.'; err.style.display = 'block'; return; }
+    if (!title) { err.textContent = t('event.errTitle'); err.style.display = 'block'; return; }
 
     const options = [];
     for (const row of $('evOptions').querySelectorAll('.opt-edit')) {
@@ -1411,15 +1912,15 @@ $('evSave').addEventListener('click', async () => {
         if (from && to && to <= from) { err.textContent = 'Bei ' + fmtDate(date) + ' liegt die Endzeit nicht nach der Startzeit.'; err.style.display = 'block'; return; }
         options.push({ id: row.dataset.optId, date: date, from: from || '', to: to || '', note: note });
     }
-    if (!options.length) { err.textContent = 'Bitte mindestens einen Terminvorschlag mit Datum angeben.'; err.style.display = 'block'; return; }
+    if (!options.length) { err.textContent = t('event.errOptions'); err.style.display = 'block'; return; }
     const seen = new Set();
     for (const o of options) {
         const k = o.date + '|' + o.from + '|' + o.to;
-        if (seen.has(k)) { err.textContent = 'Doppelter Terminvorschlag: ' + fmtDate(o.date) + '.'; err.style.display = 'block'; return; }
+        if (seen.has(k)) { err.textContent = t('event.errDup', { datum: fmtDate(o.date) }); err.style.display = 'block'; return; }
         seen.add(k);
     }
     const invitedIds = Array.from($('evPeople').querySelectorAll('.pp:checked')).map(c => c.value);
-    if (!invitedIds.length) { err.textContent = 'Bitte mindestens einen Teilnehmer auswählen.'; err.style.display = 'block'; return; }
+    if (!invitedIds.length) { err.textContent = t('event.errPeople'); err.style.display = 'block'; return; }
 
     const payload = {
         title: title,
@@ -1461,33 +1962,15 @@ $('evSave').addEventListener('click', async () => {
 // ============================================================
 // ADMIN: EINLADUNGSTEXTE
 // ============================================================
-const DEFAULT_INVITE_SUBJECT = 'Terminabfrage: {titel}';
-const DEFAULT_INVITE_BODY =
-    'Guten Tag {name},\n'
-  + '\n'
-  + 'für „{titel}“ suche ich einen Termin, der für alle Beteiligten passt.\n'
-  + '{beschreibung}\n'
-  + '{ort}\n'
-  + 'Bitte melden Sie online zurück, welche der folgenden Termine für Sie machbar sind:\n'
-  + '\n'
-  + '{termine}\n'
-  + '\n'
-  + 'Ihr persönlicher Zugang:\n'
-  + 'Link:        {link}\n'
-  + 'Anmeldename: {login}\n'
-  + 'Passwort:    {passwort}\n'
-  + '\n'
-  + 'Sie können mehrere Termine als machbar markieren und im Kommentarfeld Anmerkungen hinterlassen.\n'
-  + '{frist}\n'
-  + '\n'
-  + 'Vielen Dank und viele Grüße\n'
-  + '{absender}';
+// Standardvorlagen kommen aus dem Woerterbuch und folgen damit der Spracheinstellung.
+const DEFAULT_INVITE_SUBJECT = () => t('invite.defSubject');
+const DEFAULT_INVITE_BODY = () => t('invite.defBody');
 
 let _invEventId = null;
 let _invPid = null;
 
-const inviteSubjectTpl = () => (_me && _me.inviteSubject) || DEFAULT_INVITE_SUBJECT;
-const inviteBodyTpl    = () => (_me && _me.inviteTemplate) || DEFAULT_INVITE_BODY;
+const inviteSubjectTpl = () => (_me && _me.inviteSubject) || DEFAULT_INVITE_SUBJECT();
+const inviteBodyTpl    = () => (_me && _me.inviteTemplate) || DEFAULT_INVITE_BODY();
 
 // Erzeugt Betreff + Text für genau einen Teilnehmer einer Terminabfrage.
 function buildInvite(ev, p, subjectTpl, bodyTpl) {
@@ -1502,9 +1985,9 @@ function buildInvite(ev, p, subjectTpl, bodyTpl) {
         '{firma}':        p.company || '',
         '{titel}':        ev.title || '',
         '{beschreibung}': (ev.description || '').trim(),
-        '{ort}':          ev.location ? 'Ort: ' + ev.location : '',
+        '{ort}':          ev.location ? t('invite.locLine', { ort: ev.location }) : '',
         '{termine}':      termine,
-        '{frist}':        ev.deadline ? 'Bitte antworten Sie bis ' + fmtDate(ev.deadline) + '.' : '',
+        '{frist}':        ev.deadline ? t('invite.deadlineLine', { datum: fmtDate(ev.deadline) }) : '',
         '{link}':         appUrl(),
         '{login}':        p.login || '',
         '{passwort}':     p.password || '',
@@ -1531,7 +2014,7 @@ function openInviteModal(eventId) {
     if (!ev) return;
     if (!canManageEvent(ev)) { notify(keineBerechtigungText(ev), 'err'); return; }
     _invEventId = eventId;
-    $('invTitle').textContent = 'Einladungstexte: ' + (ev.title || '');
+    $('invTitle').textContent = t('invite.titleFor', { titel: ev.title || '' });
     $('tplSubject').value = inviteSubjectTpl();
     $('tplBody').value = inviteBodyTpl();
     $('tplBox').classList.remove('open');
@@ -1554,9 +2037,9 @@ function renderInviteList() {
         + '<div class="inv-who">' + esc(p.name || p.login)
         + '<span>' + esc(p.login || '') + (p.company ? ' · ' + esc(p.company) : '') + '</span></div>'
         + '<div class="inv-act">'
-        + '<button class="btn btn-secondary btn-xs" type="button" data-inv="copy" data-pid="' + esc(p.id) + '">Kopieren</button>'
+        + '<button class="btn btn-secondary btn-xs" type="button" data-inv="copy" data-pid="' + esc(p.id) + '">' + t('btn.copy') + '</button>'
         + '</div></div>'
-    ).join('') : '<div class="info-msg">Zu dieser Terminabfrage sind keine (noch vorhandenen) Teilnehmer eingeladen.</div>';
+    ).join('') : '<div class="info-msg">' + t('invite.noPeople') + '</div>';
 }
 
 function renderInvitePreview() {
@@ -1564,7 +2047,7 @@ function renderInvitePreview() {
     const p = _people.find(x => x.id === _invPid);
     if (!ev || !p) {
         $('invSubject').textContent = '';
-        $('invBody').textContent = 'Kein Teilnehmer ausgewählt.';
+        $('invBody').textContent = t('invite.noPick');
         $('invCopyOne').disabled = true; $('invMailto').disabled = true;
         return;
     }
@@ -1574,8 +2057,7 @@ function renderInvitePreview() {
     $('invCopyOne').disabled = false;
     const istMail = EMAIL_RE.test(p.login || '');
     $('invMailto').disabled = !istMail;
-    $('invMailto').title = istMail ? 'Öffnet eine neue Mail an ' + p.login
-        : 'Der Anmeldename dieses Teilnehmers ist keine E-Mail-Adresse';
+    $('invMailto').title = istMail ? t('invite.mailYes', { login: p.login }) : t('invite.mailNo');
 }
 
 $('invList').addEventListener('click', async e => {
@@ -1588,8 +2070,8 @@ $('invList').addEventListener('click', async e => {
         if (!p) return;
         const m = buildInvite(ev, p, $('tplSubject').value, $('tplBody').value);
         const ok = await copyText(m.subject + '\n\n' + m.body, null);
-        copyBtn.textContent = ok ? 'Kopiert \u2713' : 'Fehlgeschlagen';
-        setTimeout(() => { copyBtn.textContent = 'Kopieren'; }, 2000);
+        copyBtn.textContent = ok ? t('people.copied') : t('people.copyFail');
+        setTimeout(() => { copyBtn.textContent = t('btn.copy'); }, 2000);
         return;
     }
     if (row) { _invPid = row.dataset.pid; renderInviteList(); renderInvitePreview(); }
@@ -1628,7 +2110,7 @@ $('invCopyAll').addEventListener('click', async () => {
              + m.subject + '\n\n' + m.body;
     }).join('\n\n' + '-'.repeat(60) + '\n\n');
     const ok = await copyText(text, $('invCopyMsg'));
-    if (ok) notify(people.length + ' Einladungstexte kopiert.', 'ok');
+    if (ok) notify(t('invite.copiedN', { n: people.length }), 'ok');
 });
 
 $('invMailto').addEventListener('click', () => {
@@ -1645,7 +2127,7 @@ $('invMailto').addEventListener('click', () => {
 $('tplToggle').addEventListener('click', () => {
     const box = $('tplBox');
     box.classList.toggle('open');
-    $('tplToggle').textContent = box.classList.contains('open') ? 'Vorlage ausblenden' : 'Vorlage bearbeiten';
+    $('tplToggle').textContent = box.classList.contains('open') ? t('invite.tplHide') : t('invite.tplEdit');
 });
 ['tplSubject', 'tplBody'].forEach(id => $(id).addEventListener('input', renderInvitePreview));
 
@@ -1658,17 +2140,17 @@ $('tplSave').addEventListener('click', async () => {
         const patch = { inviteSubject: $('tplSubject').value.slice(0, 200), inviteTemplate: $('tplBody').value.slice(0, 4000) };
         await db.collection(COL_PEOPLE).doc(_me.id).update(patch);
         _me = Object.assign({}, _me, patch);
-        suc.textContent = 'Vorlage gespeichert.'; suc.style.display = 'block';
+        suc.textContent = t('invite.tplSaved'); suc.style.display = 'block';
     } catch (ex) {
         err.textContent = dbError(ex); err.style.display = 'block';
     } finally { $('tplSave').disabled = false; }
 });
 
 $('tplReset').addEventListener('click', () => {
-    $('tplSubject').value = DEFAULT_INVITE_SUBJECT;
-    $('tplBody').value = DEFAULT_INVITE_BODY;
+    $('tplSubject').value = DEFAULT_INVITE_SUBJECT();
+    $('tplBody').value = DEFAULT_INVITE_BODY();
     renderInvitePreview();
-    $('tplSuccess').textContent = 'Standardtext eingesetzt — zum Übernehmen noch „Vorlage speichern“ drücken.';
+    $('tplSuccess').textContent = t('invite.tplResetHint');
     $('tplSuccess').style.display = 'block';
 });
 
@@ -1691,8 +2173,8 @@ function fillResultSelect() {
     const prev = sel.value;
     const list = resultEvents();
     sel.innerHTML = list.length
-        ? list.map(ev => '<option value="' + esc(ev.id) + '">' + esc(ev.title || '(ohne Titel)') + (ev.closed ? ' (geschlossen)' : '') + '</option>').join('')
-        : '<option value="">– keine Terminabfrage –</option>';
+        ? list.map(ev => '<option value="' + esc(ev.id) + '">' + esc(ev.title || t('lbl.noTitle')) + (ev.closed ? ' (' + t('state.closed') + ')' : '') + '</option>').join('')
+        : '<option value="">' + t('results.noneOption') + '</option>';
     if (prev && list.some(e => e.id === prev)) sel.value = prev;
 }
 $('resultSelect').addEventListener('change', renderResults);
@@ -1704,7 +2186,7 @@ function renderResults() {
     const ev = list.find(x => x.id === $('resultSelect').value);
     if (!ev) {
         box.innerHTML = '<div class="card"><div class="info-msg">'
-            + (list.length ? 'Bitte eine Terminabfrage wählen.' : 'Für Sie liegt derzeit keine Terminabfrage zur Auswertung vor.')
+            + (list.length ? t('results.choose') : t('results.noneForYou'))
             + '</div></div>';
         return;
     }
@@ -1726,22 +2208,22 @@ function renderResults() {
         };
         const r = resp[pid];
         return {
-            name: (r && r.name) || 'Unbekannt',
-            sub: isAdmin() ? ((r && r.login) || 'gelöschter Teilnehmer') : ((r && r.company) || 'gelöschter Teilnehmer')
+            name: (r && r.name) || t('results.unknown'),
+            sub: isAdmin() ? ((r && r.login) || t('results.deletedPerson')) : ((r && r.company) || t('results.deletedPerson'))
         };
     };
 
     let html = '<div class="card">'
         + '<div class="card-head"><div class="card-title">' + esc(ev.title || '') + '</div>'
-        + '<span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? 'geschlossen' : 'offen') + '</span></div>'
+        + '<span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? t('state.closed') : t('state.open')) + '</span></div>'
         + '<div class="card-meta">'
-        + 'Organisator: ' + organizerCell(ev) + '<br>'
-        + (ev.location ? 'Ort: ' + esc(ev.location) + '<br>' : '')
-        + (ev.deadline ? 'Rückmeldung bis: ' + esc(fmtDate(ev.deadline)) + '<br>' : '')
-        + 'Rückmeldungen: ' + Object.keys(resp).length + ' von ' + invited.length + ' Teilnehmern</div>';
+        + t('results.organizer') + organizerCell(ev) + '<br>'
+        + (ev.location ? t('lbl.location') + esc(ev.location) + '<br>' : '')
+        + (ev.deadline ? t('lbl.deadline') + esc(fmtDate(ev.deadline)) + '<br>' : '')
+        + t('results.answers', { n: Object.keys(resp).length, m: invited.length }) + '</div>';
 
     if (!opts.length || !invited.length) {
-        box.innerHTML = html + '<div class="info-msg">Keine Vorschläge oder keine Teilnehmer hinterlegt.</div></div>';
+        box.innerHTML = html + '<div class="info-msg">' + t('results.empty') + '</div></div>';
         return;
     }
 
@@ -1762,13 +2244,13 @@ function renderResults() {
 
     html += '<div class="table-wrap"><table class="matrix" data-cols="' + persons.length + '" data-longest="' + longest + '" data-longword="' + longWord + '">'
         + '<colgroup><col class="c-opt">' + persons.map(() => '<col class="c-p">').join('') + '<col class="c-sum"></colgroup>'
-        + '<thead><tr><th class="stick opt-col">Termin</th>'
+        + '<thead><tr><th class="stick opt-col">' + t('results.colDate') + '</th>'
         + persons.map(p => '<th class="p-col' + (p.r ? '' : ' noresp') + '" title="'
-            + esc(p.name + (p.sub ? ' — ' + p.sub : '') + (p.r ? '' : ' — keine Rückmeldung')) + '">'
+            + esc(p.name + (p.sub ? ' — ' + p.sub : '') + (p.r ? '' : ' — ' + t('results.noResponse'))) + '">'
             + '<span class="lbl">' + esc(p.name) + '</span>'
             + (p.sub ? '<span class="sub">' + esc(p.sub) + '</span>' : '')
-            + (p.r ? '' : '<span class="sub">offen</span>') + '</th>').join('')
-        + '<th class="center sum-col"><span class="lbl">Machbar</span></th></tr></thead><tbody>';
+            + (p.r ? '' : '<span class="sub">' + t('results.openShort') + '</span>') + '</th>').join('')
+        + '<th class="center sum-col"><span class="lbl">' + t('results.colFeasible') + '</span></th></tr></thead><tbody>';
 
     opts.forEach(o => {
         const l = optLabel(o);
@@ -1780,33 +2262,33 @@ function renderResults() {
             + (l.note ? '<span class="n">' + esc(l.note) + '</span>' : '')
             + '</td>';
         persons.forEach(p => {
-            if (!p.r) { html += '<td class="center unset" title="keine Rückmeldung">&middot;</td>'; return; }
+            if (!p.r) { html += '<td class="center unset" title="' + esc(t('results.noResponse')) + '">&middot;</td>'; return; }
             const yes = p.sel.has(o.id);
             html += '<td class="center ' + (yes ? 'yes' : 'no') + '">' + (yes ? '&#10003;' : '&ndash;') + '</td>';
         });
         html += '<td class="center">' + counts[o.id] + ' / ' + invited.length + '</td></tr>';
     });
 
-    html += '<tr class="sum"><td class="stick">Termine gewählt</td>'
+    html += '<tr class="sum"><td class="stick">' + t('results.sumRow') + '</td>'
         + persons.map(p => '<td class="center">'
             + (p.r ? [...p.sel].filter(id => counts[id] !== undefined).length : '&ndash;') + '</td>').join('')
         + '<td></td></tr></tbody></table></div>'
-        + '<div class="matrix-legend"><span>&#10003; machbar</span><span>&ndash; nicht machbar</span>'
-        + '<span>&middot; keine Rückmeldung</span></div>';
+        + '<div class="matrix-legend"><span>' + t('results.legendYes') + '</span>'
+        + '<span>' + t('results.legendNo') + '</span><span>' + t('results.legendUnset') + '</span></div>';
 
     if (maxCount > 0) {
         const bests = opts.filter(o => counts[o.id] === maxCount).map(o => { const l = optLabel(o); return l.date + ', ' + l.time; });
         html += '<div class="result-best">'
-            + '<strong>Größte Zustimmung (' + maxCount + ' von ' + invited.length + '):</strong><br>' + esc(bests.join(' | ')) + '</div>';
+            + '<strong>' + t('results.best', { n: maxCount, m: invited.length }) + '</strong><br>' + esc(bests.join(' | ')) + '</div>';
     }
     html += '</div>';
 
     const withComment = Object.values(resp).filter(r => String(r.comment || '').trim());
-    html += '<div class="card"><div class="section-title">Kommentare (' + withComment.length + ')</div>'
+    html += '<div class="card"><div class="section-title">' + t('results.comments', { n: withComment.length }) + '</div>'
         + (withComment.length ? withComment.map(r =>
-            '<div class="comment-item"><div class="who">' + esc(r.name || (isAdmin() ? r.login : '') || 'Teilnehmer') + (r.company ? ' · ' + esc(r.company) : '') + '</div>'
+            '<div class="comment-item"><div class="who">' + esc(r.name || (isAdmin() ? r.login : '') || t('results.participant')) + (r.company ? ' · ' + esc(r.company) : '') + '</div>'
             + '<div class="txt">' + esc(r.comment) + '</div></div>').join('')
-          : '<div class="info-msg">Keine Kommentare abgegeben.</div>')
+          : '<div class="info-msg">' + t('results.noComments') + '</div>')
         + '</div>';
 
     box.innerHTML = html;
@@ -1887,17 +2369,16 @@ $('addPersonForm').addEventListener('submit', async e => {
     const company = $('pCompany').value.trim().slice(0, 80);
     const login = norm($('pLogin').value);
     const pw = $('pPw').value;
-    if (!name || !login) { err.textContent = 'Bitte Name und Anmeldename angeben.'; err.style.display = 'block'; return; }
-    if (pw.length < 4) { err.textContent = 'Das Passwort muss mindestens 4 Zeichen haben.'; err.style.display = 'block'; return; }
-    if (_people.some(p => norm(p.login) === login)) { err.textContent = 'Dieser Anmeldename ist bereits vergeben.'; err.style.display = 'block'; return; }
+    if (!name || !login) { err.textContent = t('people.errNameLogin'); err.style.display = 'block'; return; }
+    if (pw.length < 4) { err.textContent = t('people.errPwShort'); err.style.display = 'block'; return; }
+    if (_people.some(p => norm(p.login) === login)) { err.textContent = t('people.errLoginTaken'); err.style.display = 'block'; return; }
     $('addPersonBtn').disabled = true;
     try {
         await db.collection(COL_PEOPLE).add({
             name: name, company: company, login: login, password: pw,
             isAdmin: $('pAdmin').checked === true, disabled: false, createdAt: SRV()
         });
-        suc.innerHTML = 'Teilnehmer <strong>' + esc(name) + '</strong> angelegt. Zugangsdaten: <strong>'
-            + esc(login) + '</strong> / <strong>' + esc(pw) + '</strong> — in der Liste unten jederzeit kopierbar.';
+        suc.innerHTML = t('people.addedHtml', { name: esc(name), login: esc(login), pw: esc(pw) });
         suc.style.display = 'block';
         $('pName').value = ''; $('pCompany').value = ''; $('pLogin').value = ''; $('pPw').value = ''; $('pAdmin').checked = false;
         $('pName').focus();
@@ -1909,19 +2390,19 @@ $('addPersonForm').addEventListener('submit', async e => {
 function renderPeopleTable() {
     if (!isAdmin()) return;
     const tb = $('peopleTableBody');
-    if (!_people.length) { tb.innerHTML = '<tr><td colspan="7" class="info-msg">Noch keine Teilnehmer.</td></tr>'; return; }
+    if (!_people.length) { tb.innerHTML = '<tr><td colspan="7" class="info-msg">' + t('people.noneYet') + '</td></tr>'; return; }
     tb.innerHTML = _people.map(p => {
         const self = _me && p.id === _me.id;
         return '<tr>'
-            + '<td>' + esc(p.name || '–') + (self ? ' <span style="color:var(--xo-muted);font-size:0.74rem">(Sie)</span>' : '') + '</td>'
+            + '<td>' + esc(p.name || '–') + (self ? ' <span style="color:var(--xo-muted);font-size:0.74rem">' + t('org.self') + '</span>' : '') + '</td>'
             + '<td>' + esc(p.company || '–') + '</td>'
             + '<td>' + esc(p.login || '') + '</td>'
             + '<td class="pw-cell">' + esc(p.password || '') + '</td>'
-            + '<td>' + (p.isAdmin === true ? '<span class="badge badge-admin">Administrator</span>' : 'Teilnehmer') + '</td>'
-            + '<td>' + (p.disabled === true ? '<span class="badge badge-closed">gesperrt</span>' : '<span class="badge badge-done">aktiv</span>') + '</td>'
+            + '<td>' + (p.isAdmin === true ? '<span class="badge badge-admin">' + t('role.admin') + '</span>' : t('role.user')) + '</td>'
+            + '<td>' + (p.disabled === true ? '<span class="badge badge-closed">' + t('state.blocked') + '</span>' : '<span class="badge badge-done">' + t('state.active') + '</span>') + '</td>'
             + '<td style="white-space:nowrap">'
-            + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-pid="' + esc(p.id) + '">Bearbeiten</button> '
-            + '<button class="btn btn-secondary btn-xs" type="button" data-act="copy" data-pid="' + esc(p.id) + '">Kopieren</button>'
+            + '<button class="btn btn-secondary btn-xs" type="button" data-act="edit" data-pid="' + esc(p.id) + '">' + t('btn.edit') + '</button> '
+            + '<button class="btn btn-secondary btn-xs" type="button" data-act="copy" data-pid="' + esc(p.id) + '">' + t('btn.copy') + '</button>'
             + '</td></tr>';
     }).join('');
 }
@@ -1934,22 +2415,22 @@ $('peopleTableBody').addEventListener('click', async e => {
     if (b.dataset.act === 'edit') { openPersonModal(p.id); return; }
     if (b.dataset.act === 'copy') {
         const ok = await copyText(accessText(p), null);
-        b.textContent = ok ? 'Kopiert ✓' : 'Fehlgeschlagen';
-        setTimeout(() => { b.textContent = 'Kopieren'; }, 2000);
+        b.textContent = ok ? t('people.copied') : t('people.copyFail');
+        setTimeout(() => { b.textContent = t('btn.copy'); }, 2000);
     }
 });
 
 $('copyAllBtn').addEventListener('click', async () => {
     if (!_people.length) return;
-    const text = 'Terminplanung XOLUTION — ' + appUrl() + '\n\n'
+    const text = t('access.head') + ' — ' + appUrl() + '\n\n'
         + _people.filter(p => p.disabled !== true)
             .map(p => (p.name || '') + (p.company ? ' (' + p.company + ')' : '')
-                + '\n  Login:    ' + (p.login || '')
-                + '\n  Passwort: ' + (p.password || ''))
+                + '\n  ' + t('access.login') + (p.login || '')
+                + '\n  ' + t('access.pw') + (p.password || ''))
             .join('\n\n');
     const ok = await copyText(text, null);
-    $('copyAllBtn').textContent = ok ? 'Kopiert ✓' : 'Fehlgeschlagen';
-    setTimeout(() => { $('copyAllBtn').textContent = 'Alle Zugangsdaten kopieren'; }, 2000);
+    $('copyAllBtn').textContent = ok ? t('people.copied') : t('people.copyFail');
+    setTimeout(() => { $('copyAllBtn').textContent = t('people.copyAll'); }, 2000);
 });
 
 function updateAccessBox() {
@@ -1963,7 +2444,7 @@ function openPersonModal(pid) {
     if (!p) return;
     _editPersonId = pid;
     const self = _me && pid === _me.id;
-    $('personModalTitle').textContent = 'Teilnehmer: ' + (p.name || p.login);
+    $('personModalTitle').textContent = t('person.editFor', { name: p.name || p.login });
     $('edName').value = p.name || '';
     $('edCompany').value = p.company || '';
     $('edLogin').value = p.login || '';
@@ -1990,9 +2471,9 @@ $('edSave').addEventListener('click', async () => {
     const name = $('edName').value.trim().slice(0, 80);
     const login = norm($('edLogin').value);
     const pw = $('edPw').value;
-    if (!name || !login) { err.textContent = 'Bitte Name und Anmeldename angeben.'; err.style.display = 'block'; return; }
-    if (pw.length < 4) { err.textContent = 'Das Passwort muss mindestens 4 Zeichen haben.'; err.style.display = 'block'; return; }
-    if (_people.some(p => p.id !== _editPersonId && norm(p.login) === login)) { err.textContent = 'Dieser Anmeldename ist bereits vergeben.'; err.style.display = 'block'; return; }
+    if (!name || !login) { err.textContent = t('people.errNameLogin'); err.style.display = 'block'; return; }
+    if (pw.length < 4) { err.textContent = t('people.errPwShort'); err.style.display = 'block'; return; }
+    if (_people.some(p => p.id !== _editPersonId && norm(p.login) === login)) { err.textContent = t('people.errLoginTaken'); err.style.display = 'block'; return; }
     const self = _me.id === _editPersonId;
     $('edSave').disabled = true;
     try {
@@ -2021,22 +2502,24 @@ $('edDelete').addEventListener('click', async () => {
     const inEvents = _events.filter(ev => (ev.invitedIds || []).indexOf(_editPersonId) >= 0).length;
     const pid = _editPersonId;
     const ok = await askConfirm({
-        title: 'Teilnehmer löschen',
-        text: '„' + ((p && p.name) || '') + '“ verliert damit den Zugang.'
-            + (inEvents ? '\n\nDie Person ist in ' + inEvents + ' Terminabfrage' + (inEvents === 1 ? '' : 'n')
-                + ' eingeladen; bereits gespeicherte Rückmeldungen bleiben in der Auswertung stehen.' : ''),
-        confirmLabel: 'Löschen'
+        title: t('person.delTitle'),
+        text: t('person.delText', { name: (p && p.name) || '' })
+            + (inEvents ? (inEvents === 1 ? t('person.delEvents1') : t('person.delEvents', { n: inEvents })) : ''),
+        confirmLabel: t('btn.delete')
     });
     if (!ok) return;
     $('edDelete').disabled = true;
     try {
         await db.collection(COL_PEOPLE).doc(pid).delete();
         closePersonModal();
-        notify('Teilnehmer „' + ((p && p.name) || '') + '“ gelöscht.', 'ok');
+        notify(t('person.deleted', { name: (p && p.name) || '' }), 'ok');
     } catch (ex) {
         $('edError').textContent = dbError(ex); $('edError').style.display = 'block';
     } finally { $('edDelete').disabled = false; }
 });
+
+// Sprache anwenden, sobald alle Zustandsvariablen und Renderer bereitstehen
+applyI18n();
 </script>
 </body>
 </html>
