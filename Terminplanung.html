@@ -251,6 +251,13 @@ table.matrix { table-layout: fixed; width: 100%; }
 .matrix td.no { color: var(--xo-line-strong); font-weight: 700; }
 .matrix td.unset { color: var(--xo-muted); }
 .matrix tr.sum td { background: var(--xo-bg-soft); font-weight: 800; color: var(--xo-ink); border-top: 1px solid var(--xo-line-strong); }
+/* Terminverwaltung: durch die Spalte „Organisator“ wird es eng — kompaktere Abstaende,
+   damit die Tabelle auf uebliche Bildschirme passt, statt waagerecht zu scrollen. */
+#adminEventsList th, #adminEventsList td { padding: 8px 6px; }
+#adminEventsList th { letter-spacing: 0.05em; }
+#adminEventsList .btn-xs { padding: 6px 8px; letter-spacing: 0.02em; }
+.org-none { color: var(--xo-muted); font-style: italic; }
+.org-self { color: var(--xo-muted); font-weight: 700; font-size: 0.74rem; }
 .matrix-legend { margin-top: 9px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.76rem; color: var(--xo-muted); }
 .result-best { margin-top: 16px; padding: 14px 16px; background: var(--xo-bg); border-left: 3px solid var(--xo-black); border-radius: 0 var(--r2) var(--r2) 0; font-size: 0.88rem; line-height: 1.6; color: var(--xo-ink); }
 .comment-item { border-left: 2px solid var(--xo-ink); background: var(--xo-bg-soft); border-radius: 0 var(--r2) var(--r2) 0; padding: 10px 14px; margin-bottom: 9px; }
@@ -1028,6 +1035,15 @@ function syncResponseListeners() {
 
 const myResponse = evId => (_me && _responses[evId]) ? _responses[evId][_me.id] : null;
 
+// Organisator einer Terminabfrage: bevorzugt der aktuelle Name des anlegenden Zugangs,
+// sonst der beim Anlegen gespeicherte Name (Zugang geloescht/umbenannt).
+function organizerOf(ev) {
+    const p = ev && ev.createdBy ? _people.find(x => x.id === ev.createdBy) : null;
+    if (p) return { name: p.name || p.login || '', self: !!(_me && p.id === _me.id), known: true };
+    const nm = ev && ev.createdByName ? String(ev.createdByName) : '';
+    return { name: nm, self: false, known: !!nm };
+}
+
 // ============================================================
 // TEILNEHMER-ANSICHT
 // ============================================================
@@ -1159,18 +1175,25 @@ async function saveResponse(evId, btn) {
 // ============================================================
 // ADMIN: TERMINLISTE
 // ============================================================
+function organizerCell(ev) {
+    const o = organizerOf(ev);
+    if (!o.known) return '<span class="org-none">nicht hinterlegt</span>';
+    return esc(o.name) + (o.self ? ' <span class="org-self">(Sie)</span>' : '');
+}
+
 function renderAdminEvents() {
     if (!isAdmin()) return;
     const box = $('adminEventsList');
     if (!_events.length) { box.innerHTML = '<div class="info-msg">Noch keine Terminabfrage angelegt.</div>'; return; }
     box.innerHTML = '<div class="table-wrap"><table><thead><tr>'
-        + '<th>Titel</th><th class="center">Vorschläge</th><th class="center">Teilnehmer</th><th class="center">Antworten</th><th>Frist</th><th>Status</th><th>Aktion</th>'
+        + '<th>Titel</th><th>Organisator</th><th class="center">Vorschläge</th><th class="center">Teilnehmer</th><th class="center">Antworten</th><th>Frist</th><th>Status</th><th>Aktion</th>'
         + '</tr></thead><tbody>'
         + _events.map(ev => {
             const nResp = _responses[ev.id] ? Object.keys(_responses[ev.id]).length : 0;
             return '<tr>'
                 + '<td><strong>' + esc(ev.title || '(ohne Titel)') + '</strong>'
                 + (ev.location ? '<br><span style="color:var(--xo-muted);font-size:0.78rem">' + esc(ev.location) + '</span>' : '') + '</td>'
+                + '<td>' + organizerCell(ev) + '</td>'
                 + '<td class="center">' + (ev.options || []).length + '</td>'
                 + '<td class="center">' + (ev.invitedIds || []).length + '</td>'
                 + '<td class="center">' + nResp + '</td>'
@@ -1334,7 +1357,8 @@ $('evSave').addEventListener('click', async () => {
         } else {
             payload.closed = false;
             payload.createdAt = SRV();
-            payload.createdByName = _me.name || _me.login || '';
+            payload.createdBy = _me.id;                              // fuer den aktuellen Namen
+            payload.createdByName = _me.name || _me.login || '';     // Fallback, falls der Zugang entfaellt
             await db.collection(COL_EVENTS).add(payload);
         }
         closeEventModal();
@@ -1620,6 +1644,7 @@ function renderResults() {
         + '<div class="card-head"><div class="card-title">' + esc(ev.title || '') + '</div>'
         + '<span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? 'geschlossen' : 'offen') + '</span></div>'
         + '<div class="card-meta">'
+        + 'Organisator: ' + organizerCell(ev) + '<br>'
         + (ev.location ? 'Ort: ' + esc(ev.location) + '<br>' : '')
         + (ev.deadline ? 'Rückmeldung bis: ' + esc(fmtDate(ev.deadline)) + '<br>' : '')
         + 'Rückmeldungen: ' + Object.keys(resp).length + ' von ' + invited.length + ' Teilnehmern</div>';
