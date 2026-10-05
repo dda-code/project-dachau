@@ -1750,6 +1750,9 @@ function isManager(){return currentUserRole==='manager';}
 function canManage(){return isAdmin()||isManager();}
 function canManageQS(){return isAdmin()||isQS()||isManager();}
 function canDeletePalette(){return isAdmin()||isQS()||isManager();}
+// FIFO-Auslagern: spiegelt die paletten-delete-Rule (isLagerUser = displayName 'lager').
+// Gesperrte Paletten weiterhin nur QS/Admin/Manager.
+function canOutboundPalette(p){if(p&&p.gesperrt)return canDeletePalette();return canDeletePalette()||getCurrentUsername().toLowerCase()==='lager';}
 // User-Mgmt: Admin + Manager mit canApprove=true (Cross-App-Approver wie soojin/Marc).
 function canManageUsers(){return isAdmin()||(isManager()&&currentUserCanApprove);}
 // Email-spezifische Blocks: Sammel-Accounts mit eingeschränkten Lager-Rechten.
@@ -2613,12 +2616,13 @@ async function onArtikelSelect(){
 
 async function confirmOutbound(){
     const card=document.getElementById('outboundCard'),docId=card.dataset.docId,pd=JSON.parse(card.dataset.paletteJson||'{}');if(!docId)return;
-    if(!canDeletePalette()){alert('Keine Berechtigung.');return;}
+    if(!canOutboundPalette(pd)){alert('Keine Berechtigung.');return;}
     const _obBtn=document.getElementById('confirmOutboundBtn');_obBtn.disabled=true;
     // Re-Check gegen aktuellen Stand — die Karte kann veraltet sein (jemand hat inzwischen ein-/ausgebucht).
     let _fresh;try{_fresh=await db.collection('paletten').doc(docId).get();}catch(e){_fresh=null;}
     if(!_fresh||!_fresh.exists){alert('Palette ist nicht mehr im Bestand (evtl. bereits entnommen).');_obBtn.disabled=false;onArtikelSelect();return;}
     const _fd=_fresh.data()||{};
+    if(!canOutboundPalette(_fd)){alert('Palette ist inzwischen gesperrt — Entnahme nur durch QS.');_obBtn.disabled=false;onArtikelSelect();return;}
     let _fifoFields={};
     try{
         const oldest=await _fifoOldestPal(_fd.artikelNr,_fd.standort);
