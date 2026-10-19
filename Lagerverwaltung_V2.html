@@ -2358,6 +2358,16 @@ function _normalizeXOFertigArtikelNr(raw){
     if(m)return 'XO-'+m[1]+'-'+m[2];
     return clean;
 }
+// Handeingaben (Bearbeiten-Dialog, Druckprotokoll-Edit, Fertigware manuell) laufen nicht durch scanLabel():
+// XO-Artikelnr hier genauso normalisieren (XO-202-20511 -> XO-202-2051I) und gegen das Format pruefen.
+// Liefert die normalisierte Nummer oder null, wenn sie ungueltig bleibt.
+function _checkXOArtikelNrInput(nr,labelTyp){
+    const s=String(nr||'').trim();
+    if(!/^XO/i.test(s)&&labelTyp!=='XO Fertigware')return s;
+    const n=_normalizeXOFertigArtikelNr(s);
+    return /^XO-\d{2,4}-\d{4}[A-Z]$/.test(n)?n:null;
+}
+const _XO_ARTIKELNR_HINWEIS='XO-Fertigware hat das Format XO-202-2051I – die letzte Stelle ist immer ein Buchstabe.';
 
 function normalizeDatum(s){
     if(!s)return s;
@@ -3302,6 +3312,12 @@ async function saveEditPal(){
     _editPalFields.forEach(f=>{upd[f.key]=document.getElementById('editPal-'+f.key)?.value.trim()||'';});
     // datum-Feld synchron halten
     upd.datum=upd.produktionsDatum;
+    const _xo=_checkXOArtikelNrInput(upd.artikelNr);
+    if(_xo===null){
+        const err=document.getElementById('editPalError');err.textContent='Artikelnummer "'+upd.artikelNr+'" ist ungültig. '+_XO_ARTIKELNR_HINWEIS;err.style.display='block';
+        return;
+    }
+    upd.artikelNr=_xo;
     try{
         await db.collection('paletten').doc(_editPalId).update(upd);
         await db.collection('log').add({aktion:'bearbeitet',docId:_editPalId,artikelNr:upd.artikelNr,position:upd.position,user:getCurrentUsername(),timestamp:firebase.firestore.FieldValue.serverTimestamp()});
@@ -7934,6 +7950,11 @@ async function saveDruckEdit(){
             : 'Palettennummer fehlt oder ist ungueltig (Format C26-XXXX).','#b91c1c');
         return;
     }
+    if(!isFrame){
+        const _xo=_checkXOArtikelNrInput(newVals.articleNr);
+        if(_xo===null){_druckEditSetStatus('Artikelnummer "'+newVals.articleNr+'" ist ungültig. '+_XO_ARTIKELNR_HINWEIS,'#b91c1c');return;}
+        newVals.articleNr=_xo;
+    }
     const diff = _computeLabelDiff(_labelEditSnapshot, newVals);
     _druckEditSetStatus('Speichere…','#64748b');
     try{
@@ -8007,6 +8028,11 @@ async function saveAndReprintDruckEdit(){
     if(!/^C\d{2}-\d{4}$/.test(newPalNr)){
         _druckEditSetStatus('Palettennummer fehlt oder ist ungueltig (Format C26-XXXX).','#b91c1c');
         return;
+    }
+    {
+        const _xo=_checkXOArtikelNrInput(newVals.articleNr);
+        if(_xo===null){_druckEditSetStatus('Artikelnummer "'+newVals.articleNr+'" ist ungültig. '+_XO_ARTIKELNR_HINWEIS,'#b91c1c');return;}
+        newVals.articleNr=_xo;
     }
     if(row._invId){ try{ await _writeInventoryFromLabel(row._invSrc,row._invId,newVals,{isFrame:false}); if(typeof loadInventory==='function') loadInventory(); }catch(e){console.warn('Inv-Spiegel (Druck) fehlgeschlagen:',e);} }
     Object.entries(_LBL_FIELD_MAP).forEach(([id,meta])=>{
@@ -9470,7 +9496,9 @@ async function saveFpAdd(){
     const err=document.getElementById('fpAddError');
     const showErr=(msg)=>{if(err){err.textContent=msg;err.style.display='block';}};
     const palNr=(document.getElementById('fpAddPalNr')?.value||'').trim();
-    const artikelNr=(document.getElementById('fpAddArtikel')?.value||'').trim();
+    const _artikelRaw=(document.getElementById('fpAddArtikel')?.value||'').trim();
+    const artikelNr=_checkXOArtikelNrInput(_artikelRaw);
+    if(artikelNr===null){showErr('Artikelnummer "'+_artikelRaw+'" ist ungültig. '+_XO_ARTIKELNR_HINWEIS);return;}
     // Produktionsdatum (Pflicht) — ist der Gruppierungs-Schlüssel des Kalenders. Ohne gültiges
     // datum (DD.MM.YYYY) taucht die Palette NICHT im Produktions-Kalender auf.
     const datumIso=(document.getElementById('fpAddDatum')?.value||'').trim(); // YYYY-MM-DD vom date-Input

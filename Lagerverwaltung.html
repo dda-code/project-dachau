@@ -951,6 +951,15 @@ function _normalizeXOFertigArtikelNr(raw){
     if(m)return 'XO-'+m[1]+'-'+m[2];
     return clean;
 }
+// Handeingaben (Korrektur vor dem Einlagern) laufen nicht durch scanLabel():
+// XO-Artikelnr hier genauso normalisieren (XO-202-20511 -> XO-202-2051I) und gegen das Format pruefen.
+// Liefert die normalisierte Nummer oder null, wenn sie ungueltig bleibt.
+function _checkXOArtikelNrInput(nr,labelTyp){
+    const s=String(nr||'').trim();
+    if(!/^XO/i.test(s)&&labelTyp!=='XO Fertigware')return s;
+    const n=_normalizeXOFertigArtikelNr(s);
+    return /^XO-\d{2,4}-\d{4}[A-Z]$/.test(n)?n:null;
+}
 
 function normalizeDatum(s){
     if(!s)return s;
@@ -1244,6 +1253,9 @@ async function confirmInbound(){
     const ps=document.getElementById('positionSelect'),pos=ps.style.display!=='none'&&ps.value?ps.value:document.getElementById('suggestedPosition').textContent;
     const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
     if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');return;}
+    {const _xo=_checkXOArtikelNrInput(data.artikelNr,currentLabelTyp);
+     if(_xo===null){alert('Artikelnummer "'+data.artikelNr+'" ist ungültig.\nXO-Fertigware hat das Format XO-202-2051I – die letzte Stelle ist immer ein Buchstabe.');return;}
+     data.artikelNr=_xo;const _el=document.getElementById('inbound-artikelNr');if(_el)_el.value=_xo;}
     if(!ARTIKEL_NUMMERN.includes(data.artikelNr)&&!data.artikelNr.startsWith('XO')){alert('Artikelnummer "'+data.artikelNr+'" ist nicht im Artikelstamm. Bitte zuerst im Artikelstamm anlegen oder korrigieren.');return;}
     if(!data.datum||data.datum==='FEHLER'){alert('Produktionsdatum fehlt!');return;}
     if(currentLabelTyp==='XO Fertigware'&&(!data.menge||data.menge==='FEHLER')){alert('Menge fehlt!');return;}

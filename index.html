@@ -513,6 +513,28 @@ function _normalizeXOFertigArtikelNr(raw){
     if(m)return 'XO-'+m[1]+'-'+m[2];
     return clean;
 }
+// Handeingaben (Korrektur im Pruef-Schritt, manuelle Erfassung) laufen nicht durch scanLabel():
+// XO-Artikelnr hier genauso normalisieren (XO-202-20511 -> XO-202-2051I) und gegen das Format pruefen.
+// Liefert die normalisierte Nummer oder null, wenn sie ungueltig bleibt.
+function _checkXOArtikelNrInput(nr,labelTyp){
+    const s=String(nr||'').trim();
+    if(!/^XO/i.test(s)&&labelTyp!=='XO Fertigware')return s;
+    const n=_normalizeXOFertigArtikelNr(s);
+    return /^XO-\d{2,4}-\d{4}[A-Z]$/.test(n)?n:null;
+}
+// Prueft data.artikelNr, schreibt die korrigierte Nummer ins Feld zurueck bzw. markiert es rot.
+function _applyXOArtikelNrCheck(data,labelTyp){
+    const n=_checkXOArtikelNrInput(data.artikelNr,labelTyp);
+    const el=document.getElementById('field-artikelNr');
+    if(n===null){
+        if(el){el.closest('.form-group')?.classList.add('field-error');el.focus();}
+        alert('Artikelnummer "'+data.artikelNr+'" ist ungültig.\nXO-Fertigware hat das Format XO-202-2051I – die letzte Stelle ist immer ein Buchstabe.');
+        return false;
+    }
+    data.artikelNr=n;
+    if(el){el.value=n;el.closest('.form-group')?.classList.remove('field-error');}
+    return true;
+}
 
 function normalizeDatum(s){
     if(!s)return s;
@@ -886,6 +908,7 @@ $('toStep3Btn').addEventListener('click', async ()=>{
         if(el) inboundData[f.key]=el.value.trim();
     });
     if(!inboundData.artikelNr||inboundData.artikelNr==='FEHLER'){alert('Artikelnummer fehlt oder ungültig!');return;}
+    if(!_applyXOArtikelNrCheck(inboundData,currentLabelTyp))return;
 
     $('toStep3Btn').disabled=true;
     try {
@@ -952,6 +975,7 @@ $('confirmBtn').addEventListener('click', async ()=>{
     const docId=data.sscc||data.internalBarcode||data.palettenNr||('pal_'+Date.now());
 
     if(!data.artikelNr||data.artikelNr==='FEHLER'){alert('Artikelnummer fehlt!');$('confirmBtn').disabled=false;return;}
+    if(!_applyXOArtikelNrCheck(data,currentLabelTyp)){$('confirmBtn').disabled=false;return;}
     if(!pos||pos==='Kein Platz frei!'){alert('Kein Stellplatz!');$('confirmBtn').disabled=false;return;}
 
     // Duplikat-Prüfung
