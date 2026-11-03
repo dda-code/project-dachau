@@ -1870,7 +1870,7 @@ function translateError(c){return _errorMap[c]||'Fehler: '+c;}
 // ============================================================
 const _tabs=document.querySelectorAll('#section-lager .tab');
 const _views=document.querySelectorAll('#section-lager .view');
-const _tabActions={dashboard:()=>loadDashboard(),inventory:()=>loadInventory(),outbound:()=>initOutbound()};
+const _tabActions={dashboard:()=>loadDashboard(),inbound:()=>renderWarehouseMap(),inventory:()=>loadInventory(),outbound:()=>initOutbound()};
 _tabs.forEach(tab=>{tab.addEventListener('click',()=>{_tabs.forEach(t=>t.classList.remove('active'));_views.forEach(v=>v.classList.remove('active'));tab.classList.add('active');document.getElementById('view-'+tab.dataset.tab).classList.add('active');const fn=_tabActions[tab.dataset.tab];if(fn)fn();});});
 
 function _getActiveTab(){const t=document.querySelector('.tab.active');return t?t.dataset.tab:'dashboard';}
@@ -9708,6 +9708,8 @@ async function _fsInitFertigpaletten(){
                 const t=_getActiveTab();
                 if(t==='inventory' && typeof loadInventory==='function')loadInventory();
                 else if(t==='dashboard' && typeof loadDashboard==='function')loadDashboard();
+                // Lagerkarte offen → Fertigware-Plätze (z.B. nach Versand) sofort neu zeichnen
+                else if(t==='inbound' && typeof renderWarehouseMap==='function')renderWarehouseMap();
             }
         },err=>{console.warn('Fertigpaletten-Listener-Fehler:',err);});
     } catch(e) {console.warn('Firestore init (Fertigpaletten) fehlgeschlagen:',e);}
