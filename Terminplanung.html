@@ -492,6 +492,17 @@ table.matrix { table-layout: fixed; width: 100%; }
                             <div class="form-hint"><button type="button" class="btn btn-secondary btn-xs" id="genPwBtn" data-i18n="people.genPw">Passwort erzeugen</button></div>
                         </div>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="pGender" data-i18n="field.gender">Geschlecht</label>
+                            <select id="pGender" required>
+                                <option value="" data-i18n="gender.pick">- bitte wählen -</option>
+                                <option value="m" data-i18n="gender.m">männlich (Herr)</option>
+                                <option value="w" data-i18n="gender.w">weiblich (Frau)</option>
+                            </select>
+                        </div>
+                        <div class="form-group"></div>
+                    </div>
                     <label class="check-line">
                         <input type="checkbox" id="pAdmin"> <span data-i18n="people.adminHint">Administrator (darf Termine und Teilnehmer verwalten)</span>
                     </label>
@@ -585,6 +596,14 @@ table.matrix { table-layout: fixed; width: 100%; }
                 <input type="text" id="edName" maxlength="80">
             </div>
             <div class="form-group">
+                <label for="edGender" data-i18n="field.gender">Geschlecht</label>
+                <select id="edGender">
+                    <option value="m" data-i18n="gender.m">männlich (Herr)</option>
+                    <option value="w" data-i18n="gender.w">weiblich (Frau)</option>
+                    <option value="" data-i18n="gender.none">keine Angabe</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label for="edCompany" data-i18n="field.company">Firma (optional)</label>
                 <input type="text" id="edCompany" maxlength="80">
             </div>
@@ -639,7 +658,7 @@ table.matrix { table-layout: fixed; width: 100%; }
                     <label for="tplBody" data-i18n="invite.template">Textvorlage</label>
                     <textarea id="tplBody" style="min-height:230px" maxlength="4000"></textarea>
                     <div class="form-hint tpl-vars" data-i18n-html="invite.vars">
-                        Platzhalter: <code>{name}</code> <code>{firma}</code> <code>{titel}</code>
+                        Platzhalter: <code>{anrede}</code> (Herr/Frau + Nachname) <code>{name}</code> <code>{firma}</code> <code>{titel}</code>
                         <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code>
                         <code>{frist}</code> <code>{link}</code> <code>{login}</code>
                         <code>{passwort}</code> <code>{absender}</code><br>
@@ -869,6 +888,14 @@ de: {
 'field.login': 'Anmeldename',
 'field.password': 'Passwort',
 'field.company': 'Firma (optional)',
+'field.gender': 'Geschlecht',
+'gender.m': 'männlich (Herr)',
+'gender.w': 'weiblich (Frau)',
+'gender.none': 'keine Angabe',
+'gender.pick': '- bitte wählen -',
+'people.errGender': 'Bitte das Geschlecht angeben (für die Anrede in der Einladung).',
+'invite.salM': 'Herr {nachname}',
+'invite.salW': 'Frau {nachname}',
 'field.title': 'Titel',
 'field.desc': 'Beschreibung (optional)',
 'field.location': 'Ort (optional)',
@@ -924,9 +951,9 @@ de: {
 'invite.noPeople': 'Zu dieser Terminabfrage sind keine (noch vorhandenen) Teilnehmer eingeladen.',
 'invite.noPick': 'Kein Teilnehmer ausgewählt.',
 'invite.copiedN': '{n} Einladungstexte kopiert.',
-'invite.vars': 'Platzhalter: <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Leere Angaben (z.B. kein Ort) lassen ihre Zeile automatisch verschwinden. Die Vorlage gilt für Ihren Zugang und für alle Terminabfragen.',
+'invite.vars': 'Platzhalter: <code>{anrede}</code> (Herr/Frau + Nachname) <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Leere Angaben (z.B. kein Ort) lassen ihre Zeile automatisch verschwinden. Die Vorlage gilt für Ihren Zugang und für alle Terminabfragen.',
 'invite.defSubject': 'Terminabfrage: {titel}',
-'invite.defBody': 'Guten Tag {name},\n\nfür „{titel}“ suche ich einen Termin, der für alle Beteiligten passt.\n{beschreibung}\n{ort}\nBitte melden Sie online zurück, welche der folgenden Termine für Sie machbar sind:\n\n{termine}\n\nIhr persönlicher Zugang:\nLink:        {link}\nAnmeldename: {login}\nPasswort:    {passwort}\n\nSie können mehrere Termine als machbar markieren und im Kommentarfeld Anmerkungen hinterlassen.\n{frist}\n\nVielen Dank und viele Grüße\n{absender}',
+'invite.defBody': 'Guten Tag {anrede},\n\nfür das Thema „{titel}“ suchen wir einen Termin, der für alle Beteiligten passt.\n{beschreibung}\n{ort}\nBitte melden Sie online unter dem untenstehenden Link zurück, welcher der folgenden Termine für Sie machbar ist:\n\n{termine}\n\nIhr persönlicher Zugang:\nLink:        {link}\nAnmeldename: {login}\nPasswort:    {passwort}\n\nSie können mehrere Termine als machbar markieren und im Kommentarfeld Anmerkungen hinterlassen.\n{frist}\n\nBeste Grüße\n{absender}',
 'invite.locLine': 'Ort: {ort}',
 'invite.deadlineLine': 'Bitte antworten Sie bis {datum}.',
 'results.pick': 'Terminabfrage',
@@ -1078,6 +1105,14 @@ en: {
 'field.login': 'Username',
 'field.password': 'Password',
 'field.company': 'Company (optional)',
+'field.gender': 'Gender',
+'gender.m': 'male (Mr)',
+'gender.w': 'female (Ms)',
+'gender.none': 'not specified',
+'gender.pick': '- please choose -',
+'people.errGender': 'Please specify the gender (for the salutation in the invitation).',
+'invite.salM': 'Mr {nachname}',
+'invite.salW': 'Ms {nachname}',
 'field.title': 'Title',
 'field.desc': 'Description (optional)',
 'field.location': 'Location (optional)',
@@ -1133,9 +1168,9 @@ en: {
 'invite.noPeople': 'No (still existing) participants are invited to this meeting poll.',
 'invite.noPick': 'No participant selected.',
 'invite.copiedN': '{n} invitation texts copied.',
-'invite.vars': 'Placeholders: <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Empty entries (e.g. no location) remove their line automatically. The template applies to your account and to all meeting polls.',
+'invite.vars': 'Placeholders: <code>{anrede}</code> (Mr/Ms + last name) <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Empty entries (e.g. no location) remove their line automatically. The template applies to your account and to all meeting polls.',
 'invite.defSubject': 'Meeting poll: {titel}',
-'invite.defBody': 'Dear {name},\n\nI am looking for a date for “{titel}” that suits everyone involved.\n{beschreibung}\n{ort}\nPlease let me know online which of the following dates work for you:\n\n{termine}\n\nYour personal access:\nLink:     {link}\nUsername: {login}\nPassword: {passwort}\n\nYou can mark several dates as feasible and leave a note in the comment field.\n{frist}\n\nThank you and best regards\n{absender}',
+'invite.defBody': 'Dear {anrede},\n\nwe are looking for a date for the topic “{titel}” that suits everyone involved.\n{beschreibung}\n{ort}\nPlease let us know online via the link below which of the following dates work for you:\n\n{termine}\n\nYour personal access:\nLink:     {link}\nUsername: {login}\nPassword: {passwort}\n\nYou can mark several dates as feasible and leave a note in the comment field.\n{frist}\n\nThank you and best regards\n{absender}',
 'invite.locLine': 'Location: {ort}',
 'invite.deadlineLine': 'Please reply by {datum}.',
 'results.pick': 'Meeting poll',
@@ -2045,8 +2080,16 @@ function buildInvite(ev, p, subjectTpl, bodyTpl) {
         const l = optLabel(o);
         return '- ' + l.date + ', ' + l.time + (l.note ? ' (' + l.note + ')' : '');
     }).join('\n');
+    // Anrede: "Herr Glauch" / "Frau Glauch" (Nachname = letztes Wort des Namens);
+    // ohne Geschlechtsangabe bleibt der volle Name stehen.
+    const vollName = (p.name || p.login || '').trim();
+    const nachname = vollName.split(/\s+/).pop() || '';
+    const anrede = (p.gender === 'm' || p.gender === 'w') && nachname
+        ? t(p.gender === 'm' ? 'invite.salM' : 'invite.salW', { nachname: nachname })
+        : vollName;
     const werte = {
-        '{name}':         p.name || p.login || '',
+        '{anrede}':       anrede,
+        '{name}':         vollName,
         '{firma}':        p.company || '',
         '{titel}':        ev.title || '',
         '{beschreibung}': (ev.description || '').trim(),
@@ -2434,18 +2477,20 @@ $('addPersonForm').addEventListener('submit', async e => {
     const company = $('pCompany').value.trim().slice(0, 80);
     const login = norm($('pLogin').value);
     const pw = $('pPw').value;
+    const gender = $('pGender').value;
     if (!name || !login) { err.textContent = t('people.errNameLogin'); err.style.display = 'block'; return; }
+    if (gender !== 'm' && gender !== 'w') { err.textContent = t('people.errGender'); err.style.display = 'block'; return; }
     if (pw.length < 4) { err.textContent = t('people.errPwShort'); err.style.display = 'block'; return; }
     if (_people.some(p => norm(p.login) === login)) { err.textContent = t('people.errLoginTaken'); err.style.display = 'block'; return; }
     $('addPersonBtn').disabled = true;
     try {
         await db.collection(COL_PEOPLE).add({
-            name: name, company: company, login: login, password: pw,
+            name: name, company: company, gender: gender, login: login, password: pw,
             isAdmin: $('pAdmin').checked === true, disabled: false, createdAt: SRV()
         });
         suc.innerHTML = t('people.addedHtml', { name: esc(name), login: esc(login), pw: esc(pw) });
         suc.style.display = 'block';
-        $('pName').value = ''; $('pCompany').value = ''; $('pLogin').value = ''; $('pPw').value = ''; $('pAdmin').checked = false;
+        $('pName').value = ''; $('pCompany').value = ''; $('pLogin').value = ''; $('pPw').value = ''; $('pGender').value = ''; $('pAdmin').checked = false;
         $('pName').focus();
     } catch (ex) {
         err.textContent = dbError(ex); err.style.display = 'block';
@@ -2512,6 +2557,7 @@ function openPersonModal(pid) {
     $('personModalTitle').textContent = t('person.editFor', { name: p.name || p.login });
     $('edName').value = p.name || '';
     $('edCompany').value = p.company || '';
+    $('edGender').value = (p.gender === 'm' || p.gender === 'w') ? p.gender : '';
     $('edLogin').value = p.login || '';
     $('edPw').value = p.password || '';
     $('edAdmin').checked = p.isAdmin === true;
@@ -2545,6 +2591,7 @@ $('edSave').addEventListener('click', async () => {
         const patch = {
             name: name,
             company: $('edCompany').value.trim().slice(0, 80),
+            gender: $('edGender').value,
             login: login,
             password: pw,
             updatedAt: SRV()
