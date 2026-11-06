@@ -177,6 +177,7 @@ strong, b { font-weight: 700; color: var(--xo-ink); }
 .badge-closed { background: var(--xo-bg); color: var(--xo-muted); border-color: var(--xo-line); }
 .badge-late   { background: var(--xo-warn-bg); color: var(--xo-warn); border-color: var(--xo-warn-line); }
 .badge-admin  { background: var(--xo-black); color: #fff; border-color: var(--xo-black); }
+.badge-teams  { background: #5b5fc7; color: #fff; border-color: #5b5fc7; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
 
 /* --- Terminoptionen --------------------------------------- */
 .opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; margin-bottom: 20px; }
@@ -658,7 +659,7 @@ table.matrix { table-layout: fixed; width: 100%; }
                     <label for="tplBody" data-i18n="invite.template">Textvorlage</label>
                     <textarea id="tplBody" style="min-height:230px" maxlength="4000"></textarea>
                     <div class="form-hint tpl-vars" data-i18n-html="invite.vars">
-                        Platzhalter: <code>{anrede}</code> (Herr/Frau + Nachname) <code>{name}</code> <code>{firma}</code> <code>{titel}</code>
+                        Platzhalter: <code>{anrede}</code> (Herr/Frau + Nachname) <code>{teams}</code> (Hinweis MS Teams-Termin) <code>{name}</code> <code>{firma}</code> <code>{titel}</code>
                         <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code>
                         <code>{frist}</code> <code>{link}</code> <code>{login}</code>
                         <code>{passwort}</code> <code>{absender}</code><br>
@@ -951,9 +952,13 @@ de: {
 'invite.noPeople': 'Zu dieser Terminabfrage sind keine (noch vorhandenen) Teilnehmer eingeladen.',
 'invite.noPick': 'Kein Teilnehmer ausgewählt.',
 'invite.copiedN': '{n} Einladungstexte kopiert.',
-'invite.vars': 'Platzhalter: <code>{anrede}</code> (Herr/Frau + Nachname) <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Leere Angaben (z.B. kein Ort) lassen ihre Zeile automatisch verschwinden. Die Vorlage gilt für Ihren Zugang und für alle Terminabfragen.',
-'invite.defSubject': 'Terminabfrage: {titel}',
-'invite.defBody': 'Guten Tag {anrede},\n\nfür das Thema „{titel}“ suchen wir einen Termin, der für alle Beteiligten passt.\n{beschreibung}\n{ort}\nBitte melden Sie online unter dem untenstehenden Link zurück, welcher der folgenden Termine für Sie machbar ist:\n\n{termine}\n\nIhr persönlicher Zugang:\nLink:        {link}\nAnmeldename: {login}\nPasswort:    {passwort}\n\nSie können mehrere Termine als machbar markieren und im Kommentarfeld Anmerkungen hinterlassen.\n{frist}\n\nBeste Grüße\n{absender}',
+'invite.vars': 'Platzhalter: <code>{anrede}</code> (Herr/Frau + Nachname) <code>{teams}</code> (Hinweis MS Teams-Termin) <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Leere Angaben (z.B. kein Ort) lassen ihre Zeile automatisch verschwinden. Die Vorlage gilt für Ihren Zugang und für alle Terminabfragen.',
+'invite.defSubject': 'Terminabfrage (MS Teams-Termin): {titel}',
+'invite.teamsLine': 'Die Besprechung findet online als MS Teams-Termin statt.',
+'invite.subjPrefix': 'MS Teams-Termin',
+'lbl.teams': 'MS Teams-Termin',
+'lbl.teamsTitle': 'Dieser Termin findet online über Microsoft Teams statt.',
+'invite.defBody': 'Guten Tag {anrede},\n\nfür das Thema „{titel}“ suchen wir einen Termin, der für alle Beteiligten passt.\n{teams}\n{beschreibung}\n{ort}\nBitte melden Sie online unter dem untenstehenden Link zurück, welcher der folgenden Termine für Sie machbar ist:\n\n{termine}\n\nIhr persönlicher Zugang:\nLink:        {link}\nAnmeldename: {login}\nPasswort:    {passwort}\n\nSie können mehrere Termine als machbar markieren und im Kommentarfeld Anmerkungen hinterlassen.\n{frist}\n\nBeste Grüße\n{absender}',
 'invite.locLine': 'Ort: {ort}',
 'invite.deadlineLine': 'Bitte antworten Sie bis {datum}.',
 'results.pick': 'Terminabfrage',
@@ -1168,9 +1173,13 @@ en: {
 'invite.noPeople': 'No (still existing) participants are invited to this meeting poll.',
 'invite.noPick': 'No participant selected.',
 'invite.copiedN': '{n} invitation texts copied.',
-'invite.vars': 'Placeholders: <code>{anrede}</code> (Mr/Ms + last name) <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Empty entries (e.g. no location) remove their line automatically. The template applies to your account and to all meeting polls.',
-'invite.defSubject': 'Meeting poll: {titel}',
-'invite.defBody': 'Dear {anrede},\n\nwe are looking for a date for the topic “{titel}” that suits everyone involved.\n{beschreibung}\n{ort}\nPlease let us know online via the link below which of the following dates work for you:\n\n{termine}\n\nYour personal access:\nLink:     {link}\nUsername: {login}\nPassword: {passwort}\n\nYou can mark several dates as feasible and leave a note in the comment field.\n{frist}\n\nThank you and best regards\n{absender}',
+'invite.vars': 'Placeholders: <code>{anrede}</code> (Mr/Ms + last name) <code>{teams}</code> (MS Teams note) <code>{name}</code> <code>{firma}</code> <code>{titel}</code> <code>{beschreibung}</code> <code>{ort}</code> <code>{termine}</code> <code>{frist}</code> <code>{link}</code> <code>{login}</code> <code>{passwort}</code> <code>{absender}</code><br>Empty entries (e.g. no location) remove their line automatically. The template applies to your account and to all meeting polls.',
+'invite.defSubject': 'Meeting poll (MS Teams meeting): {titel}',
+'invite.teamsLine': 'The meeting takes place online as an MS Teams meeting.',
+'invite.subjPrefix': 'MS Teams meeting',
+'lbl.teams': 'MS Teams meeting',
+'lbl.teamsTitle': 'This meeting takes place online via Microsoft Teams.',
+'invite.defBody': 'Dear {anrede},\n\nwe are looking for a date for the topic “{titel}” that suits everyone involved.\n{teams}\n{beschreibung}\n{ort}\nPlease let us know online via the link below which of the following dates work for you:\n\n{termine}\n\nYour personal access:\nLink:     {link}\nUsername: {login}\nPassword: {passwort}\n\nYou can mark several dates as feasible and leave a note in the comment field.\n{frist}\n\nThank you and best regards\n{absender}',
 'invite.locLine': 'Location: {ort}',
 'invite.deadlineLine': 'Please reply by {datum}.',
 'results.pick': 'Meeting poll',
@@ -1293,6 +1302,8 @@ function optLabel(o) {
     else zeit = t('opt.allDay');
     return { date: fmtDate(o.date), time: zeit, note: o.note || '' };
 }
+// Alle Terminabfragen sind MS Teams-Termine - Kennzeichen neben jedem Titel
+const teamsBadge = () => '<span class="badge badge-teams" title="' + esc(t('lbl.teamsTitle')) + '">' + esc(t('lbl.teams')) + '</span>';
 const optSortKey = o => (o.date || '') + ' ' + (o.from || '00:00');
 function genPassword() {
     const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -1676,7 +1687,7 @@ function renderMyEvents() {
             : t('my.notSaved');
 
         return '<div class="card">'
-            + '<div class="card-head"><div class="card-title">' + esc(ev.title || t('lbl.noTitle')) + '</div>'
+            + '<div class="card-head"><div class="card-title">' + esc(ev.title || t('lbl.noTitle')) + teamsBadge() + '</div>'
             + '<span class="badge ' + st.cls + '">' + esc(st.label) + '</span></div>'
             + '<div class="card-meta">'
             + (ev.location ? t('lbl.location') + esc(ev.location) + '<br>' : '')
@@ -1787,7 +1798,7 @@ function renderAdminEvents() {
         + _events.map(ev => {
             const nResp = _responses[ev.id] ? Object.keys(_responses[ev.id]).length : 0;
             return '<tr>'
-                + '<td><strong>' + esc(ev.title || t('lbl.noTitle')) + '</strong>'
+                + '<td><strong>' + esc(ev.title || t('lbl.noTitle')) + '</strong>' + teamsBadge()
                 + (ev.location ? '<br><span style="color:var(--xo-muted);font-size:0.78rem">' + esc(ev.location) + '</span>' : '') + '</td>'
                 + '<td>' + organizerCell(ev, true) + '</td>'
                 + '<td class="center">' + (ev.options || []).length + '</td>'
@@ -2089,6 +2100,7 @@ function buildInvite(ev, p, subjectTpl, bodyTpl) {
         : vollName;
     const werte = {
         '{anrede}':       anrede,
+        '{teams}':        t('invite.teamsLine'),
         '{name}':         vollName,
         '{firma}':        p.company || '',
         '{titel}':        ev.title || '',
@@ -2107,7 +2119,18 @@ function buildInvite(ev, p, subjectTpl, bodyTpl) {
         // Zeilen, die nur wegen eines leeren Platzhalters leer sind, nicht stehen lassen
         return out.replace(/\n{3,}/g, '\n\n').trim();
     };
-    return { subject: fill(subjectTpl).replace(/\s+/g, ' ').trim(), body: fill(bodyTpl) };
+    // Jeder Termin ist ein MS Teams-Termin: Auch eine eigene Vorlage ohne Hinweis bekommt ihn,
+    // im Betreff vorangestellt und im Text direkt nach der Anrede.
+    let subject = fill(subjectTpl).replace(/\s+/g, ' ').trim();
+    if (!/teams/i.test(subject)) subject = t('invite.subjPrefix') + ': ' + subject;
+    let body = fill(bodyTpl);
+    if (!/teams/i.test(body)) {
+        const i = body.indexOf('\n\n');
+        body = i >= 0
+            ? body.slice(0, i) + '\n\n' + t('invite.teamsLine') + body.slice(i)
+            : t('invite.teamsLine') + '\n\n' + body;
+    }
+    return { subject: subject, body: body };
 }
 
 function invitedPeopleOf(ev) {
@@ -2322,7 +2345,7 @@ function renderResults() {
     };
 
     let html = '<div class="card">'
-        + '<div class="card-head"><div class="card-title">' + esc(ev.title || '') + '</div>'
+        + '<div class="card-head"><div class="card-title">' + esc(ev.title || '') + teamsBadge() + '</div>'
         + '<span class="badge ' + (ev.closed ? 'badge-closed' : 'badge-open') + '">' + (ev.closed ? t('state.closed') : t('state.open')) + '</span></div>'
         + '<div class="card-meta">'
         + t('results.organizer') + organizerCell(ev) + '<br>'
